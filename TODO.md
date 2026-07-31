@@ -20,15 +20,15 @@
   - [ ] [Day End,Last Day] There is 2 or less :goodwill: on this character. → Loop ends
 - [x] **마녀** (`witch`) — 능력 없음
 - **친구** (`friend`)
-  - [ ] [Loop End] This character is dead. → Reveal its role.
-  - [ ] [Loop Start] This role has been revealed → This character gets 1 :goodwill:.
+  - [x] [Loop End] This character is dead. → Reveal its role.
+  - [x] [Loop Start] This role has been revealed → This character gets 1 :goodwill:.
 - **선동가** (`conspiracyTheorist`)
   - [x] [Mastermind Ability] You may place 1 :paranoia: on any character in this location.
 - **연인B** (`lover`)
-  - [ ] [Always] The :lovedOne: dies → This character gets 6 :paranoia:.
+  - [x] [Always] The :lovedOne: dies → This character gets 6 :paranoia:.
 - **연인A** (`lovedOne`)
-  - [ ] [Always] The :lover: dies → This character gets 6 :paranoia:.
-  - [ ] [Day End] This character has at least 3 :paranoia: and at least 1 :intrigue:.
+  - [x] [Always] The :lover: dies → This character gets 6 :paranoia:.
+  - [x] [Day End] This character has at least 3 :paranoia: and at least 1 :intrigue:.
 - **연쇄 살인마** (`serialKiller`)
   - [x] [Day End] There is exactly 1 other (living) character in this location → That character dies.
 - **변수** (`factor`)

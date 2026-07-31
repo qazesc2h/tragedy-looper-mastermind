@@ -115,6 +115,9 @@ export interface LoopState {
   /** 이번 P4에서 음모 금지 무시 능력을 발동한 광신도 */
   cultistsIgnoringForbidIntrigue?: CharacterId[];
 
+  /** 이번 루프에 역할이 공개된 캐릭터 */
+  revealedRoleCharacters?: CharacterId[];
+
   /** 특수 게이지 (기본편 미사용, 확장 대비) */
   specialGauge?: number;
 }

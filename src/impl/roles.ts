@@ -99,6 +99,36 @@ function otherLivingCharactersInThisLocation(
     .map(([character]) => character);
 }
 
+function revealRole(state: GameState, self: CharacterId): void {
+  const revealed = state.loop.revealedRoleCharacters ??= [];
+  if (!revealed.includes(self)) {
+    revealed.push(self);
+  }
+}
+
+function roleWasRevealed(
+  state: GameState,
+  self: CharacterId,
+): boolean {
+  return Boolean(
+    state.loop.revealedRoleCharacters?.includes(self) ||
+    state.history.some(
+      (loop) => loop.revealedRoleCharacters?.includes(self),
+    ),
+  );
+}
+
+function counterpartIsDead(
+  state: GameState,
+  counterpartRole: RoleId,
+): boolean {
+  const counterpart = characterWithRole(state, counterpartRole);
+  return (
+    counterpart !== undefined &&
+    !state.loop.board[counterpart].alive
+  );
+}
+
 /** 기본편 역할 — 총 13건 */
 export const ROLE_IMPL: Record<string, {
   ko: string;
@@ -279,9 +309,11 @@ export const ROLE_IMPL: Record<string, {
           prerequisite: `This character is dead.`,
           description: `Reveal its role.`,
         },
-        // TODO(구현): 위 source 를 술어/효과로 옮길 것
-        when: (_s: GameState, _self: CharacterId) => false,
-        effect: (_s: GameState, _self: CharacterId) => { throw new Error('unimplemented'); },
+        when: (s: GameState, self: CharacterId) =>
+          !s.loop.board[self].alive,
+        effect: (s: GameState, self: CharacterId) => {
+          revealRole(s, self);
+        },
       },
       {
         phase: "LOOP_START",
@@ -291,9 +323,11 @@ export const ROLE_IMPL: Record<string, {
           prerequisite: `This role has been revealed`,
           description: `This character gets 1 :goodwill:.`,
         },
-        // TODO(구현): 위 source 를 술어/효과로 옮길 것
-        when: (_s: GameState, _self: CharacterId) => false,
-        effect: (_s: GameState, _self: CharacterId) => { throw new Error('unimplemented'); },
+        when: (s: GameState, self: CharacterId) =>
+          roleWasRevealed(s, self),
+        effect: (s: GameState, self: CharacterId) => {
+          s.loop.charCounters[self].goodwill += 1;
+        },
       },
     ],
   },
@@ -332,9 +366,13 @@ export const ROLE_IMPL: Record<string, {
           prerequisite: `The :lovedOne: dies`,
           description: `This character gets 6 :paranoia:.`,
         },
-        // TODO(구현): 위 source 를 술어/효과로 옮길 것
-        when: (_s: GameState, _self: CharacterId) => false,
-        effect: (_s: GameState, _self: CharacterId) => { throw new Error('unimplemented'); },
+        when: (s: GameState, _self: CharacterId) =>
+          counterpartIsDead(s, "lovedOne"),
+        effect: (s: GameState, self: CharacterId) => {
+          if (s.loop.board[self].alive) {
+            s.loop.charCounters[self].paranoia += 6;
+          }
+        },
       },
     ],
   },
@@ -350,9 +388,13 @@ export const ROLE_IMPL: Record<string, {
           prerequisite: `The :lover: dies`,
           description: `This character gets 6 :paranoia:.`,
         },
-        // TODO(구현): 위 source 를 술어/효과로 옮길 것
-        when: (_s: GameState, _self: CharacterId) => false,
-        effect: (_s: GameState, _self: CharacterId) => { throw new Error('unimplemented'); },
+        when: (s: GameState, _self: CharacterId) =>
+          counterpartIsDead(s, "lover"),
+        effect: (s: GameState, self: CharacterId) => {
+          if (s.loop.board[self].alive) {
+            s.loop.charCounters[self].paranoia += 6;
+          }
+        },
       },
       {
         phase: "P9_ROUND_END",
@@ -361,9 +403,11 @@ export const ROLE_IMPL: Record<string, {
           timing: "Day End",
           prerequisite: `This character has at least 3 :paranoia: and at least 1 :intrigue:.`,
         },
-        // TODO(구현): 위 source 를 술어/효과로 옮길 것
-        when: (_s: GameState, _self: CharacterId) => false,
-        effect: (_s: GameState, _self: CharacterId) => { throw new Error('unimplemented'); },
+        when: (s: GameState, self: CharacterId) =>
+          s.loop.charCounters[self].paranoia >= 3 &&
+          s.loop.charCounters[self].intrigue >= 1,
+        // source.description이 없으므로 판정 외에 적용할 효과는 없다.
+        effect: (_s: GameState, _self: CharacterId) => {},
       },
     ],
   },

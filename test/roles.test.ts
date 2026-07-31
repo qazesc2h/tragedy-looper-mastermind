@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { collectHooks, resolveHooks } from "../src/engine/phases";
+import { collectHooks, endLoop, resolveHooks } from "../src/engine/phases";
 import { resolveActions } from "../src/engine/resolve";
 import { initLoop } from "../src/engine/setup";
 import { ROLE_IMPL } from "../src/impl/roles";
@@ -17,6 +17,9 @@ const KILLER = "girlStudent";
 const BRAIN = "policeOfficer";
 const CULTIST = "officeWorker";
 const CONSPIRACY_THEORIST = "journalist";
+const FRIEND = "boss";
+const LOVER = "girlStudent";
+const LOVED_ONE = "boyStudent";
 
 function createState(): GameState {
   const scenario: Scenario = {
@@ -475,5 +478,163 @@ describe("witch", () => {
     state.scenario.mainPlot = "giantTimeBomb";
 
     expect(resolvePlaceX(state)).toBeUndefined();
+  });
+});
+
+describe("friend / reveal role", () => {
+  const revealHook = hook("friend");
+
+  it("reveals the role when this card is dead", () => {
+    const state = createRoleState({ [FRIEND]: "friend" });
+    state.loop.board[FRIEND].alive = false;
+
+    expect(revealHook.when(state, FRIEND)).toBe(true);
+    applyIfEligible(revealHook, state, FRIEND);
+
+    expect(state.loop.revealedRoleCharacters).toEqual([FRIEND]);
+    expect(state.loop.board[FRIEND].alive).toBe(false);
+  });
+
+  it("does not reveal the role while this card is alive", () => {
+    const state = createRoleState({ [FRIEND]: "friend" });
+
+    expect(revealHook.when(state, FRIEND)).toBe(false);
+    applyIfEligible(revealHook, state, FRIEND);
+
+    expect(state.loop.revealedRoleCharacters).toBeUndefined();
+  });
+});
+
+describe("friend / revealed role bonus", () => {
+  const loopStartHook = hook("friend", 1);
+
+  it("adds 1 goodwill in a later loop after the role was revealed", () => {
+    const state = createRoleState({ [FRIEND]: "friend" });
+    state.loop.board[FRIEND].alive = false;
+
+    endLoop(state);
+    state.loop = initLoop(state.scenario);
+    state.loop.loop = 2;
+
+    expect(state.history[0].revealedRoleCharacters).toEqual([FRIEND]);
+    expect(loopStartHook.when(state, FRIEND)).toBe(true);
+    resolveHooks(state, "LOOP_START");
+
+    expect(state.loop.charCounters[FRIEND].goodwill).toBe(1);
+  });
+
+  it("does not add goodwill if the role has never been revealed", () => {
+    const state = createRoleState({ [FRIEND]: "friend" });
+
+    expect(loopStartHook.when(state, FRIEND)).toBe(false);
+    resolveHooks(state, "LOOP_START");
+
+    expect(state.loop.charCounters[FRIEND].goodwill).toBe(0);
+  });
+});
+
+describe("lover / lovedOne death reactions", () => {
+  const loverHook = hook("lover");
+  const lovedOneHook = hook("lovedOne");
+
+  it("confirms lover is Lover B and reacts to Lover A's death", () => {
+    const state = createRoleState({
+      [LOVER]: "lover",
+      [LOVED_ONE]: "lovedOne",
+    });
+    state.loop.board[LOVED_ONE].alive = false;
+
+    expect(ROLE_IMPL.lover.ko).toBe("연인B");
+    expect(loverHook.when(state, LOVER)).toBe(true);
+    applyIfEligible(loverHook, state, LOVER);
+
+    expect(state.loop.charCounters[LOVER].paranoia).toBe(6);
+  });
+
+  it("does not trigger Lover B while Lover A is alive", () => {
+    const state = createRoleState({
+      [LOVER]: "lover",
+      [LOVED_ONE]: "lovedOne",
+    });
+
+    expect(loverHook.when(state, LOVER)).toBe(false);
+    applyIfEligible(loverHook, state, LOVER);
+
+    expect(state.loop.charCounters[LOVER].paranoia).toBe(0);
+  });
+
+  it("confirms lovedOne is Lover A and reacts to Lover B's death", () => {
+    const state = createRoleState({
+      [LOVER]: "lover",
+      [LOVED_ONE]: "lovedOne",
+    });
+    state.loop.board[LOVER].alive = false;
+
+    expect(ROLE_IMPL.lovedOne.ko).toBe("연인A");
+    expect(lovedOneHook.when(state, LOVED_ONE)).toBe(true);
+    applyIfEligible(lovedOneHook, state, LOVED_ONE);
+
+    expect(state.loop.charCounters[LOVED_ONE].paranoia).toBe(6);
+  });
+
+  it("does not trigger Lover A while Lover B is alive", () => {
+    const state = createRoleState({
+      [LOVER]: "lover",
+      [LOVED_ONE]: "lovedOne",
+    });
+
+    expect(lovedOneHook.when(state, LOVED_ONE)).toBe(false);
+    applyIfEligible(lovedOneHook, state, LOVED_ONE);
+
+    expect(state.loop.charCounters[LOVED_ONE].paranoia).toBe(0);
+  });
+
+  it("does nothing when both lovers are already dead", () => {
+    const state = createRoleState({
+      [LOVER]: "lover",
+      [LOVED_ONE]: "lovedOne",
+    });
+    state.loop.board[LOVER].alive = false;
+    state.loop.board[LOVED_ONE].alive = false;
+
+    expect(loverHook.when(state, LOVER)).toBe(true);
+    expect(lovedOneHook.when(state, LOVED_ONE)).toBe(true);
+    resolveHooks(state, "ALWAYS");
+
+    expect(state.loop.charCounters[LOVER].paranoia).toBe(0);
+    expect(state.loop.charCounters[LOVED_ONE].paranoia).toBe(0);
+  });
+});
+
+describe("lovedOne / protagonists death", () => {
+  const lossHook = hook("lovedOne", 1);
+
+  it("matches at exactly 3 paranoia and 1 intrigue", () => {
+    const state = createRoleState({ [LOVED_ONE]: "lovedOne" });
+    state.loop.charCounters[LOVED_ONE].paranoia = 3;
+    state.loop.charCounters[LOVED_ONE].intrigue = 1;
+    const before = structuredClone(state.loop);
+
+    expect(ROLE_IMPL.lover.hooks).toHaveLength(1);
+    expect(lossHook.kind).toBe("lossDeath");
+    expect(lossHook.when(state, LOVED_ONE)).toBe(true);
+    applyIfEligible(lossHook, state, LOVED_ONE);
+
+    expect(state.loop).toEqual(before);
+  });
+
+  it("does not match below 3 paranoia", () => {
+    const state = createRoleState({ [LOVED_ONE]: "lovedOne" });
+    state.loop.charCounters[LOVED_ONE].paranoia = 2;
+    state.loop.charCounters[LOVED_ONE].intrigue = 1;
+
+    expect(lossHook.when(state, LOVED_ONE)).toBe(false);
+  });
+
+  it("does not match without intrigue", () => {
+    const state = createRoleState({ [LOVED_ONE]: "lovedOne" });
+    state.loop.charCounters[LOVED_ONE].paranoia = 3;
+
+    expect(lossHook.when(state, LOVED_ONE)).toBe(false);
   });
 });
