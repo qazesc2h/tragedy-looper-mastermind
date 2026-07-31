@@ -131,7 +131,7 @@ export interface Hook {
   /** 원본 영문 (수정 금지) — 구현 검증용 근거 */
   source: { timing: string; prerequisite?: string; description?: string };
   when: (s: GameState, self: CharacterId) => boolean;
-  effect: (s: GameState, self: CharacterId) => void;
+  effect: (s: GameState, self: CharacterId, target?: Target) => void;
 }
 
 // ─────────────────────────────────────────────────────────── 파생 조회

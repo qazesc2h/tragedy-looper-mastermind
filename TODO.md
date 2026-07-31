@@ -7,12 +7,12 @@
 
 - [x] **엑스트라** (`person`) — 능력 없음
 - **핵심 인물** (`keyPerson`)
-  - [ ] [Always] This character dies. → The loop ends immediately.
+  - [x] [Always] This character dies. → The loop ends immediately.
 - **살인 청부업자** (`killer`)
-  - [ ] [Day End] The :keyPerson: has at least 2 :intrigue: and is in this character‘s location → Kill the :keyPerson:
-  - [ ] [Day End] This character has at least 4 :intrigue:
+  - [x] [Day End] The :keyPerson: has at least 2 :intrigue: and is in this character‘s location → Kill the :keyPerson:
+  - [x] [Day End] This character has at least 4 :intrigue:
 - **흑막** (`brain`)
-  - [ ] [Mastermind Ability] You may place 1 :intrigue: on this location or on any character in this location.
+  - [x] [Mastermind Ability] You may place 1 :intrigue: on this location or on any character in this location.
 - **광신도** (`cultist`)
   - [ ] [Card resolve] You may ignore all Forbid :intrigue: effects on this location and on all characters in this location.
 - **시간 여행자** (`timeTraveler`)

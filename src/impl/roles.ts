@@ -2,7 +2,55 @@
 //    재생성해도 when/effect 는 덮어쓰지 않도록 주의할 것.
 //    source 는 원본 영문 텍스트(수정 금지). ko 는 정발 용어.
 
-import type { GameState, CharacterId, Hook } from "../types";
+import { effectiveRole } from "../types";
+import type {
+  GameState,
+  CharacterId,
+  Hook,
+  RoleId,
+  Target,
+} from "../types";
+import { endLoop } from "../engine/phases";
+
+function characterWithRole(
+  state: GameState,
+  role: RoleId,
+): CharacterId | undefined {
+  return Object.keys(state.scenario.cast).find(
+    (character) => effectiveRole(state, character) === role,
+  );
+}
+
+function placeBrainIntrigue(
+  state: GameState,
+  self: CharacterId,
+  target?: Target,
+): void {
+  if (!target) {
+    throw new Error("brain intrigue placement requires a target");
+  }
+
+  const location = state.loop.board[self].at;
+  if (target.kind === "location") {
+    if (target.at !== location) {
+      throw new Error("brain intrigue target must be this location");
+    }
+    state.loop.locIntrigue[target.at] += 1;
+    return;
+  }
+
+  const targetPosition = state.loop.board[target.id];
+  if (
+    !targetPosition ||
+    !targetPosition.alive ||
+    targetPosition.at !== location
+  ) {
+    throw new Error(
+      "brain intrigue target must be a living character in this location",
+    );
+  }
+  state.loop.charCounters[target.id].intrigue += 1;
+}
 
 /** 기본편 역할 — 총 13건 */
 export const ROLE_IMPL: Record<string, {
@@ -30,9 +78,11 @@ export const ROLE_IMPL: Record<string, {
           prerequisite: `This character dies.`,
           description: `The loop ends immediately.`,
         },
-        // TODO(구현): 위 source 를 술어/효과로 옮길 것
-        when: (_s: GameState, _self: CharacterId) => false,
-        effect: (_s: GameState, _self: CharacterId) => { throw new Error('unimplemented'); },
+        when: (s: GameState, self: CharacterId) =>
+          !s.loop.board[self].alive,
+        effect: (s: GameState, _self: CharacterId) => {
+          endLoop(s);
+        },
       },
     ],
   },
@@ -49,9 +99,21 @@ export const ROLE_IMPL: Record<string, {
           prerequisite: `The :keyPerson: has at least 2 :intrigue: and is in this character‘s location`,
           description: `Kill the :keyPerson:`,
         },
-        // TODO(구현): 위 source 를 술어/효과로 옮길 것
-        when: (_s: GameState, _self: CharacterId) => false,
-        effect: (_s: GameState, _self: CharacterId) => { throw new Error('unimplemented'); },
+        when: (s: GameState, self: CharacterId) => {
+          const keyPerson = characterWithRole(s, "keyPerson");
+          return (
+            keyPerson !== undefined &&
+            s.loop.board[keyPerson].alive &&
+            s.loop.charCounters[keyPerson].intrigue >= 2 &&
+            s.loop.board[keyPerson].at === s.loop.board[self].at
+          );
+        },
+        effect: (s: GameState, _self: CharacterId) => {
+          const keyPerson = characterWithRole(s, "keyPerson");
+          if (keyPerson !== undefined) {
+            s.loop.board[keyPerson].alive = false;
+          }
+        },
       },
       {
         phase: "P9_ROUND_END",
@@ -60,9 +122,10 @@ export const ROLE_IMPL: Record<string, {
           timing: "Day End",
           prerequisite: `This character has at least 4 :intrigue:`,
         },
-        // TODO(구현): 위 source 를 술어/효과로 옮길 것
-        when: (_s: GameState, _self: CharacterId) => false,
-        effect: (_s: GameState, _self: CharacterId) => { throw new Error('unimplemented'); },
+        when: (s: GameState, self: CharacterId) =>
+          s.loop.charCounters[self].intrigue >= 4,
+        // source.description이 없으므로 판정 외에 적용할 효과는 없다.
+        effect: (_s: GameState, _self: CharacterId) => {},
       },
     ],
   },
@@ -78,9 +141,14 @@ export const ROLE_IMPL: Record<string, {
           timing: "Mastermind Ability",
           description: `You may place 1 :intrigue: on this location or on any character in this location.`,
         },
-        // TODO(구현): 위 source 를 술어/효과로 옮길 것
-        when: (_s: GameState, _self: CharacterId) => false,
-        effect: (_s: GameState, _self: CharacterId) => { throw new Error('unimplemented'); },
+        when: (_s: GameState, _self: CharacterId) => true,
+        effect: (
+          s: GameState,
+          self: CharacterId,
+          target?: Target,
+        ) => {
+          placeBrainIntrigue(s, self, target);
+        },
       },
     ],
   },
