@@ -63,6 +63,42 @@ function activateCultistIntrigueIgnore(
   }
 }
 
+function placeConspiracyTheoristParanoia(
+  state: GameState,
+  self: CharacterId,
+  target?: Target,
+): void {
+  if (target?.kind !== "character") {
+    throw new Error(
+      "conspiracy theorist paranoia placement requires a character target",
+    );
+  }
+
+  const targetPosition = state.loop.board[target.id];
+  if (
+    !targetPosition ||
+    !targetPosition.alive ||
+    targetPosition.at !== state.loop.board[self].at
+  ) {
+    throw new Error(
+      "conspiracy theorist target must be a living character in this location",
+    );
+  }
+  state.loop.charCounters[target.id].paranoia += 1;
+}
+
+function otherLivingCharactersInThisLocation(
+  state: GameState,
+  self: CharacterId,
+): CharacterId[] {
+  const location = state.loop.board[self].at;
+  return Object.entries(state.loop.board)
+    .filter(([character, position]) =>
+      character !== self && position.alive && position.at === location
+    )
+    .map(([character]) => character);
+}
+
 /** 기본편 역할 — 총 13건 */
 export const ROLE_IMPL: Record<string, {
   ko: string;
@@ -273,9 +309,14 @@ export const ROLE_IMPL: Record<string, {
           timing: "Mastermind Ability",
           description: `You may place 1 :paranoia: on any character in this location.`,
         },
-        // TODO(구현): 위 source 를 술어/효과로 옮길 것
-        when: (_s: GameState, _self: CharacterId) => false,
-        effect: (_s: GameState, _self: CharacterId) => { throw new Error('unimplemented'); },
+        when: (_s: GameState, _self: CharacterId) => true,
+        effect: (
+          s: GameState,
+          self: CharacterId,
+          target?: Target,
+        ) => {
+          placeConspiracyTheoristParanoia(s, self, target);
+        },
       },
     ],
   },
@@ -338,9 +379,32 @@ export const ROLE_IMPL: Record<string, {
           prerequisite: `There is exactly 1 other (living) character in this location`,
           description: `That character dies.`,
         },
-        // TODO(구현): 위 source 를 술어/효과로 옮길 것
-        when: (_s: GameState, _self: CharacterId) => false,
-        effect: (_s: GameState, _self: CharacterId) => { throw new Error('unimplemented'); },
+        when: (s: GameState, self: CharacterId) =>
+          otherLivingCharactersInThisLocation(s, self).length === 1,
+        effectTarget: (s: GameState, self: CharacterId) => {
+          const target = otherLivingCharactersInThisLocation(s, self)[0];
+          return target === undefined
+            ? undefined
+            : { kind: "character", id: target };
+        },
+        effect: (
+          s: GameState,
+          self: CharacterId,
+          target?: Target,
+        ) => {
+          const fallbackTargets = target?.kind === "character"
+            ? []
+            : otherLivingCharactersInThisLocation(s, self);
+          const targetCharacter = target?.kind === "character"
+            ? target.id
+            : fallbackTargets.length === 1
+              ? fallbackTargets[0]
+              : undefined;
+          if (targetCharacter === undefined) {
+            return;
+          }
+          s.loop.board[targetCharacter].alive = false;
+        },
       },
     ],
   },

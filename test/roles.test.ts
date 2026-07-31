@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { collectHooks, resolveHooks } from "../src/engine/phases";
 import { resolveActions } from "../src/engine/resolve";
 import { initLoop } from "../src/engine/setup";
 import { ROLE_IMPL } from "../src/impl/roles";
@@ -9,11 +10,13 @@ import type {
   Scenario,
   Target,
 } from "../src/types";
+import { resolvePlaceX } from "../src/types";
 
 const KEY_PERSON = "boyStudent";
 const KILLER = "girlStudent";
 const BRAIN = "policeOfficer";
 const CULTIST = "officeWorker";
+const CONSPIRACY_THEORIST = "journalist";
 
 function createState(): GameState {
   const scenario: Scenario = {
@@ -35,6 +38,23 @@ function createState(): GameState {
   loop.board[KILLER].at = "City";
   loop.board[BRAIN].at = "City";
   loop.board[CULTIST].at = "City";
+  return { scenario, loop, history: [] };
+}
+
+function createRoleState(cast: Scenario["cast"]): GameState {
+  const scenario: Scenario = {
+    tragedySet: "basicTragedy",
+    mainPlot: "",
+    subPlots: [],
+    cast,
+    incidents: [],
+    loops: 1,
+    daysPerLoop: 3,
+  };
+  const loop = initLoop(scenario);
+  for (const character of Object.keys(loop.board)) {
+    loop.board[character].at = "City";
+  }
   return { scenario, loop, history: [] };
 }
 
@@ -339,5 +359,121 @@ describe("cultist", () => {
     expect(state.loop.board[CULTIST].at).toBe("Hospital");
     expect(state.loop.locIntrigue.Hospital).toBe(1);
     expect(state.loop.cultistsIgnoringForbidIntrigue).toBeUndefined();
+  });
+});
+
+describe("conspiracyTheorist", () => {
+  const targetHook = hook("conspiracyTheorist");
+
+  it("has max 1 and may place paranoia on itself", () => {
+    const state = createRoleState({
+      [CONSPIRACY_THEORIST]: "conspiracyTheorist",
+    });
+
+    expect(ROLE_IMPL.conspiracyTheorist.max).toBe(1);
+    expect(targetHook.when(state, CONSPIRACY_THEORIST)).toBe(true);
+    targetHook.effect(state, CONSPIRACY_THEORIST, {
+      kind: "character",
+      id: CONSPIRACY_THEORIST,
+    });
+
+    expect(
+      state.loop.charCounters[CONSPIRACY_THEORIST].paranoia,
+    ).toBe(1);
+  });
+
+  it("does not allow a character outside this location", () => {
+    const state = createRoleState({
+      [CONSPIRACY_THEORIST]: "conspiracyTheorist",
+      [KEY_PERSON]: "person",
+    });
+    state.loop.board[KEY_PERSON].at = "School";
+
+    expect(() => targetHook.effect(state, CONSPIRACY_THEORIST, {
+      kind: "character",
+      id: KEY_PERSON,
+    })).toThrow("living character in this location");
+    expect(state.loop.charCounters[KEY_PERSON].paranoia).toBe(0);
+  });
+
+  it("does nothing when the optional hook is not selected", () => {
+    const state = createRoleState({
+      [CONSPIRACY_THEORIST]: "conspiracyTheorist",
+    });
+
+    expect(targetHook.when(state, CONSPIRACY_THEORIST)).toBe(true);
+    expect(
+      state.loop.charCounters[CONSPIRACY_THEORIST].paranoia,
+    ).toBe(0);
+  });
+});
+
+describe("serialKiller", () => {
+  const targetHook = hook("serialKiller");
+
+  it("kills the exactly 1 other living character here", () => {
+    const state = createRoleState({
+      [KILLER]: "serialKiller",
+      [KEY_PERSON]: "person",
+      [BRAIN]: "person",
+    });
+    state.loop.board[BRAIN].alive = false;
+    state.loop.charCounters[KEY_PERSON].intrigue = 2;
+
+    expect(targetHook.when(state, KILLER)).toBe(true);
+    applyIfEligible(targetHook, state, KILLER);
+
+    expect(state.loop.board[KEY_PERSON].alive).toBe(false);
+    expect(state.loop.charCounters[KEY_PERSON].intrigue).toBe(2);
+  });
+
+  it("does not fire when 2 other living characters are here", () => {
+    const state = createRoleState({
+      [KILLER]: "serialKiller",
+      [KEY_PERSON]: "person",
+      [BRAIN]: "person",
+    });
+
+    expect(targetHook.when(state, KILLER)).toBe(false);
+    resolveHooks(state, "P9_ROUND_END");
+
+    expect(state.loop.board[KEY_PERSON].alive).toBe(true);
+    expect(state.loop.board[BRAIN].alive).toBe(true);
+  });
+
+  it("kills both serial killers after simultaneous target resolution", () => {
+    const state = createRoleState({
+      [KILLER]: "serialKiller",
+      [KEY_PERSON]: "serialKiller",
+    });
+
+    resolveHooks(state, "P9_ROUND_END");
+
+    expect(state.loop.board[KILLER].alive).toBe(false);
+    expect(state.loop.board[KEY_PERSON].alive).toBe(false);
+  });
+});
+
+describe("witch", () => {
+  it("has mandatory goodwill refusal and no hooks", () => {
+    expect(ROLE_IMPL.witch.goodwillRefusal).toBe("Mandatory");
+    expect(ROLE_IMPL.witch.hooks).toEqual([]);
+
+    const state = createRoleState({ [KEY_PERSON]: "witch" });
+    expect(collectHooks(state, "P9_ROUND_END")).toEqual([]);
+  });
+
+  it("is found as giant time bomb X's location anchor", () => {
+    const state = createRoleState({ shrineMaiden: "witch" });
+    state.scenario.mainPlot = "giantTimeBomb";
+
+    expect(resolvePlaceX(state)).toBe("Shrine");
+  });
+
+  it("returns no place X when giant time bomb has no witch", () => {
+    const state = createRoleState({ shrineMaiden: "person" });
+    state.scenario.mainPlot = "giantTimeBomb";
+
+    expect(resolvePlaceX(state)).toBeUndefined();
   });
 });

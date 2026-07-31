@@ -41,8 +41,13 @@ export function resolveHooks(s: GameState, at: HookPoint): void {
   const all = collectHooks(s, at);
 
   const mandatory = all.filter((x) => x.hook.kind !== "optional");
-  const fired = mandatory.filter((x) => x.hook.when(s, x.self)); // ① 전원 판정
-  for (const x of fired) x.hook.effect(s, x.self);               // ② 일괄 적용
+  const fired = mandatory
+    .filter((x) => x.hook.when(s, x.self))
+    .map((x) => ({
+      ...x,
+      target: x.hook.effectTarget?.(s, x.self),
+    }));                                                        // ① 전원 판정
+  for (const x of fired) x.hook.effect(s, x.self, x.target);     // ② 일괄 적용
 
   // TODO: [선택] 훅은 각본가에게 목록을 제시하고 순서/발동 여부를 받아야 한다.
   //       자동 진행이 아니라 UI 상호작용 지점.

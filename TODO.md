@@ -23,14 +23,14 @@
   - [ ] [Loop End] This character is dead. → Reveal its role.
   - [ ] [Loop Start] This role has been revealed → This character gets 1 :goodwill:.
 - **선동가** (`conspiracyTheorist`)
-  - [ ] [Mastermind Ability] You may place 1 :paranoia: on any character in this location.
+  - [x] [Mastermind Ability] You may place 1 :paranoia: on any character in this location.
 - **연인B** (`lover`)
   - [ ] [Always] The :lovedOne: dies → This character gets 6 :paranoia:.
 - **연인A** (`lovedOne`)
   - [ ] [Always] The :lover: dies → This character gets 6 :paranoia:.
   - [ ] [Day End] This character has at least 3 :paranoia: and at least 1 :intrigue:.
 - **연쇄 살인마** (`serialKiller`)
-  - [ ] [Day End] There is exactly 1 other (living) character in this location → That character dies.
+  - [x] [Day End] There is exactly 1 other (living) character in this location → That character dies.
 - **변수** (`factor`)
   - [ ] [Always] There is at least 2 :intrigue: on the School → This character gains the :conspiracyTheorist:‘s ability, but no
   - [ ] [Always] There is at least 2 :intrigue: on the City → This character gains the :keyPerson:’s ability, but not its role.

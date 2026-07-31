@@ -134,6 +134,8 @@ export interface Hook {
   /** 원본 영문 (수정 금지) — 구현 검증용 근거 */
   source: { timing: string; prerequisite?: string; description?: string };
   when: (s: GameState, self: CharacterId) => boolean;
+  /** 동시 해결 전에 확정해야 하는 효과 대상 */
+  effectTarget?: (s: GameState, self: CharacterId) => Target | undefined;
   effect: (s: GameState, self: CharacterId, target?: Target) => void;
 }
 
@@ -170,7 +172,7 @@ export function resolvePlaceX(s: GameState): Location | undefined {
     const want = roleOfPlaceX[p];
     if (!want) continue;
     const holder = Object.keys(s.scenario.cast).find(
-      (c) => s.scenario.cast[c] === want,
+      (c) => effectiveRole(s, c) === want,
     );
     if (!holder) continue;
     return startLocationOf(holder, s.scenario);
