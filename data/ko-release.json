@@ -1,0 +1,55 @@
+{
+  "_note": "레포의 edition/폴더 구분은 원작 발매 단위이며 한국어 실물 박스와 다름. 이 파일이 한국어 기준 축이다. 24장 구성은 주인공 설명서 16p 및 추리 참조표 대조로 도출 — 실물 검수 권장.",
+  "characters": {
+    "본판": [
+      "boyStudent",
+      "girlStudent",
+      "richStudent",
+      "classRep",
+      "mysteryBoy",
+      "shrineMaiden",
+      "alien",
+      "godlyBeing",
+      "policeOfficer",
+      "officeWorker",
+      "informer",
+      "popIdol",
+      "journalist",
+      "boss",
+      "doctor",
+      "patient",
+      "nurse",
+      "henchman",
+      "teacher",
+      "transferStudent",
+      "soldier",
+      "blackCat",
+      "forensicSpecialist",
+      "ai"
+    ],
+    "프로모": [
+      "scientist",
+      "illusion"
+    ],
+    "미발매": [
+      "copycat",
+      "crusader",
+      "littleSister",
+      "metaworldDenizen",
+      "partTimer",
+      "partTimerAlternate",
+      "sacredTree",
+      "sectFounder",
+      "servant",
+      "youngGirl"
+    ]
+  },
+  "tragedySets": {
+    "firstSteps": "본판",
+    "basicTragedy": "본판",
+    "mysteryCircle": "미드나이트 서클",
+    "midnightZone": "미드나이트 서클",
+    "hauntedStage": "헌티드 스테이지",
+    "cosmicEvil": "위어드 미솔로지"
+  }
+}

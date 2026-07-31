@@ -1,0 +1,492 @@
+{
+  "_note": "한국어판 공식 설명서의 진행 예시를 그대로 옮긴 것. 이것이 정답이다. 테스트가 실패하면 구현을 고칠 것.",
+  "_locations": "병원|신사 / 도심|학교 (2x2). 상하: 병원↔도심, 신사↔학교. 좌우: 병원↔신사, 도심↔학교. 대각: 병원↔학교, 신사↔도심.",
+  "setups": {
+    "introSetup": {
+      "_source": "각본가 설명서 3p — 0: 사전 준비 / 2: 캐릭터 배치",
+      "board": {
+        "boyStudent": "School",
+        "girlStudent": "School",
+        "richStudent": "School",
+        "shrineMaiden": "Shrine",
+        "policeOfficer": "City",
+        "officeWorker": "City",
+        "informer": "City",
+        "doctor": "Hospital",
+        "patient": "Hospital"
+      }
+    }
+  },
+  "cases": [
+    {
+      "id": "resolve-basic",
+      "_source": "각본가 설명서 6p — 행동 해결 단계 예시",
+      "setup": "introSetup",
+      "placed": [
+        {
+          "owner": "mastermind",
+          "card": "intriguePlus1",
+          "target": {
+            "kind": "character",
+            "id": "shrineMaiden"
+          }
+        },
+        {
+          "owner": "mastermind",
+          "card": "paranoiaPlus1",
+          "target": {
+            "kind": "character",
+            "id": "boyStudent"
+          }
+        },
+        {
+          "owner": "mastermind",
+          "card": "moveHorizontal",
+          "target": {
+            "kind": "character",
+            "id": "policeOfficer"
+          }
+        },
+        {
+          "owner": 0,
+          "card": "goodwillPlus2",
+          "target": {
+            "kind": "character",
+            "id": "informer"
+          }
+        },
+        {
+          "owner": 1,
+          "card": "goodwillPlus1",
+          "target": {
+            "kind": "character",
+            "id": "girlStudent"
+          }
+        },
+        {
+          "owner": 2,
+          "card": "goodwillPlus1",
+          "target": {
+            "kind": "character",
+            "id": "shrineMaiden"
+          }
+        }
+      ],
+      "expect": {
+        "board": {
+          "policeOfficer": "School"
+        },
+        "counters": {
+          "shrineMaiden": {
+            "goodwill": 1,
+            "intrigue": 1
+          },
+          "boyStudent": {
+            "paranoia": 1
+          },
+          "girlStudent": {
+            "goodwill": 1
+          },
+          "informer": {
+            "goodwill": 2
+          }
+        },
+        "spentOncePerLoop": {
+          "protagonists": [
+            [
+              "goodwillPlus2"
+            ],
+            [],
+            []
+          ]
+        }
+      },
+      "_notes": [
+        "형사는 도심에 있었고 이동←→ 이므로 학교로 이동한다.",
+        "「우호+2」는 1루프당 1회 카드이므로 손으로 회수하지 않고 소진 처리한다."
+      ]
+    },
+    {
+      "id": "move-compose-forbidden-location",
+      "_source": "각본가 설명서 7p — ⅲ: 금지 장소와 이동 카드 / FAQ Q2",
+      "setup": "introSetup",
+      "placed": [
+        {
+          "owner": "mastermind",
+          "card": "moveHorizontal",
+          "target": {
+            "kind": "character",
+            "id": "shrineMaiden"
+          }
+        },
+        {
+          "owner": 0,
+          "card": "moveVertical",
+          "target": {
+            "kind": "character",
+            "id": "shrineMaiden"
+          }
+        }
+      ],
+      "expect": {
+        "board": {
+          "shrineMaiden": "Shrine"
+        },
+        "moveResult": {
+          "reason": "forbidden-location"
+        }
+      },
+      "_notes": [
+        "←→ 와 ↑↓ 가 겹쳐 대각 이동 1장으로 취급된다.",
+        "신사의 대각은 도심인데 도심은 무녀의 금지 장소이므로 이동 전체가 무시된다.",
+        "두 카드 중 하나만 해결하는 것이 아니다 (FAQ Q2)."
+      ]
+    },
+    {
+      "id": "move-forbid-card",
+      "_source": "각본가 설명서 7p — ⅰ: 금지 카드에 대해",
+      "setup": "introSetup",
+      "placed": [
+        {
+          "owner": "mastermind",
+          "card": "moveHorizontal",
+          "target": {
+            "kind": "character",
+            "id": "policeOfficer"
+          }
+        },
+        {
+          "owner": 0,
+          "card": "forbidMove",
+          "target": {
+            "kind": "character",
+            "id": "policeOfficer"
+          }
+        }
+      ],
+      "expect": {
+        "board": {
+          "policeOfficer": "City"
+        },
+        "moveResult": {
+          "reason": "forbid-card"
+        }
+      }
+    },
+    {
+      "id": "move-same-card-twice",
+      "_source": "주인공 설명서 42p — 이동 카드 설명",
+      "setup": "introSetup",
+      "placed": [
+        {
+          "owner": "mastermind",
+          "card": "moveVertical",
+          "target": {
+            "kind": "character",
+            "id": "officeWorker"
+          }
+        },
+        {
+          "owner": 0,
+          "card": "moveVertical",
+          "target": {
+            "kind": "character",
+            "id": "officeWorker"
+          }
+        }
+      ],
+      "expect": {
+        "board": {
+          "officeWorker": "Hospital"
+        }
+      },
+      "_notes": [
+        "↑↓ 두 장은 한 번만 이동시킨다. 두 번 이동시켜 제자리에 두지 않는다."
+      ]
+    },
+    {
+      "id": "intrigue-forbid-single",
+      "_source": "주인공 설명서 22p — 게임 플레이 예시 (신사 음모 추가 실패)",
+      "setup": "introSetup",
+      "placed": [
+        {
+          "owner": "mastermind",
+          "card": "intriguePlus1",
+          "target": {
+            "kind": "location",
+            "at": "Shrine"
+          }
+        },
+        {
+          "owner": 0,
+          "card": "forbidIntrigue",
+          "target": {
+            "kind": "location",
+            "at": "Shrine"
+          }
+        }
+      ],
+      "expect": {
+        "locIntrigue": {
+          "Shrine": 0
+        }
+      }
+    },
+    {
+      "id": "intrigue-forbid-doubled-cancels",
+      "_source": "각본가 설명서 7p — ⅱ / 주인공 설명서 42p",
+      "setup": "introSetup",
+      "placed": [
+        {
+          "owner": "mastermind",
+          "card": "intriguePlus1",
+          "target": {
+            "kind": "location",
+            "at": "Shrine"
+          }
+        },
+        {
+          "owner": 0,
+          "card": "forbidIntrigue",
+          "target": {
+            "kind": "location",
+            "at": "Shrine"
+          }
+        },
+        {
+          "owner": 1,
+          "card": "forbidIntrigue",
+          "target": {
+            "kind": "location",
+            "at": "School"
+          }
+        }
+      ],
+      "expect": {
+        "locIntrigue": {
+          "Shrine": 1
+        }
+      },
+      "_notes": [
+        "주인공 2명 이상이 같은 라운드에 음모 금지를 내면 모든 음모 금지가 무효화된다.",
+        "대상이 서로 달라도 무효화된다 — 라운드 단위 집계다."
+      ]
+    },
+    {
+      "id": "paranoia-plus-minus-order",
+      "_source": "주인공 설명서 42p — 불안+1 설명",
+      "setup": "introSetup",
+      "placed": [
+        {
+          "owner": "mastermind",
+          "card": "paranoiaPlus1",
+          "target": {
+            "kind": "character",
+            "id": "boyStudent"
+          }
+        },
+        {
+          "owner": 0,
+          "card": "paranoiaMinus1",
+          "target": {
+            "kind": "character",
+            "id": "boyStudent"
+          }
+        }
+      ],
+      "expect": {
+        "counters": {
+          "boyStudent": {
+            "paranoia": 0
+          }
+        }
+      },
+      "_notes": [
+        "불안+1 을 먼저 해결한 뒤 불안-1 을 해결한다. 순서가 명시되어 있다."
+      ]
+    },
+    {
+      "id": "incident-trigger-condition",
+      "_source": "각본가 설명서 8~9p — 「Ⅳ사건 발생」 설명 및 추가 설명 ⅰ",
+      "_describe": "사건은 ①범인 생존 ②범인 불안 ≥ 최대 불안 수치 를 모두 만족할 때 반드시 발생한다.",
+      "cases": [
+        {
+          "culprit": "boyStudent",
+          "paranoia": 2,
+          "alive": true,
+          "paranoiaLimit": 2,
+          "expectFires": true
+        },
+        {
+          "culprit": "boyStudent",
+          "paranoia": 1,
+          "alive": true,
+          "paranoiaLimit": 2,
+          "expectFires": false
+        },
+        {
+          "culprit": "boyStudent",
+          "paranoia": 3,
+          "alive": false,
+          "paranoiaLimit": 2,
+          "expectFires": false
+        }
+      ],
+      "_notes": [
+        "발생 조건을 만족하면 각본가에게 선택권이 없다. 반드시 발생한다.",
+        "효과가 아무것도 하지 않더라도 '사건이 발생했다'는 사실은 반드시 전달해야 한다 (FAQ Q23)."
+      ]
+    },
+    {
+      "id": "simultaneous-mandatory",
+      "_source": "각본가 설명서 FAQ Q21 / 주인공 설명서 28p [강제] 설명",
+      "_describe": "연쇄 살인마 두 명이 한 장소에 단 둘이 있으면 서로 동시에 공격하여 양쪽 모두 사망한다.",
+      "expect": {
+        "bothDie": true
+      },
+      "_notes": [
+        "순차 처리하면 한쪽만 죽는다 — 오답.",
+        "[강제] 능력은 판정을 전부 끝낸 뒤 효과를 일괄 적용해야 한다."
+      ]
+    },
+    {
+      "id": "goodwill-chain-and-refusal",
+      "_source": "각본가 설명서 8p — 주인공 능력 단계 예시",
+      "_describe": "우호 능력은 리더가 선언하고 각본가가 해결한다. 한 라운드에 연쇄 사용이 가능하며, 우호 무시 역할은 거부할 수 있다.",
+      "setup": "introSetup",
+      "preset": {
+        "counters": {
+          "richStudent": {
+            "goodwill": 3
+          },
+          "girlStudent": {
+            "goodwill": 1
+          },
+          "boyStudent": {
+            "paranoia": 2
+          }
+        },
+        "roles": {
+          "girlStudent": "__우호무시를_가진_역할__"
+        }
+      },
+      "steps": [
+        {
+          "phase": "P6_GOODWILL",
+          "declare": {
+            "user": "richStudent",
+            "rank": 3,
+            "target": "girlStudent"
+          },
+          "mastermindResponse": "resolve",
+          "expect": {
+            "counters": {
+              "girlStudent": {
+                "goodwill": 2
+              }
+            }
+          }
+        },
+        {
+          "phase": "P6_GOODWILL",
+          "declare": {
+            "user": "girlStudent",
+            "rank": 2,
+            "target": "boyStudent"
+          },
+          "mastermindResponse": "refuse",
+          "expect": {
+            "counters": {
+              "boyStudent": {
+                "paranoia": 2
+              }
+            }
+          }
+        }
+      ],
+      "expect": {
+        "counters": {
+          "richStudent": {
+            "goodwill": 3
+          },
+          "girlStudent": {
+            "goodwill": 2
+          },
+          "boyStudent": {
+            "paranoia": 2
+          }
+        }
+      },
+      "_notes": [
+        "능력을 사용해도 우호 카운터는 줄지 않는다. 재벌가 손녀는 3 그대로다.",
+        "1단계 해결로 여학생이 우호2가 되어 곧바로 자신의 능력을 쓸 수 있게 된다 — 같은 라운드 연쇄 사용이 가능하다.",
+        "주인공이 직접 카운터를 배치하지 않는다. 선언만 하고 각본가가 해결한다.",
+        "재벌가 손녀의 능력은 (제한: 학교/도심)이다. 셋 다 학교에 있으므로 사용 가능.",
+        "거부당해도 '1루프당 1회' 능력은 사용한 것으로 간주한다 (주인공 설명서 23p).",
+        "preset.roles 의 자리표시자는 실제 시나리오에서 우호 무시를 가진 역할로 대체할 것."
+      ]
+    },
+    {
+      "id": "goodwill-comes-after-card-resolve",
+      "_source": "각본가 설명서 FAQ Q7",
+      "_describe": "행동 카드 해결(4단계)이 주인공 능력 사용(6단계)보다 먼저다. 같은 라운드에 우호를 올려 능력 조건을 만족시켜도, 그 라운드의 카드 효과에는 소급 적용되지 않는다.",
+      "setup": "introSetup",
+      "preset": {
+        "counters": {
+          "doctor": {
+            "goodwill": 1
+          }
+        }
+      },
+      "placed": [
+        {
+          "owner": 0,
+          "card": "goodwillPlus2",
+          "target": {
+            "kind": "character",
+            "id": "doctor"
+          }
+        },
+        {
+          "owner": 1,
+          "card": "moveVertical",
+          "target": {
+            "kind": "character",
+            "id": "patient"
+          }
+        }
+      ],
+      "expect": {
+        "afterP4": {
+          "board": {
+            "patient": "Hospital"
+          },
+          "counters": {
+            "doctor": {
+              "goodwill": 3
+            }
+          },
+          "moveResult": {
+            "reason": "forbidden-location"
+          }
+        },
+        "afterP6": {
+          "board": {
+            "patient": "Hospital"
+          }
+        }
+      },
+      "_notes": [
+        "입원 환자의 금지 장소는 도심/학교/신사다. 병원에서 ↑↓ 는 도심이므로 이동 불가.",
+        "의사가 우호3에 도달해 [우호3] 금지 장소 해제를 쓸 수 있게 되지만, 그것은 6단계다.",
+        "4단계는 이미 지났으므로 이번 라운드의 이동은 되살아나지 않는다.",
+        "단계 순서를 뒤집어 구현하면 이 테스트가 깨진다."
+      ]
+    }
+  ],
+  "_todo": [
+    "주인공 설명서 22p 전체 라운드 — 초기 카운터가 그림에만 있어 OCR로 확정 불가. 실물 대조 후 cases 에 추가할 것.",
+    "확장 세트(헌티드 스테이지 / 위어드 미솔로지) 고유 메커니즘 — 특수 게이지, 저주 카드, 군중 사건. 기본편 완료 후."
+  ],
+  "_how_to_add": "새 벡터는 cases 배열에 항목을 추가하고 _todo 에서 해당 줄을 지운다. _source 에 설명서 페이지를 반드시 남길 것."
+}

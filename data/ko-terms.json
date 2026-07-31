@@ -1,0 +1,1434 @@
+{
+  "characters": {
+    "ai": {
+      "ko": "AI",
+      "grade": "확정"
+    },
+    "boss": {
+      "ko": "거물",
+      "grade": "확정"
+    },
+    "alien": {
+      "ko": "이세계인",
+      "grade": "확정"
+    },
+    "nurse": {
+      "ko": "간호사",
+      "grade": "확정"
+    },
+    "doctor": {
+      "ko": "의사",
+      "grade": "확정"
+    },
+    "copycat": {
+      "ko": "모방자",
+      "grade": "확정"
+    },
+    "patient": {
+      "ko": "입원 환자",
+      "grade": "확정"
+    },
+    "servant": {
+      "ko": "메이드",
+      "grade": "확정"
+    },
+    "soldier": {
+      "ko": "군인",
+      "grade": "확정"
+    },
+    "teacher": {
+      "ko": "교사",
+      "grade": "확정"
+    },
+    "henchman": {
+      "ko": "하수인",
+      "grade": "확정"
+    },
+    "illusion": {
+      "ko": "환상",
+      "grade": "확정"
+    },
+    "informer": {
+      "ko": "정보원",
+      "grade": "확정"
+    },
+    "popIdol": {
+      "ko": "아이돌",
+      "grade": "확정"
+    },
+    "blackCat": {
+      "ko": "검은 고양이",
+      "grade": "확정"
+    },
+    "classRep": {
+      "ko": "학생 회장",
+      "grade": "확정"
+    },
+    "scientist": {
+      "ko": "학자",
+      "grade": "확정"
+    },
+    "journalist": {
+      "ko": "기자",
+      "grade": "확정"
+    },
+    "partTimer": {
+      "ko": "아르바이트생",
+      "grade": "확정"
+    },
+    "youngGirl": {
+      "ko": "여자 아이",
+      "grade": "확정"
+    },
+    "boyStudent": {
+      "ko": "남학생",
+      "grade": "확정"
+    },
+    "godlyBeing": {
+      "ko": "신",
+      "grade": "확정"
+    },
+    "mysteryBoy": {
+      "ko": "아웃사이더",
+      "grade": "확정"
+    },
+    "sacredTree": {
+      "ko": "신수",
+      "grade": "확정"
+    },
+    "girlStudent": {
+      "ko": "여학생",
+      "grade": "확정"
+    },
+    "sectFounder": {
+      "ko": "교주",
+      "grade": "확정"
+    },
+    "littleSister": {
+      "ko": "여동생",
+      "grade": "확정"
+    },
+    "officeWorker": {
+      "ko": "회사원",
+      "grade": "확정"
+    },
+    "partTimerAlternate": {
+      "ko": "아르바이트생?",
+      "grade": "확정"
+    },
+    "shrineMaiden": {
+      "ko": "무녀",
+      "grade": "확정"
+    },
+    "policeOfficer": {
+      "ko": "형사",
+      "grade": "확정"
+    },
+    "transferStudent": {
+      "ko": "전학생",
+      "grade": "확정"
+    },
+    "metaworldDenizen": {
+      "ko": "상위 존재",
+      "grade": "확정"
+    },
+    "forensicSpecialist": {
+      "ko": "감식관",
+      "grade": "확정"
+    },
+    "richStudent": {
+      "ko": "재벌가 손녀",
+      "grade": "확정"
+    }
+  },
+  "roles": {
+    "fool": {
+      "ko": "바보",
+      "grade": "확정"
+    },
+    "twin": {
+      "ko": "쌍둥이",
+      "grade": "확정"
+    },
+    "alice": {
+      "ko": "앨리스",
+      "grade": "자체"
+    },
+    "brain": {
+      "ko": "흑막",
+      "grade": "확정"
+    },
+    "ghost": {
+      "ko": "유령",
+      "grade": "확정"
+    },
+    "lover": {
+      "ko": "연인B",
+      "grade": "확정"
+    },
+    "ninja": {
+      "ko": "닌자",
+      "grade": "확정"
+    },
+    "witch": {
+      "ko": "마녀",
+      "grade": "확정"
+    },
+    "coward": {
+      "ko": "겁쟁이",
+      "grade": "확정"
+    },
+    "factor": {
+      "ko": "변수",
+      "grade": "확정"
+    },
+    "friend": {
+      "ko": "친구",
+      "grade": "확정"
+    },
+    "killer": {
+      "ko": "살인 청부업자",
+      "grade": "확정"
+    },
+    "person": {
+      "ko": "엑스트라",
+      "grade": "확정"
+    },
+    "wizard": {
+      "ko": "마법사",
+      "grade": "확정"
+    },
+    "zombie": {
+      "ko": "좀비",
+      "grade": "확정"
+    },
+    "cultist": {
+      "ko": "광신도",
+      "grade": "확정"
+    },
+    "lullaby": {
+      "ko": "동화 구연가",
+      "grade": "자체"
+    },
+    "prophet": {
+      "ko": "예언자",
+      "grade": "확정"
+    },
+    "shifter": {
+      "ko": "차원 여행자",
+      "grade": "자체"
+    },
+    "vampire": {
+      "ko": "뱀파이어",
+      "grade": "확정"
+    },
+    "watcher": {
+      "ko": "감시자",
+      "grade": "자체"
+    },
+    "witness": {
+      "ko": "목격자",
+      "grade": "확정"
+    },
+    "agitator": {
+      "ko": "사회 운동가",
+      "grade": "자체"
+    },
+    "deepOne": {
+      "ko": "심해인",
+      "grade": "확정"
+    },
+    "faceless": {
+      "ko": "얼굴 없는 자",
+      "grade": "확정"
+    },
+    "fragment": {
+      "ko": "세계의 조각",
+      "grade": "자체"
+    },
+    "gossiper": {
+      "ko": "수다쟁이",
+      "grade": "자체"
+    },
+    "immortalRole": {
+      "ko": "불멸자",
+      "grade": "확정"
+    },
+    "magician": {
+      "ko": "마술사",
+      "grade": "확정"
+    },
+    "poisoner": {
+      "ko": "바리스타",
+      "grade": "확정"
+    },
+    "showOff": {
+      "ko": "허당",
+      "grade": "확정"
+    },
+    "werewolf": {
+      "ko": "늑대인간",
+      "grade": "확정"
+    },
+    "wildcard": {
+      "ko": "조커",
+      "grade": "자체"
+    },
+    "lovedOne": {
+      "ko": "연인A",
+      "grade": "확정"
+    },
+    "nightmare": {
+      "ko": "악몽",
+      "grade": "확정"
+    },
+    "obstinate": {
+      "ko": "절대자",
+      "grade": "확정"
+    },
+    "paranoiac": {
+      "ko": "편집증 환자",
+      "grade": "확정"
+    },
+    "sacrifice": {
+      "ko": "인간 제물",
+      "grade": "확정"
+    },
+    "therapist": {
+      "ko": "심리 치료사",
+      "grade": "확정"
+    },
+    "curmudgeon": {
+      "ko": "골칫거리",
+      "grade": "확정"
+    },
+    "influencer": {
+      "ko": "인플루언서",
+      "grade": "자체"
+    },
+    "keyPerson": {
+      "ko": "핵심 인물",
+      "grade": "확정"
+    },
+    "marionetteAHR": {
+      "ko": "꼭두각시",
+      "grade": "자체"
+    },
+    "piedPiper": {
+      "ko": "피리 부는 사나이",
+      "grade": "자체"
+    },
+    "storyteller": {
+      "ko": "이야기꾼",
+      "grade": "자체"
+    },
+    "secretkeeper": {
+      "ko": "비밀 요원",
+      "grade": "자체"
+    },
+    "serialKiller": {
+      "ko": "연쇄 살인마",
+      "grade": "확정"
+    },
+    "timeTraveler": {
+      "ko": "시간 여행자",
+      "grade": "확정"
+    },
+    "conspiracyTheorist": {
+      "ko": "선동가",
+      "grade": "확정"
+    },
+    "privateInvestigator": {
+      "ko": "명탐정",
+      "grade": "확정"
+    },
+    "GhostHaunted": {
+      "ko": "유령 (Haunted Stage)",
+      "grade": "자체"
+    },
+    "ZombieHaunted": {
+      "ko": "좀비 (Haunted Stage)",
+      "grade": "자체"
+    },
+    "vampireHaunted": {
+      "ko": "뱀파이어 (Haunted Stage)",
+      "grade": "자체"
+    },
+    "werewolfHaunted": {
+      "ko": "늑대 인간 (Haunted Stage)",
+      "grade": "자체"
+    },
+    "nightmareHaunted": {
+      "ko": "악몽 (Haunted Stage)",
+      "grade": "자체"
+    }
+  },
+  "incidents": {
+    "murder": {
+      "ko": "살인 사건",
+      "grade": "확정"
+    },
+    "uproar": {
+      "ko": "대폭동",
+      "grade": "확정"
+    },
+    "portent": {
+      "ko": "전조",
+      "grade": "확정"
+    },
+    "suicide": {
+      "ko": "자살",
+      "grade": "확정"
+    },
+    "barricade": {
+      "ko": "농성",
+      "grade": "확정"
+    },
+    "discovery": {
+      "ko": "발견",
+      "grade": "확정"
+    },
+    "foulEvil": {
+      "ko": "사악한 기운의 오염",
+      "grade": "확정"
+    },
+    "lastWill": {
+      "ko": "유언",
+      "grade": "확정"
+    },
+    "spreading": {
+      "ko": "유포",
+      "grade": "확정"
+    },
+    "terrorism": {
+      "ko": "테러리즘",
+      "grade": "확정"
+    },
+    "confession": {
+      "ko": "고백",
+      "grade": "확정"
+    },
+    "darkRumor": {
+      "ko": "소문의 저주",
+      "grade": "확정"
+    },
+    "distortion": {
+      "ko": "표변",
+      "grade": "확정"
+    },
+    "leftBehind": {
+      "ko": "분실물",
+      "grade": "확정"
+    },
+    "breakthrough": {
+      "ko": "타개",
+      "grade": "확정"
+    },
+    "conspiracies": {
+      "ko": "음모 공작",
+      "grade": "확정"
+    },
+    "massSuicide": {
+      "ko": "집단 자살",
+      "grade": "확정"
+    },
+    "closedCircle": {
+      "ko": "클로즈드 서클",
+      "grade": "확정"
+    },
+    "fakeIncident": {
+      "ko": "위장 사건",
+      "grade": "확정"
+    },
+    "fakedSuicide": {
+      "ko": "위장 자살",
+      "grade": "확정"
+    },
+    "insaneMurder": {
+      "ko": "광기의 살인",
+      "grade": "확정"
+    },
+    "serialMurder": {
+      "ko": "연속 살인",
+      "grade": "확정"
+    },
+    "awakenedCurse": {
+      "ko": "저주의 각성",
+      "grade": "확정"
+    },
+    "bestialMurder": {
+      "ko": "엽기 살인",
+      "grade": "확정"
+    },
+    "farawayMurder": {
+      "ko": "원격 살인",
+      "grade": "확정"
+    },
+    "fireDemise": {
+      "ko": "멸망의 불",
+      "grade": "확정"
+    },
+    "missingPerson": {
+      "ko": "행방불명",
+      "grade": "확정"
+    },
+    "houndDogScent": {
+      "ko": "사냥개의 후각",
+      "grade": "확정"
+    },
+    "executioner": {
+      "ko": "수행자",
+      "grade": "확정"
+    },
+    "singularity": {
+      "ko": "특이점",
+      "grade": "확정"
+    },
+    "butterflyEffect": {
+      "ko": "나비의 날갯짓",
+      "grade": "확정"
+    },
+    "crimePassionSupernatural": {
+      "ko": "충동적 살인",
+      "grade": "확정"
+    },
+    "nightMadness": {
+      "ko": "광기의 밤",
+      "grade": "확정"
+    },
+    "seepingDaylight": {
+      "ko": "틈새로 비친 햇살",
+      "grade": "확정"
+    },
+    "fountainFilth": {
+      "ko": "추악함의 분출",
+      "grade": "확정"
+    },
+    "hospitalIncident": {
+      "ko": "병원 사건",
+      "grade": "확정"
+    },
+    "increasingUnease": {
+      "ko": "불안 확대",
+      "grade": "확정"
+    },
+    "lightHope": {
+      "ko": "희망의 빛",
+      "grade": "확정"
+    },
+    "silverBullet": {
+      "ko": "은 총탄",
+      "grade": "확정"
+    },
+    "evilContamination": {
+      "ko": "사악한 기운의 오염",
+      "grade": "확정"
+    },
+    "suspiciousLetter": {
+      "ko": "수상한 편지",
+      "grade": "확정"
+    },
+    "phantasmalIncident": {
+      "ko": "공상 사건",
+      "grade": "확정"
+    },
+    "sacrilegiousMurder": {
+      "ko": "모독 살인",
+      "grade": "확정"
+    },
+    "murkDespair": {
+      "ko": "절망의 어둠",
+      "grade": "확정"
+    },
+    "dimensionalFracture": {
+      "ko": "차원 단층",
+      "grade": "확정"
+    },
+    "dimensionalDistortion": {
+      "ko": "차원 변모",
+      "grade": "확정"
+    },
+    "dimensionalPerversion": {
+      "ko": "차원 왜곡",
+      "grade": "확정"
+    },
+    "evangeliumDead": {
+      "ko": "사자의 묵시록",
+      "grade": "확정"
+    }
+  },
+  "plots": {
+    "primeEvilPlot": {
+      "ko": "헌티드 스테이지",
+      "grade": "확정"
+    },
+    "murderPlan": {
+      "ko": "살인 계획",
+      "grade": "확정"
+    },
+    "bloodyRites": {
+      "ko": "피로 물든 의식",
+      "grade": "확정"
+    },
+    "keyGirl": {
+      "ko": "열쇠가 되는 소녀",
+      "grade": "확정"
+    },
+    "trickyTwins": {
+      "ko": "쌍둥이 트릭",
+      "grade": "확정"
+    },
+    "loveAffair": {
+      "ko": "연애의 풍경",
+      "grade": "확정"
+    },
+    "secretRecord": {
+      "ko": "비밀 기록",
+      "grade": "확정"
+    },
+    "signWithMe": {
+      "ko": "나와 계약하자!",
+      "grade": "확정"
+    },
+    "twistedTruth": {
+      "ko": "광기의 진실",
+      "grade": "확정"
+    },
+    "witchsCurse": {
+      "ko": "마녀의 저주",
+      "grade": "확정"
+    },
+    "danceFools": {
+      "ko": "어리석은 자의 춤",
+      "grade": "확정"
+    },
+    "hysteriaVirus": {
+      "ko": "공상 확대 바이러스",
+      "grade": "자체"
+    },
+    "paranoiaVirus": {
+      "ko": "망상 확대 바이러스",
+      "grade": "확정"
+    },
+    "peopleWhoSaw": {
+      "ko": "목격해 버린 사람들",
+      "grade": "확정"
+    },
+    "finalPlan": {
+      "ko": "최종 계획",
+      "grade": "자체"
+    },
+    "greatRace": {
+      "ko": "위대한 종족",
+      "grade": "확정"
+    },
+    "resistance": {
+      "ko": "저항하는 자들",
+      "grade": "확정"
+    },
+    "tightropePlan": {
+      "ko": "외줄 위에서의 계획",
+      "grade": "확정"
+    },
+    "unsafeTrigger": {
+      "ko": "불확정 인자 χ괴",
+      "grade": "확정"
+    },
+    "giantTimeBomb": {
+      "ko": "거대 시한폭탄 X의 존재",
+      "grade": "확정"
+    },
+    "jekyllHyde": {
+      "ko": "지킬 박사와 하이드",
+      "grade": "확정"
+    },
+    "moonlightBeast": {
+      "ko": "달밤의 야수",
+      "grade": "확정"
+    },
+    "cursedLand": {
+      "ko": "저주받은 땅",
+      "grade": "확정"
+    },
+    "sealedItem": {
+      "ko": "봉인된 것",
+      "grade": "확정"
+    },
+    "threadsFate": {
+      "ko": "인과율",
+      "grade": "확정"
+    },
+    "hideousScript": {
+      "ko": "최악의 시나리오",
+      "grade": "확정"
+    },
+    "anAbsoluteWill": {
+      "ko": "절대적인 의지",
+      "grade": "확정"
+    },
+    "changeOfFuture": {
+      "ko": "미래 변경 계획",
+      "grade": "확정"
+    },
+    "diceOfGods": {
+      "ko": "신의 주사위",
+      "grade": "확정"
+    },
+    "intoNothingness": {
+      "ko": "허무히 흘러가는 세계",
+      "grade": "자체"
+    },
+    "loveHateSpiral": {
+      "ko": "애증의 나선",
+      "grade": "확정"
+    },
+    "monsterIntrigue": {
+      "ko": "괴물의 암약",
+      "grade": "확정"
+    },
+    "blackSchool": {
+      "ko": "검은 학교",
+      "grade": "확정"
+    },
+    "devilsHand": {
+      "ko": "뻗쳐오는 마수",
+      "grade": "확정"
+    },
+    "facelessGod": {
+      "ko": "얼굴 없는 신",
+      "grade": "확정"
+    },
+    "hiddenFreak": {
+      "ko": "숨어 있는 살인귀",
+      "grade": "확정"
+    },
+    "realMonster": {
+      "ko": "진정한 괴물",
+      "grade": "자체"
+    },
+    "unansweredHeart": {
+      "ko": "통하지 않는 마음",
+      "grade": "확정"
+    },
+    "unknownFactor": {
+      "ko": "불확정 인자 χ",
+      "grade": "확정"
+    },
+    "circleFriends": {
+      "ko": "친목 동아리",
+      "grade": "확정"
+    },
+    "fatedConnections": {
+      "ko": "인과의 인연",
+      "grade": "확정"
+    },
+    "showtimeDeath": {
+      "ko": "죽음의 쇼타임",
+      "grade": "확정"
+    },
+    "plaguebringer": {
+      "ko": "악역을 자처하는 자",
+      "grade": "자체"
+    },
+    "thoseHabits": {
+      "ko": "성깔 있는 녀석들",
+      "grade": "확정"
+    },
+    "witchesTeaTime": {
+      "ko": "마녀의 다과회",
+      "grade": "확정"
+    },
+    "placeProtect": {
+      "ko": "지켜야 할 장소",
+      "grade": "확정"
+    },
+    "dimensionalMerger": {
+      "ko": "차원 병합 계획",
+      "grade": "자체"
+    },
+    "maleConfrontation": {
+      "ko": "사나이의 싸움",
+      "grade": "확정"
+    },
+    "smellGunpowder": {
+      "ko": "화약의 향기",
+      "grade": "확정"
+    },
+    "demonsScript": {
+      "ko": "악마의 시나리오",
+      "grade": "자체"
+    },
+    "kingYellow": {
+      "ko": "황색의 왕",
+      "grade": "확정"
+    },
+    "worldRebellion": {
+      "ko": "반역의 세계",
+      "grade": "자체"
+    },
+    "unsettlingRumor": {
+      "ko": "불온한 소문",
+      "grade": "확정"
+    },
+    "fairyTaleMurderer": {
+      "ko": "옛날 이야기 속 살인귀",
+      "grade": "자체"
+    },
+    "keeperMythology": {
+      "ko": "신화 수집가",
+      "grade": "자체"
+    },
+    "panicObsession": {
+      "ko": "공황과 망집",
+      "grade": "확정"
+    },
+    "puppeteersStrings": {
+      "ko": "조종용 실",
+      "grade": "자체"
+    },
+    "nobleBloodline": {
+      "ko": "고귀한 혈족",
+      "grade": "확정"
+    },
+    "unspeakableHorrors": {
+      "ko": "불러선 안 될 괴물",
+      "grade": "자체"
+    },
+    "dropStrychnine": {
+      "ko": "스트리크닌 한 방울",
+      "grade": "확정"
+    },
+    "quiltIncidents": {
+      "ko": "누벼 엮은 사건 퀼트",
+      "grade": "확정"
+    },
+    "crossingWorldLines": {
+      "ko": "세계선 너머로",
+      "grade": "자체"
+    },
+    "lightAvenger": {
+      "ko": "복수자의 등불",
+      "grade": "확정"
+    },
+    "motherGooseMystery": {
+      "ko": "머더 구스 미스터리",
+      "grade": "자체"
+    },
+    "nightMistNightmare": {
+      "ko": "밤안개의 악몽",
+      "grade": "확정"
+    },
+    "shadowRipper": {
+      "ko": "칼부림 살인마의 그림자",
+      "grade": "확정"
+    },
+    "forbiddenFuture": {
+      "ko": "닫혀버린 미래",
+      "grade": "자체"
+    },
+    "giantTimeBombAgain": {
+      "ko": "거대 시한폭탄 Y의 존재",
+      "grade": "확정"
+    },
+    "socialMediaParanoia": {
+      "ko": "SNS 편집증",
+      "grade": "자체"
+    },
+    "sealedConclusion": {
+      "ko": "봉인된 종말",
+      "grade": "자체"
+    },
+    "choirOuterGod": {
+      "ko": "이계 신을 향한 합창곡",
+      "grade": "확정"
+    },
+    "whispersFromDeep": {
+      "ko": "가라앉은 도시의 속삭임",
+      "grade": "확정"
+    },
+    "masterDetective": {
+      "ko": "나는 명탐정",
+      "grade": "확정"
+    },
+    "peopleDontListen": {
+      "ko": "이야기를 듣지 않는 사람들",
+      "grade": "확정"
+    },
+    "OnesFromGrave": {
+      "ko": "무덤에서 나온 자",
+      "grade": "확정"
+    },
+    "trueDetective": {
+      "ko": "내가 바로 명탐정",
+      "grade": "자체"
+    },
+    "mythomaniacSecret": {
+      "ko": "거짓말쟁이의 비밀",
+      "grade": "자체"
+    },
+    "giantTimeBombYetAgain": {
+      "ko": "거대 시한폭탄 Z의 존재",
+      "grade": "자체"
+    },
+    "sacredWordsDagon": {
+      "ko": "다곤 님의 말씀",
+      "grade": "확정"
+    },
+    "throughLookingGlass": {
+      "ko": "거울 나라의 앨리스",
+      "grade": "자체"
+    },
+    "isolatedInstitutionPsycho": {
+      "ko": "격리 병동 사이코",
+      "grade": "확정"
+    },
+    "worshippersApocalypse": {
+      "ko": "멸망을 노래하는 자",
+      "grade": "확정"
+    }
+  },
+  "tragedySets": {
+    "lastLiar": {
+      "ko": "라스트 라이어",
+      "grade": "자체"
+    },
+    "firstSteps": {
+      "ko": "입문",
+      "grade": "확정"
+    },
+    "basicTragedy": {
+      "ko": "기본",
+      "grade": "확정"
+    },
+    "hauntedStage": {
+      "ko": "헌티드 스테이지 (구판)",
+      "grade": "자체"
+    },
+    "midnightZone": {
+      "ko": "미드나이트 존",
+      "grade": "확정"
+    },
+    "mysteryCircle": {
+      "ko": "미스터리 서클",
+      "grade": "확정"
+    },
+    "cosmicMythology": {
+      "ko": "위어드 미솔로지",
+      "grade": "확정"
+    },
+    "anotherHorizonR": {
+      "ko": "어나더 호라이즌",
+      "grade": "자체"
+    },
+    "primeEvil": {
+      "ko": "헌티드 스테이지",
+      "grade": "확정"
+    }
+  },
+  "misc": {
+    "Mastermind": {
+      "ko": "각본가",
+      "grade": "확정"
+    },
+    "Protagonists": {
+      "ko": "주인공",
+      "grade": "확정"
+    },
+    "Script": {
+      "ko": "시나리오",
+      "grade": "확정"
+    },
+    "Loop": {
+      "ko": "루프",
+      "grade": "확정"
+    },
+    "Paranoia": {
+      "ko": "불안",
+      "grade": "확정"
+    },
+    "Goodwill": {
+      "ko": "우호",
+      "grade": "확정"
+    },
+    "Intrigue": {
+      "ko": "음모",
+      "grade": "확정"
+    },
+    "Paranoia limit": {
+      "ko": "최대 불안",
+      "grade": "확정"
+    },
+    "Final Guess": {
+      "ko": "최후의 싸움",
+      "grade": "확정"
+    },
+    "Incident": {
+      "ko": "사건",
+      "grade": "미지정"
+    },
+    "Culprit": {
+      "ko": "범인",
+      "grade": "미지정"
+    },
+    "Role": {
+      "ko": "역할",
+      "grade": "확정"
+    },
+    "Tragedy Set": {
+      "ko": "참극 세트",
+      "grade": "확정"
+    },
+    "(제품명) Tragedy Looper": {
+      "ko": "트래지디 루퍼",
+      "grade": "확정"
+    },
+    "Boy": {
+      "ko": "소년",
+      "grade": "확정"
+    },
+    "Man": {
+      "ko": "남성",
+      "grade": "확정"
+    },
+    "Girl": {
+      "ko": "소녀",
+      "grade": "확정"
+    },
+    "Tree": {
+      "ko": "신수",
+      "grade": "확정"
+    },
+    "Adult": {
+      "ko": "성인",
+      "grade": "확정"
+    },
+    "Woman": {
+      "ko": "여성",
+      "grade": "확정"
+    },
+    "Animal": {
+      "ko": "동물",
+      "grade": "확정"
+    },
+    "Student": {
+      "ko": "학생",
+      "grade": "확정"
+    },
+    "Construct": {
+      "ko": "창조물",
+      "grade": "확정"
+    },
+    "Day": {
+      "ko": "날짜",
+      "grade": "확정"
+    },
+    "Day Start": {
+      "ko": "라운드 시작",
+      "grade": "확정"
+    },
+    "Day End": {
+      "ko": "라운드 종료 단계",
+      "grade": "확정"
+    },
+    "First Day": {
+      "ko": "1일째",
+      "grade": "확정"
+    },
+    "Last Day": {
+      "ko": "마지막 날",
+      "grade": "확정"
+    },
+    "Days per Loop": {
+      "ko": "1루프당 날짜",
+      "grade": "확정"
+    },
+    "Loop Start": {
+      "ko": "루프 시작 시",
+      "grade": "확정"
+    },
+    "Loop End": {
+      "ko": "루프 종료 시",
+      "grade": "확정"
+    },
+    "Loop ends": {
+      "ko": "루프 종료 시",
+      "grade": "확정"
+    },
+    "Night: Day End": {
+      "ko": "라운드 종료 단계",
+      "grade": "확정"
+    },
+    "Night: Loop End": {
+      "ko": "루프 종료 시",
+      "grade": "확정"
+    },
+    "Main Plot": {
+      "ko": "룰 Y",
+      "grade": "확정"
+    },
+    "Main Plots": {
+      "ko": "룰 Y",
+      "grade": "확정"
+    },
+    "Sub Plot": {
+      "ko": "룰 X",
+      "grade": "확정"
+    },
+    "Sub Plots": {
+      "ko": "룰 X",
+      "grade": "확정"
+    },
+    "Extra Plot": {
+      "ko": "엑스트라 룰 Y",
+      "grade": "자체"
+    },
+    "Roles": {
+      "ko": "역할",
+      "grade": "미지정"
+    },
+    "Cast": {
+      "ko": "등장인물",
+      "grade": "확정"
+    },
+    "Character": {
+      "ko": "캐릭터",
+      "grade": "확정"
+    },
+    "Characters": {
+      "ko": "캐릭터",
+      "grade": "확정"
+    },
+    "Incidents": {
+      "ko": "사건",
+      "grade": "확정"
+    },
+    "City": {
+      "ko": "도심",
+      "grade": "미지정"
+    },
+    "School": {
+      "ko": "학교",
+      "grade": "미지정"
+    },
+    "Shrine": {
+      "ko": "신사",
+      "grade": "미지정"
+    },
+    "Hospital": {
+      "ko": "병원",
+      "grade": "미지정"
+    },
+    "Turf": {
+      "ko": "세력권",
+      "grade": "확정"
+    },
+    "Victims": {
+      "ko": "희생자",
+      "grade": "확정"
+    },
+    "Faked": {
+      "ko": "위장",
+      "grade": "추정"
+    },
+    "Passive": {
+      "ko": "특성",
+      "grade": "확정"
+    },
+    "Mandatory": {
+      "ko": "강제",
+      "grade": "확정"
+    },
+    "Optional": {
+      "ko": "선택",
+      "grade": "미지정"
+    },
+    "Tragedy": {
+      "ko": "참극 세트",
+      "grade": "미지정"
+    },
+    "Extra Gauge": {
+      "ko": "특수 게이지",
+      "grade": "확정"
+    },
+    "Extra Gauge Effect": {
+      "ko": "특수 게이지 효과",
+      "grade": "확정"
+    },
+    "Extra Rules": {
+      "ko": "추가 규칙",
+      "grade": "확정"
+    },
+    "Extra Cads": {
+      "ko": "특수 카드",
+      "grade": "확정"
+    },
+    "Goodwill Refusel": {
+      "ko": "우호 무시",
+      "grade": "확정"
+    },
+    "Goodwill Outburst": {
+      "ko": "우호 폭주",
+      "grade": "추정"
+    },
+    "Goodwill & Wrarp": {
+      "ko": "우호 & 워프",
+      "grade": "추정"
+    },
+    "Mob Incidents": {
+      "ko": "군중 사건",
+      "grade": "확정"
+    },
+    "Curse cards": {
+      "ko": "저주 카드",
+      "grade": "확정"
+    },
+    "After Death": {
+      "ko": "사후",
+      "grade": "추정"
+    },
+    "Enters Play": {
+      "ko": "게임에 등장",
+      "grade": "추정"
+    },
+    "Dual Roles": {
+      "ko": "이중 역할",
+      "grade": "추정"
+    },
+    "Special Rule": {
+      "ko": "특수 규칙",
+      "grade": "확정"
+    },
+    "Special Rules": {
+      "ko": "특수 규칙",
+      "grade": "확정"
+    },
+    "World Switch": {
+      "ko": "세계 이동",
+      "grade": "추정"
+    },
+    "World Selection": {
+      "ko": "세계 선택",
+      "grade": "추정"
+    },
+    "Abnormal World": {
+      "ko": "이면 세계",
+      "grade": "추정"
+    },
+    "In Normal world": {
+      "ko": "표면 세계일 때",
+      "grade": "추정"
+    },
+    "abnormal or normal": {
+      "ko": "이면 또는 표면",
+      "grade": "추정"
+    },
+    "The Far Side": {
+      "ko": "먼 곳",
+      "grade": "추정"
+    },
+    "Madness (4)": {
+      "ko": "발광 (4)",
+      "grade": "확정"
+    },
+    "Ancient Seal (3)": {
+      "ko": "오래된 표식 (3)",
+      "grade": "확정"
+    },
+    "Spell of Sympathy (1)": {
+      "ko": "감응의 주술 (1)",
+      "grade": "확정"
+    },
+    "Change of Heart": {
+      "ko": "심경 변화",
+      "grade": "추정"
+    },
+    "Paranoia Limit": {
+      "ko": "최대 불안",
+      "grade": "확정"
+    },
+    "Victory Conditions": {
+      "ko": "승리 조건",
+      "grade": "확정"
+    },
+    "Description": {
+      "ko": "설명",
+      "grade": "추정"
+    },
+    "Mastermind Aid": {
+      "ko": "각본가 도우미",
+      "grade": "추정"
+    },
+    "Mastermind Ability": {
+      "ko": "각본가 능력 단계",
+      "grade": "확정"
+    },
+    "Timing": {
+      "ko": "타이밍",
+      "grade": "미지정"
+    },
+    "Story": {
+      "ko": "스토리",
+      "grade": "추정"
+    },
+    "difficulty": {
+      "ko": "난이도",
+      "grade": "확정"
+    },
+    "Incident step": {
+      "ko": "사건 단계",
+      "grade": "확정"
+    },
+    "Incident trigger": {
+      "ko": "사건 발생 판정",
+      "grade": "추정"
+    },
+    "Card resolve": {
+      "ko": "행동 해결",
+      "grade": "확정"
+    },
+    "Placing Cards": {
+      "ko": "행동 단계",
+      "grade": "확정"
+    },
+    "Resolving Cards": {
+      "ko": "행동 해결",
+      "grade": "확정"
+    },
+    "Script creation": {
+      "ko": "시나리오 작성 시",
+      "grade": "미지정"
+    },
+    "On Role reveal": {
+      "ko": "역할 공개 시",
+      "grade": "추정"
+    },
+    "On Character Death": {
+      "ko": "이 캐릭터 사망 시",
+      "grade": "확정"
+    },
+    "On character death": {
+      "ko": "이 캐릭터 사망 시",
+      "grade": "확정"
+    },
+    "Repeated Culprit": {
+      "ko": "범인 중복 가능",
+      "grade": "추정"
+    },
+    "No Culprit": {
+      "ko": "범인 없음",
+      "grade": "추정"
+    },
+    "Culprit is dead": {
+      "ko": "범인 사망",
+      "grade": "추정"
+    },
+    "No incident": {
+      "ko": "사건 없음",
+      "grade": "미지정"
+    },
+    "Is in Tragedy": {
+      "ko": "참극 세트에 포함",
+      "grade": "미지정"
+    },
+    "Is not in Tragedy": {
+      "ko": "참극 세트에 미포함",
+      "grade": "미지정"
+    },
+    "enters on day": {
+      "ko": "등장 날짜",
+      "grade": "추정"
+    },
+    "enters on loop": {
+      "ko": "등장 루프",
+      "grade": "추정"
+    },
+    "Times per day": {
+      "ko": "하루당 횟수",
+      "grade": "추정"
+    },
+    "Times per loop": {
+      "ko": "루프당 횟수",
+      "grade": "추정"
+    },
+    "Once per {type}": {
+      "ko": "1{type}당 1회",
+      "grade": "확정"
+    },
+    "Twice per {type}": {
+      "ko": "1{type}당 2회",
+      "grade": "확정"
+    },
+    "{days} per {type}": {
+      "ko": "1{type}당 {days}회",
+      "grade": "확정"
+    },
+    "Prerequiste": {
+      "ko": "조건",
+      "grade": "추정"
+    },
+    "Prerequisite": {
+      "ko": "조건",
+      "grade": "추정"
+    },
+    "Only at": {
+      "ko": "제한",
+      "grade": "확정"
+    },
+    "Always": {
+      "ko": "항상",
+      "grade": "확정"
+    },
+    "Effect": {
+      "ko": "효과",
+      "grade": "미지정"
+    },
+    "Warping": {
+      "ko": "왜곡",
+      "grade": "추정"
+    },
+    "Hero A": {
+      "ko": "주인공 A",
+      "grade": "미지정"
+    },
+    "Hero B": {
+      "ko": "주인공 B",
+      "grade": "미지정"
+    },
+    "Hero C": {
+      "ko": "주인공 C",
+      "grade": "미지정"
+    },
+    "Hints for the Mastermind": {
+      "ko": "각본가를 위한 지침",
+      "grade": "추정"
+    },
+    "Reminiscence of the Forefathers (2)": {
+      "ko": "선조의 추억 (2)",
+      "grade": "미지정"
+    },
+    "Fan": {
+      "ko": "팬 제작",
+      "grade": "추정"
+    },
+    "Key": {
+      "ko": "키",
+      "grade": "미지정"
+    },
+    "Mob": {
+      "ko": "군중",
+      "grade": "확정"
+    },
+    "Rei": {
+      "ko": "레이",
+      "grade": "추정"
+    },
+    "Base": {
+      "ko": "본판",
+      "grade": "확정"
+    },
+    "Independent": {
+      "ko": "독립",
+      "grade": "미지정"
+    }
+  }
+}

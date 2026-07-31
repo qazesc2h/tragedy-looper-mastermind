@@ -1,0 +1,1120 @@
+{
+  "youngGirl": {
+    "id": "youngGirl",
+    "en": "Young Girl",
+    "ko": "여자 아이",
+    "paranoiaLimit": 1,
+    "startLocation": [
+      "School"
+    ],
+    "forbiddenLocation": [
+      "City",
+      "Hospital",
+      "Shrine"
+    ],
+    "tags": [
+      "student",
+      "girl"
+    ],
+    "plotLessRole": false,
+    "comesInLater": false,
+    "scriptSpecified": null,
+    "goodwillAbilities": [
+      {
+        "rank": 1,
+        "en": "This Character‘s location restriction is removed",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      },
+      {
+        "rank": 3,
+        "en": "Move this character t an adjacent location",
+        "timesPerLoop": 1,
+        "restrictedToLocation": null
+      }
+    ]
+  },
+  "copycat": {
+    "id": "copycat",
+    "en": "Copycat",
+    "ko": "모방자",
+    "paranoiaLimit": 2,
+    "startLocation": [
+      "City"
+    ],
+    "forbiddenLocation": [],
+    "tags": [
+      "student",
+      "boy"
+    ],
+    "plotLessRole": true,
+    "comesInLater": false,
+    "scriptSpecified": null,
+    "goodwillAbilities": [
+      {
+        "rank": null,
+        "en": "Script Creation: This Character must copy the role of another Character in the script (max amount ignored).",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      },
+      {
+        "rank": 3,
+        "en": "Loop 2 or later: Reveal the name of all characters with the same Role as :copycat:. This cannot be refused by :goodwill: Refusel.",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      }
+    ]
+  },
+  "servant": {
+    "id": "servant",
+    "en": "Servant",
+    "ko": "메이드",
+    "paranoiaLimit": 3,
+    "startLocation": [
+      "City",
+      "School"
+    ],
+    "forbiddenLocation": [],
+    "tags": [
+      "adult",
+      "woman"
+    ],
+    "plotLessRole": false,
+    "comesInLater": false,
+    "scriptSpecified": null,
+    "goodwillAbilities": [
+      {
+        "rank": null,
+        "en": "The :servant: serves the :richStudent: and the :boss:. If one of them moves and she shares the location, the Leader moves her with one of them ignoring her own movement. If any onf them dies at her location, she dies instead.",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      },
+      {
+        "rank": 4,
+        "en": "Choose any other character. For the remainder of the Loop, she also serves that character.",
+        "timesPerLoop": 1,
+        "restrictedToLocation": null
+      }
+    ]
+  },
+  "boyStudent": {
+    "id": "boyStudent",
+    "en": "Boy Student",
+    "ko": "남학생",
+    "paranoiaLimit": 2,
+    "startLocation": [
+      "School"
+    ],
+    "forbiddenLocation": [],
+    "tags": [
+      "student",
+      "boy"
+    ],
+    "plotLessRole": false,
+    "comesInLater": false,
+    "scriptSpecified": null,
+    "goodwillAbilities": [
+      {
+        "rank": 2,
+        "en": "-1 :paranoia: on student in same location.",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      }
+    ]
+  },
+  "girlStudent": {
+    "id": "girlStudent",
+    "en": "Girl Student",
+    "ko": "여학생",
+    "paranoiaLimit": 3,
+    "startLocation": [
+      "School"
+    ],
+    "forbiddenLocation": [],
+    "tags": [
+      "student",
+      "girl"
+    ],
+    "plotLessRole": false,
+    "comesInLater": false,
+    "scriptSpecified": null,
+    "goodwillAbilities": [
+      {
+        "rank": 2,
+        "en": "-1 :paranoia: on student in same location.",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      }
+    ]
+  },
+  "richStudent": {
+    "id": "richStudent",
+    "en": "Rich Man’s Daughter",
+    "ko": "재벌가 손녀",
+    "paranoiaLimit": 1,
+    "startLocation": [
+      "School"
+    ],
+    "forbiddenLocation": [],
+    "tags": [
+      "student",
+      "girl"
+    ],
+    "plotLessRole": false,
+    "comesInLater": false,
+    "scriptSpecified": null,
+    "goodwillAbilities": [
+      {
+        "rank": 3,
+        "en": "+1 :goodwill: on character in same location.",
+        "timesPerLoop": null,
+        "restrictedToLocation": [
+          "School",
+          "City"
+        ]
+      }
+    ]
+  },
+  "classRep": {
+    "id": "classRep",
+    "en": "Class Rep",
+    "ko": "학생 회장",
+    "paranoiaLimit": 2,
+    "startLocation": [
+      "School"
+    ],
+    "forbiddenLocation": [],
+    "tags": [
+      "student",
+      "girl"
+    ],
+    "plotLessRole": false,
+    "comesInLater": false,
+    "scriptSpecified": null,
+    "goodwillAbilities": [
+      {
+        "rank": 2,
+        "en": "Leader gets one (1×∞) card back.",
+        "timesPerLoop": 1,
+        "restrictedToLocation": null
+      }
+    ]
+  },
+  "mysteryBoy": {
+    "id": "mysteryBoy",
+    "en": "Mystery Boy",
+    "ko": "아웃사이더",
+    "paranoiaLimit": 3,
+    "startLocation": [
+      "School"
+    ],
+    "forbiddenLocation": [],
+    "tags": [
+      "student",
+      "boy"
+    ],
+    "plotLessRole": true,
+    "comesInLater": false,
+    "scriptSpecified": null,
+    "goodwillAbilities": [
+      {
+        "rank": null,
+        "en": "Always has a role not associated with current plot.",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      },
+      {
+        "rank": 3,
+        "en": "Reveal own role.",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      }
+    ]
+  },
+  "shrineMaiden": {
+    "id": "shrineMaiden",
+    "en": "Shrine Maiden",
+    "ko": "무녀",
+    "paranoiaLimit": 2,
+    "startLocation": [
+      "Shrine"
+    ],
+    "forbiddenLocation": [
+      "City"
+    ],
+    "tags": [
+      "student",
+      "girl"
+    ],
+    "plotLessRole": false,
+    "comesInLater": false,
+    "scriptSpecified": null,
+    "goodwillAbilities": [
+      {
+        "rank": 3,
+        "en": "-1 :intrigue: on Shrine.",
+        "timesPerLoop": null,
+        "restrictedToLocation": [
+          "Shrine"
+        ]
+      },
+      {
+        "rank": 5,
+        "en": "Reveal role of character in same location",
+        "timesPerLoop": 1,
+        "restrictedToLocation": null
+      }
+    ]
+  },
+  "alien": {
+    "id": "alien",
+    "en": "Alien",
+    "ko": "이세계인",
+    "paranoiaLimit": 2,
+    "startLocation": [
+      "Shrine"
+    ],
+    "forbiddenLocation": [
+      "Hospital"
+    ],
+    "tags": [
+      "girl"
+    ],
+    "plotLessRole": false,
+    "comesInLater": false,
+    "scriptSpecified": null,
+    "goodwillAbilities": [
+      {
+        "rank": 4,
+        "en": "Kill one character in same location.",
+        "timesPerLoop": 1,
+        "restrictedToLocation": null
+      },
+      {
+        "rank": 5,
+        "en": "Revive one corpse in same location.",
+        "timesPerLoop": 1,
+        "restrictedToLocation": null
+      }
+    ]
+  },
+  "godlyBeing": {
+    "id": "godlyBeing",
+    "en": "Godly Being",
+    "ko": "신",
+    "paranoiaLimit": 3,
+    "startLocation": [
+      "Shrine"
+    ],
+    "forbiddenLocation": [],
+    "tags": [
+      "man",
+      "woman"
+    ],
+    "plotLessRole": false,
+    "comesInLater": true,
+    "scriptSpecified": [
+      {
+        "name": "enters on loop",
+        "type": "number"
+      }
+    ],
+    "goodwillAbilities": [
+      {
+        "rank": null,
+        "en": "Enters game on predefined loop",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      },
+      {
+        "rank": 3,
+        "en": "Reveal culprit for 1 incident.",
+        "timesPerLoop": 1,
+        "restrictedToLocation": null
+      },
+      {
+        "rank": 5,
+        "en": "-1 :intrigue: on same location or Character in same location.",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      }
+    ]
+  },
+  "policeOfficer": {
+    "id": "policeOfficer",
+    "en": "Police Officer",
+    "ko": "형사",
+    "paranoiaLimit": 3,
+    "startLocation": [
+      "City"
+    ],
+    "forbiddenLocation": [],
+    "tags": [
+      "man",
+      "adult"
+    ],
+    "plotLessRole": false,
+    "comesInLater": false,
+    "scriptSpecified": null,
+    "goodwillAbilities": [
+      {
+        "rank": 4,
+        "en": "Reveal culprit for former incident.",
+        "timesPerLoop": 1,
+        "restrictedToLocation": null
+      },
+      {
+        "rank": 5,
+        "en": "Put an Extra marker on another character in same location. Remove that marker to prevent that character from dying.",
+        "timesPerLoop": 1,
+        "restrictedToLocation": null
+      }
+    ]
+  },
+  "officeWorker": {
+    "id": "officeWorker",
+    "en": "Office Worker",
+    "ko": "회사원",
+    "paranoiaLimit": 2,
+    "startLocation": [
+      "City"
+    ],
+    "forbiddenLocation": [
+      "School"
+    ],
+    "tags": [
+      "man",
+      "adult"
+    ],
+    "plotLessRole": false,
+    "comesInLater": false,
+    "scriptSpecified": null,
+    "goodwillAbilities": [
+      {
+        "rank": 3,
+        "en": "Reveal own role.",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      }
+    ]
+  },
+  "informer": {
+    "id": "informer",
+    "en": "Informer",
+    "ko": "정보원",
+    "paranoiaLimit": 3,
+    "startLocation": [
+      "City"
+    ],
+    "forbiddenLocation": [],
+    "tags": [
+      "woman",
+      "adult"
+    ],
+    "plotLessRole": false,
+    "comesInLater": false,
+    "scriptSpecified": null,
+    "goodwillAbilities": [
+      {
+        "rank": 5,
+        "en": "Leader names the title of any Subplot. Then, the Mastermind must name the title of any other active subplot.",
+        "timesPerLoop": 1,
+        "restrictedToLocation": null
+      }
+    ]
+  },
+  "popIdol": {
+    "id": "popIdol",
+    "en": "Pop Idol",
+    "ko": "아이돌",
+    "paranoiaLimit": 2,
+    "startLocation": [
+      "City"
+    ],
+    "forbiddenLocation": [],
+    "tags": [
+      "girl",
+      "student"
+    ],
+    "plotLessRole": false,
+    "comesInLater": false,
+    "scriptSpecified": null,
+    "goodwillAbilities": [
+      {
+        "rank": 3,
+        "en": "-1 :paranoia: on character in same location.",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      },
+      {
+        "rank": 4,
+        "en": "+1 :goodwill: on character in same location.",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      }
+    ]
+  },
+  "journalist": {
+    "id": "journalist",
+    "en": "Journalist",
+    "ko": "기자",
+    "paranoiaLimit": 2,
+    "startLocation": [
+      "City"
+    ],
+    "forbiddenLocation": [],
+    "tags": [
+      "adult",
+      "man"
+    ],
+    "plotLessRole": false,
+    "comesInLater": false,
+    "scriptSpecified": null,
+    "goodwillAbilities": [
+      {
+        "rank": 2,
+        "en": "+1 :paranoia: on any other character.",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      },
+      {
+        "rank": 2,
+        "en": "+1 :intrigue: on this Location or any character in this Location.",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      }
+    ]
+  },
+  "boss": {
+    "id": "boss",
+    "en": "Boss",
+    "ko": "거물",
+    "paranoiaLimit": 4,
+    "startLocation": [
+      "City"
+    ],
+    "forbiddenLocation": [],
+    "tags": [
+      "adult",
+      "man"
+    ],
+    "plotLessRole": false,
+    "comesInLater": false,
+    "scriptSpecified": [
+      {
+        "name": "Turf",
+        "type": "location"
+      }
+    ],
+    "goodwillAbilities": [
+      {
+        "rank": null,
+        "en": "May be regarded as in his turf.",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      },
+      {
+        "rank": 5,
+        "en": "Reveal role of character in his turf.",
+        "timesPerLoop": 1,
+        "restrictedToLocation": null
+      }
+    ]
+  },
+  "doctor": {
+    "id": "doctor",
+    "en": "Doctor",
+    "ko": "의사",
+    "paranoiaLimit": 2,
+    "startLocation": [
+      "Hospital"
+    ],
+    "forbiddenLocation": [],
+    "tags": [
+      "adult",
+      "man"
+    ],
+    "plotLessRole": false,
+    "comesInLater": false,
+    "scriptSpecified": null,
+    "goodwillAbilities": [
+      {
+        "rank": 2,
+        "en": "+/-1 :paranoia: on character in same location.",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      },
+      {
+        "rank": 3,
+        "en": "revoke location restirction for :patient:.",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      }
+    ]
+  },
+  "patient": {
+    "id": "patient",
+    "en": "Patient",
+    "ko": "입원 환자",
+    "paranoiaLimit": 2,
+    "startLocation": [
+      "Hospital"
+    ],
+    "forbiddenLocation": [
+      "City",
+      "School",
+      "Shrine"
+    ],
+    "tags": [
+      "boy"
+    ],
+    "plotLessRole": false,
+    "comesInLater": false,
+    "scriptSpecified": null,
+    "goodwillAbilities": []
+  },
+  "nurse": {
+    "id": "nurse",
+    "en": "Nurse",
+    "ko": "간호사",
+    "paranoiaLimit": 3,
+    "startLocation": [
+      "Hospital"
+    ],
+    "forbiddenLocation": [],
+    "tags": [
+      "adult",
+      "woman"
+    ],
+    "plotLessRole": false,
+    "comesInLater": false,
+    "scriptSpecified": null,
+    "goodwillAbilities": [
+      {
+        "rank": 2,
+        "en": "-1 :paranoia: on panicked character in same location. This ability cannot be refused by :goodwill: Refusel.",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      }
+    ]
+  },
+  "henchman": {
+    "id": "henchman",
+    "en": "Henchman",
+    "ko": "하수인",
+    "paranoiaLimit": 1,
+    "startLocation": [
+      "City",
+      "School",
+      "Shrine",
+      "Hospital"
+    ],
+    "forbiddenLocation": [],
+    "tags": [
+      "adult",
+      "man"
+    ],
+    "plotLessRole": false,
+    "comesInLater": false,
+    "scriptSpecified": null,
+    "goodwillAbilities": [
+      {
+        "rank": null,
+        "en": "Mastermind chooses start location each loop",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      },
+      {
+        "rank": 3,
+        "en": "Dose not trigger incidents.",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      }
+    ]
+  },
+  "teacher": {
+    "id": "teacher",
+    "en": "Teacher",
+    "ko": "교사",
+    "paranoiaLimit": 2,
+    "startLocation": [
+      "School"
+    ],
+    "forbiddenLocation": [],
+    "tags": [
+      "adult",
+      "woman"
+    ],
+    "plotLessRole": false,
+    "comesInLater": false,
+    "scriptSpecified": null,
+    "goodwillAbilities": [
+      {
+        "rank": 3,
+        "en": "Pick a :student: in this location, and add or remove a :paranoia: from that student.",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      },
+      {
+        "rank": 4,
+        "en": "Reveal the role of one :student: in this location.",
+        "timesPerLoop": 1,
+        "restrictedToLocation": null
+      }
+    ]
+  },
+  "transferStudent": {
+    "id": "transferStudent",
+    "en": "Transfer Student",
+    "ko": "전학생",
+    "paranoiaLimit": 2,
+    "startLocation": [
+      "School"
+    ],
+    "forbiddenLocation": [],
+    "tags": [
+      "student",
+      "girl"
+    ],
+    "plotLessRole": false,
+    "comesInLater": true,
+    "scriptSpecified": [
+      {
+        "name": "enters on day",
+        "type": "number"
+      }
+    ],
+    "goodwillAbilities": [
+      {
+        "rank": null,
+        "en": "This character does not appear on the board until the start of the day specified by the script.",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      },
+      {
+        "rank": 2,
+        "en": "Change an :intrigue: conuter on any other character in this location to a :goodwill: counter.",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      }
+    ]
+  },
+  "soldier": {
+    "id": "soldier",
+    "en": "Soldier",
+    "ko": "군인",
+    "paranoiaLimit": 3,
+    "startLocation": [
+      "Hospital"
+    ],
+    "forbiddenLocation": [],
+    "tags": [
+      "adult",
+      "man"
+    ],
+    "plotLessRole": false,
+    "comesInLater": false,
+    "scriptSpecified": null,
+    "goodwillAbilities": [
+      {
+        "rank": 2,
+        "en": "Place 2 :paranoia: on another character in this location.",
+        "timesPerLoop": 1,
+        "restrictedToLocation": null
+      },
+      {
+        "rank": 5,
+        "en": "The Protagonists cannot die for the reminder of the loop.",
+        "timesPerLoop": 1,
+        "restrictedToLocation": null
+      }
+    ]
+  },
+  "blackCat": {
+    "id": "blackCat",
+    "en": "Black Cat",
+    "ko": "검은 고양이",
+    "paranoiaLimit": 0,
+    "startLocation": [
+      "Shrine"
+    ],
+    "forbiddenLocation": [],
+    "tags": [
+      "animal"
+    ],
+    "plotLessRole": false,
+    "comesInLater": false,
+    "scriptSpecified": null,
+    "goodwillAbilities": [
+      {
+        "rank": null,
+        "en": "At the start of each loop, place an :intrigue: on the Shrine.",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      },
+      {
+        "rank": null,
+        "en": "Incidents of which this character is the culprit, change their effect into \"no effect\". (rule-wise they occur)",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      }
+    ]
+  },
+  "scientist": {
+    "id": "scientist",
+    "en": "Scientist",
+    "ko": "학자",
+    "paranoiaLimit": 2,
+    "startLocation": [
+      "Hospital"
+    ],
+    "forbiddenLocation": [],
+    "tags": [
+      "adult",
+      "man"
+    ],
+    "plotLessRole": false,
+    "comesInLater": false,
+    "scriptSpecified": null,
+    "goodwillAbilities": [
+      {
+        "rank": null,
+        "en": "At the start of a loop, place either a :paranoia: counter, a :goodwill: counter or an :intrigue: counter on this character.",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      },
+      {
+        "rank": 3,
+        "en": "Remove all counters from this character. Then, if you use the Extra gauge, increase or decrease this gauge.",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      }
+    ]
+  },
+  "forensicSpecialist": {
+    "id": "forensicSpecialist",
+    "en": "Forensic Specialist",
+    "ko": "감식관",
+    "paranoiaLimit": 3,
+    "startLocation": [
+      "City"
+    ],
+    "forbiddenLocation": [],
+    "tags": [
+      "adult",
+      "man"
+    ],
+    "plotLessRole": false,
+    "comesInLater": false,
+    "scriptSpecified": null,
+    "goodwillAbilities": [
+      {
+        "rank": 2,
+        "en": "Move any one counter between any two other characters in this location.",
+        "timesPerLoop": 1,
+        "restrictedToLocation": null
+      },
+      {
+        "rank": 5,
+        "en": "Reveal the role of any one corpse.",
+        "timesPerLoop": 1,
+        "restrictedToLocation": null
+      }
+    ]
+  },
+  "ai": {
+    "id": "ai",
+    "en": "A.I.",
+    "ko": "AI",
+    "paranoiaLimit": 4,
+    "startLocation": [
+      "City"
+    ],
+    "forbiddenLocation": [
+      "Shrine",
+      "Hospital",
+      "School"
+    ],
+    "tags": [
+      "construct"
+    ],
+    "plotLessRole": false,
+    "comesInLater": false,
+    "scriptSpecified": null,
+    "goodwillAbilities": [
+      {
+        "rank": null,
+        "en": "This character cannot have the role :person:.",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      },
+      {
+        "rank": null,
+        "en": "When determining wether an Incident triggers, to which this character is the culprit, all conters on this character conut as :paranoia: conuters.",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      },
+      {
+        "rank": 3,
+        "en": "The Leader may resolve one incident in the Script, wit the :ai: as the culprit. (This is not considered triggering the event.)",
+        "timesPerLoop": 1,
+        "restrictedToLocation": null
+      }
+    ]
+  },
+  "illusion": {
+    "id": "illusion",
+    "en": "Illusion",
+    "ko": "환상",
+    "paranoiaLimit": 3,
+    "startLocation": [
+      "Shrine"
+    ],
+    "forbiddenLocation": [],
+    "tags": [
+      "construct",
+      "woman"
+    ],
+    "plotLessRole": false,
+    "comesInLater": false,
+    "scriptSpecified": null,
+    "goodwillAbilities": [
+      {
+        "rank": null,
+        "en": "No action cards can be placed on this characte. All cards palced on this location are also applied to this character.",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      },
+      {
+        "rank": 3,
+        "en": "Move any character from this location to any other location.",
+        "timesPerLoop": 1,
+        "restrictedToLocation": null
+      },
+      {
+        "rank": 4,
+        "en": "Remove thsi character from the board for the rest of the loop.",
+        "timesPerLoop": 1,
+        "restrictedToLocation": null
+      }
+    ]
+  },
+  "partTimer": {
+    "id": "partTimer",
+    "en": "Part-Timer",
+    "ko": "아르바이트생",
+    "paranoiaLimit": 1,
+    "startLocation": [
+      "City"
+    ],
+    "forbiddenLocation": [],
+    "tags": [
+      "adult",
+      "man"
+    ],
+    "plotLessRole": false,
+    "comesInLater": false,
+    "scriptSpecified": null,
+    "goodwillAbilities": [
+      {
+        "rank": null,
+        "en": "This character ignores its Role and is a :person: instead.",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      },
+      {
+        "rank": null,
+        "en": "At the end of the day, if there are 3 or more total counters on this character, he dies.",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      },
+      {
+        "rank": null,
+        "en": "At the start of the day, if this character is dead, place ':partTimerAlternate:' in the City.",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      }
+    ]
+  },
+  "partTimerAlternate": {
+    "id": "partTimerAlternate",
+    "en": "Part-Timer(?)",
+    "ko": "아르바이트생?",
+    "paranoiaLimit": 3,
+    "startLocation": [
+      "City"
+    ],
+    "forbiddenLocation": [],
+    "tags": [
+      "girl"
+    ],
+    "plotLessRole": false,
+    "comesInLater": false,
+    "scriptSpecified": null,
+    "goodwillAbilities": [
+      {
+        "rank": null,
+        "en": "This character has the same Role, and is the Culprit of the same Incident(s), as :partTimer:.",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      },
+      {
+        "rank": 3,
+        "en": "Reveal this character's Role. Place 2 :goodwill: counters on any character at this location.",
+        "timesPerLoop": 1,
+        "restrictedToLocation": null
+      }
+    ]
+  },
+  "sectFounder": {
+    "id": "sectFounder",
+    "en": "Sect Founder",
+    "ko": "교주",
+    "paranoiaLimit": 3,
+    "startLocation": [
+      "Shrine"
+    ],
+    "forbiddenLocation": [],
+    "tags": [
+      "adult",
+      "woman"
+    ],
+    "plotLessRole": false,
+    "comesInLater": false,
+    "scriptSpecified": null,
+    "goodwillAbilities": [
+      {
+        "rank": null,
+        "en": "If this character is the culprit of an Incident that resolves, its effects resolve twice.",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      },
+      {
+        "rank": 3,
+        "en": "Place a :goodwill: on an other Character who is at their :paranoia: Limit.",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      },
+      {
+        "rank": 4,
+        "en": "Reveal the role of another character who is at their :paranoia: Limit in this location.",
+        "timesPerLoop": 1,
+        "restrictedToLocation": null
+      }
+    ]
+  },
+  "metaworldDenizen": {
+    "id": "metaworldDenizen",
+    "en": "Metaworld Denizen",
+    "ko": "상위 존재",
+    "paranoiaLimit": 2,
+    "startLocation": [
+      "Shrine"
+    ],
+    "forbiddenLocation": [],
+    "tags": [
+      "girl"
+    ],
+    "plotLessRole": false,
+    "comesInLater": false,
+    "scriptSpecified": null,
+    "goodwillAbilities": [
+      {
+        "rank": 3,
+        "en": "Place 1 :hope: or :despair: counter on any character at this location. If this character has :goodwill: Refusel and at least 1 :goodwill: counter, the Mastermind may use this ability as their own",
+        "timesPerLoop": 1,
+        "restrictedToLocation": null
+      }
+    ]
+  },
+  "littleSister": {
+    "id": "littleSister",
+    "en": "Little Sister",
+    "ko": "여동생",
+    "paranoiaLimit": 3,
+    "startLocation": [
+      "Shrine"
+    ],
+    "forbiddenLocation": [],
+    "tags": [
+      "littleSisterKeyword",
+      "girl"
+    ],
+    "plotLessRole": false,
+    "comesInLater": false,
+    "scriptSpecified": null,
+    "goodwillAbilities": [
+      {
+        "rank": null,
+        "en": "During script creation, this character cannot be given a Role with :goodwill: Refusel.",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      },
+      {
+        "rank": 5,
+        "en": "Use a :goodwill: ability from an :adult: at this location, ignoring :goodwill: counters. It cannot be refused by :goodwill: Refusel, but counts towards that ability's 'Once per Loop' limit.",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      }
+    ]
+  },
+  "sacredTree": {
+    "id": "sacredTree",
+    "en": "Sacred Tree",
+    "ko": "신수",
+    "paranoiaLimit": 4,
+    "startLocation": [
+      "Shrine"
+    ],
+    "forbiddenLocation": [
+      "City",
+      "Hospital",
+      "School"
+    ],
+    "tags": [
+      "tree"
+    ],
+    "plotLessRole": false,
+    "comesInLater": false,
+    "scriptSpecified": null,
+    "goodwillAbilities": [
+      {
+        "rank": null,
+        "en": "Each turn, the Leader may move 1 counter on this character to another character at this location. If this character has :goodwill: Refusel, the Mastermind must also do this during the Mastermind's ability step.",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      }
+    ]
+  },
+  "crusader": {
+    "id": "crusader",
+    "en": "Crusader",
+    "ko": null,
+    "paranoiaLimit": 4,
+    "startLocation": [
+      "Shrine"
+    ],
+    "forbiddenLocation": [],
+    "tags": [
+      "man",
+      "adult"
+    ],
+    "plotLessRole": false,
+    "comesInLater": false,
+    "scriptSpecified": null,
+    "goodwillAbilities": [
+      {
+        "rank": null,
+        "en": "If this character gains :supernaturalTag: his :goodwill: abilities are automatically refused.",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      },
+      {
+        "rank": 3,
+        "en": "Kill any character in the same location. If that character is not :supernaturalTag:, the Protagonists lose.",
+        "timesPerLoop": null,
+        "restrictedToLocation": null
+      }
+    ]
+  }
+}
