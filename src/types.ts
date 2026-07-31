@@ -112,6 +112,9 @@ export interface LoopState {
   /** 이번 라운드에 놓인 카드 (P4에서 소비) */
   placed: PlacedCard[];
 
+  /** 이번 P4에서 음모 금지 무시 능력을 발동한 광신도 */
+  cultistsIgnoringForbidIntrigue?: CharacterId[];
+
   /** 특수 게이지 (기본편 미사용, 확장 대비) */
   specialGauge?: number;
 }

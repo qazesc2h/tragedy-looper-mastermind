@@ -14,7 +14,7 @@
 - **흑막** (`brain`)
   - [x] [Mastermind Ability] You may place 1 :intrigue: on this location or on any character in this location.
 - **광신도** (`cultist`)
-  - [ ] [Card resolve] You may ignore all Forbid :intrigue: effects on this location and on all characters in this location.
+  - [x] [Card resolve] You may ignore all Forbid :intrigue: effects on this location and on all characters in this location.
 - **시간 여행자** (`timeTraveler`)
   - [ ] [Card resolve] Ignore Forbid :goodwill: on this character.
   - [ ] [Day End,Last Day] There is 2 or less :goodwill: on this character. → Loop ends

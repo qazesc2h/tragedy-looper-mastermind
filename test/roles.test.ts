@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { resolveActions } from "../src/engine/resolve";
 import { initLoop } from "../src/engine/setup";
 import { ROLE_IMPL } from "../src/impl/roles";
 import type {
@@ -199,5 +200,144 @@ describe("brain", () => {
 });
 
 describe("cultist", () => {
-  it.todo("remains unimplemented pending QUESTIONS.md Q1");
+  const targetHook = hook("cultist");
+
+  it("ignores an active forbid intrigue on this location", () => {
+    const state = createState();
+    state.loop.placed = [
+      {
+        owner: 0,
+        card: "forbidIntrigue",
+        target: { kind: "location", at: "City" },
+      },
+      {
+        owner: "mastermind",
+        card: "intriguePlus1",
+        target: { kind: "location", at: "City" },
+      },
+    ];
+
+    expect(targetHook.when(state, CULTIST)).toBe(true);
+    targetHook.effect(state, CULTIST);
+    resolveActions(state);
+
+    expect(state.loop.locIntrigue.City).toBe(1);
+  });
+
+  it("ignores an active forbid intrigue on every character here", () => {
+    const state = createState();
+    state.loop.placed = [
+      {
+        owner: 0,
+        card: "forbidIntrigue",
+        target: { kind: "character", id: KEY_PERSON },
+      },
+      {
+        owner: "mastermind",
+        card: "intriguePlus1",
+        target: { kind: "character", id: KEY_PERSON },
+      },
+    ];
+
+    targetHook.effect(state, CULTIST);
+    resolveActions(state);
+
+    expect(state.loop.charCounters[KEY_PERSON].intrigue).toBe(1);
+  });
+
+  it("does not ignore forbid intrigue outside this location", () => {
+    const state = createState();
+    state.loop.board[KEY_PERSON].at = "School";
+    state.loop.placed = [
+      {
+        owner: 0,
+        card: "forbidIntrigue",
+        target: { kind: "character", id: KEY_PERSON },
+      },
+      {
+        owner: "mastermind",
+        card: "intriguePlus1",
+        target: { kind: "character", id: KEY_PERSON },
+      },
+    ];
+
+    targetHook.effect(state, CULTIST);
+    resolveActions(state);
+
+    expect(state.loop.charCounters[KEY_PERSON].intrigue).toBe(0);
+  });
+
+  it("does not ignore anything when the optional hook is not used", () => {
+    const state = createState();
+    state.loop.placed = [
+      {
+        owner: 0,
+        card: "forbidIntrigue",
+        target: { kind: "location", at: "City" },
+      },
+      {
+        owner: "mastermind",
+        card: "intriguePlus1",
+        target: { kind: "location", at: "City" },
+      },
+    ];
+
+    resolveActions(state);
+
+    expect(state.loop.locIntrigue.City).toBe(0);
+  });
+
+  it("applies round-wide forbid invalidation before the cultist scope", () => {
+    const state = createState();
+    state.loop.placed = [
+      {
+        owner: 0,
+        card: "forbidIntrigue",
+        target: { kind: "location", at: "City" },
+      },
+      {
+        owner: 1,
+        card: "forbidIntrigue",
+        target: { kind: "location", at: "School" },
+      },
+      {
+        owner: "mastermind",
+        card: "intriguePlus1",
+        target: { kind: "location", at: "School" },
+      },
+    ];
+
+    targetHook.effect(state, CULTIST);
+    resolveActions(state);
+
+    expect(state.loop.locIntrigue.School).toBe(1);
+  });
+
+  it("uses this character's location after movement resolves", () => {
+    const state = createState();
+    state.loop.placed = [
+      {
+        owner: "mastermind",
+        card: "moveVertical",
+        target: { kind: "character", id: CULTIST },
+      },
+      {
+        owner: 0,
+        card: "forbidIntrigue",
+        target: { kind: "location", at: "Hospital" },
+      },
+      {
+        owner: "mastermind",
+        card: "intriguePlus1",
+        target: { kind: "location", at: "Hospital" },
+      },
+    ];
+
+    targetHook.effect(state, CULTIST);
+    resolveActions(state);
+
+    expect(state.loop.board[CULTIST].at).toBe("Hospital");
+    expect(state.loop.locIntrigue.Hospital).toBe(1);
+    expect(state.loop.cultistsIgnoringForbidIntrigue).toBeUndefined();
+  });
 });

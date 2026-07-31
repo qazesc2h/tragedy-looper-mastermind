@@ -52,6 +52,17 @@ function placeBrainIntrigue(
   state.loop.charCounters[target.id].intrigue += 1;
 }
 
+function activateCultistIntrigueIgnore(
+  state: GameState,
+  self: CharacterId,
+): void {
+  const activeCultists =
+    state.loop.cultistsIgnoringForbidIntrigue ??= [];
+  if (!activeCultists.includes(self)) {
+    activeCultists.push(self);
+  }
+}
+
 /** 기본편 역할 — 총 13건 */
 export const ROLE_IMPL: Record<string, {
   ko: string;
@@ -164,9 +175,10 @@ export const ROLE_IMPL: Record<string, {
           timing: "Card resolve",
           description: `You may ignore all Forbid :intrigue: effects on this location and on all characters in this location.`,
         },
-        // TODO(구현): 위 source 를 술어/효과로 옮길 것
-        when: (_s: GameState, _self: CharacterId) => false,
-        effect: (_s: GameState, _self: CharacterId) => { throw new Error('unimplemented'); },
+        when: (_s: GameState, _self: CharacterId) => true,
+        effect: (s: GameState, self: CharacterId) => {
+          activateCultistIntrigueIgnore(s, self);
+        },
       },
     ],
   },

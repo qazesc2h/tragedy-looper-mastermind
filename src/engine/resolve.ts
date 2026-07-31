@@ -88,6 +88,25 @@ function forbiddenTargets(
   );
 }
 
+function cultistIgnoredIntrigueTargets(state: GameState): Set<string> {
+  const ignored = new Set<string>();
+
+  for (
+    const cultist of state.loop.cultistsIgnoringForbidIntrigue ?? []
+  ) {
+    const location = state.loop.board[cultist].at;
+    ignored.add(targetKey({ kind: "location", at: location }));
+
+    for (const [character, position] of Object.entries(state.loop.board)) {
+      if (position.alive && position.at === location) {
+        ignored.add(targetKey({ kind: "character", id: character }));
+      }
+    }
+  }
+
+  return ignored;
+}
+
 function resolveCounterCard(
   state: GameState,
   placedCard: PlacedCard,
@@ -161,13 +180,18 @@ function resolveCounters(
   const intrigueForbids = placed.filter(
     (placedCard) => placedCard.card === "forbidIntrigue",
   );
-  const intrigueForbidden = intrigueForbidActive(intrigueForbids)
-    ? new Set(
-        intrigueForbids
-          .filter((placedCard) => placedCard.owner !== "mastermind")
-          .map((placedCard) => targetKey(placedCard.target)),
-      )
-    : new Set<string>();
+  const intrigueForbidIsActive = intrigueForbidActive(intrigueForbids);
+  const intrigueForbidden = new Set<string>();
+  if (intrigueForbidIsActive) {
+    const ignoredTargets = cultistIgnoredIntrigueTargets(state);
+    for (const placedCard of intrigueForbids) {
+      if (placedCard.owner === "mastermind") continue;
+      const key = targetKey(placedCard.target);
+      if (!ignoredTargets.has(key)) {
+        intrigueForbidden.add(key);
+      }
+    }
+  }
 
   // 불안+1을 전부 판정한 다음 불안-1을 포함한 나머지 효과를 처리한다.
   for (const placedCard of placed) {
@@ -221,6 +245,7 @@ export function resolveActions(state: GameState): GameState {
   resolveCounters(state, placed);
   recordSpentCards(state, placed);
   state.loop.placed = [];
+  delete state.loop.cultistsIgnoringForbidIntrigue;
 
   return state;
 }
