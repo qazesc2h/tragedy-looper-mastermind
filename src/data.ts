@@ -11,6 +11,7 @@ import type {
 export interface CharacterData {
   id: CharacterId;
   startLocation: readonly Location[];
+  forbiddenLocation: readonly Location[];
   comesInLater: boolean;
 }
 
@@ -87,6 +88,12 @@ function parseCharacterData(id: CharacterId, value: unknown): CharacterData {
   if (startLocation.length === 0) {
     throw new Error(`character "${id}" has no start location`);
   }
+  const forbiddenLocation = requireArray(
+    raw.forbiddenLocation,
+    `character "${id}".forbiddenLocation`,
+  ).map((location, index) =>
+    parseLocation(location, `character "${id}".forbiddenLocation[${index}]`)
+  );
   if (typeof raw.comesInLater !== "boolean") {
     throw new Error(`character "${id}".comesInLater must be a boolean`);
   }
@@ -94,6 +101,7 @@ function parseCharacterData(id: CharacterId, value: unknown): CharacterData {
   return {
     id,
     startLocation,
+    forbiddenLocation,
     comesInLater: raw.comesInLater,
   };
 }

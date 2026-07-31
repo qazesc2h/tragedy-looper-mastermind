@@ -7,6 +7,7 @@ import {
 } from "../types";
 import { ROLE_IMPL } from "../impl/roles";
 import { PLOT_IMPL } from "../impl/plots";
+import { resolveActions } from "./resolve";
 
 /** 지금 이 시점에 걸리는 모든 훅을 모은다. */
 export function collectHooks(s: GameState, at: HookPoint): {
@@ -63,8 +64,7 @@ export function advance(s: GameState): void {
       break;
 
     case "P4_RESOLVE":
-      // TODO: ① 이동 먼저(engine/movement) → ② 나머지 카드
-      //       ③ 카드 회수, 1루프당 1회 카드는 spentOncePerLoop 로
+      resolveActions(s);
       resolveHooks(s, "P4_RESOLVE");
       break;
 
