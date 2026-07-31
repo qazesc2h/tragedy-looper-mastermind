@@ -1,5 +1,7 @@
 // 코어 타입 — 손으로 작성. 생성기가 덮어쓰지 않음.
 
+import { characterDataOf } from "./data";
+
 export type CharacterId = string;
 export type RoleId = string;
 export type PlotId = string;
@@ -168,12 +170,36 @@ export function resolvePlaceX(s: GameState): Location | undefined {
       (c) => s.scenario.cast[c] === want,
     );
     if (!holder) continue;
-    // 하수인은 각본가가 매 루프 시작 장소를 지정 → scriptSpecified 참조
-    const override = s.scenario.scriptSpecified?.[`startLocation:${holder}`];
-    return (override as Location) ?? startLocationOf(holder);
+    return startLocationOf(holder, s.scenario);
   }
   return undefined;
 }
 
-/** data/characters.json 에서 읽어와 주입할 것 */
-export declare function startLocationOf(c: CharacterId): Location;
+/** data/characters.json의 시작 장소를 시나리오 지정값과 함께 해석한다. */
+export function startLocationOf(
+  c: CharacterId,
+  scenario?: Scenario,
+): Location {
+  const choices = characterDataOf(c).startLocation;
+  if (choices.length === 1) {
+    return choices[0];
+  }
+
+  const key = `startLocation:${c}`;
+  const selected = scenario?.scriptSpecified?.[key];
+  if (selected === undefined) {
+    throw new Error(
+      `start location for "${c}" must be provided as ` +
+      `scenario.scriptSpecified["${key}"]; allowed: ${choices.join(", ")}`,
+    );
+  }
+
+  const location = choices.find((choice) => choice === selected);
+  if (!location) {
+    throw new Error(
+      `invalid start location for "${c}" in ` +
+      `scenario.scriptSpecified["${key}"]; allowed: ${choices.join(", ")}`,
+    );
+  }
+  return location;
+}
