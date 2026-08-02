@@ -88,6 +88,15 @@ function forbiddenTargets(
   );
 }
 
+function timeTravelerIgnoredGoodwillTargets(
+  state: GameState,
+): Set<string> {
+  return new Set(
+    (state.loop.timeTravelersIgnoringForbidGoodwill ?? [])
+      .map((character) => targetKey({ kind: "character", id: character })),
+  );
+}
+
 function cultistIgnoredIntrigueTargets(state: GameState): Set<string> {
   const ignored = new Set<string>();
 
@@ -175,6 +184,9 @@ function resolveCounters(
   placed: readonly PlacedCard[],
 ): void {
   const goodwillForbidden = forbiddenTargets(placed, "forbidGoodwill");
+  for (const ignored of timeTravelerIgnoredGoodwillTargets(state)) {
+    goodwillForbidden.delete(ignored);
+  }
   const paranoiaForbidden = forbiddenTargets(placed, "forbidParanoia");
 
   const intrigueForbids = placed.filter(
@@ -246,6 +258,7 @@ export function resolveActions(state: GameState): GameState {
   recordSpentCards(state, placed);
   state.loop.placed = [];
   delete state.loop.cultistsIgnoringForbidIntrigue;
+  delete state.loop.timeTravelersIgnoringForbidGoodwill;
 
   return state;
 }

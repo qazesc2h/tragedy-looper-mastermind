@@ -115,6 +115,9 @@ export interface LoopState {
   /** 이번 P4에서 음모 금지 무시 능력을 발동한 광신도 */
   cultistsIgnoringForbidIntrigue?: CharacterId[];
 
+  /** 이번 P4에서 자신의 우호 금지를 무시하는 시간 여행자 */
+  timeTravelersIgnoringForbidGoodwill?: CharacterId[];
+
   /** 이번 루프에 역할이 공개된 캐릭터 */
   revealedRoleCharacters?: CharacterId[];
 
@@ -139,7 +142,11 @@ export interface Hook {
   when: (s: GameState, self: CharacterId) => boolean;
   /** 동시 해결 전에 확정해야 하는 효과 대상 */
   effectTarget?: (s: GameState, self: CharacterId) => Target | undefined;
-  effect: (s: GameState, self: CharacterId, target?: Target) => void;
+  effect: (
+    s: GameState,
+    self: CharacterId,
+    target?: Target,
+  ) => void | RoleId;
 }
 
 // ─────────────────────────────────────────────────────────── 파생 조회

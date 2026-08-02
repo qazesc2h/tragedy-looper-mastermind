@@ -1,16 +1,22 @@
 import { describe, expect, it } from "vitest";
 
-import { collectHooks, endLoop, resolveHooks } from "../src/engine/phases";
+import { killCharacter, reviveCharacter } from "../src/engine/death";
+import {
+  advance,
+  collectHooks,
+  endLoop,
+  resolveHooks,
+} from "../src/engine/phases";
 import { resolveActions } from "../src/engine/resolve";
 import { initLoop } from "../src/engine/setup";
-import { ROLE_IMPL } from "../src/impl/roles";
+import { effectiveAbilityRoles, ROLE_IMPL } from "../src/impl/roles";
 import type {
   GameState,
   Hook,
   Scenario,
   Target,
 } from "../src/types";
-import { resolvePlaceX } from "../src/types";
+import { effectiveRole, resolvePlaceX } from "../src/types";
 
 const KEY_PERSON = "boyStudent";
 const KILLER = "girlStudent";
@@ -20,6 +26,8 @@ const CONSPIRACY_THEORIST = "journalist";
 const FRIEND = "boss";
 const LOVER = "girlStudent";
 const LOVED_ONE = "boyStudent";
+const TIME_TRAVELER = "informer";
+const FACTOR = "boyStudent";
 
 function createState(): GameState {
   const scenario: Scenario = {
@@ -365,6 +373,98 @@ describe("cultist", () => {
   });
 });
 
+describe("timeTraveler / forbid goodwill", () => {
+  const forbidHook = hook("timeTraveler");
+
+  it("ignores Forbid goodwill on this character", () => {
+    const state = createRoleState({ [TIME_TRAVELER]: "timeTraveler" });
+    state.loop.placed = [
+      {
+        card: "forbidGoodwill",
+        target: { kind: "character", id: TIME_TRAVELER },
+        owner: "mastermind",
+      },
+      {
+        card: "goodwillPlus1",
+        target: { kind: "character", id: TIME_TRAVELER },
+        owner: 0,
+      },
+    ];
+
+    expect(forbidHook.kind).toBe("mandatory");
+    expect(forbidHook.when(state, TIME_TRAVELER)).toBe(true);
+    state.loop.phase = "P4_RESOLVE";
+    advance(state);
+
+    expect(state.loop.charCounters[TIME_TRAVELER].goodwill).toBe(1);
+    expect(state.loop.timeTravelersIgnoringForbidGoodwill).toBeUndefined();
+  });
+
+  it("does not ignore Forbid goodwill on another character", () => {
+    const state = createRoleState({
+      [TIME_TRAVELER]: "timeTraveler",
+      [KEY_PERSON]: "person",
+    });
+    state.loop.placed = [
+      {
+        card: "forbidGoodwill",
+        target: { kind: "character", id: KEY_PERSON },
+        owner: "mastermind",
+      },
+      {
+        card: "goodwillPlus1",
+        target: { kind: "character", id: KEY_PERSON },
+        owner: 0,
+      },
+    ];
+
+    state.loop.phase = "P4_RESOLVE";
+    advance(state);
+
+    expect(state.loop.charCounters[KEY_PERSON].goodwill).toBe(0);
+  });
+});
+
+describe("timeTraveler / last day loss", () => {
+  const lastDayHook = hook("timeTraveler", 1);
+
+  it("may end the loop at day end on the last day with 2 goodwill", () => {
+    const state = createRoleState({ [TIME_TRAVELER]: "timeTraveler" });
+    state.loop.day = state.scenario.daysPerLoop;
+    state.loop.phase = "P9_ROUND_END";
+    state.loop.charCounters[TIME_TRAVELER].goodwill = 2;
+
+    expect(ROLE_IMPL.timeTraveler.hooks).toHaveLength(2);
+    expect(lastDayHook.phase).toBe("P9_ROUND_END");
+    expect(lastDayHook.kind).toBe("optional");
+    expect(lastDayHook.when(state, TIME_TRAVELER)).toBe(true);
+    applyIfEligible(lastDayHook, state, TIME_TRAVELER);
+
+    expect(state.history).toHaveLength(1);
+  });
+
+  it("does not fire before the last day", () => {
+    const state = createRoleState({ [TIME_TRAVELER]: "timeTraveler" });
+    state.loop.day = state.scenario.daysPerLoop - 1;
+    state.loop.phase = "P9_ROUND_END";
+    state.loop.charCounters[TIME_TRAVELER].goodwill = 2;
+
+    expect(lastDayHook.when(state, TIME_TRAVELER)).toBe(false);
+    applyIfEligible(lastDayHook, state, TIME_TRAVELER);
+
+    expect(state.history).toEqual([]);
+  });
+
+  it("does not fire with 3 goodwill on the last day", () => {
+    const state = createRoleState({ [TIME_TRAVELER]: "timeTraveler" });
+    state.loop.day = state.scenario.daysPerLoop;
+    state.loop.charCounters[TIME_TRAVELER].goodwill = 3;
+
+    expect(lastDayHook.when(state, TIME_TRAVELER)).toBe(false);
+    expect(collectHooks(state, "LAST_DAY")).toEqual([]);
+  });
+});
+
 describe("conspiracyTheorist", () => {
   const targetHook = hook("conspiracyTheorist");
 
@@ -454,6 +554,40 @@ describe("serialKiller", () => {
 
     expect(state.loop.board[KILLER].alive).toBe(false);
     expect(state.loop.board[KEY_PERSON].alive).toBe(false);
+  });
+
+  it("cannot kill an immortal timeTraveler or remove its protection", () => {
+    const state = createRoleState({
+      [KILLER]: "serialKiller",
+      [TIME_TRAVELER]: "timeTraveler",
+    });
+    state.loop.charCounters[TIME_TRAVELER].protection = 1;
+
+    resolveHooks(state, "P9_ROUND_END");
+
+    expect(state.loop.board[TIME_TRAVELER].alive).toBe(true);
+    expect(state.loop.charCounters[TIME_TRAVELER].protection).toBe(1);
+  });
+});
+
+describe("character death and revival", () => {
+  it("checks protection after immortality and consumes it for a mortal", () => {
+    const state = createRoleState({ [KEY_PERSON]: "person" });
+    state.loop.charCounters[KEY_PERSON].protection = 1;
+
+    expect(killCharacter(state, KEY_PERSON)).toBe(false);
+    expect(state.loop.board[KEY_PERSON].alive).toBe(true);
+    expect(state.loop.charCounters[KEY_PERSON].protection).toBe(0);
+  });
+
+  it("kills an unprotected mortal and can revive the corpse", () => {
+    const state = createRoleState({ [KEY_PERSON]: "person" });
+
+    expect(killCharacter(state, KEY_PERSON)).toBe(true);
+    expect(state.loop.board[KEY_PERSON].alive).toBe(false);
+    expect(reviveCharacter(state, KEY_PERSON)).toBe(true);
+    expect(state.loop.board[KEY_PERSON].alive).toBe(true);
+    expect(reviveCharacter(state, KEY_PERSON)).toBe(false);
   });
 });
 
@@ -636,5 +770,88 @@ describe("lovedOne / protagonists death", () => {
     state.loop.charCounters[LOVED_ONE].paranoia = 3;
 
     expect(lossHook.when(state, LOVED_ONE)).toBe(false);
+  });
+});
+
+describe("factor / gained abilities", () => {
+  const schoolHook = hook("factor");
+  const cityHook = hook("factor", 1);
+
+  it("gains the conspiracyTheorist ability at 2 School intrigue", () => {
+    const state = createRoleState({
+      [FACTOR]: "factor",
+      [KILLER]: "person",
+    });
+    state.loop.locIntrigue.School = 2;
+
+    expect(schoolHook.when(state, FACTOR)).toBe(true);
+    const granted = collectHooks(state, "P5_MASTERMIND_ABILITY")
+      .find(({ self }) => self === FACTOR);
+    expect(granted).toBeDefined();
+    granted?.hook.effect(state, FACTOR, {
+      kind: "character",
+      id: KILLER,
+    });
+
+    expect(state.loop.charCounters[KILLER].paranoia).toBe(1);
+  });
+
+  it("does not gain the conspiracyTheorist ability at 1 School intrigue", () => {
+    const state = createRoleState({ [FACTOR]: "factor" });
+    state.loop.locIntrigue.School = 1;
+
+    expect(schoolHook.when(state, FACTOR)).toBe(false);
+    expect(collectHooks(state, "P5_MASTERMIND_ABILITY")).toEqual([]);
+  });
+
+  it("gains the keyPerson ability at 2 City intrigue", () => {
+    const state = createRoleState({ [FACTOR]: "factor" });
+    state.loop.locIntrigue.City = 2;
+    killCharacter(state, FACTOR);
+
+    expect(cityHook.when(state, FACTOR)).toBe(true);
+    resolveHooks(state, "ALWAYS");
+
+    expect(state.history).toHaveLength(1);
+    expect(state.history[0].board[FACTOR].alive).toBe(false);
+  });
+
+  it("does not gain the keyPerson ability at 1 City intrigue", () => {
+    const state = createRoleState({ [FACTOR]: "factor" });
+    state.loop.locIntrigue.City = 1;
+    killCharacter(state, FACTOR);
+
+    expect(cityHook.when(state, FACTOR)).toBe(false);
+    resolveHooks(state, "ALWAYS");
+
+    expect(state.history).toEqual([]);
+  });
+
+  it("gains both abilities when both location conditions hold", () => {
+    const state = createRoleState({ [FACTOR]: "factor" });
+    state.loop.locIntrigue.School = 2;
+    state.loop.locIntrigue.City = 2;
+
+    expect(effectiveAbilityRoles(state, FACTOR)).toEqual([
+      "factor",
+      "conspiracyTheorist",
+      "keyPerson",
+    ]);
+  });
+
+  it("does not become signWithMe's keyPerson when it gains that ability", () => {
+    const state = createRoleState({ [FACTOR]: "factor" });
+    state.scenario.mainPlot = "signWithMe";
+    state.loop.locIntrigue.City = 2;
+    state.loop.charCounters[FACTOR].intrigue = 2;
+
+    expect(effectiveAbilityRoles(state, FACTOR)).toContain("keyPerson");
+    expect(effectiveRole(state, FACTOR)).toBe("factor");
+    const signWithMeLossTargets = Object.keys(state.scenario.cast).filter(
+      (character) =>
+        effectiveRole(state, character) === "keyPerson" &&
+        state.loop.charCounters[character].intrigue >= 2,
+    );
+    expect(signWithMeLossTargets).toEqual([]);
   });
 });

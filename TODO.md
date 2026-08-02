@@ -16,8 +16,8 @@
 - **광신도** (`cultist`)
   - [x] [Card resolve] You may ignore all Forbid :intrigue: effects on this location and on all characters in this location.
 - **시간 여행자** (`timeTraveler`)
-  - [ ] [Card resolve] Ignore Forbid :goodwill: on this character.
-  - [ ] [Day End,Last Day] There is 2 or less :goodwill: on this character. → Loop ends
+  - [x] [Card resolve] Ignore Forbid :goodwill: on this character.
+  - [x] [Day End,Last Day] There is 2 or less :goodwill: on this character. → Loop ends
 - [x] **마녀** (`witch`) — 능력 없음
 - **친구** (`friend`)
   - [x] [Loop End] This character is dead. → Reveal its role.
@@ -32,8 +32,8 @@
 - **연쇄 살인마** (`serialKiller`)
   - [x] [Day End] There is exactly 1 other (living) character in this location → That character dies.
 - **변수** (`factor`)
-  - [ ] [Always] There is at least 2 :intrigue: on the School → This character gains the :conspiracyTheorist:‘s ability, but no
-  - [ ] [Always] There is at least 2 :intrigue: on the City → This character gains the :keyPerson:’s ability, but not its role.
+  - [x] [Always] There is at least 2 :intrigue: on the School → This character gains the :conspiracyTheorist:‘s ability, but no
+  - [x] [Always] There is at least 2 :intrigue: on the City → This character gains the :keyPerson:’s ability, but not its role.
 
 ## 룰(플롯) — 12종 / 훅 8개
 

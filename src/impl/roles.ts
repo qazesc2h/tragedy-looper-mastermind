@@ -11,6 +11,19 @@ import type {
   Target,
 } from "../types";
 import { endLoop } from "../engine/phases";
+import { killCharacter } from "../engine/death";
+
+function isLastDay(state: GameState): boolean {
+  return state.loop.day === state.scenario.daysPerLoop;
+}
+
+function factorHasConspiracyTheoristAbility(state: GameState): boolean {
+  return state.loop.locIntrigue.School >= 2;
+}
+
+function factorHasKeyPersonAbility(state: GameState): boolean {
+  return state.loop.locIntrigue.City >= 2;
+}
 
 function characterWithRole(
   state: GameState,
@@ -60,6 +73,17 @@ function activateCultistIntrigueIgnore(
     state.loop.cultistsIgnoringForbidIntrigue ??= [];
   if (!activeCultists.includes(self)) {
     activeCultists.push(self);
+  }
+}
+
+function activateTimeTravelerGoodwillIgnore(
+  state: GameState,
+  self: CharacterId,
+): void {
+  const activeTimeTravelers =
+    state.loop.timeTravelersIgnoringForbidGoodwill ??= [];
+  if (!activeTimeTravelers.includes(self)) {
+    activeTimeTravelers.push(self);
   }
 }
 
@@ -188,7 +212,7 @@ export const ROLE_IMPL: Record<string, {
         effect: (s: GameState, _self: CharacterId) => {
           const keyPerson = characterWithRole(s, "keyPerson");
           if (keyPerson !== undefined) {
-            s.loop.board[keyPerson].alive = false;
+            killCharacter(s, keyPerson);
           }
         },
       },
@@ -260,33 +284,25 @@ export const ROLE_IMPL: Record<string, {
           timing: "Card resolve",
           description: `Ignore Forbid :goodwill: on this character.`,
         },
-        // TODO(구현): 위 source 를 술어/효과로 옮길 것
-        when: (_s: GameState, _self: CharacterId) => false,
-        effect: (_s: GameState, _self: CharacterId) => { throw new Error('unimplemented'); },
+        when: (_s: GameState, _self: CharacterId) => true,
+        effect: (s: GameState, self: CharacterId) => {
+          activateTimeTravelerGoodwillIgnore(s, self);
+        },
       },
       {
         phase: "P9_ROUND_END",
-        kind: "lossTragedy",
+        kind: "optional",
         source: {
-          timing: "Day End",
+          timing: "Day End, Last Day",
           prerequisite: `There is 2 or less :goodwill: on this character.`,
           description: `Loop ends`,
         },
-        // TODO(구현): 위 source 를 술어/효과로 옮길 것
-        when: (_s: GameState, _self: CharacterId) => false,
-        effect: (_s: GameState, _self: CharacterId) => { throw new Error('unimplemented'); },
-      },
-      {
-        phase: "LAST_DAY",
-        kind: "lossTragedy",
-        source: {
-          timing: "Last Day",
-          prerequisite: `There is 2 or less :goodwill: on this character.`,
-          description: `Loop ends`,
+        when: (s: GameState, self: CharacterId) =>
+          isLastDay(s) &&
+          s.loop.charCounters[self].goodwill <= 2,
+        effect: (s: GameState, _self: CharacterId) => {
+          endLoop(s);
         },
-        // TODO(구현): 위 source 를 술어/효과로 옮길 것
-        when: (_s: GameState, _self: CharacterId) => false,
-        effect: (_s: GameState, _self: CharacterId) => { throw new Error('unimplemented'); },
       },
     ],
   },
@@ -447,7 +463,7 @@ export const ROLE_IMPL: Record<string, {
           if (targetCharacter === undefined) {
             return;
           }
-          s.loop.board[targetCharacter].alive = false;
+          killCharacter(s, targetCharacter);
         },
       },
     ],
@@ -465,9 +481,10 @@ export const ROLE_IMPL: Record<string, {
           prerequisite: `There is at least 2 :intrigue: on the School`,
           description: `This character gains the :conspiracyTheorist:‘s ability, but not its role.`,
         },
-        // TODO(구현): 위 source 를 술어/효과로 옮길 것
-        when: (_s: GameState, _self: CharacterId) => false,
-        effect: (_s: GameState, _self: CharacterId) => { throw new Error('unimplemented'); },
+        when: (s: GameState, _self: CharacterId) =>
+          factorHasConspiracyTheoristAbility(s),
+        effect: (_s: GameState, _self: CharacterId) =>
+          "conspiracyTheorist",
       },
       {
         phase: "ALWAYS",
@@ -477,10 +494,33 @@ export const ROLE_IMPL: Record<string, {
           prerequisite: `There is at least 2 :intrigue: on the City`,
           description: `This character gains the :keyPerson:’s ability, but not its role.`,
         },
-        // TODO(구현): 위 source 를 술어/효과로 옮길 것
-        when: (_s: GameState, _self: CharacterId) => false,
-        effect: (_s: GameState, _self: CharacterId) => { throw new Error('unimplemented'); },
+        when: (s: GameState, _self: CharacterId) =>
+          factorHasKeyPersonAbility(s),
+        effect: (_s: GameState, _self: CharacterId) => "keyPerson",
       },
     ],
   },
 };
+
+/** 역할 정체성은 유지하면서 현재 획득한 역할 능력만 함께 반환한다. */
+export function effectiveAbilityRoles(
+  state: GameState,
+  character: CharacterId,
+): RoleId[] {
+  const role = effectiveRole(state, character);
+  const abilityRoles = [role];
+  if (role !== "factor") {
+    return abilityRoles;
+  }
+
+  for (const grantHook of ROLE_IMPL.factor.hooks) {
+    if (!grantHook.when(state, character)) {
+      continue;
+    }
+    const grantedRole = grantHook.effect(state, character);
+    if (grantedRole && !abilityRoles.includes(grantedRole)) {
+      abilityRoles.push(grantedRole);
+    }
+  }
+  return abilityRoles;
+}

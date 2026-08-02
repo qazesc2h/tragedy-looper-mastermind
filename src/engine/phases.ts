@@ -3,9 +3,9 @@
 
 import {
   type GameState, type Hook, type HookPoint, type Phase,
-  PHASE_ORDER, effectiveRole,
+  PHASE_ORDER,
 } from "../types";
-import { ROLE_IMPL } from "../impl/roles";
+import { effectiveAbilityRoles, ROLE_IMPL } from "../impl/roles";
 import { PLOT_IMPL } from "../impl/plots";
 import { resolveActions } from "./resolve";
 
@@ -16,9 +16,11 @@ export function collectHooks(s: GameState, at: HookPoint): {
   const out: { self: string; hook: Hook }[] = [];
 
   for (const c of Object.keys(s.scenario.cast)) {
-    const impl = ROLE_IMPL[effectiveRole(s, c)];
-    for (const h of impl?.hooks ?? []) {
-      if (h.phase === at) out.push({ self: c, hook: h });
+    for (const abilityRole of effectiveAbilityRoles(s, c)) {
+      const impl = ROLE_IMPL[abilityRole];
+      for (const h of impl?.hooks ?? []) {
+        if (h.phase === at) out.push({ self: c, hook: h });
+      }
     }
   }
   for (const p of [s.scenario.mainPlot, ...s.scenario.subPlots]) {
@@ -69,8 +71,8 @@ export function advance(s: GameState): void {
       break;
 
     case "P4_RESOLVE":
-      resolveActions(s);
       resolveHooks(s, "P4_RESOLVE");
+      resolveActions(s);
       break;
 
     case "P5_MASTERMIND_ABILITY":
