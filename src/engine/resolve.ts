@@ -13,13 +13,13 @@ import {
   type MoveCard,
 } from "./movement";
 
-const PROTAGONIST_ONCE_PER_LOOP: ReadonlySet<ActionCard> = new Set([
+export const PROTAGONIST_ONCE_PER_LOOP: ReadonlySet<ActionCard> = new Set([
   "goodwillPlus2",
   "paranoiaMinus1",
   "forbidMove",
 ]);
 
-const MASTERMIND_ONCE_PER_LOOP: ReadonlySet<ActionCard> = new Set([
+export const MASTERMIND_ONCE_PER_LOOP: ReadonlySet<ActionCard> = new Set([
   "moveDiagonal",
   "intriguePlus2",
 ]);
