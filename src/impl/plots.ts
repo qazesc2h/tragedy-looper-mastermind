@@ -2,7 +2,29 @@
 //    재생성해도 when/effect 는 덮어쓰지 않도록 주의할 것.
 //    source 는 원본 영문 텍스트(수정 금지). ko 는 정발 용어.
 
-import type { GameState, CharacterId, Hook } from "../types";
+import type { GameState, CharacterId, Hook, Target } from "../types";
+
+const UNSETTLING_RUMOR_USE_KEY = "unsettlingRumor:plot:0";
+
+function unsettlingRumorAvailable(state: GameState): boolean {
+  return !state.loop.abilitiesUsedThisLoop.includes(
+    UNSETTLING_RUMOR_USE_KEY,
+  );
+}
+
+function charactersWithGoodwillLastLoop(
+  state: GameState,
+): CharacterId[] {
+  const previousLoop = state.history.at(-1);
+  if (!previousLoop) return [];
+
+  return Object.entries(previousLoop.charCounters)
+    .filter(([character, counters]) =>
+      previousLoop.board[character]?.alive === true &&
+      counters.goodwill >= 1
+    )
+    .map(([character]) => character);
+}
 
 /** 기본편 룰(플롯) — 총 12건 */
 export const PLOT_IMPL: Record<string, {
@@ -133,9 +155,22 @@ export const PLOT_IMPL: Record<string, {
           timing: "Mastermind Ability",
           description: `You may place 1 :intrigue: on any location.`,
         },
-        // TODO(구현): 위 source 를 술어/효과로 옮길 것
-        when: (_s: GameState, _self: CharacterId) => false,
-        effect: (_s: GameState, _self: CharacterId) => { throw new Error('unimplemented'); },
+        when: (s: GameState, _self: CharacterId) =>
+          unsettlingRumorAvailable(s),
+        effect: (
+          s: GameState,
+          _self: CharacterId,
+          target?: Target,
+        ) => {
+          if (!unsettlingRumorAvailable(s)) {
+            throw new Error("unsettlingRumor is already spent this loop");
+          }
+          if (target?.kind !== "location") {
+            throw new Error("unsettlingRumor requires a location target");
+          }
+          s.loop.locIntrigue[target.at] += 1;
+          s.loop.abilitiesUsedThisLoop.push(UNSETTLING_RUMOR_USE_KEY);
+        },
       },
     ],
   },
@@ -168,9 +203,13 @@ export const PLOT_IMPL: Record<string, {
           timing: "Loop Start",
           description: `Place 2 :paranoia: on all characters who had :goodwill: last loop.`,
         },
-        // TODO(구현): 위 source 를 술어/효과로 옮길 것
-        when: (_s: GameState, _self: CharacterId) => false,
-        effect: (_s: GameState, _self: CharacterId) => { throw new Error('unimplemented'); },
+        when: (s: GameState, _self: CharacterId) =>
+          charactersWithGoodwillLastLoop(s).length > 0,
+        effect: (s: GameState, _self: CharacterId) => {
+          for (const character of charactersWithGoodwillLastLoop(s)) {
+            s.loop.charCounters[character].paranoia += 2;
+          }
+        },
       },
     ],
   },
