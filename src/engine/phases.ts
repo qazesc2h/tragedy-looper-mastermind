@@ -105,6 +105,7 @@ export function advance(
         endLoop(s);
         return undefined;
       }
+      delete s.loop.optionalLossActivations;
       s.loop.day += 1;
       s.loop.phase = "P1_ROUND_START";
       return undefined;
@@ -117,6 +118,8 @@ export function advance(
 
 export function endLoop(s: GameState): void {
   resolveHooks(s, "LOOP_END");
+  // [선택] 패배 발동은 라운드 상태이며 루프 스냅샷에 남기지 않는다.
+  delete s.loop.optionalLossActivations;
   // 인과율(threadsFate) 등 루프 간 참조를 위해 반드시 스냅샷을 남긴다.
   s.history.push(structuredClone(s.loop));
   // TODO: 승패 판정 → 다음 루프 준비 또는 최후의 싸움

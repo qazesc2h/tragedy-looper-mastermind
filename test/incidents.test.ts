@@ -63,6 +63,7 @@ describe("incident resolution", () => {
       effectApplied: false,
     });
     expect(state.loop.board[CULPRIT].alive).toBe(true);
+    expect(state.loop.incidentsFiredThisLoop).toEqual(["suicide"]);
   });
 
   it("returns the P7 result and advances to P8", () => {
@@ -94,6 +95,7 @@ describe("incident resolution", () => {
     expect(() => advance(state)).toThrow("requires a location target");
     expect(state.loop.phase).toBe("P7_INCIDENT");
     expect(state.loop.board[CULPRIT].at).toBe("City");
+    expect(state.loop.incidentsFiredThisLoop).toBeUndefined();
   });
 });
 

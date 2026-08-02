@@ -10,6 +10,7 @@ import type {
 
 export interface CharacterData {
   id: CharacterId;
+  ko: string;
   paranoiaLimit: number;
   startLocation: readonly Location[];
   forbiddenLocation: readonly Location[];
@@ -150,6 +151,9 @@ function parseCharacterData(id: CharacterId, value: unknown): CharacterData {
 
   return {
     id,
+    ko: typeof raw.ko === "string"
+      ? raw.ko
+      : requireString(raw.en, `character "${id}".en`),
     paranoiaLimit,
     startLocation,
     forbiddenLocation,

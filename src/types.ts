@@ -141,6 +141,12 @@ export interface LoopState {
   /** 이번 루프에 역할이 공개된 캐릭터 */
   revealedRoleCharacters?: CharacterId[];
 
+  /** 이번 루프에 실제로 발생한 사건. 효과가 없었어도 기록한다. */
+  incidentsFiredThisLoop?: IncidentId[];
+
+  /** 현재 라운드에 각본가가 발동하기로 한 [선택] 패배 조건 */
+  optionalLossActivations?: Record<string, boolean>;
+
   /** 특수 게이지 (기본편 미사용, 확장 대비) */
   specialGauge?: number;
 }

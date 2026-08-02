@@ -57,5 +57,10 @@ export function resolveIncident(
       effectApplied;
   }
 
+  const firedIncidents = state.loop.incidentsFiredThisLoop ??= [];
+  if (!firedIncidents.includes(scheduled.incident)) {
+    firedIncidents.push(scheduled.incident);
+  }
+
   return { ...base, fired: true, effectApplied };
 }
