@@ -2,12 +2,14 @@
 // 근거: 주인공 설명서 21p(4-1~4-9), 45p(라운드 진행 요약).
 
 import {
-  type GameState, type Hook, type HookPoint, type Phase,
+  type GameState, type Hook, type HookPoint, type IncidentChoice,
+  type IncidentResult, type Phase,
   PHASE_ORDER,
 } from "../types";
 import { effectiveAbilityRoles, ROLE_IMPL } from "../impl/roles";
 import { PLOT_IMPL } from "../impl/plots";
 import { resolveActions } from "./resolve";
+import { resolveIncident } from "./incident";
 
 /** 지금 이 시점에 걸리는 모든 훅을 모은다. */
 export function collectHooks(s: GameState, at: HookPoint): {
@@ -55,7 +57,11 @@ export function resolveHooks(s: GameState, at: HookPoint): void {
   //       자동 진행이 아니라 UI 상호작용 지점.
 }
 
-export function advance(s: GameState): void {
+export function advance(
+  s: GameState,
+  incidentChoice?: IncidentChoice,
+): IncidentResult | undefined {
+  let incidentResult: IncidentResult | undefined;
   switch (s.loop.phase) {
     case "P1_ROUND_START":
       resolveHooks(s, "P1_ROUND_START");
@@ -86,10 +92,7 @@ export function advance(s: GameState): void {
       break;
 
     case "P7_INCIDENT":
-      // TODO: 오늘 예정 사건 조회 → 발생 조건 2가지 판정
-      //         ① 범인 생존  ② 범인 불안 ≥ 최대 불안 수치
-      //       발생하면 효과 해결. 발생 사실은 반드시 주인공에게 전달.
-      //       (FAQ Q23 — 효과가 없어도 "발생했지만 아무 일도 없었다"고 알린다)
+      incidentResult = resolveIncident(s, incidentChoice);
       break;
 
     case "P8_LEADER_PASS":
@@ -101,15 +104,16 @@ export function advance(s: GameState): void {
       if (s.loop.day === s.scenario.daysPerLoop) {
         resolveHooks(s, "LAST_DAY");
         endLoop(s);
-        return;
+        return undefined;
       }
       s.loop.day += 1;
       s.loop.phase = "P1_ROUND_START";
-      return;
+      return undefined;
   }
 
   const i = PHASE_ORDER.indexOf(s.loop.phase as Phase);
   s.loop.phase = PHASE_ORDER[i + 1];
+  return incidentResult;
 }
 
 export function endLoop(s: GameState): void {

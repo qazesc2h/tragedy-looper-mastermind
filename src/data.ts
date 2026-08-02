@@ -10,6 +10,7 @@ import type {
 
 export interface CharacterData {
   id: CharacterId;
+  paranoiaLimit: number;
   startLocation: readonly Location[];
   forbiddenLocation: readonly Location[];
   comesInLater: boolean;
@@ -78,6 +79,10 @@ function parseCharacterData(id: CharacterId, value: unknown): CharacterData {
   if (rawId !== id) {
     throw new Error(`character key "${id}" does not match id "${rawId}"`);
   }
+  const paranoiaLimit = requireNumber(
+    raw.paranoiaLimit,
+    `character "${id}".paranoiaLimit`,
+  );
 
   const startLocation = requireArray(
     raw.startLocation,
@@ -100,6 +105,7 @@ function parseCharacterData(id: CharacterId, value: unknown): CharacterData {
 
   return {
     id,
+    paranoiaLimit,
     startLocation,
     forbiddenLocation,
     comesInLater: raw.comesInLater,

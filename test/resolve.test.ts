@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { characterDataOf } from "../src/data";
+import { resolveIncident } from "../src/engine/incident";
 import { resolveActions } from "../src/engine/resolve";
 import { initLoop } from "../src/engine/setup";
 import type {
@@ -39,6 +41,15 @@ interface ManualCase {
   setup?: string;
   placed?: PlacedCard[];
   expect?: ResolveExpectation;
+  cases?: IncidentTriggerCase[];
+}
+
+interface IncidentTriggerCase {
+  culprit: CharacterId;
+  paranoia: number;
+  alive: boolean;
+  paranoiaLimit: number;
+  expectFires: boolean;
 }
 
 interface ManualExamplesView {
@@ -162,6 +173,9 @@ function expectedSpentCards(
 
 describe("manual resolution examples", () => {
   for (const testCase of manualExamples.cases) {
+    if (testCase.id === "incident-trigger-condition") {
+      continue;
+    }
     if (!EXECUTABLE_CASE_IDS.has(testCase.id)) {
       it.todo(testCase.id);
       continue;
@@ -179,6 +193,44 @@ describe("manual resolution examples", () => {
       expectFixtureResult(state, testCase.expect);
       expect(state.loop.spentOncePerLoop).toEqual(expectedSpent);
       expect(state.loop.placed).toEqual([]);
+    });
+  }
+
+  const incidentTriggerFixture = manualExamples.cases.find(
+    (testCase) => testCase.id === "incident-trigger-condition",
+  );
+  for (const [index, triggerCase] of
+    (incidentTriggerFixture?.cases ?? []).entries()) {
+    it(`incident-trigger-condition ${index + 1}`, () => {
+      const scenario: Scenario = {
+        tragedySet: "basicTragedy",
+        mainPlot: "",
+        subPlots: [],
+        cast: { [triggerCase.culprit]: "person" },
+        incidents: [{
+          day: 1,
+          incident: "foulEvil",
+          culprit: triggerCase.culprit,
+        }],
+        loops: 1,
+        daysPerLoop: 1,
+      };
+      const state: GameState = {
+        scenario,
+        loop: initLoop(scenario),
+        history: [],
+      };
+      state.loop.board[triggerCase.culprit].alive = triggerCase.alive;
+      state.loop.charCounters[triggerCase.culprit].paranoia =
+        triggerCase.paranoia;
+
+      expect(characterDataOf(triggerCase.culprit).paranoiaLimit).toBe(
+        triggerCase.paranoiaLimit,
+      );
+      const result = resolveIncident(state);
+
+      expect(result.fired).toBe(triggerCase.expectFires);
+      expect(result.effectApplied).toBe(triggerCase.expectFires);
     });
   }
 

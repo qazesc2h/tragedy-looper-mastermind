@@ -91,6 +91,23 @@ export interface Counters {
   intrigue: number;
 }
 
+export type IncidentCounter = keyof Counters;
+
+/** 임의 대상을 요구하는 사건 효과에 각본가가 제공하는 선택. */
+export interface IncidentChoice {
+  target?: CharacterId;
+  otherTarget?: CharacterId;
+  location?: Location;
+  counter?: IncidentCounter;
+}
+
+export interface IncidentResult {
+  incident?: IncidentId;
+  culprit?: CharacterId;
+  fired: boolean;
+  effectApplied: boolean;
+}
+
 export interface LoopState {
   loop: number;
   day: number;
@@ -147,6 +164,14 @@ export interface Hook {
     self: CharacterId,
     target?: Target,
   ) => void | RoleId;
+}
+
+export interface IncidentHook extends Omit<Hook, "effect" | "effectTarget"> {
+  effect: (
+    s: GameState,
+    culprit: CharacterId,
+    choice?: IncidentChoice,
+  ) => boolean;
 }
 
 // ─────────────────────────────────────────────────────────── 파생 조회

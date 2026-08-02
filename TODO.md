@@ -61,24 +61,24 @@
 ## 사건 — 9종 / 훅 10개
 
 - **나비의 날갯짓** (`butterflyEffect`)
-  - [ ] [—] Put any counter on any character in culprit’s Location.
+  - [x] [—] Put any counter on any character in culprit’s Location.
 - **원격 살인** (`farawayMurder`)
-  - [ ] [—] One character with at least 2 :intrigue: dies.
+  - [x] [—] One character with at least 2 :intrigue: dies.
 - **사악한 기운의 오염** (`foulEvil`)
-  - [ ] [—] Place 2 :intrigue: on the Shrine.
+  - [x] [—] Place 2 :intrigue: on the Shrine.
 - **병원 사건** (`hospitalIncident`)
-  - [ ] [—] 1 :intrigue: on the Hospital → Everyone in the Hospital dies.
-  - [ ] [—] 2 :intrigue: on the Hospital
+  - [x] [—] 1 :intrigue: on the Hospital → Everyone in the Hospital dies.
+  - [x] [—] 2 :intrigue: on the Hospital
 - **불안 확대** (`increasingUnease`)
-  - [ ] [—] Place 2 :paranoia: on any character, then 1 :intrigue: on any other character.
+  - [x] [—] Place 2 :paranoia: on any character, then 1 :intrigue: on any other character.
 - **행방불명** (`missingPerson`)
-  - [ ] [—] Move culprit to any Location. Put 1 :intrigue: on that Location.
+  - [x] [—] Move culprit to any Location. Put 1 :intrigue: on that Location.
 - **살인 사건** (`murder`)
-  - [ ] [—] One (1) other character in culprit’s Location dies
+  - [x] [—] One (1) other character in culprit’s Location dies
 - **유포** (`spreading`)
-  - [ ] [—] Remove 2 :goodwill: (or 1 if they only have that) from a character, and then add 2 :goodwill: to another chara
+  - [x] [—] Remove 2 :goodwill: (or 1 if they only have that) from a character, and then add 2 :goodwill: to another chara
 - **자살** (`suicide`)
-  - [ ] [—] The culprit dies.
+  - [x] [—] The culprit dies.
 
 ---
 
