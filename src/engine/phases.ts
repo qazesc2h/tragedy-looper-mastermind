@@ -86,9 +86,8 @@ export function advance(
       break;
 
     case "P6_GOODWILL":
-      // TODO: 리더가 사용 선언 → 각본가가 해결/거부.
-      //       우호 무시 역할만 거부 가능. 절대 우호 무시는 반드시 거부.
-      //       거부당해도 "1루프당 1회"는 소진된 것으로 간주.
+      // 상호작용 단계이므로 이 phase를 유지한 채 goodwill.ts로 선언을 하나씩
+      // 해결한다. 여기까지 advance하면 더 선언하지 않고 P7로 넘어간다.
       break;
 
     case "P7_INCIDENT":

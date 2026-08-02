@@ -1,0 +1,514 @@
+import { characterDataOf, type GoodwillAbilityData } from "../data";
+import { ROLE_IMPL } from "../impl/roles";
+import {
+  effectiveRole,
+  type ActionCard,
+  type CharacterId,
+  type GameState,
+  type Target,
+} from "../types";
+import { killCharacter, reviveCharacter } from "./death";
+
+export type GoodwillResponse = "resolve" | "refuse";
+
+/** 리더가 선언하는 우호 능력과 그 효과에 필요한 선택. */
+export interface GoodwillDeclaration {
+  user: CharacterId;
+  rank: number;
+  /** 같은 랭크가 둘 이상이면 data/characters.json 배열의 인덱스가 필요하다. */
+  abilityIndex?: number;
+  target?: CharacterId | Target;
+  paranoiaDelta?: -1 | 1;
+  card?: ActionCard;
+}
+
+export interface GoodwillUse extends GoodwillDeclaration {
+  mastermindResponse: GoodwillResponse;
+}
+
+export interface GoodwillResult {
+  user: CharacterId;
+  rank: number;
+  abilityIndex: number;
+  response: GoodwillResponse;
+  resolved: boolean;
+  refused: boolean;
+  effectApplied: boolean;
+}
+
+interface SelectedAbility {
+  ability: GoodwillAbilityData;
+  index: number;
+}
+
+function selectAbility(
+  declaration: GoodwillDeclaration,
+): SelectedAbility {
+  const abilities = characterDataOf(declaration.user).goodwillAbilities;
+
+  if (declaration.abilityIndex !== undefined) {
+    const ability = abilities[declaration.abilityIndex];
+    if (!ability || ability.rank !== declaration.rank) {
+      throw new Error(
+        `character "${declaration.user}" has no rank ${declaration.rank} ` +
+        `goodwill ability at index ${declaration.abilityIndex}`,
+      );
+    }
+    return { ability, index: declaration.abilityIndex };
+  }
+
+  const matches = abilities
+    .map((ability, index) => ({ ability, index }))
+    .filter(({ ability }) => ability.rank === declaration.rank);
+  if (matches.length === 0) {
+    throw new Error(
+      `character "${declaration.user}" has no rank ${declaration.rank} ` +
+      "goodwill ability",
+    );
+  }
+  if (matches.length > 1) {
+    throw new Error(
+      `character "${declaration.user}" has multiple rank ` +
+      `${declaration.rank} goodwill abilities; abilityIndex is required`,
+    );
+  }
+  return matches[0];
+}
+
+function abilityUseKey(user: CharacterId, abilityIndex: number): string {
+  return `${user}:goodwill:${abilityIndex}`;
+}
+
+function assertAbilityAvailable(
+  state: GameState,
+  declaration: GoodwillDeclaration,
+  selected: SelectedAbility,
+): void {
+  const position = state.loop.board[declaration.user];
+  const counters = state.loop.charCounters[declaration.user];
+  if (!position || !counters) {
+    throw new Error(`unknown goodwill ability user "${declaration.user}"`);
+  }
+  if (state.loop.phase !== "P6_GOODWILL") {
+    throw new Error("goodwill abilities can only be used during P6_GOODWILL");
+  }
+  if (counters.goodwill < declaration.rank) {
+    throw new Error(
+      `character "${declaration.user}" needs ${declaration.rank} goodwill`,
+    );
+  }
+  if (
+    selected.ability.restrictedToLocation !== null &&
+    !selected.ability.restrictedToLocation.includes(position.at)
+  ) {
+    throw new Error(
+      `rank ${declaration.rank} goodwill ability for ` +
+      `"${declaration.user}" cannot be used at ${position.at}`,
+    );
+  }
+
+  const limit = selected.ability.timesPerLoop;
+  if (limit !== null) {
+    const key = abilityUseKey(declaration.user, selected.index);
+    const used = state.loop.abilitiesUsedThisLoop.filter(
+      (usedKey) => usedKey === key,
+    ).length;
+    if (used >= limit) {
+      throw new Error(
+        `rank ${declaration.rank} goodwill ability for ` +
+        `"${declaration.user}" is already spent this loop`,
+      );
+    }
+  }
+}
+
+function recordAbilityUse(
+  state: GameState,
+  declaration: GoodwillDeclaration,
+  selected: SelectedAbility,
+): void {
+  if (selected.ability.timesPerLoop !== null) {
+    state.loop.abilitiesUsedThisLoop.push(
+      abilityUseKey(declaration.user, selected.index),
+    );
+  }
+}
+
+function normalizeTarget(target: GoodwillDeclaration["target"]):
+  | Target
+  | undefined {
+  if (typeof target === "string") {
+    return { kind: "character", id: target };
+  }
+  return target;
+}
+
+function requireCharacterTarget(
+  state: GameState,
+  declaration: GoodwillDeclaration,
+): CharacterId {
+  const target = normalizeTarget(declaration.target);
+  if (target?.kind !== "character" || !state.loop.board[target.id]) {
+    throw new Error("goodwill ability requires a character target");
+  }
+  return target.id;
+}
+
+function requireLivingCharacterInSameLocation(
+  state: GameState,
+  declaration: GoodwillDeclaration,
+): CharacterId {
+  const target = requireCharacterTarget(state, declaration);
+  const userPosition = state.loop.board[declaration.user];
+  const targetPosition = state.loop.board[target];
+  if (!targetPosition.alive || targetPosition.at !== userPosition.at) {
+    throw new Error(
+      "goodwill ability target must be a living character in the same location",
+    );
+  }
+  return target;
+}
+
+function changeParanoia(
+  state: GameState,
+  target: CharacterId,
+  amount: -1 | 1 | 2,
+): boolean {
+  const counters = state.loop.charCounters[target];
+  const before = counters.paranoia;
+  counters.paranoia = Math.max(0, before + amount);
+  return counters.paranoia !== before;
+}
+
+function revealRole(state: GameState, character: CharacterId): boolean {
+  const revealed = state.loop.revealedRoleCharacters ??= [];
+  if (revealed.includes(character)) return false;
+  revealed.push(character);
+  return true;
+}
+
+function removeLocationRestriction(
+  state: GameState,
+  character: CharacterId,
+): boolean {
+  const removed = state.loop.locationRestrictionsRemoved ??= [];
+  if (removed.includes(character)) return false;
+  removed.push(character);
+  return true;
+}
+
+function applyStudentParanoiaReduction(
+  state: GameState,
+  declaration: GoodwillDeclaration,
+): boolean {
+  const target = requireLivingCharacterInSameLocation(state, declaration);
+  if (!characterDataOf(target).tags.includes("student")) {
+    throw new Error("goodwill ability target must be a student");
+  }
+  return changeParanoia(state, target, -1);
+}
+
+function applyRichStudentAbility(
+  state: GameState,
+  declaration: GoodwillDeclaration,
+): boolean {
+  const target = requireLivingCharacterInSameLocation(state, declaration);
+  state.loop.charCounters[target].goodwill += 1;
+  return true;
+}
+
+function applyDoctorAbility(
+  state: GameState,
+  declaration: GoodwillDeclaration,
+): boolean {
+  if (declaration.rank === 2) {
+    const target = requireLivingCharacterInSameLocation(state, declaration);
+    if (
+      declaration.paranoiaDelta !== -1 &&
+      declaration.paranoiaDelta !== 1
+    ) {
+      throw new Error("doctor rank 2 goodwill ability requires paranoiaDelta");
+    }
+    return changeParanoia(state, target, declaration.paranoiaDelta);
+  }
+
+  const target = requireCharacterTarget(state, declaration);
+  if (target !== "patient") {
+    throw new Error("doctor rank 3 goodwill ability must target patient");
+  }
+  return removeLocationRestriction(state, target);
+}
+
+function applySimpleBaseAbility(
+  state: GameState,
+  declaration: GoodwillDeclaration,
+  selected: SelectedAbility,
+): boolean | undefined {
+  const key = `${declaration.user}:${selected.index}`;
+
+  switch (key) {
+    case "boyStudent:0":
+    case "girlStudent:0":
+      return applyStudentParanoiaReduction(state, declaration);
+
+    case "richStudent:0":
+      return applyRichStudentAbility(state, declaration);
+
+    case "classRep:0": {
+      if (!declaration.card) {
+        throw new Error("classRep goodwill ability requires a card choice");
+      }
+      const spent = state.loop.spentOncePerLoop.protagonists[state.loop.leader];
+      const cardIndex = spent.indexOf(declaration.card);
+      if (cardIndex < 0) {
+        throw new Error("the chosen leader card is not spent");
+      }
+      spent.splice(cardIndex, 1);
+      return true;
+    }
+
+    case "mysteryBoy:1":
+    case "officeWorker:0":
+      return revealRole(state, declaration.user);
+
+    case "shrineMaiden:0": {
+      const before = state.loop.locIntrigue.Shrine;
+      state.loop.locIntrigue.Shrine = Math.max(0, before - 1);
+      return state.loop.locIntrigue.Shrine !== before;
+    }
+
+    case "shrineMaiden:1": {
+      const target = requireLivingCharacterInSameLocation(state, declaration);
+      return revealRole(state, target);
+    }
+
+    case "alien:0": {
+      const target = requireLivingCharacterInSameLocation(state, declaration);
+      return killCharacter(state, target);
+    }
+
+    case "alien:1": {
+      const target = requireCharacterTarget(state, declaration);
+      const userPosition = state.loop.board[declaration.user];
+      const targetPosition = state.loop.board[target];
+      if (targetPosition.alive || targetPosition.at !== userPosition.at) {
+        throw new Error(
+          "alien rank 5 goodwill ability requires a corpse in the same location",
+        );
+      }
+      return reviveCharacter(state, target);
+    }
+
+    case "godlyBeing:2": {
+      const target = normalizeTarget(declaration.target);
+      const userLocation = state.loop.board[declaration.user].at;
+      if (target?.kind === "location") {
+        if (target.at !== userLocation) {
+          throw new Error("goodwill ability location target must be this location");
+        }
+        const before = state.loop.locIntrigue[target.at];
+        state.loop.locIntrigue[target.at] = Math.max(0, before - 1);
+        return state.loop.locIntrigue[target.at] !== before;
+      }
+      const character = requireLivingCharacterInSameLocation(
+        state,
+        declaration,
+      );
+      const counters = state.loop.charCounters[character];
+      const before = counters.intrigue;
+      counters.intrigue = Math.max(0, before - 1);
+      return counters.intrigue !== before;
+    }
+
+    case "policeOfficer:1": {
+      const target = requireLivingCharacterInSameLocation(state, declaration);
+      if (target === declaration.user) {
+        throw new Error("policeOfficer protection target must be another character");
+      }
+      state.loop.charCounters[target].protection += 1;
+      return true;
+    }
+
+    case "popIdol:0": {
+      const target = requireLivingCharacterInSameLocation(state, declaration);
+      return changeParanoia(state, target, -1);
+    }
+
+    case "popIdol:1": {
+      const target = requireLivingCharacterInSameLocation(state, declaration);
+      state.loop.charCounters[target].goodwill += 1;
+      return true;
+    }
+
+    case "journalist:0": {
+      const target = requireCharacterTarget(state, declaration);
+      if (target === declaration.user) {
+        throw new Error("journalist paranoia target must be another character");
+      }
+      return changeParanoia(state, target, 1);
+    }
+
+    case "journalist:1": {
+      const target = normalizeTarget(declaration.target);
+      const location = state.loop.board[declaration.user].at;
+      if (target?.kind === "location") {
+        if (target.at !== location) {
+          throw new Error("journalist target must be this location");
+        }
+        state.loop.locIntrigue[target.at] += 1;
+        return true;
+      }
+      const character = requireLivingCharacterInSameLocation(
+        state,
+        declaration,
+      );
+      state.loop.charCounters[character].intrigue += 1;
+      return true;
+    }
+
+    case "doctor:0":
+    case "doctor:1":
+      return applyDoctorAbility(state, declaration);
+
+    case "nurse:0": {
+      const target = requireLivingCharacterInSameLocation(state, declaration);
+      const counters = state.loop.charCounters[target];
+      if (counters.paranoia < characterDataOf(target).paranoiaLimit) {
+        throw new Error("nurse goodwill ability target must be panicked");
+      }
+      return changeParanoia(state, target, -1);
+    }
+
+    case "teacher:0": {
+      const target = requireLivingCharacterInSameLocation(state, declaration);
+      if (!characterDataOf(target).tags.includes("student")) {
+        throw new Error("teacher goodwill ability target must be a student");
+      }
+      if (
+        declaration.paranoiaDelta !== -1 &&
+        declaration.paranoiaDelta !== 1
+      ) {
+        throw new Error("teacher rank 3 goodwill ability requires paranoiaDelta");
+      }
+      return changeParanoia(state, target, declaration.paranoiaDelta);
+    }
+
+    case "teacher:1": {
+      const target = requireLivingCharacterInSameLocation(state, declaration);
+      if (!characterDataOf(target).tags.includes("student")) {
+        throw new Error("teacher goodwill ability target must be a student");
+      }
+      return revealRole(state, target);
+    }
+
+    case "transferStudent:1": {
+      const target = requireLivingCharacterInSameLocation(state, declaration);
+      if (target === declaration.user) {
+        throw new Error("transferStudent target must be another character");
+      }
+      const counters = state.loop.charCounters[target];
+      if (counters.intrigue < 1) {
+        throw new Error("transferStudent target must have an intrigue counter");
+      }
+      counters.intrigue -= 1;
+      counters.goodwill += 1;
+      return true;
+    }
+
+    case "soldier:0": {
+      const target = requireLivingCharacterInSameLocation(state, declaration);
+      if (target === declaration.user) {
+        throw new Error("soldier target must be another character");
+      }
+      return changeParanoia(state, target, 2);
+    }
+
+    case "forensicSpecialist:1": {
+      const target = requireCharacterTarget(state, declaration);
+      if (state.loop.board[target].alive) {
+        throw new Error("forensicSpecialist rank 5 target must be a corpse");
+      }
+      return revealRole(state, target);
+    }
+
+    default:
+      return undefined;
+  }
+}
+
+function abilityCannotBeRefused(ability: GoodwillAbilityData): boolean {
+  return ability.en.toLowerCase().includes("cannot be refused");
+}
+
+/** 선언 하나를 현재 상태에서 판정하고, 각본가의 응답에 따라 즉시 해결한다. */
+export function resolveGoodwillAbility(
+  state: GameState,
+  declaration: GoodwillDeclaration,
+  mastermindResponse: GoodwillResponse,
+): GoodwillResult {
+  const selected = selectAbility(declaration);
+  assertAbilityAvailable(state, declaration, selected);
+
+  const cannotBeRefused = abilityCannotBeRefused(selected.ability);
+  const role = effectiveRole(state, declaration.user);
+  const refusal = ROLE_IMPL[role]?.goodwillRefusal;
+  const mustRefuse = refusal === "Mandatory" && !cannotBeRefused;
+
+  if (mastermindResponse === "refuse" && cannotBeRefused) {
+    throw new Error("this goodwill ability cannot be refused");
+  }
+  if (mastermindResponse === "refuse" && refusal === undefined) {
+    throw new Error(
+      `role "${role}" cannot refuse goodwill abilities`,
+    );
+  }
+
+  if (mustRefuse || mastermindResponse === "refuse") {
+    recordAbilityUse(state, declaration, selected);
+    return {
+      user: declaration.user,
+      rank: declaration.rank,
+      abilityIndex: selected.index,
+      response: "refuse",
+      resolved: false,
+      refused: true,
+      effectApplied: false,
+    };
+  }
+
+  const effectApplied = applySimpleBaseAbility(
+    state,
+    declaration,
+    selected,
+  );
+  if (effectApplied === undefined) {
+    throw new Error(
+      `goodwill effect is not implemented for "${declaration.user}" ` +
+      `ability index ${selected.index}`,
+    );
+  }
+  recordAbilityUse(state, declaration, selected);
+
+  return {
+    user: declaration.user,
+    rank: declaration.rank,
+    abilityIndex: selected.index,
+    response: "resolve",
+    resolved: true,
+    refused: false,
+    effectApplied,
+  };
+}
+
+/** 단일 선언 해결의 짧은 공개 이름. */
+export const resolveGoodwill = resolveGoodwillAbility;
+
+/** 같은 P6에서 선언 순서대로 해결한다. 앞 효과는 다음 선언의 조건에 반영된다. */
+export function resolveGoodwillPhase(
+  state: GameState,
+  uses: readonly GoodwillUse[],
+): GoodwillResult[] {
+  return uses.map(({ mastermindResponse, ...declaration }) =>
+    resolveGoodwillAbility(state, declaration, mastermindResponse)
+  );
+}

@@ -26,6 +26,11 @@ const EXECUTABLE_CASE_IDS = new Set([
   "paranoia-plus-minus-order",
 ]);
 
+const EXECUTED_IN_OTHER_SUITES = new Set([
+  "goodwill-chain-and-refusal",
+  "goodwill-comes-after-card-resolve",
+]);
+
 interface ResolveExpectation {
   board?: Record<CharacterId, Location>;
   counters?: Record<CharacterId, Partial<Counters>>;
@@ -174,6 +179,9 @@ function expectedSpentCards(
 describe("manual resolution examples", () => {
   for (const testCase of manualExamples.cases) {
     if (testCase.id === "incident-trigger-condition") {
+      continue;
+    }
+    if (EXECUTED_IN_OTHER_SUITES.has(testCase.id)) {
       continue;
     }
     if (!EXECUTABLE_CASE_IDS.has(testCase.id)) {

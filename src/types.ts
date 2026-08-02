@@ -123,8 +123,11 @@ export interface LoopState {
     mastermind: ActionCard[];
     protagonists: [ActionCard[], ActionCard[], ActionCard[]];
   };
-  /** "shrineMaiden:revealRole" 같은 1루프당 1회 우호 능력 */
+  /** "shrineMaiden:goodwill:1" 같은 1루프당 1회 우호 능력 */
   abilitiesUsedThisLoop: string[];
+
+  /** 우호 능력으로 이번 루프 동안 금지 장소가 해제된 캐릭터 */
+  locationRestrictionsRemoved?: CharacterId[];
 
   /** 이번 라운드에 놓인 카드 (P4에서 소비) */
   placed: PlacedCard[];

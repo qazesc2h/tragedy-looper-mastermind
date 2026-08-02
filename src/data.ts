@@ -13,7 +13,16 @@ export interface CharacterData {
   paranoiaLimit: number;
   startLocation: readonly Location[];
   forbiddenLocation: readonly Location[];
+  tags: readonly string[];
   comesInLater: boolean;
+  goodwillAbilities: readonly GoodwillAbilityData[];
+}
+
+export interface GoodwillAbilityData {
+  rank: number | null;
+  en: string;
+  timesPerLoop: number | null;
+  restrictedToLocation: readonly Location[] | null;
 }
 
 export interface ScenarioAdapterOptions {
@@ -53,6 +62,13 @@ function requireNumber(value: unknown, context: string): number {
     throw new Error(`${context} must be a finite number`);
   }
   return value;
+}
+
+function requireNullableNumber(
+  value: unknown,
+  context: string,
+): number | null {
+  return value === null ? null : requireNumber(value, context);
 }
 
 function requireStringArray(value: unknown, context: string): string[] {
@@ -102,13 +118,44 @@ function parseCharacterData(id: CharacterId, value: unknown): CharacterData {
   if (typeof raw.comesInLater !== "boolean") {
     throw new Error(`character "${id}".comesInLater must be a boolean`);
   }
+  const tags = requireStringArray(raw.tags, `character "${id}".tags`);
+  const goodwillAbilities = requireArray(
+    raw.goodwillAbilities,
+    `character "${id}".goodwillAbilities`,
+  ).map((ability, index): GoodwillAbilityData => {
+    const context = `character "${id}".goodwillAbilities[${index}]`;
+    const entry = requireRecord(ability, context);
+    const restrictedToLocation = entry.restrictedToLocation === null
+      ? null
+      : requireArray(
+        entry.restrictedToLocation,
+        `${context}.restrictedToLocation`,
+      ).map((location, locationIndex) =>
+        parseLocation(
+          location,
+          `${context}.restrictedToLocation[${locationIndex}]`,
+        )
+      );
+
+    return {
+      rank: requireNullableNumber(entry.rank, `${context}.rank`),
+      en: requireString(entry.en, `${context}.en`),
+      timesPerLoop: requireNullableNumber(
+        entry.timesPerLoop,
+        `${context}.timesPerLoop`,
+      ),
+      restrictedToLocation,
+    };
+  });
 
   return {
     id,
     paranoiaLimit,
     startLocation,
     forbiddenLocation,
+    tags,
     comesInLater: raw.comesInLater,
+    goodwillAbilities,
   };
 }
 

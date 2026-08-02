@@ -71,7 +71,10 @@ function resolveMovement(
       from: position.at,
       cards,
       forbidden: forbiddenCharacters.has(character),
-      forbiddenLocations: [...characterDataOf(character).forbiddenLocation],
+      forbiddenLocations:
+        state.loop.locationRestrictionsRemoved?.includes(character)
+          ? []
+          : [...characterDataOf(character).forbiddenLocation],
     });
     position.at = result.to;
   }
