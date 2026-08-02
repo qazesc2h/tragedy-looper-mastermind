@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { endLoop, resolveHooks } from "../src/engine/phases";
 import { initLoop } from "../src/engine/setup";
 import { PLOT_IMPL } from "../src/impl/plots";
+import { effectiveRole } from "../src/types";
 import type {
   GameState,
   Hook,
@@ -34,6 +35,45 @@ function plotHook(plot: PlotId): Hook {
   if (!hook) throw new Error(`missing hook for plot "${plot}"`);
   return hook;
 }
+
+describe("source hooks implemented elsewhere", () => {
+  const sourceHooks: [PlotId, number][] = [
+    ["sealedItem", 0],
+    ["signWithMe", 1],
+    ["changeOfFuture", 0],
+    ["giantTimeBomb", 0],
+    ["paranoiaVirus", 0],
+  ];
+
+  it.each(sourceHooks)(
+    "%s hook %i stays disabled and safe as a source-only no-op",
+    (plot, hookIndex) => {
+      const state = createPlotState(plot);
+      const sourceHook = PLOT_IMPL[plot].hooks[hookIndex];
+      const before = structuredClone(state);
+
+      expect(sourceHook.when(state, "")).toBe(false);
+      expect(() => sourceHook.effect(state, "")).not.toThrow();
+      expect(state).toEqual(before);
+    },
+  );
+
+  it("uses effectiveRole for the paranoiaVirus threshold", () => {
+    const state = createPlotState("paranoiaVirus");
+    state.loop.charCounters[BOY].paranoia = 2;
+    expect(effectiveRole(state, BOY)).toBe("person");
+
+    state.loop.charCounters[BOY].paranoia = 3;
+    expect(effectiveRole(state, BOY)).toBe("serialKiller");
+  });
+
+  it("does not mutate a person when paranoiaVirus is not active", () => {
+    const state = createPlotState("unknownFactor");
+    state.loop.charCounters[BOY].paranoia = 3;
+
+    expect(effectiveRole(state, BOY)).toBe("person");
+  });
+});
 
 describe("unsettlingRumor", () => {
   const hook = plotHook("unsettlingRumor");

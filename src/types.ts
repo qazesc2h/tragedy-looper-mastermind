@@ -191,6 +191,7 @@ export interface IncidentHook extends Omit<Hook, "effect" | "effectTarget"> {
  */
 export function effectiveRole(s: GameState, c: CharacterId): RoleId {
   const base = s.scenario.cast[c];
+  // SOURCE: src/impl/plots.ts paranoiaVirus 훅의 source 참조
   if (
     s.scenario.subPlots.includes("paranoiaVirus") &&
     base === "person" &&

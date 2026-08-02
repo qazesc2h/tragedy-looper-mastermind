@@ -53,9 +53,10 @@ export const PLOT_IMPL: Record<string, {
           timing: "Loop End",
           prerequisite: `2 :intrigue: on the Shrine.`,
         },
-        // TODO(구현): 위 source 를 술어/효과로 옮길 것
-        when: (_s: GameState, _self: CharacterId) => false,
-        effect: (_s: GameState, _self: CharacterId) => { throw new Error('unimplemented'); },
+        // IMPLEMENTED_ELSEWHERE: src/engine/loss.ts evaluateLoss()
+        // 이 훅은 원문 보존용이다. 여기에 로직을 넣지 마라 — 이중 구현이 된다.
+        when: () => false,
+        effect: () => {},
       },
     ],
   },
@@ -83,9 +84,10 @@ export const PLOT_IMPL: Record<string, {
           timing: "Loop End",
           prerequisite: `2 :intrigue: on the :keyPerson:.`,
         },
-        // TODO(구현): 위 source 를 술어/효과로 옮길 것
-        when: (_s: GameState, _self: CharacterId) => false,
-        effect: (_s: GameState, _self: CharacterId) => { throw new Error('unimplemented'); },
+        // IMPLEMENTED_ELSEWHERE: src/engine/loss.ts evaluateLoss()
+        // 이 훅은 원문 보존용이다. 여기에 로직을 넣지 마라 — 이중 구현이 된다.
+        when: () => false,
+        effect: () => {},
       },
     ],
   },
@@ -101,9 +103,10 @@ export const PLOT_IMPL: Record<string, {
           timing: "Loop End",
           prerequisite: `˝:butterflyEffect:˝ has occured this loop.`,
         },
-        // TODO(구현): 위 source 를 술어/효과로 옮길 것
-        when: (_s: GameState, _self: CharacterId) => false,
-        effect: (_s: GameState, _self: CharacterId) => { throw new Error('unimplemented'); },
+        // IMPLEMENTED_ELSEWHERE: src/engine/loss.ts evaluateLoss()
+        // 이 훅은 원문 보존용이다. 여기에 로직을 넣지 마라 — 이중 구현이 된다.
+        when: () => false,
+        effect: () => {},
       },
     ],
   },
@@ -119,9 +122,10 @@ export const PLOT_IMPL: Record<string, {
           timing: "Loop End",
           prerequisite: `2 :intrigue: on the :witch:’s starting location.`,
         },
-        // TODO(구현): 위 source 를 술어/효과로 옮길 것
-        when: (_s: GameState, _self: CharacterId) => false,
-        effect: (_s: GameState, _self: CharacterId) => { throw new Error('unimplemented'); },
+        // IMPLEMENTED_ELSEWHERE: src/engine/loss.ts evaluateLoss()
+        // 이 훅은 원문 보존용이다. 여기에 로직을 넣지 마라 — 이중 구현이 된다.
+        when: () => false,
+        effect: () => {},
       },
     ],
   },
@@ -187,9 +191,10 @@ export const PLOT_IMPL: Record<string, {
           timing: "Always",
           description: `All :person:s with at least 3 :paranoia: turn into :serialKiller:s.`,
         },
-        // TODO(구현): 위 source 를 술어/효과로 옮길 것
-        when: (_s: GameState, _self: CharacterId) => false,
-        effect: (_s: GameState, _self: CharacterId) => { throw new Error('unimplemented'); },
+        // IMPLEMENTED_ELSEWHERE: src/types.ts effectiveRole()
+        // 이 훅은 원문 보존용이다. 여기에 로직을 넣지 마라 — 이중 구현이 된다.
+        when: () => false,
+        effect: () => {},
       },
     ],
   },

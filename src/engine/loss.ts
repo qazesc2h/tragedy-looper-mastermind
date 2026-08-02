@@ -179,6 +179,7 @@ function plotLossDistance(
 
   switch (plot) {
     case "sealedItem": {
+      // SOURCE: src/impl/plots.ts sealedItem 훅의 source 참조
       const current = state.loop.locIntrigue.Shrine;
       return distance({
         id: plot,
@@ -199,6 +200,7 @@ function plotLossDistance(
     }
 
     case "signWithMe": {
+      // SOURCE: src/impl/plots.ts signWithMe 훅의 source 참조
       const keyPerson = actualKeyPerson(state);
       const current = keyPerson === undefined
         ? 0
@@ -225,6 +227,7 @@ function plotLossDistance(
     }
 
     case "changeOfFuture": {
+      // SOURCE: src/impl/plots.ts changeOfFuture 훅의 source 참조
       const current = state.loop.incidentsFiredThisLoop?.includes(
         "butterflyEffect",
       ) ? 1 : 0;
@@ -252,6 +255,7 @@ function plotLossDistance(
     }
 
     case "giantTimeBomb": {
+      // SOURCE: src/impl/plots.ts giantTimeBomb 훅의 source 참조
       const placeX = resolvePlaceX(state);
       const current = placeX === undefined
         ? 0
