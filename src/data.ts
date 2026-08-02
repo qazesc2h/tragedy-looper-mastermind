@@ -1,5 +1,6 @@
 import basicTragedyScriptsJson from "../data/basic-tragedy-scripts.json";
 import charactersJson from "../data/characters.json";
+import { validateScenario } from "./engine/validate";
 
 import type {
   CharacterId,
@@ -282,7 +283,7 @@ export function adaptBasicTragedyScript(
     ...options.scriptSpecified,
   };
 
-  return {
+  const scenario: Scenario = {
     tragedySet: requireString(raw.tragedySet, `${context}.tragedySet`),
     mainPlot: mainPlots[0],
     subPlots: requireStringArray(raw.subPlots, `${context}.subPlots`),
@@ -296,6 +297,11 @@ export function adaptBasicTragedyScript(
     scriptSpecified:
       Object.keys(scriptSpecified).length > 0 ? scriptSpecified : undefined,
   };
+  const validation = validateScenario(scenario);
+  if (!validation.ok) {
+    throw new Error(validation.errors.join("\n"));
+  }
+  return scenario;
 }
 
 const rawBasicTragedyScripts: readonly unknown[] = basicTragedyScriptsJson;
