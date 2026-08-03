@@ -41,6 +41,11 @@ import {
   type ResolutionNoEffect,
 } from "./action-cards";
 import {
+  goodwillAbilityViews,
+  type GoodwillAbilityView,
+  type GoodwillDisabledReason,
+} from "./goodwill-abilities";
+import {
   emptyTrackerStore,
   loadTrackerStore,
   persistGameState,
@@ -240,6 +245,10 @@ function roleName(role: string): string {
 
 function incidentName(incident: string): string {
   return term("incidents", incident, incident);
+}
+
+function plotName(plot: string): string {
+  return term("plots", plot, plot);
 }
 
 function phaseName(phase: Phase): string {
@@ -721,69 +730,156 @@ function renderHookList(
   }).join("")}</div>`;
 }
 
-function availableGoodwillAbilities(state: GameState) {
-  return Object.keys(state.loop.board).flatMap((character) =>
-    characterDataOf(character).goodwillAbilities.flatMap((ability, index) => {
-      if (ability.rank === null) return [];
-      if (state.loop.charCounters[character].goodwill < ability.rank) return [];
-      if (
-        ability.restrictedToLocation !== null &&
-        !ability.restrictedToLocation.includes(state.loop.board[character].at)
-      ) return [];
-      const key = `${character}:goodwill:${index}`;
-      const used = state.loop.abilitiesUsedThisLoop.filter(
-        (usedKey) => usedKey === key,
-      ).length;
-      if (ability.timesPerLoop !== null && used >= ability.timesPerLoop) return [];
-      return [{ character, ability, index, key }];
-    })
-  );
+function goodwillDisabledMessage(
+  view: GoodwillAbilityView,
+  reason: GoodwillDisabledReason,
+): string {
+  switch (reason) {
+    case "spent":
+      return "이번 루프에 사용함";
+    case "restrictedLocation":
+      return `${misc("Only at", "Only at")}: ${
+        view.schema.restrictedToLocation?.map(locationName).join(" / ") ?? ""
+      }`;
+    case "noTarget":
+      if (view.schema.target.tags.includes("student")) {
+        return "같은 장소에 다른 학생이 없습니다";
+      }
+      return misc("No eligible target", "No eligible target");
+    case "noSpentCard":
+      return misc("No spent card to recover", "No spent card to recover");
+    case "unsupportedTurf":
+      return misc(
+        "Turf target cannot be determined from the current state",
+        "Turf target cannot be determined from the current state",
+      );
+    case "multipleTargets":
+      return misc(
+        "This ability requires multiple targets",
+        "This ability requires multiple targets",
+      );
+  }
+}
+
+function renderGoodwillTarget(
+  view: GoodwillAbilityView,
+  disabled: boolean,
+): string {
+  if (!view.targetRequired || view.targets.length === 0) return "";
+  return `
+    <select data-goodwill-target="${escapeHtml(view.key)}"
+      aria-label="${escapeHtml(misc("Select a target", "Select a target"))}"
+      ${disabled ? "disabled" : ""}>
+      <option value="">${escapeHtml(misc("Select a target", "Select a target"))}</option>
+      ${view.targets.map((target) => `
+        <option value="${escapeHtml(encodeTarget(target))}">${escapeHtml(
+          target.kind === "character"
+            ? characterName(target.id)
+            : locationName(target.at),
+        )}</option>`).join("")}
+    </select>`;
+}
+
+function renderGoodwillChoice(
+  view: GoodwillAbilityView,
+  disabled: boolean,
+): string {
+  const { choice, key } = view;
+  switch (choice.kind) {
+    case "none":
+      return "";
+    case "paranoiaDelta":
+      return `
+        <select data-goodwill-delta="${escapeHtml(key)}"
+          aria-label="${escapeHtml(misc("Paranoia"))}"
+          ${disabled ? "disabled" : ""}>
+          <option value="">${escapeHtml(misc("Select", "Select"))}</option>
+          ${choice.options.map((delta) => `
+            <option value="${delta}">${escapeHtml(misc("Paranoia"))} ${delta > 0 ? "+" : ""}${delta}</option>`).join("")}
+        </select>`;
+    case "spentCard":
+      return `
+        <select data-goodwill-card="${escapeHtml(key)}"
+          ${disabled ? "disabled" : ""}>
+          <option value="">${escapeHtml(misc("Select a card", "Select a card"))}</option>
+          ${choice.options.map((card) => `
+            <option value="${card}">${escapeHtml(actionCardName(card))}</option>`).join("")}
+        </select>`;
+    case "incident":
+    case "pastIncident":
+      return `
+        <select data-goodwill-choice="${escapeHtml(key)}"
+          ${disabled ? "disabled" : ""}>
+          <option value="">${escapeHtml(misc("Select", "Select"))}</option>
+          ${choice.options.map((incident) => `
+            <option value="${escapeHtml(incident)}">${escapeHtml(incidentName(incident))}</option>`).join("")}
+        </select>`;
+    case "subplot":
+      return `
+        <select data-goodwill-choice="${escapeHtml(key)}"
+          ${disabled ? "disabled" : ""}>
+          <option value="">${escapeHtml(misc("Select", "Select"))}</option>
+          ${choice.options.map((plot) => `
+            <option value="${escapeHtml(plot)}">${escapeHtml(plotName(plot))}</option>`).join("")}
+        </select>`;
+    case "counter":
+      return `
+        <select data-goodwill-choice="${escapeHtml(key)}"
+          ${disabled ? "disabled" : ""}>
+          <option value="">${escapeHtml(misc("Select", "Select"))}</option>
+          ${choice.options.map((counter) => `
+            <option value="${escapeHtml(counter)}">${escapeHtml(
+              counter === "goodwill"
+                ? misc("Goodwill")
+                : counter === "paranoia"
+                ? misc("Paranoia")
+                : counter === "intrigue"
+                ? misc("Intrigue")
+                : counter,
+            )}</option>`).join("")}
+        </select>`;
+  }
 }
 
 function renderGoodwillAbilities(state: GameState): string {
-  const abilities = availableGoodwillAbilities(state);
+  const abilities = goodwillAbilityViews(state);
   if (abilities.length === 0) {
     return `<p class="empty-overlay">${escapeHtml(misc("No available ability", "No available ability"))}</p>`;
   }
-  const spentLeaderCards = state.loop.spentOncePerLoop.protagonists[state.loop.leader];
-  return `<div class="goodwill-list">${abilities.map(({ character, ability, index, key }) => `
-    <article class="goodwill-card">
+  return `<div class="goodwill-list">${abilities.map((view) => {
+    const { character, abilityIndex, key, schema, disabledReason } = view;
+    const disabled = disabledReason !== undefined;
+    const reason = disabledReason === undefined
+      ? ""
+      : goodwillDisabledMessage(view, disabledReason);
+    return `
+    <article class="goodwill-card ${disabled ? "is-disabled" : ""}">
       <div class="goodwill-copy">
-        <span>${escapeHtml(characterName(character))} · ${escapeHtml(misc("Goodwill"))} ${ability.rank}</span>
-        <strong>${escapeHtml(gameText(ability.en))}</strong>
+        <span>${escapeHtml(characterName(character))} · ${escapeHtml(misc("Goodwill"))} ${schema.rank}</span>
+        <strong>${escapeHtml(gameText(schema.ko ?? schema._source))}</strong>
+        ${reason ? `<small class="goodwill-disabled-reason">${escapeHtml(reason)}</small>` : ""}
       </div>
       <div class="goodwill-inputs">
-        <select data-goodwill-target="${escapeHtml(key)}">
-          <option value="">${escapeHtml(misc("Select a target", "Select a target"))}</option>
-          ${Object.keys(state.loop.board).map((target) =>
-            `<option value="character:${escapeHtml(target)}">${escapeHtml(characterName(target))}</option>`
-          ).join("")}
-          ${LOCATIONS.map((location) =>
-            `<option value="location:${location}">${escapeHtml(locationName(location))}</option>`
-          ).join("")}
-        </select>
-        <select data-goodwill-delta="${escapeHtml(key)}" aria-label="${escapeHtml(misc("Paranoia"))}">
-          <option value="-1">${escapeHtml(misc("Paranoia"))} -1</option>
-          <option value="1">${escapeHtml(misc("Paranoia"))} +1</option>
-        </select>
-        <select data-goodwill-card="${escapeHtml(key)}">
-          <option value="">${escapeHtml(misc("Select a card", "Select a card"))}</option>
-          ${spentLeaderCards.map((card) => `<option value="${card}">${escapeHtml(actionCardName(card))}</option>`).join("")}
-        </select>
+        ${renderGoodwillTarget(view, disabled)}
+        ${renderGoodwillChoice(view, disabled)}
       </div>
       <div class="goodwill-actions">
         <button type="button" data-action="goodwill" data-response="resolve"
-          data-character="${escapeHtml(character)}" data-rank="${ability.rank}"
-          data-ability-index="${index}" data-goodwill-key="${escapeHtml(key)}">
+          data-character="${escapeHtml(character)}" data-rank="${schema.rank}"
+          data-ability-index="${abilityIndex}" data-goodwill-key="${escapeHtml(key)}"
+          ${disabled ? "disabled" : ""}>
           ${escapeHtml(misc("Resolve", "Resolve"))}
         </button>
         <button type="button" data-action="goodwill" data-response="refuse"
-          data-character="${escapeHtml(character)}" data-rank="${ability.rank}"
-          data-ability-index="${index}" data-goodwill-key="${escapeHtml(key)}">
+          data-character="${escapeHtml(character)}" data-rank="${schema.rank}"
+          data-ability-index="${abilityIndex}" data-goodwill-key="${escapeHtml(key)}"
+          ${disabled || schema.cannotBeRefused ? "disabled" : ""}
+          ${schema.cannotBeRefused ? `title="${escapeHtml(misc("Cannot be refused", "Cannot be refused"))}"` : ""}>
           ${escapeHtml(misc("Refuse", "Refuse"))}
         </button>
       </div>
-    </article>`).join("")}</div>`;
+    </article>`;
+  }).join("")}</div>`;
 }
 
 function renderPhaseControls(state: GameState): string {
@@ -1217,7 +1313,8 @@ function resolveGoodwillFromButton(button: HTMLButtonElement): void {
         rank,
         abilityIndex,
         target,
-        paranoiaDelta: deltaValue === "1" ? 1 : -1,
+        paranoiaDelta:
+          deltaValue === "1" ? 1 : deltaValue === "-1" ? -1 : undefined,
         card: cardValue || undefined,
       },
       response,

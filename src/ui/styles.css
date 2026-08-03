@@ -1179,10 +1179,30 @@ select {
   grid-template-columns: minmax(180px, 1fr) minmax(190px, 0.75fr) auto;
 }
 
+.goodwill-card.is-disabled {
+  border-color: #443d32;
+  background: #1d1a16;
+}
+
+.goodwill-card.is-disabled .goodwill-copy strong,
+.goodwill-card.is-disabled .goodwill-inputs {
+  opacity: 0.56;
+}
+
 .goodwill-inputs {
   display: grid;
-  grid-template-columns: 1fr 0.65fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: 5px;
+}
+
+.goodwill-inputs:empty {
+  display: none;
+}
+
+.goodwill-disabled-reason {
+  color: #d39a74;
+  font-size: 0.64rem;
+  line-height: 1.35;
 }
 
 .goodwill-actions {
@@ -1197,6 +1217,11 @@ select {
   padding: 7px 9px;
   color: #ddc391;
   font-size: 0.66rem;
+}
+
+.goodwill-actions button:disabled {
+  cursor: default;
+  opacity: 0.38;
 }
 
 .phase-incident-list {
