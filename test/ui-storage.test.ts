@@ -8,8 +8,15 @@ import {
   TRACKER_STORAGE_KEY,
   type LocalKeyValueStore,
 } from "../src/ui/storage";
-import { misc, term } from "../src/ui/terms";
-import type { GameState, Scenario } from "../src/types";
+import {
+  actionCardTerm,
+  gameText,
+  incidentRuleText,
+  misc,
+  term,
+  translatedText,
+} from "../src/ui/terms";
+import type { ActionCard, GameState, Scenario } from "../src/types";
 
 class MemoryStorage implements LocalKeyValueStore {
   private readonly values = new Map<string, string>();
@@ -103,5 +110,38 @@ describe("UI terminology", () => {
     expect(term("characters", "boyStudent", "Boy Student")).toBe("남학생");
     expect(misc("Mastermind")).toBe("각본가");
     expect(misc("Next phase", "Next phase")).toBe("Next phase");
+  });
+
+  it("uses card translations and resolves preserved icon tokens", () => {
+    expect(translatedText("Reveal culprit for 1 incident."))
+      .toBe("사건 1개의 범인을 공개합니다.");
+    expect(gameText("-1 :paranoia: on student in same location."))
+      .toBe("동일한 장소에 있는 다른 학생 1명에게서 불안 1개를 제거합니다.");
+    expect(translatedText("not in the translation dictionary"))
+      .toBe("not in the translation dictionary");
+  });
+
+  it("uses the complete manual detail in the incident resolution view", () => {
+    expect(incidentRuleText("hospitalIncident", [
+      "Kill all characters in the Hospital.",
+    ])).toContain("주인공은 사망합니다");
+  });
+
+  it.each<[ActionCard, string]>([
+    ["moveVertical", "이동↑↓"],
+    ["moveHorizontal", "이동←→"],
+    ["moveDiagonal", "대각 이동"],
+    ["forbidMove", "이동 금지"],
+    ["paranoiaPlus1", "불안+1"],
+    ["paranoiaMinus1", "불안-1"],
+    ["forbidParanoia", "불안 금지"],
+    ["goodwillPlus1", "우호+1"],
+    ["goodwillPlus2", "우호+2"],
+    ["forbidGoodwill", "우호 금지"],
+    ["intriguePlus1", "음모+1"],
+    ["intriguePlus2", "음모+2"],
+    ["forbidIntrigue", "음모 금지"],
+  ])("uses the official action-card term for %s", (card, ko) => {
+    expect(actionCardTerm(card, card)).toBe(ko);
   });
 });

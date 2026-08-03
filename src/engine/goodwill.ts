@@ -437,7 +437,7 @@ function applySimpleBaseAbility(
 }
 
 function abilityCannotBeRefused(ability: GoodwillAbilityData): boolean {
-  return ability.en.toLowerCase().includes("cannot be refused");
+  return ability.immuneToGoodwillRefusel;
 }
 
 /** 선언 하나를 현재 상태에서 판정하고, 각본가의 응답에 따라 즉시 해결한다. */

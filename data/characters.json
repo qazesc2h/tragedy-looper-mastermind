@@ -1,4 +1,5 @@
 {
+  "_note": "immuneToGoodwillRefusel 은 gen.py 누락분을 수동 보정함",
   "youngGirl": {
     "id": "youngGirl",
     "en": "Young Girl",
@@ -227,7 +228,8 @@
         "rank": 3,
         "en": "Reveal own role.",
         "timesPerLoop": null,
-        "restrictedToLocation": null
+        "restrictedToLocation": null,
+        "immuneToGoodwillRefusel": true
       }
     ]
   },
@@ -594,7 +596,8 @@
         "rank": 2,
         "en": "-1 :paranoia: on panicked character in same location. This ability cannot be refused by :goodwill: Refusel.",
         "timesPerLoop": null,
-        "restrictedToLocation": null
+        "restrictedToLocation": null,
+        "immuneToGoodwillRefusel": true
       }
     ]
   },

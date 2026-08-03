@@ -1426,6 +1426,60 @@
       "ko": "본판",
       "grade": "확정"
     },
+    "actionCard": {
+      "moveVertical": {
+        "ko": "이동↑↓",
+        "grade": "확정"
+      },
+      "moveHorizontal": {
+        "ko": "이동←→",
+        "grade": "확정"
+      },
+      "moveDiagonal": {
+        "ko": "대각 이동",
+        "grade": "확정"
+      },
+      "forbidMove": {
+        "ko": "이동 금지",
+        "grade": "확정"
+      },
+      "paranoiaPlus1": {
+        "ko": "불안+1",
+        "grade": "확정"
+      },
+      "paranoiaMinus1": {
+        "ko": "불안-1",
+        "grade": "확정"
+      },
+      "forbidParanoia": {
+        "ko": "불안 금지",
+        "grade": "확정"
+      },
+      "goodwillPlus1": {
+        "ko": "우호+1",
+        "grade": "확정"
+      },
+      "goodwillPlus2": {
+        "ko": "우호+2",
+        "grade": "확정"
+      },
+      "forbidGoodwill": {
+        "ko": "우호 금지",
+        "grade": "확정"
+      },
+      "intriguePlus1": {
+        "ko": "음모+1",
+        "grade": "확정"
+      },
+      "intriguePlus2": {
+        "ko": "음모+2",
+        "grade": "확정"
+      },
+      "forbidIntrigue": {
+        "ko": "음모 금지",
+        "grade": "확정"
+      }
+    },
     "Independent": {
       "ko": "독립",
       "grade": "미지정"

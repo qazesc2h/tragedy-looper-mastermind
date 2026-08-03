@@ -1,0 +1,141 @@
+{
+  "copycat": [
+    {
+      "abilityIndex": 0,
+      "ko": "시나리오 작성 시: 이 캐릭터는 시나리오에 있는 다른 캐릭터의 역할을 반드시 복사해야 합니다(최대 인원 무시).",
+      "_source": "Script Creation: This Character must copy the role of another Character in the script (max amount ignored)."
+    }
+  ],
+  "servant": [
+    {
+      "abilityIndex": 0,
+      "ko": ":servant:은(는) :richStudent:와(과) :boss: 두 사람을 섬깁니다. 두 사람 중 한 명이 이동할 때 이 캐릭터가 같은 장소에 있는 경우, 리더는 이 캐릭터 자신의 이동을 무시하고 그중 한 명과 함께 이동시킵니다. 두 사람 중 한 명이 이 캐릭터가 있는 장소에서 사망하는 경우, 대신 이 캐릭터가 사망합니다.",
+      "_source": "The :servant: serves the :richStudent: and the :boss:. If one of them moves and she shares the location, the Leader moves her with one of them ignoring her own movement. If any onf them dies at her location, she dies instead."
+    }
+  ],
+  "mysteryBoy": [
+    {
+      "abilityIndex": 0,
+      "ko": "항상 현재 어느 룰로도 정해지지 않은 역할을 맡습니다.",
+      "_source": "Always has a role not associated with current plot."
+    }
+  ],
+  "godlyBeing": [
+    {
+      "abilityIndex": 0,
+      "ko": "정해진 루프까지는 등장하지 않음",
+      "_source": "Enters game on predefined loop"
+    }
+  ],
+  "boss": [
+    {
+      "abilityIndex": 0,
+      "ko": "모든 능력에 대해(사건은 제외), 이 캐릭터는 자신의 세력권에 있는 것으로 취급할 수 있습니다.",
+      "_source": "May be regarded as in his turf."
+    }
+  ],
+  "henchman": [
+    {
+      "abilityIndex": 0,
+      "ko": "루프마다 각본가가 시작 장소를 선택합니다.",
+      "_source": "Mastermind chooses start location each loop"
+    }
+  ],
+  "transferStudent": [
+    {
+      "abilityIndex": 0,
+      "ko": "이 캐릭터는 시나리오에서 지정한 날짜가 시작될 때까지 게임판에 등장하지 않습니다.",
+      "_source": "This character does not appear on the board until the start of the day specified by the script."
+    }
+  ],
+  "blackCat": [
+    {
+      "abilityIndex": 0,
+      "ko": "매 루프 시작 시, 신사에 :intrigue: 1개를 놓습니다.",
+      "_source": "At the start of each loop, place an :intrigue: on the Shrine."
+    },
+    {
+      "abilityIndex": 1,
+      "ko": "이 캐릭터가 범인인 사건은 그 효과가 \"효과 없음\"으로 바뀝니다. (규칙상으로는 발생합니다)",
+      "_source": "Incidents of which this character is the culprit, change their effect into \"no effect\". (rule-wise they occur)"
+    }
+  ],
+  "scientist": [
+    {
+      "abilityIndex": 0,
+      "ko": "루프 시작 시, 이 캐릭터에 :paranoia: 카운터, :goodwill: 카운터, :intrigue: 카운터 중 1개를 놓습니다.",
+      "_source": "At the start of a loop, place either a :paranoia: counter, a :goodwill: counter or an :intrigue: counter on this character."
+    }
+  ],
+  "ai": [
+    {
+      "abilityIndex": 0,
+      "ko": "이 캐릭터는 :person: 역할을 맡을 수 없습니다.",
+      "_source": "This character cannot have the role :person:."
+    },
+    {
+      "abilityIndex": 1,
+      "ko": "이 캐릭터가 범인인 사건의 발생 여부를 판정할 때, 이 캐릭터에 놓인 모든 카운터를 :paranoia: 카운터로 취급합니다.",
+      "_source": "When determining wether an Incident triggers, to which this character is the culprit, all conters on this character conut as :paranoia: conuters."
+    }
+  ],
+  "illusion": [
+    {
+      "abilityIndex": 0,
+      "ko": "이 캐릭터에는 행동 카드를 내려놓을 수 없습니다. 이 캐릭터가 있는 장소에 내려놓은 모든 카드는 이 캐릭터에도 적용됩니다.",
+      "_source": "No action cards can be placed on this characte. All cards palced on this location are also applied to this character."
+    }
+  ],
+  "partTimer": [
+    {
+      "abilityIndex": 0,
+      "ko": "이 캐릭터는 자신의 역할을 무시하고, 대신 :person:(으)로 취급됩니다.",
+      "_source": "This character ignores its Role and is a :person: instead."
+    },
+    {
+      "abilityIndex": 1,
+      "ko": "라운드 종료 시 이 캐릭터에 놓인 카운터가 총 3개 이상인 경우, 이 캐릭터는 사망합니다.",
+      "_source": "At the end of the day, if there are 3 or more total counters on this character, he dies."
+    },
+    {
+      "abilityIndex": 2,
+      "ko": "라운드 시작 시 이 캐릭터가 사망 상태인 경우, 도심에 「:partTimerAlternate:」을(를) 놓습니다.",
+      "_source": "At the start of the day, if this character is dead, place ':partTimerAlternate:' in the City."
+    }
+  ],
+  "partTimerAlternate": [
+    {
+      "abilityIndex": 0,
+      "ko": "이 캐릭터는 :partTimer:와(과) 동일한 역할을 지니며, 동일한 사건의 범인이 됩니다.",
+      "_source": "This character has the same Role, and is the Culprit of the same Incident(s), as :partTimer:."
+    }
+  ],
+  "sectFounder": [
+    {
+      "abilityIndex": 0,
+      "ko": "이 캐릭터가 범인인 사건이 해결되는 경우, 그 사건 효과를 두 번 해결합니다.",
+      "_source": "If this character is the culprit of an Incident that resolves, its effects resolve twice."
+    }
+  ],
+  "littleSister": [
+    {
+      "abilityIndex": 0,
+      "ko": "시나리오 작성 시, 이 캐릭터에는 :goodwill: 무시 능력을 지닌 역할을 부여할 수 없습니다.",
+      "_source": "During script creation, this character cannot be given a Role with :goodwill: Refusel."
+    }
+  ],
+  "sacredTree": [
+    {
+      "abilityIndex": 0,
+      "ko": "매 라운드, 리더는 이 캐릭터에 놓인 카운터 1개를 이 장소에 있는 다른 캐릭터에게 옮길 수 있습니다. 이 캐릭터가 :goodwill: 무시 능력을 지니고 있는 경우, 각본가도 각본가 능력 단계 때 반드시 이를 수행해야 합니다.",
+      "_source": "Each turn, the Leader may move 1 counter on this character to another character at this location. If this character has :goodwill: Refusel, the Mastermind must also do this during the Mastermind's ability step."
+    }
+  ],
+  "crusader": [
+    {
+      "abilityIndex": 0,
+      "ko": "이 캐릭터가 :supernaturalTag: 태그를 얻은 경우, 이 캐릭터의 :goodwill: 능력은 자동으로 거부됩니다.",
+      "_source": "If this character gains :supernaturalTag: his :goodwill: abilities are automatically refused."
+    }
+  ]
+}

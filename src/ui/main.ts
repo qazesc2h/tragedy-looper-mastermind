@@ -1,13 +1,16 @@
 import scriptsJson from "../../data/basic-tragedy-scripts.json";
 import { adaptBasicTragedyScript, characterDataOf } from "../data";
+import { resolveGoodwillAbility } from "../engine/goodwill";
 import { incidentFires } from "../engine/incident";
+import { validatePlacement } from "../engine/legal";
 import { distanceToLoss } from "../engine/loss";
-import { advance, resolveHooks } from "../engine/phases";
+import { advance, collectHooks, resolveHooks } from "../engine/phases";
 import {
   MASTERMIND_ONCE_PER_LOOP,
   PROTAGONIST_ONCE_PER_LOOP,
 } from "../engine/resolve";
 import { initLoop } from "../engine/setup";
+import { INCIDENT_IMPL } from "../impl/incidents";
 import {
   effectiveRole,
   LOCATIONS,
@@ -19,8 +22,24 @@ import {
   type IncidentCounter,
   type Location,
   type Phase,
+  type PlacedCard,
   type Scenario,
+  type Target,
 } from "../types";
+import {
+  collectNoEffectCards,
+  collectResolutionChanges,
+  handCardIsPlaced,
+  MASTERMIND_HAND,
+  nextProtagonist,
+  placementsForOwner,
+  PROTAGONIST_HAND,
+  protagonistOrder,
+  type CardOwner,
+  type HandCard,
+  type ResolutionChange,
+  type ResolutionNoEffect,
+} from "./action-cards";
 import {
   emptyTrackerStore,
   loadTrackerStore,
@@ -28,7 +47,13 @@ import {
   persistTrackerPreferences,
   type TrackerStore,
 } from "./storage";
-import { misc, term } from "./terms";
+import {
+  actionCardTerm,
+  gameText,
+  incidentRuleText,
+  misc,
+  term,
+} from "./terms";
 import "./styles.css";
 
 interface RawScript {
@@ -39,6 +64,24 @@ interface ScenarioEntry {
   id: string;
   title: string;
   scenario: Scenario;
+}
+
+interface SelectedHandCard extends HandCard {
+  owner: CardOwner;
+}
+
+interface ResolutionReceipt {
+  scenarioId: string;
+  loop: number;
+  day: number;
+  cards: PlacedCard[];
+  changes: ResolutionChange[];
+  noEffects: ResolutionNoEffect[];
+}
+
+interface OptionalHookSelection {
+  selected: boolean;
+  target?: string;
 }
 
 const PHASE_TERM: Record<Phase, () => string> = {
@@ -56,11 +99,19 @@ const PHASE_TERM: Record<Phase, () => string> = {
 };
 
 const ACTION_CARD_EN: Partial<Record<ActionCard, string>> = {
-  moveDiagonal: "Diagonal Move",
-  intriguePlus2: "Intrigue +2",
-  goodwillPlus2: "Goodwill +2",
+  moveVertical: "Movement - vertical",
+  moveHorizontal: "Movement - horizontal",
+  moveDiagonal: "Movement - diagonal",
+  paranoiaPlus1: "Paranoia +1",
   paranoiaMinus1: "Paranoia -1",
-  forbidMove: "Forbid Movement",
+  forbidParanoia: "Forbid Paranoia",
+  goodwillPlus1: "Goodwill +1",
+  goodwillPlus2: "Goodwill +2",
+  forbidGoodwill: "Forbid Goodwill",
+  intriguePlus1: "Intrigue +1",
+  intriguePlus2: "Intrigue +2",
+  forbidIntrigue: "Forbid Intrigue",
+  forbidMove: "Forbid movement",
 };
 
 const INCIDENT_CHOICE_FIELDS: Record<string, readonly string[]> = {
@@ -76,7 +127,7 @@ const scenarioEntries: ScenarioEntry[] = (scriptsJson as unknown[]).map(
   (raw, index) => {
     const rawTitle = (raw as RawScript).title;
     const title = typeof rawTitle === "string"
-      ? rawTitle
+      ? gameText(rawTitle)
       : `Script ${index + 1}`;
     return {
       id: `basicTragedy:${index + 1}`,
@@ -90,6 +141,9 @@ const root = document.querySelector<HTMLDivElement>("#app");
 if (!root) throw new Error("#app is required");
 
 let notice = "";
+let selectedHandCard: SelectedHandCard | undefined;
+let resolutionReceipt: ResolutionReceipt | undefined;
+const optionalHookSelections = new Map<string, OptionalHookSelection>();
 let tracker: TrackerStore;
 try {
   tracker = loadTrackerStore(window.localStorage);
@@ -194,10 +248,62 @@ function phaseName(phase: Phase): string {
 
 function actionCardName(card: ActionCard): string {
   const english = ACTION_CARD_EN[card] ?? card;
-  if (card === "intriguePlus2") return `${misc("Intrigue")} +2`;
-  if (card === "goodwillPlus2") return `${misc("Goodwill")} +2`;
-  if (card === "paranoiaMinus1") return `${misc("Paranoia")} -1`;
-  return misc(english, english);
+  return actionCardTerm(card, english);
+}
+
+function sameTarget(left: Target, right: Target): boolean {
+  if (left.kind === "character" && right.kind === "character") {
+    return left.id === right.id;
+  }
+  if (left.kind === "location" && right.kind === "location") {
+    return left.at === right.at;
+  }
+  return false;
+}
+
+function receiptFor(state: GameState): ResolutionReceipt | undefined {
+  const receipt = resolutionReceipt;
+  if (
+    receipt?.scenarioId !== activeScenarioEntry().id ||
+    receipt.loop !== state.loop.loop ||
+    receipt.day !== state.loop.day
+  ) {
+    return undefined;
+  }
+  return receipt;
+}
+
+function renderCardsOnTarget(state: GameState, target: Target): string {
+  const receipt = receiptFor(state);
+  const revealed = receipt !== undefined;
+  const cards = revealed ? receipt.cards : state.loop.placed;
+  const matching = cards
+    .filter((placement) => sameTarget(placement.target, target))
+    .map((placement) => ({
+      placement,
+      showName: revealed || placement.owner === "mastermind",
+      fullName: actionCardName(placement.card),
+    }));
+  if (matching.length === 0) return "";
+
+  return `
+    <div class="placed-card-stack ${revealed ? "is-revealed" : "is-facedown"}">
+      ${matching.map(({ placement, showName, fullName }) => `
+        <button type="button"
+          class="placed-action-card owner-${placement.owner}"
+          disabled
+          ${showName ? `title="${escapeHtml(fullName)}"` : ""}
+          aria-label="${escapeHtml(
+            showName
+              ? `${ownerLabel(placement.owner)} · ${fullName}`
+              : ownerLabel(placement.owner),
+          )}">
+          <span>${escapeHtml(ownerLabel(placement.owner))}</span>
+          ${showName
+            ? `<strong>${escapeHtml(fullName)}</strong>`
+            : `<b aria-hidden="true">TL</b>`}
+        </button>`).join("")}
+    </div>`;
 }
 
 function renderCounter(
@@ -238,7 +344,7 @@ function renderCharacter(state: GameState, character: CharacterId): string {
   return `
     <article class="character-unit ${position.alive ? "is-alive" : "is-dead"}">
       <div class="identity-frame">
-        <button type="button" class="identity-card" data-action="toggle-alive"
+        <button type="button" class="identity-card" data-action="board-character"
           data-character="${escapeHtml(character)}"
           aria-label="${escapeHtml(`${characterName(character)} — ${aliveLabel}`)}">
           <span class="card-corner">TL</span>
@@ -246,6 +352,7 @@ function renderCharacter(state: GameState, character: CharacterId): string {
           ${roleBadge}
           <span class="life-state">${escapeHtml(aliveLabel)}</span>
         </button>
+        ${renderCardsOnTarget(state, { kind: "character", id: character })}
       </div>
       <div class="character-controls">
         ${renderCounter(character, "goodwill", counters.goodwill)}
@@ -276,10 +383,11 @@ function renderLocation(state: GameState, location: Location): string {
   return `
     <section class="board-location location-${location.toLowerCase()}">
       <header class="location-header">
-        <div>
+        <button type="button" class="location-target" data-action="board-location"
+          data-location="${location}">
           <span class="eyebrow">${escapeHtml(misc("Location", "Location"))}</span>
           <h2>${escapeHtml(locationName(location))}</h2>
-        </div>
+        </button>
         <div class="location-intrigue">
           <span>${escapeHtml(misc("Intrigue"))}</span>
           <button type="button" data-action="location-counter" data-location="${location}"
@@ -289,6 +397,7 @@ function renderLocation(state: GameState, location: Location): string {
             data-delta="1" aria-label="${escapeHtml(`${misc("Intrigue")} +1`)}">+</button>
         </div>
       </header>
+      ${renderCardsOnTarget(state, { kind: "location", at: location })}
       <div class="character-grid">
         ${characters.map((character) => renderCharacter(state, character)).join("") ||
           `<p class="empty-location">${escapeHtml(misc("No character", "No character"))}</p>`}
@@ -297,7 +406,6 @@ function renderLocation(state: GameState, location: Location): string {
 }
 
 function renderPhases(state: GameState): string {
-  const complete = isScenarioComplete(state);
   return `
     <section class="phase-panel" aria-label="${escapeHtml(misc("Timing"))}">
       <div class="phase-track">
@@ -308,11 +416,6 @@ function renderPhases(state: GameState): string {
             <strong>${escapeHtml(phaseName(phase))}</strong>
           </div>`).join("")}
       </div>
-      <button type="button" class="next-phase" data-action="advance"
-        ${complete ? "disabled" : ""}>
-        ${escapeHtml(complete ? misc("Final Guess") : misc("Next phase", "Next phase"))}
-        <span aria-hidden="true">→</span>
-      </button>
     </section>`;
 }
 
@@ -371,6 +474,380 @@ function renderSpentCards(state: GameState): string {
         ${renderSpentOwner(state, 2)}
       </div>
     </section>`;
+}
+
+function renderAdvanceButton(
+  label = misc("Next phase", "Next phase"),
+  disabled = false,
+  action = "advance",
+): string {
+  return `
+    <button type="button" class="next-phase" data-action="${action}"
+      ${disabled ? "disabled" : ""}>
+      ${escapeHtml(label)} <span aria-hidden="true">→</span>
+    </button>`;
+}
+
+function ownerCardIsSpent(
+  state: GameState,
+  owner: CardOwner,
+  card: ActionCard,
+): boolean {
+  return spentCardsFor(state, owner).includes(card);
+}
+
+function renderHand(
+  state: GameState,
+  owner: CardOwner,
+  hand: readonly HandCard[],
+  enabled: boolean,
+): string {
+  return `
+    <div class="action-hand">
+      ${hand.map((entry, index) => {
+        const placed = handCardIsPlaced(state, owner, hand, index);
+        const selected = selectedHandCard?.owner === owner &&
+          selectedHandCard.key === entry.key;
+        const spent = ownerCardIsSpent(state, owner, entry.card);
+        const once = owner === "mastermind"
+          ? MASTERMIND_ONCE_PER_LOOP.has(entry.card)
+          : PROTAGONIST_ONCE_PER_LOOP.has(entry.card);
+        return `
+          <button type="button"
+            class="hand-card owner-${owner} ${placed ? "is-placed" : ""} ${selected ? "is-selected" : ""} ${spent ? "is-spent" : ""}"
+            data-action="select-hand-card" data-owner="${owner}"
+            data-card="${entry.card}" data-card-key="${entry.key}"
+            ${!enabled || placed ? "disabled" : ""}
+            aria-pressed="${selected}">
+            <span>${escapeHtml(actionCardName(entry.card))}</span>
+            ${once ? `<small>${escapeHtml(misc("Once per {type}").replace("{type}", misc("Loop")))}</small>` : ""}
+            ${spent ? `<b>${escapeHtml(misc("Spent", "Spent"))}</b>` : ""}
+          </button>`;
+      }).join("")}
+    </div>`;
+}
+
+function renderPlacementPrompt(): string {
+  if (!selectedHandCard) {
+    return `<p class="placement-prompt">${escapeHtml(misc("Select a card, then select a target", "Select a card, then select a target"))}</p>`;
+  }
+  return `
+    <p class="placement-prompt is-ready">
+      <strong>${escapeHtml(actionCardName(selectedHandCard.card))}</strong>
+      <span>${escapeHtml(misc("Select a target", "Select a target"))}</span>
+    </p>`;
+}
+
+function renderMastermindAction(state: GameState): string {
+  const placed = placementsForOwner(state, "mastermind").length;
+  return `
+    <section class="operation-panel card-placement-panel">
+      <div class="operation-heading">
+        <div>
+          <span class="eyebrow">2 · ${escapeHtml(ownerLabel("mastermind"))}</span>
+          <h2>${escapeHtml(phaseName("P2_MASTERMIND_ACTION"))}</h2>
+        </div>
+        <strong class="placement-progress ${placed === 3 ? "is-complete" : ""}">${placed}/3</strong>
+      </div>
+      ${renderPlacementPrompt()}
+      ${renderHand(state, "mastermind", MASTERMIND_HAND, placed < 3)}
+      <div class="operation-footer">
+        <span>${escapeHtml(misc("3 cards required", "3 cards required"))}</span>
+        ${renderAdvanceButton(undefined, placed !== 3)}
+      </div>
+    </section>`;
+}
+
+function renderProtagonistAction(state: GameState): string {
+  const current = nextProtagonist(state);
+  const order = protagonistOrder(state.loop.leader);
+  const placed = state.loop.placed.filter(
+    ({ owner }) => owner !== "mastermind",
+  ).length;
+  return `
+    <section class="operation-panel card-placement-panel">
+      <div class="operation-heading">
+        <div>
+          <span class="eyebrow">3 · ${escapeHtml(misc("Protagonists"))}</span>
+          <h2>${escapeHtml(phaseName("P3_PROTAGONIST_ACTION"))}</h2>
+        </div>
+        <strong class="placement-progress ${placed === 3 ? "is-complete" : ""}">${placed}/3</strong>
+      </div>
+      ${renderPlacementPrompt()}
+      <div class="protagonist-hands">
+        ${order.map((owner, index) => {
+          const done = placementsForOwner(state, owner).length === 1;
+          return `
+            <section class="protagonist-hand ${owner === current ? "is-current" : ""} ${done ? "is-done" : ""}">
+              <header>
+                <div>
+                  <span>${index + 1}</span>
+                  <h3>${escapeHtml(ownerLabel(owner))}</h3>
+                </div>
+                ${owner === state.loop.leader
+                  ? `<b>${escapeHtml(misc("Leader", "Leader"))}</b>`
+                  : ""}
+              </header>
+              ${renderHand(state, owner, PROTAGONIST_HAND, owner === current)}
+            </section>`;
+        }).join("")}
+      </div>
+      <div class="operation-footer">
+        <span>${current === undefined
+          ? escapeHtml(misc("Ready", "Ready"))
+          : escapeHtml(`${ownerLabel(current)} · ${misc("Current turn", "Current turn")}`)}</span>
+        ${renderAdvanceButton(undefined, current !== undefined)}
+      </div>
+    </section>`;
+}
+
+function counterLabel(counter: IncidentCounter): string {
+  const labels: Record<IncidentCounter, string> = {
+    goodwill: misc("Goodwill"),
+    paranoia: misc("Paranoia"),
+    intrigue: misc("Intrigue"),
+  };
+  return labels[counter];
+}
+
+function targetLabel(target: Target): string {
+  return target.kind === "character"
+    ? characterName(target.id)
+    : locationName(target.at);
+}
+
+function renderResolutionReceipt(state: GameState): string {
+  const receipt = receiptFor(state);
+  if (!receipt) return "";
+  const lines = [
+    ...receipt.changes.map((change) => {
+      if (change.kind === "movement") {
+        return `${characterName(change.character)} · ${locationName(change.before)} → ${locationName(change.after)}`;
+      }
+      if (change.kind === "locationIntrigue") {
+        return `${locationName(change.location)} · ${misc("Intrigue")} ${change.before} → ${change.after}`;
+      }
+      return `${characterName(change.character)} · ${counterLabel(change.counter)} ${change.before} → ${change.after}`;
+    }),
+    ...receipt.noEffects.map(({ placement, blockedBy }) =>
+      `${targetLabel(placement.target)} · ${actionCardName(placement.card)}: ${
+        blockedBy ? actionCardName(blockedBy) : misc("No effect", "No effect")
+      }`
+    ),
+  ];
+  return `
+    <section class="resolution-receipt" aria-live="polite">
+      <div>
+        <span class="eyebrow">${escapeHtml(misc("Resolving Cards"))}</span>
+        <h2>${escapeHtml(misc("Result summary", "Result summary"))}</h2>
+      </div>
+      <ul>
+        ${(lines.length > 0 ? lines : [misc("No effect", "No effect")])
+          .map((line) => `<li>${escapeHtml(line)}</li>`).join("")}
+      </ul>
+    </section>`;
+}
+
+function hookKey(phase: Phase, self: string, index: number): string {
+  return `${phase}:${self || "plot"}:${index}`;
+}
+
+function hookTargetOptions(state: GameState, self: CharacterId, text: string): Target[] {
+  if (text.includes("any location")) {
+    return LOCATIONS.map((at) => ({ kind: "location", at }));
+  }
+  if (!self || !text.includes("this location")) return [];
+
+  const location = state.loop.board[self].at;
+  const targets: Target[] = [];
+  if (text.includes("this location or")) {
+    targets.push({ kind: "location", at: location });
+  }
+  for (const [character, position] of Object.entries(state.loop.board)) {
+    if (position.alive && position.at === location) {
+      targets.push({ kind: "character", id: character });
+    }
+  }
+  return targets;
+}
+
+function encodeTarget(target: Target): string {
+  return target.kind === "character"
+    ? `character:${target.id}`
+    : `location:${target.at}`;
+}
+
+function renderHookList(
+  state: GameState,
+  phase: "P4_RESOLVE" | "P5_MASTERMIND_ABILITY" | "P9_ROUND_END",
+  interactive: boolean,
+): string {
+  const available = collectHooks(state, phase)
+    .map((entry, index) => ({ ...entry, index }))
+    .filter(({ hook, self }) => hook.when(state, self));
+  if (available.length === 0) {
+    return `<p class="empty-overlay">${escapeHtml(misc("No available ability", "No available ability"))}</p>`;
+  }
+
+  return `<div class="hook-list">${available.map(({ hook, self, index }) => {
+    const key = hookKey(phase, self, index);
+    const selection = optionalHookSelections.get(key);
+    const optional = hook.kind === "optional";
+    const text = hook.source.description ?? hook.source.prerequisite ?? "";
+    const targets = hookTargetOptions(state, self, text);
+    return `
+      <article class="hook-card ${selection?.selected ? "is-selected" : ""}">
+        <div>
+          <span>${escapeHtml(self ? characterName(self) : misc("Extra Rules"))}</span>
+          <strong>${escapeHtml(gameText(text || hook.source.timing))}</strong>
+        </div>
+        <small>${escapeHtml(hook.kind === "mandatory" ? misc("Mandatory") : misc("Optional"))}</small>
+        ${interactive && optional
+          ? `<label class="hook-toggle">
+              <input type="checkbox" data-action="optional-hook" data-hook-key="${escapeHtml(key)}"
+                ${selection?.selected ? "checked" : ""} />
+              <span>${escapeHtml(misc("Activate", "Activate"))}</span>
+            </label>`
+          : ""}
+        ${interactive && optional && targets.length > 0
+          ? `<select data-action="optional-hook-target" data-hook-key="${escapeHtml(key)}">
+              <option value="">${escapeHtml(misc("Select a target", "Select a target"))}</option>
+              ${targets.map((target) => `<option value="${escapeHtml(encodeTarget(target))}"
+                ${selection?.target === encodeTarget(target) ? "selected" : ""}>
+                ${escapeHtml(targetLabel(target))}</option>`).join("")}
+            </select>`
+          : ""}
+      </article>`;
+  }).join("")}</div>`;
+}
+
+function availableGoodwillAbilities(state: GameState) {
+  return Object.keys(state.loop.board).flatMap((character) =>
+    characterDataOf(character).goodwillAbilities.flatMap((ability, index) => {
+      if (ability.rank === null) return [];
+      if (state.loop.charCounters[character].goodwill < ability.rank) return [];
+      if (
+        ability.restrictedToLocation !== null &&
+        !ability.restrictedToLocation.includes(state.loop.board[character].at)
+      ) return [];
+      const key = `${character}:goodwill:${index}`;
+      const used = state.loop.abilitiesUsedThisLoop.filter(
+        (usedKey) => usedKey === key,
+      ).length;
+      if (ability.timesPerLoop !== null && used >= ability.timesPerLoop) return [];
+      return [{ character, ability, index, key }];
+    })
+  );
+}
+
+function renderGoodwillAbilities(state: GameState): string {
+  const abilities = availableGoodwillAbilities(state);
+  if (abilities.length === 0) {
+    return `<p class="empty-overlay">${escapeHtml(misc("No available ability", "No available ability"))}</p>`;
+  }
+  const spentLeaderCards = state.loop.spentOncePerLoop.protagonists[state.loop.leader];
+  return `<div class="goodwill-list">${abilities.map(({ character, ability, index, key }) => `
+    <article class="goodwill-card">
+      <div class="goodwill-copy">
+        <span>${escapeHtml(characterName(character))} · ${escapeHtml(misc("Goodwill"))} ${ability.rank}</span>
+        <strong>${escapeHtml(gameText(ability.en))}</strong>
+      </div>
+      <div class="goodwill-inputs">
+        <select data-goodwill-target="${escapeHtml(key)}">
+          <option value="">${escapeHtml(misc("Select a target", "Select a target"))}</option>
+          ${Object.keys(state.loop.board).map((target) =>
+            `<option value="character:${escapeHtml(target)}">${escapeHtml(characterName(target))}</option>`
+          ).join("")}
+          ${LOCATIONS.map((location) =>
+            `<option value="location:${location}">${escapeHtml(locationName(location))}</option>`
+          ).join("")}
+        </select>
+        <select data-goodwill-delta="${escapeHtml(key)}" aria-label="${escapeHtml(misc("Paranoia"))}">
+          <option value="-1">${escapeHtml(misc("Paranoia"))} -1</option>
+          <option value="1">${escapeHtml(misc("Paranoia"))} +1</option>
+        </select>
+        <select data-goodwill-card="${escapeHtml(key)}">
+          <option value="">${escapeHtml(misc("Select a card", "Select a card"))}</option>
+          ${spentLeaderCards.map((card) => `<option value="${card}">${escapeHtml(actionCardName(card))}</option>`).join("")}
+        </select>
+      </div>
+      <div class="goodwill-actions">
+        <button type="button" data-action="goodwill" data-response="resolve"
+          data-character="${escapeHtml(character)}" data-rank="${ability.rank}"
+          data-ability-index="${index}" data-goodwill-key="${escapeHtml(key)}">
+          ${escapeHtml(misc("Resolve", "Resolve"))}
+        </button>
+        <button type="button" data-action="goodwill" data-response="refuse"
+          data-character="${escapeHtml(character)}" data-rank="${ability.rank}"
+          data-ability-index="${index}" data-goodwill-key="${escapeHtml(key)}">
+          ${escapeHtml(misc("Refuse", "Refuse"))}
+        </button>
+      </div>
+    </article>`).join("")}</div>`;
+}
+
+function renderPhaseControls(state: GameState): string {
+  const heading = (step: number, title: string) => `
+    <div class="operation-heading">
+      <div><span class="eyebrow">${step}</span><h2>${escapeHtml(title)}</h2></div>
+    </div>`;
+
+  switch (state.loop.phase) {
+    case "P1_ROUND_START":
+      return `<section class="operation-panel compact-operation">
+        ${heading(1, phaseName(state.loop.phase))}
+        ${renderAdvanceButton()}
+      </section>`;
+    case "P2_MASTERMIND_ACTION":
+      return renderMastermindAction(state);
+    case "P3_PROTAGONIST_ACTION":
+      return renderProtagonistAction(state);
+    case "P4_RESOLVE":
+      return `<section class="operation-panel compact-operation">
+        <div class="resolve-control-copy">
+          ${heading(4, phaseName(state.loop.phase))}
+          ${renderHookList(state, state.loop.phase, true)}
+        </div>
+        ${renderAdvanceButton(misc("Resolving Cards"), state.loop.placed.length !== 6, "reveal-cards")}
+      </section>`;
+    case "P5_MASTERMIND_ABILITY":
+      return `${renderResolutionReceipt(state)}
+        <section class="operation-panel">
+          ${heading(5, phaseName(state.loop.phase))}
+          ${renderHookList(state, state.loop.phase, true)}
+          <div class="operation-footer">${renderAdvanceButton()}</div>
+        </section>`;
+    case "P6_GOODWILL":
+      return `<section class="operation-panel">
+        ${heading(6, phaseName(state.loop.phase))}
+        ${renderGoodwillAbilities(state)}
+        <div class="operation-footer">${renderAdvanceButton()}</div>
+      </section>`;
+    case "P7_INCIDENT":
+      return `<section class="operation-panel">
+        ${heading(7, phaseName(state.loop.phase))}
+        <div class="phase-incident-list">${renderTodayIncidents(state)}</div>
+        <div class="operation-footer">${renderAdvanceButton(misc("Incident trigger"))}</div>
+      </section>`;
+    case "P8_LEADER_PASS":
+      return `<section class="operation-panel compact-operation">
+        ${heading(8, phaseName(state.loop.phase))}
+        <p>${escapeHtml(`${ownerLabel(state.loop.leader)} → ${ownerLabel(((state.loop.leader + 1) % 3) as 0 | 1 | 2)}`)}</p>
+        ${renderAdvanceButton()}
+      </section>`;
+    case "P9_ROUND_END":
+      return `<section class="operation-panel">
+        ${heading(9, phaseName(state.loop.phase))}
+        <div class="round-end-grid">
+          <div>${renderHookList(state, state.loop.phase, false)}</div>
+          <div class="loss-list">${renderLossDistance(state)}</div>
+        </div>
+        <div class="operation-footer">${renderAdvanceButton(
+          isScenarioComplete(state) ? misc("Final Guess") : misc("Next phase", "Next phase"),
+          isScenarioComplete(state),
+        )}</div>
+      </section>`;
+  }
 }
 
 function mark(pass: boolean): string {
@@ -440,6 +917,11 @@ function renderTodayIncidents(state: GameState): string {
     const alive = state.loop.board[culprit].alive;
     const paranoia = state.loop.charCounters[culprit].paranoia;
     const limit = characterDataOf(culprit).paranoiaLimit;
+    const effectSources = INCIDENT_IMPL[incident]?.hooks
+      .map(({ source }) => source.description)
+      .filter((description): description is string => Boolean(description)) ??
+      [];
+    const effectText = incidentRuleText(incident, effectSources);
     return `
       <article class="incident-card">
         <div class="incident-title">
@@ -447,6 +929,9 @@ function renderTodayIncidents(state: GameState): string {
           <div><strong>${escapeHtml(incidentName(incident))}</strong>
           <span>${escapeHtml(misc("Culprit"))} · ${escapeHtml(characterName(culprit))}</span></div>
         </div>
+        ${effectText
+          ? `<p class="incident-effect">${escapeHtml(effectText)}</p>`
+          : ""}
         <div class="incident-conditions">
           <span>${mark(alive)} ${escapeHtml(misc("Alive", "Alive"))}</span>
           <span>${mark(paranoia >= limit)} ${escapeHtml(misc("Paranoia"))} ${paranoia}/${limit}</span>
@@ -562,12 +1047,14 @@ function render(): void {
 
       <main class="workspace ${tracker.mastermindOverlay ? "with-overlay" : ""}">
         <div class="primary-column">
-          <section class="game-board" aria-label="${escapeHtml(misc("Location", "Location"))}">
+          <section class="game-board ${selectedHandCard ? "is-targeting" : ""}"
+            aria-label="${escapeHtml(misc("Location", "Location"))}">
             ${LOCATIONS.map((location) => renderLocation(state, location)).join("")}
             <div class="board-axis axis-x"></div>
             <div class="board-axis axis-y"></div>
             <div class="board-center">TL</div>
           </section>
+          ${renderPhaseControls(state)}
           ${renderSpentCards(state)}
         </div>
         ${renderMastermindOverlay(state)}
@@ -595,6 +1082,155 @@ function incidentChoiceFromUi(): IncidentChoice | undefined {
   };
 }
 
+function decodeTarget(value: string | undefined): Target | undefined {
+  if (!value) return undefined;
+  const [kind, id] = value.split(":", 2);
+  if (kind === "character" && id) return { kind, id };
+  if (kind === "location" && LOCATIONS.includes(id as Location)) {
+    return { kind, at: id as Location };
+  }
+  return undefined;
+}
+
+function applySelectedOptionalHooks(state: GameState): void {
+  const phase = state.loop.phase;
+  if (phase !== "P4_RESOLVE" && phase !== "P5_MASTERMIND_ABILITY") return;
+  const hooks = collectHooks(state, phase);
+  hooks.forEach(({ hook, self }, index) => {
+    const selection = optionalHookSelections.get(hookKey(phase, self, index));
+    if (!selection?.selected || hook.kind !== "optional") return;
+    if (!hook.when(state, self)) return;
+
+    const targetOptions = hookTargetOptions(
+      state,
+      self,
+      hook.source.description ?? hook.source.prerequisite ?? "",
+    );
+    const target = decodeTarget(selection.target);
+    if (targetOptions.length > 0 && target === undefined) {
+      throw new Error(misc("Select a target", "Select a target"));
+    }
+    hook.effect(state, self, target);
+  });
+}
+
+function placeSelectedCard(target: Target): void {
+  const selected = selectedHandCard;
+  if (!selected) {
+    notice = misc("Select a card first", "Select a card first");
+    render();
+    return;
+  }
+  const state = currentState();
+  if (
+    (state.loop.phase === "P2_MASTERMIND_ACTION" && selected.owner !== "mastermind") ||
+    (state.loop.phase === "P3_PROTAGONIST_ACTION" && selected.owner !== nextProtagonist(state))
+  ) {
+    notice = misc("It is not this player's turn", "It is not this player's turn");
+    render();
+    return;
+  }
+
+  const placement: PlacedCard = {
+    owner: selected.owner,
+    card: selected.card,
+    target,
+  };
+  const legal = validatePlacement(state, placement);
+  if (!legal.ok) {
+    notice = legal.reason ?? misc("Invalid placement", "Invalid placement");
+    render();
+    return;
+  }
+
+  selectedHandCard = undefined;
+  commit("action-card-placement", (game) => {
+    game.loop.placed.push(placement);
+  });
+}
+
+function revealActionCards(): void {
+  const entry = activeScenarioEntry();
+  const game = tracker.games[entry.id];
+  const state = game.state;
+  if (state.loop.phase !== "P4_RESOLVE" || state.loop.placed.length !== 6) {
+    notice = misc("6 cards required", "6 cards required");
+    render();
+    return;
+  }
+
+  const rollback = structuredClone(state);
+  const cards = structuredClone(state.loop.placed);
+  try {
+    applySelectedOptionalHooks(state);
+    const before = structuredClone(state);
+    advance(state);
+    resolutionReceipt = {
+      scenarioId: entry.id,
+      loop: state.loop.loop,
+      day: state.loop.day,
+      cards,
+      changes: collectResolutionChanges(before, state),
+      noEffects: collectNoEffectCards(before, state, cards),
+    };
+    selectedHandCard = undefined;
+    optionalHookSelections.clear();
+    notice = "";
+    saveState(entry.id, state, "cards-resolved");
+  } catch (error) {
+    game.state = rollback;
+    notice = errorMessage(error);
+  }
+  render();
+}
+
+function resolveGoodwillFromButton(button: HTMLButtonElement): void {
+  const entry = activeScenarioEntry();
+  const game = tracker.games[entry.id];
+  const before = structuredClone(game.state);
+  const character = button.dataset.character;
+  const rank = Number(button.dataset.rank);
+  const abilityIndex = Number(button.dataset.abilityIndex);
+  const key = button.dataset.goodwillKey;
+  const response = button.dataset.response;
+  if (
+    !character || !key || !Number.isInteger(rank) ||
+    !Number.isInteger(abilityIndex) ||
+    (response !== "resolve" && response !== "refuse")
+  ) return;
+
+  const target = decodeTarget(
+    root.querySelector<HTMLSelectElement>(`[data-goodwill-target="${CSS.escape(key)}"]`)?.value,
+  );
+  const deltaValue = root.querySelector<HTMLSelectElement>(
+    `[data-goodwill-delta="${CSS.escape(key)}"]`,
+  )?.value;
+  const cardValue = root.querySelector<HTMLSelectElement>(
+    `[data-goodwill-card="${CSS.escape(key)}"]`,
+  )?.value as ActionCard | undefined;
+
+  try {
+    resolveGoodwillAbility(
+      game.state,
+      {
+        user: character,
+        rank,
+        abilityIndex,
+        target,
+        paranoiaDelta: deltaValue === "1" ? 1 : -1,
+        card: cardValue || undefined,
+      },
+      response,
+    );
+    notice = "";
+    saveState(entry.id, game.state, `goodwill-${response}`);
+  } catch (error) {
+    game.state = before;
+    notice = errorMessage(error);
+  }
+  render();
+}
+
 function advanceCurrentPhase(): void {
   const entry = activeScenarioEntry();
   const game = tracker.games[entry.id];
@@ -606,6 +1242,19 @@ function advanceCurrentPhase(): void {
   const endingLoopNumber = state.loop.loop;
 
   try {
+    if (
+      state.loop.phase === "P2_MASTERMIND_ACTION" &&
+      placementsForOwner(state, "mastermind").length !== 3
+    ) {
+      throw new Error(misc("3 cards required", "3 cards required"));
+    }
+    if (
+      state.loop.phase === "P3_PROTAGONIST_ACTION" &&
+      nextProtagonist(state) !== undefined
+    ) {
+      throw new Error(misc("3 cards required", "3 cards required"));
+    }
+    applySelectedOptionalHooks(state);
     advance(state, incidentChoiceFromUi());
     if (endingLoop) {
       saveState(entry.id, state, "loop-end");
@@ -616,6 +1265,9 @@ function advanceCurrentPhase(): void {
         resolveHooks(state, "LOOP_START");
       }
     }
+    selectedHandCard = undefined;
+    resolutionReceipt = undefined;
+    optionalHookSelections.clear();
     notice = "";
     saveState(entry.id, state, "phase-advance");
   } catch (error) {
@@ -637,12 +1289,69 @@ root.addEventListener("click", (event) => {
     return;
   }
 
-  if (action === "toggle-alive") {
+  if (action === "reveal-cards") {
+    revealActionCards();
+    return;
+  }
+
+  if (action === "select-hand-card") {
+    const ownerValue = button.dataset.owner;
+    const card = button.dataset.card as ActionCard | undefined;
+    const key = button.dataset.cardKey;
+    if (!ownerValue || !card || !key) return;
+    const owner: CardOwner = ownerValue === "mastermind"
+      ? "mastermind"
+      : Number(ownerValue) as 0 | 1 | 2;
+    const state = currentState();
+    const ownerIsActive = state.loop.phase === "P2_MASTERMIND_ACTION"
+      ? owner === "mastermind"
+      : state.loop.phase === "P3_PROTAGONIST_ACTION" &&
+        owner === nextProtagonist(state);
+    if (!ownerIsActive) {
+      notice = misc("It is not this player's turn", "It is not this player's turn");
+      render();
+      return;
+    }
+    selectedHandCard = selectedHandCard?.owner === owner &&
+        selectedHandCard.key === key
+      ? undefined
+      : { owner, card, key };
+    notice = "";
+    render();
+    return;
+  }
+
+  if (action === "board-character") {
     const character = button.dataset.character;
     if (!character) return;
+    if (selectedHandCard) {
+      placeSelectedCard({ kind: "character", id: character });
+      return;
+    }
+    if (["P2_MASTERMIND_ACTION", "P3_PROTAGONIST_ACTION"].includes(currentState().loop.phase)) {
+      notice = misc("Select a card first", "Select a card first");
+      render();
+      return;
+    }
     commit("character-life", (state) => {
       state.loop.board[character].alive = !state.loop.board[character].alive;
     });
+    return;
+  }
+
+  if (action === "board-location") {
+    const location = button.dataset.location as Location | undefined;
+    if (!location || !selectedHandCard) {
+      notice = misc("Select a card first", "Select a card first");
+      render();
+      return;
+    }
+    placeSelectedCard({ kind: "location", at: location });
+    return;
+  }
+
+  if (action === "goodwill") {
+    resolveGoodwillFromButton(button);
     return;
   }
 
@@ -692,10 +1401,35 @@ root.addEventListener("click", (event) => {
 root.addEventListener("change", (event) => {
   const control = event.target as HTMLInputElement | HTMLSelectElement;
   const action = control.dataset.action;
+  if (action === "optional-hook") {
+    const key = control.dataset.hookKey;
+    if (!key) return;
+    const current = optionalHookSelections.get(key) ?? { selected: false };
+    current.selected = (control as HTMLInputElement).checked;
+    optionalHookSelections.set(key, current);
+    notice = "";
+    render();
+    return;
+  }
+
+  if (action === "optional-hook-target") {
+    const key = control.dataset.hookKey;
+    if (!key) return;
+    const current = optionalHookSelections.get(key) ?? { selected: false };
+    current.target = control.value || undefined;
+    optionalHookSelections.set(key, current);
+    notice = "";
+    render();
+    return;
+  }
+
   if (action === "scenario") {
     const entry = scenarioEntries.find(({ id }) => id === control.value);
     if (!entry) return;
     tracker.activeScenarioId = entry.id;
+    selectedHandCard = undefined;
+    resolutionReceipt = undefined;
+    optionalHookSelections.clear();
     if (!tracker.games[entry.id]) {
       saveState(entry.id, createGame(entry), "scenario-start");
     } else {

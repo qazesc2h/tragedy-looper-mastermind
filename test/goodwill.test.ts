@@ -221,6 +221,64 @@ describe("goodwill availability and refusal", () => {
     expect(state.loop.charCounters.boyStudent.paranoia).toBe(2);
   });
 
+  it("lets mysteryBoy's protected ability resolve through mandatory refusal", () => {
+    const scenario: Scenario = {
+      tragedySet: "basicTragedy",
+      mainPlot: "",
+      subPlots: [],
+      cast: { mysteryBoy: "witch" },
+      incidents: [],
+      loops: 1,
+      daysPerLoop: 3,
+    };
+    const state: GameState = {
+      scenario,
+      loop: initLoop(scenario),
+      history: [],
+    };
+    state.loop.phase = "P6_GOODWILL";
+    state.loop.charCounters.mysteryBoy.goodwill = 3;
+
+    const result = resolveGoodwillAbility(state, {
+      user: "mysteryBoy",
+      rank: 3,
+      abilityIndex: 1,
+    }, "resolve");
+
+    expect(result.response).toBe("resolve");
+    expect(result.effectApplied).toBe(true);
+    expect(state.loop.revealedRoleCharacters).toEqual(["mysteryBoy"]);
+  });
+
+  it("does not let an optional-refusal role refuse nurse's protected ability", () => {
+    const scenario: Scenario = {
+      tragedySet: "basicTragedy",
+      mainPlot: "",
+      subPlots: [],
+      cast: { nurse: "killer", girlStudent: "person" },
+      incidents: [],
+      loops: 1,
+      daysPerLoop: 3,
+    };
+    const state: GameState = {
+      scenario,
+      loop: initLoop(scenario),
+      history: [],
+    };
+    state.loop.phase = "P6_GOODWILL";
+    state.loop.charCounters.nurse.goodwill = 2;
+    state.loop.charCounters.girlStudent.paranoia = 3;
+    state.loop.board.girlStudent.at = "Hospital";
+
+    expect(() => resolveGoodwillAbility(state, {
+      user: "nurse",
+      rank: 2,
+      abilityIndex: 0,
+      target: "girlStudent",
+    }, "refuse")).toThrow("this goodwill ability cannot be refused");
+    expect(state.loop.charCounters.girlStudent.paranoia).toBe(3);
+  });
+
   it("does not permit a role without refusal to refuse", () => {
     const state = createState("goodwill-chain-and-refusal");
     state.loop.phase = "P6_GOODWILL";

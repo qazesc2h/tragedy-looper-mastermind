@@ -26,6 +26,7 @@ export interface GoodwillAbilityData {
   en: string;
   timesPerLoop: number | null;
   restrictedToLocation: readonly Location[] | null;
+  immuneToGoodwillRefusel: boolean;
 }
 
 export interface ScenarioAdapterOptions {
@@ -148,6 +149,8 @@ function parseCharacterData(id: CharacterId, value: unknown): CharacterData {
         `${context}.timesPerLoop`,
       ),
       restrictedToLocation,
+      immuneToGoodwillRefusel:
+        entry.immuneToGoodwillRefusel === true,
     };
   });
 
@@ -170,10 +173,12 @@ const rawCharacters: Record<string, unknown> = charactersJson;
 
 export const CHARACTERS: Readonly<Record<CharacterId, CharacterData>> =
   Object.fromEntries(
-    Object.entries(rawCharacters).map(([id, value]) => [
-      id,
-      parseCharacterData(id, value),
-    ]),
+    Object.entries(rawCharacters)
+      .filter(([id]) => !id.startsWith("_"))
+      .map(([id, value]) => [
+        id,
+        parseCharacterData(id, value),
+      ]),
   );
 
 export function characterDataOf(id: CharacterId): CharacterData {

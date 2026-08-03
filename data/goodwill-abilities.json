@@ -1,0 +1,722 @@
+{
+  "boyStudent": [
+    {
+      "abilityIndex": 0,
+      "rank": 2,
+      "ko": "동일한 장소에 있는 다른 학생 1명에게서 :paranoia: 1개를 제거합니다.",
+      "target": {
+        "scope": "sameLocation",
+        "excludeSelf": true,
+        "tags": [
+          "student"
+        ],
+        "predicates": [
+          "alive"
+        ]
+      },
+      "effect": {
+        "counter": "paranoia",
+        "delta": -1
+      },
+      "choices": null,
+      "timesPerLoop": null,
+      "restrictedToLocation": null,
+      "_source": "-1 :paranoia: on student in same location."
+    }
+  ],
+  "girlStudent": [
+    {
+      "abilityIndex": 0,
+      "rank": 2,
+      "ko": "동일한 장소에 있는 다른 학생 1명에게서 :paranoia: 1개를 제거합니다.",
+      "target": {
+        "scope": "sameLocation",
+        "excludeSelf": true,
+        "tags": [
+          "student"
+        ],
+        "predicates": [
+          "alive"
+        ]
+      },
+      "effect": {
+        "counter": "paranoia",
+        "delta": -1
+      },
+      "choices": null,
+      "timesPerLoop": null,
+      "restrictedToLocation": null,
+      "_source": "-1 :paranoia: on student in same location."
+    }
+  ],
+  "richStudent": [
+    {
+      "abilityIndex": 0,
+      "rank": 3,
+      "ko": "동일한 장소에 있는 다른 캐릭터 1명에 :goodwill: 1개를 추가합니다.",
+      "target": {
+        "scope": "sameLocation",
+        "excludeSelf": false,
+        "tags": [],
+        "predicates": [
+          "alive"
+        ]
+      },
+      "effect": {
+        "counter": "goodwill",
+        "delta": 1
+      },
+      "choices": null,
+      "timesPerLoop": null,
+      "restrictedToLocation": [
+        "School",
+        "City"
+      ],
+      "_source": "+1 :goodwill: on character in same location."
+    }
+  ],
+  "classRep": [
+    {
+      "abilityIndex": 0,
+      "rank": 2,
+      "ko": "리더는 (1×∞) 카드 1장을 돌려받습니다.",
+      "target": {
+        "scope": "none",
+        "excludeSelf": false,
+        "tags": []
+      },
+      "effect": {
+        "operation": "recoverLeaderSpentCard"
+      },
+      "choices": [
+        "spentOncePerLoopCard"
+      ],
+      "timesPerLoop": 1,
+      "restrictedToLocation": null,
+      "_source": "Leader gets one (1×∞) card back."
+    }
+  ],
+  "mysteryBoy": [
+    {
+      "abilityIndex": 1,
+      "rank": 3,
+      "ko": "2번째 루프부터: 자신의 역할을 공개합니다. 이 능력은 우호 무시로 거부할 수 없습니다.",
+      "target": {
+        "scope": "self",
+        "excludeSelf": false,
+        "tags": []
+      },
+      "effect": {
+        "operation": "revealRole"
+      },
+      "choices": null,
+      "timesPerLoop": null,
+      "restrictedToLocation": null,
+      "cannotBeRefused": true,
+      "_source": "Reveal own role."
+    }
+  ],
+  "shrineMaiden": [
+    {
+      "abilityIndex": 0,
+      "rank": 3,
+      "ko": "신사에서 :intrigue: 1개를 제거합니다.",
+      "target": {
+        "scope": "none",
+        "excludeSelf": false,
+        "tags": []
+      },
+      "effect": {
+        "counter": "intrigue",
+        "delta": -1,
+        "fixedLocation": "Shrine"
+      },
+      "choices": null,
+      "timesPerLoop": null,
+      "restrictedToLocation": [
+        "Shrine"
+      ],
+      "_source": "-1 :intrigue: on Shrine."
+    },
+    {
+      "abilityIndex": 1,
+      "rank": 5,
+      "ko": "동일한 장소에 있는 캐릭터 1명의 역할을 공개합니다.",
+      "target": {
+        "scope": "sameLocation",
+        "excludeSelf": false,
+        "tags": [],
+        "predicates": [
+          "alive"
+        ]
+      },
+      "effect": {
+        "operation": "revealRole"
+      },
+      "choices": null,
+      "timesPerLoop": 1,
+      "restrictedToLocation": null,
+      "_source": "Reveal role of character in same location"
+    }
+  ],
+  "alien": [
+    {
+      "abilityIndex": 0,
+      "rank": 4,
+      "ko": "동일한 장소에 있는 다른 캐릭터 1명을 사망시킵니다.",
+      "target": {
+        "scope": "sameLocation",
+        "excludeSelf": true,
+        "tags": [],
+        "predicates": [
+          "alive"
+        ]
+      },
+      "effect": {
+        "operation": "kill"
+      },
+      "choices": null,
+      "timesPerLoop": 1,
+      "restrictedToLocation": null,
+      "_source": "Kill one character in same location."
+    },
+    {
+      "abilityIndex": 1,
+      "rank": 5,
+      "ko": "동일한 장소에 있는 시체 1구를 되살립니다.",
+      "target": {
+        "scope": "sameLocation",
+        "excludeSelf": false,
+        "tags": [],
+        "predicates": [
+          "dead"
+        ]
+      },
+      "effect": {
+        "operation": "revive"
+      },
+      "choices": null,
+      "timesPerLoop": 1,
+      "restrictedToLocation": null,
+      "_source": "Revive one corpse in same location."
+    }
+  ],
+  "godlyBeing": [
+    {
+      "abilityIndex": 1,
+      "rank": 3,
+      "ko": "사건 1개의 범인을 공개합니다.",
+      "target": {
+        "scope": "none",
+        "excludeSelf": false,
+        "tags": []
+      },
+      "effect": {
+        "operation": "revealIncidentCulprit"
+      },
+      "choices": [
+        "incident"
+      ],
+      "timesPerLoop": 1,
+      "restrictedToLocation": null,
+      "_source": "Reveal culprit for 1 incident."
+    },
+    {
+      "abilityIndex": 2,
+      "rank": 5,
+      "ko": "이 캐릭터가 있는 장소에서, 또는 그 장소에 있는 캐릭터 1명에게서 :intrigue: 1개를 제거합니다.",
+      "target": {
+        "scope": "sameLocation",
+        "excludeSelf": false,
+        "tags": [],
+        "kinds": [
+          "character",
+          "location"
+        ],
+        "predicates": [
+          "aliveIfCharacter"
+        ]
+      },
+      "effect": {
+        "counter": "intrigue",
+        "delta": -1
+      },
+      "choices": null,
+      "timesPerLoop": null,
+      "restrictedToLocation": null,
+      "_source": "-1 :intrigue: on same location or Character in same location."
+    }
+  ],
+  "policeOfficer": [
+    {
+      "abilityIndex": 0,
+      "rank": 4,
+      "ko": "이번 루프에 이미 발생한 사건 1개의 범인을 공개합니다.",
+      "target": {
+        "scope": "none",
+        "excludeSelf": false,
+        "tags": []
+      },
+      "effect": {
+        "operation": "revealPastIncidentCulprit"
+      },
+      "choices": [
+        "pastIncident"
+      ],
+      "timesPerLoop": 1,
+      "restrictedToLocation": null,
+      "_source": "Reveal culprit for former incident."
+    },
+    {
+      "abilityIndex": 1,
+      "rank": 5,
+      "ko": "같은 장소에 있는 다른 캐릭터 1명에 특수 마커 1개를 놓습니다. 그 캐릭터가 사망하게 될 때, 대신 이 마커를 제거합니다.",
+      "target": {
+        "scope": "sameLocation",
+        "excludeSelf": true,
+        "tags": [],
+        "predicates": [
+          "alive"
+        ]
+      },
+      "effect": {
+        "operation": "addProtection"
+      },
+      "choices": null,
+      "timesPerLoop": 1,
+      "restrictedToLocation": null,
+      "_source": "Put an Extra marker on another character in same location. Remove that marker to prevent that character from dying."
+    }
+  ],
+  "officeWorker": [
+    {
+      "abilityIndex": 0,
+      "rank": 3,
+      "ko": "2번째 루프부터: 자신의 역할을 공개합니다. 이 능력은 우호 무시로 거부할 수 없습니다.",
+      "target": {
+        "scope": "self",
+        "excludeSelf": false,
+        "tags": []
+      },
+      "effect": {
+        "operation": "revealRole"
+      },
+      "choices": null,
+      "timesPerLoop": null,
+      "restrictedToLocation": null,
+      "_source": "Reveal own role."
+    }
+  ],
+  "informer": [
+    {
+      "abilityIndex": 0,
+      "rank": 5,
+      "ko": "리더는 임의의 룰 X의 이름을 선언합니다. 그 뒤, 각본가는 시나리오에 사용된 다른 룰 X의 이름을 선언해야 합니다.",
+      "target": {
+        "scope": "none",
+        "excludeSelf": false,
+        "tags": []
+      },
+      "effect": {
+        "operation": "nameActiveSubplot"
+      },
+      "choices": [
+        "subplot"
+      ],
+      "timesPerLoop": 1,
+      "restrictedToLocation": null,
+      "_source": "Leader names the title of any Subplot. Then, the Mastermind must name the title of any other active subplot."
+    }
+  ],
+  "popIdol": [
+    {
+      "abilityIndex": 0,
+      "rank": 3,
+      "ko": "동일한 장소에 있는 다른 캐릭터 1명에게서 :paranoia: 1개를 제거합니다.",
+      "target": {
+        "scope": "sameLocation",
+        "excludeSelf": true,
+        "tags": [],
+        "predicates": [
+          "alive"
+        ]
+      },
+      "effect": {
+        "counter": "paranoia",
+        "delta": -1
+      },
+      "choices": null,
+      "timesPerLoop": null,
+      "restrictedToLocation": null,
+      "_source": "-1 :paranoia: on character in same location."
+    },
+    {
+      "abilityIndex": 1,
+      "rank": 4,
+      "ko": "동일한 장소에 있는 다른 캐릭터 1명에 :goodwill: 1개를 추가합니다.",
+      "target": {
+        "scope": "sameLocation",
+        "excludeSelf": true,
+        "tags": [],
+        "predicates": [
+          "alive"
+        ]
+      },
+      "effect": {
+        "counter": "goodwill",
+        "delta": 1
+      },
+      "choices": null,
+      "timesPerLoop": null,
+      "restrictedToLocation": null,
+      "_source": "+1 :goodwill: on character in same location."
+    }
+  ],
+  "journalist": [
+    {
+      "abilityIndex": 0,
+      "rank": 2,
+      "ko": "임의의 다른 캐릭터 1명에 :paranoia: 1개를 추가합니다.",
+      "target": {
+        "scope": "anyCharacter",
+        "excludeSelf": true,
+        "tags": [],
+        "predicates": [
+          "alive"
+        ]
+      },
+      "effect": {
+        "counter": "paranoia",
+        "delta": 1
+      },
+      "choices": null,
+      "timesPerLoop": null,
+      "restrictedToLocation": null,
+      "_source": "+1 :paranoia: on any other character."
+    },
+    {
+      "abilityIndex": 1,
+      "rank": 2,
+      "ko": "이 캐릭터가 있는 장소 혹은 그 장소에 있는 캐릭터 1명에 :intrigue: 1개를 추가합니다.",
+      "target": {
+        "scope": "sameLocation",
+        "excludeSelf": false,
+        "tags": [],
+        "kinds": [
+          "character",
+          "location"
+        ],
+        "predicates": [
+          "aliveIfCharacter"
+        ]
+      },
+      "effect": {
+        "counter": "intrigue",
+        "delta": 1
+      },
+      "choices": null,
+      "timesPerLoop": null,
+      "restrictedToLocation": null,
+      "_source": "+1 :intrigue: on this Location or any character in this Location."
+    }
+  ],
+  "boss": [
+    {
+      "abilityIndex": 1,
+      "rank": 5,
+      "ko": "자신의 세력권에 있는 다른 캐릭터 1명의 역할을 공개합니다.",
+      "target": {
+        "scope": "anyCharacter",
+        "excludeSelf": true,
+        "tags": [],
+        "predicates": [
+          "alive",
+          "inUserTurf"
+        ]
+      },
+      "effect": {
+        "operation": "revealRole"
+      },
+      "choices": null,
+      "timesPerLoop": 1,
+      "restrictedToLocation": null,
+      "_source": "Reveal role of character in his turf."
+    }
+  ],
+  "doctor": [
+    {
+      "abilityIndex": 0,
+      "rank": 2,
+      "ko": "동일한 장소에 있는 다른 캐릭터 1명에 :paranoia: 1개를 추가하거나 제거합니다. 이 캐릭터가 우호 무시를 지닌 경우, 각본가는 이 능력을 자신의 능력으로 사용할 수 있습니다.",
+      "target": {
+        "scope": "sameLocation",
+        "excludeSelf": true,
+        "tags": [],
+        "predicates": [
+          "alive"
+        ]
+      },
+      "effect": {
+        "counter": "paranoia",
+        "delta": null
+      },
+      "choices": [
+        "+1",
+        "-1"
+      ],
+      "timesPerLoop": null,
+      "restrictedToLocation": null,
+      "_source": "+/-1 :paranoia: on character in same location."
+    },
+    {
+      "abilityIndex": 1,
+      "rank": 3,
+      "ko": ":patient:의 금지 장소가 없어집니다.",
+      "target": {
+        "scope": "anyCharacter",
+        "excludeSelf": false,
+        "tags": [],
+        "predicates": [
+          "isPatient"
+        ]
+      },
+      "effect": {
+        "operation": "removeLocationRestriction"
+      },
+      "choices": null,
+      "timesPerLoop": null,
+      "restrictedToLocation": null,
+      "_source": "revoke location restirction for :patient:."
+    }
+  ],
+  "patient": [],
+  "nurse": [
+    {
+      "abilityIndex": 0,
+      "rank": 2,
+      "ko": "동일한 장소에 있는 공황 상태인 캐릭터에게서 :paranoia: 1개를 제거합니다. 이 능력은 :goodwill: 무시로 거부할 수 없습니다.",
+      "target": {
+        "scope": "sameLocation",
+        "excludeSelf": true,
+        "tags": [],
+        "predicates": [
+          "alive",
+          "panicked"
+        ]
+      },
+      "effect": {
+        "counter": "paranoia",
+        "delta": -1
+      },
+      "choices": null,
+      "timesPerLoop": null,
+      "restrictedToLocation": null,
+      "cannotBeRefused": true,
+      "_source": "-1 :paranoia: on panicked character in same location. This ability cannot be refused by :goodwill: Refusel."
+    }
+  ],
+  "henchman": [
+    {
+      "abilityIndex": 1,
+      "rank": 3,
+      "ko": "이번 루프 동안 사건을 발생시키지 않습니다.",
+      "target": {
+        "scope": "self",
+        "excludeSelf": false,
+        "tags": []
+      },
+      "effect": {
+        "operation": "suppressOwnIncidents"
+      },
+      "choices": null,
+      "timesPerLoop": null,
+      "restrictedToLocation": null,
+      "_source": "Dose not trigger incidents."
+    }
+  ],
+  "teacher": [
+    {
+      "abilityIndex": 0,
+      "rank": 3,
+      "ko": "이 장소에 있는 :student: 1명을 선택하고, 그 학생에 :paranoia: 1개를 추가하거나 그 학생에게서 1개를 제거합니다.",
+      "target": {
+        "scope": "sameLocation",
+        "excludeSelf": false,
+        "tags": [
+          "student"
+        ],
+        "predicates": [
+          "alive"
+        ]
+      },
+      "effect": {
+        "counter": "paranoia",
+        "delta": null
+      },
+      "choices": [
+        "+1",
+        "-1"
+      ],
+      "timesPerLoop": null,
+      "restrictedToLocation": null,
+      "_source": "Pick a :student: in this location, and add or remove a :paranoia: from that student."
+    },
+    {
+      "abilityIndex": 1,
+      "rank": 4,
+      "ko": "이 장소에 있는 :student: 1명의 역할을 공개합니다.",
+      "target": {
+        "scope": "sameLocation",
+        "excludeSelf": false,
+        "tags": [
+          "student"
+        ],
+        "predicates": [
+          "alive"
+        ]
+      },
+      "effect": {
+        "operation": "revealRole"
+      },
+      "choices": null,
+      "timesPerLoop": 1,
+      "restrictedToLocation": null,
+      "_source": "Reveal the role of one :student: in this location."
+    }
+  ],
+  "transferStudent": [
+    {
+      "abilityIndex": 1,
+      "rank": 2,
+      "ko": "이 장소에 있는 다른 임의의 캐릭터 1명에 놓인 :intrigue: 카운터 1개를 :goodwill: 카운터로 바꿉니다.",
+      "target": {
+        "scope": "sameLocation",
+        "excludeSelf": true,
+        "tags": [],
+        "predicates": [
+          "alive",
+          "hasIntrigue"
+        ]
+      },
+      "effect": {
+        "operation": "convertCounter",
+        "from": "intrigue",
+        "to": "goodwill",
+        "amount": 1
+      },
+      "choices": null,
+      "timesPerLoop": null,
+      "restrictedToLocation": null,
+      "_source": "Change an :intrigue: conuter on any other character in this location to a :goodwill: counter."
+    }
+  ],
+  "soldier": [
+    {
+      "abilityIndex": 0,
+      "rank": 2,
+      "ko": "이 장소에 있는 다른 캐릭터 1명에 :paranoia: 2개를 놓습니다.",
+      "target": {
+        "scope": "sameLocation",
+        "excludeSelf": true,
+        "tags": [],
+        "predicates": [
+          "alive"
+        ]
+      },
+      "effect": {
+        "counter": "paranoia",
+        "delta": 2
+      },
+      "choices": null,
+      "timesPerLoop": 1,
+      "restrictedToLocation": null,
+      "_source": "Place 2 :paranoia: on another character in this location."
+    },
+    {
+      "abilityIndex": 1,
+      "rank": 5,
+      "ko": "이번 루프 종료 시까지 주인공은 사망하지 않습니다.",
+      "target": {
+        "scope": "none",
+        "excludeSelf": false,
+        "tags": []
+      },
+      "effect": {
+        "operation": "preventProtagonistDeathForLoop"
+      },
+      "choices": null,
+      "timesPerLoop": 1,
+      "restrictedToLocation": null,
+      "_source": "The Protagonists cannot die for the reminder of the loop."
+    }
+  ],
+  "blackCat": [],
+  "forensicSpecialist": [
+    {
+      "abilityIndex": 0,
+      "rank": 2,
+      "ko": "이 장소에 있는 다른 캐릭터 2명 사이에서 임의의 카운터 1개를 이동시킵니다.",
+      "target": {
+        "scope": "sameLocation",
+        "excludeSelf": true,
+        "tags": [],
+        "predicates": [
+          "alive"
+        ],
+        "count": 2
+      },
+      "effect": {
+        "operation": "moveCounter"
+      },
+      "choices": [
+        "goodwill",
+        "paranoia",
+        "intrigue"
+      ],
+      "timesPerLoop": 1,
+      "restrictedToLocation": null,
+      "_source": "Move any one counter between any two other characters in this location."
+    },
+    {
+      "abilityIndex": 1,
+      "rank": 5,
+      "ko": "임의의 시체 1구의 역할을 공개합니다.",
+      "target": {
+        "scope": "anyCharacter",
+        "excludeSelf": false,
+        "tags": [],
+        "predicates": [
+          "dead"
+        ]
+      },
+      "effect": {
+        "operation": "revealRole"
+      },
+      "choices": null,
+      "timesPerLoop": 1,
+      "restrictedToLocation": null,
+      "_source": "Reveal the role of any one corpse."
+    }
+  ],
+  "ai": [
+    {
+      "abilityIndex": 2,
+      "rank": 3,
+      "ko": "리더는 시나리오에 있는 사건 1개를 :ai:이(가) 범인인 것처럼 취급하여 해결할 수 있습니다. (이는 사건을 발생시킨 것으로 취급하지 않습니다.)",
+      "target": {
+        "scope": "none",
+        "excludeSelf": false,
+        "tags": []
+      },
+      "effect": {
+        "operation": "resolveIncidentAsSelfWithoutTrigger"
+      },
+      "choices": [
+        "incident"
+      ],
+      "timesPerLoop": 1,
+      "restrictedToLocation": null,
+      "_source": "The Leader may resolve one incident in the Script, wit the :ai: as the culprit. (This is not considered triggering the event.)"
+    }
+  ]
+}
