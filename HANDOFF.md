@@ -613,3 +613,69 @@ UI는 예외를 잡아 상태를 롤백하고 메시지를 표시하지만 효�
   - 한국어 번역 테스트의 훅 source 암시적 `any` 2건
 - 현재 HEAD는 `f0c335e Validate action cards at runtime`이다.
 - 최종 검증은 strict 타입 체크 통과, Vitest 15파일·220테스트 통과·1 TODO다.
+
+### 10-11. 2026-08-03 우호 능력 번역 충돌과 26명 커버리지
+
+#### 평면 번역 사전 충돌 수정
+
+`data/ko-translations.json`은 영문 description을 단독 키로 사용하는 평면 사전이다.
+서로 다른 캐릭터의 영문 description이 같으면 캐릭터별 제약과 정발 문구를 구분하지
+못하는 문제가 있었다.
+
+- `mysteryBoy [우호3]`과 `officeWorker [우호3]`의 원문은 모두
+  `Reveal own role.`이다. 그 결과 아웃사이더 전용인 “2번째 루프부터/거부 불가”
+  문구가 회사원에도 표시되었다.
+- `richStudent [우호3]`과 `popIdol [우호4]`의 원문은 모두
+  `+1 :goodwill: on character in same location.`이다. 실제로는 재벌가 손녀만
+  자신을 대상으로 선택할 수 있고 학교/도심 제한이 있으며, 아이돌은 장소 제한이
+  없고 다른 캐릭터만 대상으로 삼는다. 공통 번역 때문에 재벌가 손녀에도
+  “다른 캐릭터”라고 표시되었다.
+- 남학생과 여학생의 `-1 :paranoia: on student in same location.`은 제약과 효과가
+  실제로 동일하므로 번역 공유가 맞다.
+
+수정 후 `data/goodwill-abilities.json`의 캐릭터별 `ko`가 항상 우선한다.
+해당 값이 없거나 비어 있을 때만 `data/ko-translations.json`을 폴백으로 조회한다.
+따라서 같은 영문 description을 가진 능력도 캐릭터 id와 `abilityIndex`로 구분된
+자체 문구를 사용할 수 있다.
+
+#### `minLoop`와 거부 불가 제약
+
+- 구조화 우호 능력에 선택적 `minLoop` 필드를 추가했다.
+- 현재 사용처는 `mysteryBoy [우호3]`의 `minLoop: 2` 한 건뿐이다.
+- UI는 최소 루프 전 능력을 비활성화하고 “2번째 루프부터 사용 가능”을 표시한다.
+  엔진도 같은 제약을 검증하므로 UI를 우회해 1번째 루프에 해결할 수 없다.
+- 아웃사이더에만 `immuneToGoodwillRefusel: true`가 있으며, 회사원은 우호 무시
+  역할을 맡고 있으면 각본가가 거부할 수 있다.
+- 신·전학생처럼 캐릭터 등장 자체가 늦는 `comesInLater`와는 별개 개념이다.
+  그 동작은 이번 변경에서 구현하지 않았다.
+
+#### 한국어판 26명과 회귀 방지
+
+- `data/goodwill-abilities.json`이 본판 24명과 프로모 2명, 총 26명을 모두
+  포함한다. 랭크가 있는 우호 능력은 총 35건이다.
+- 능력이 없는 입원 환자는 빈 배열을 유지한다.
+- 학자 [우호3], 환상 [우호3·4]의 구조화 데이터와 한국어 문구를 추가했다.
+  이 세 능력은 특수 게이지 선택, 이동 목적지, 게임판 제거 상태의 효과 모델이
+  아직 없으므로 `implemented: false`이며 UI에서 비활성화한다.
+- `test/goodwill-schema.test.ts`가 한국어판 26명의 `characters.json`을 순회해
+  동일한 영문 description을 가진 랭크 능력 조합을 자동 탐색한다. 실제로 같은
+  남학생/여학생만 예외 목록에 두고, 나머지는 캐릭터별 `ko`가 모두 달라야 한다.
+  새 캐릭터가 같은 평면 사전 충돌을 만들면 이 테스트가 실패한다.
+
+검증 결과:
+
+```text
+npx tsc --noEmit --strict
+passed (exit code 0)
+
+npx vitest run
+15 test files passed
+253 tests passed, 1 todo
+
+git diff --check
+passed
+```
+
+이 절은 10-3의 미해결 번역 충돌 기록, 10-7의 프로모 UI 스키마 누락 기록,
+10-9의 24명 한정 커버리지 우려를 갱신한다. 학자·환상의 효과 구현 자체는 여전히
+남아 있다.
