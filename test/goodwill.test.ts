@@ -5,6 +5,7 @@ import {
   resolveGoodwillPhase,
 } from "../src/engine/goodwill";
 import type { GoodwillUse } from "../src/engine/goodwill";
+import { resolveIncident } from "../src/engine/incident";
 import { advance } from "../src/engine/phases";
 import { resolveActions } from "../src/engine/resolve";
 import { initLoop } from "../src/engine/setup";
@@ -476,6 +477,34 @@ describe("policeOfficer rank 4 / reveal a fired incident culprit", () => {
       rank: 4,
       abilityIndex: 0,
       incident: { day: 2, incident: "foulEvil" },
+    }, "resolve")).toThrow("requires an incident that fired this loop");
+    expect(state.loop.publicInformationThisLoop).toBeUndefined();
+  });
+
+  it("rejects a past occurrence whose firing condition was not met", () => {
+    const state = createInformationState(
+      ["policeOfficer", "boyStudent"],
+      [{ day: 1, incident: "suicide", culprit: "boyStudent" }],
+    );
+    state.loop.phase = "P7_INCIDENT";
+
+    expect(resolveIncident(state)).toEqual({
+      incident: "suicide",
+      culprit: "boyStudent",
+      fired: false,
+      effectApplied: false,
+    });
+    expect(state.loop.incidentOccurrencesFiredThisLoop).toBeUndefined();
+
+    state.loop.day = 2;
+    state.loop.phase = "P6_GOODWILL";
+    state.loop.charCounters.policeOfficer.goodwill = 4;
+
+    expect(() => resolveGoodwillAbility(state, {
+      user: "policeOfficer",
+      rank: 4,
+      abilityIndex: 0,
+      incident: { day: 1, incident: "suicide" },
     }, "resolve")).toThrow("requires an incident that fired this loop");
     expect(state.loop.publicInformationThisLoop).toBeUndefined();
   });
