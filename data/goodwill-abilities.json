@@ -53,7 +53,7 @@
     {
       "abilityIndex": 0,
       "rank": 3,
-      "ko": "동일한 장소에 있는 다른 캐릭터 1명에 :goodwill: 1개를 추가합니다.",
+      "ko": "(제한: 학교/도심) 같은 장소의 캐릭터 1명에 우호+1",
       "target": {
         "scope": "sameLocation",
         "excludeSelf": false,
@@ -100,7 +100,7 @@
     {
       "abilityIndex": 1,
       "rank": 3,
-      "ko": "2번째 루프부터: 자신의 역할을 공개합니다. 이 능력은 우호 무시로 거부할 수 없습니다.",
+      "ko": "자신의 역할 공개 (거부 불가)",
       "target": {
         "scope": "self",
         "excludeSelf": false,
@@ -112,7 +112,9 @@
       "choices": null,
       "timesPerLoop": null,
       "restrictedToLocation": null,
-      "cannotBeRefused": true,
+      "minLoop": 2,
+      "immuneToGoodwillRefusel": true,
+      "_note": "2번째 루프부터 사용 가능. 우호 무시·절대 우호 무시 역할을 맡고 있어도 거부할 수 없다. 근거: 주인공 설명서 37p",
       "_source": "Reveal own role."
     }
   ],
@@ -292,7 +294,7 @@
     {
       "abilityIndex": 0,
       "rank": 3,
-      "ko": "2번째 루프부터: 자신의 역할을 공개합니다. 이 능력은 우호 무시로 거부할 수 없습니다.",
+      "ko": "회사원의 역할 공개",
       "target": {
         "scope": "self",
         "excludeSelf": false,
@@ -304,6 +306,7 @@
       "choices": null,
       "timesPerLoop": null,
       "restrictedToLocation": null,
+      "_note": "근거: 주인공 설명서 39p",
       "_source": "Reveal own role."
     }
   ],
@@ -353,7 +356,7 @@
     {
       "abilityIndex": 1,
       "rank": 4,
-      "ko": "동일한 장소에 있는 다른 캐릭터 1명에 :goodwill: 1개를 추가합니다.",
+      "ko": "같은 장소의 다른 캐릭터 1명에 우호+1",
       "target": {
         "scope": "sameLocation",
         "excludeSelf": true,
@@ -511,7 +514,7 @@
       "choices": null,
       "timesPerLoop": null,
       "restrictedToLocation": null,
-      "cannotBeRefused": true,
+      "immuneToGoodwillRefusel": true,
       "_source": "-1 :paranoia: on panicked character in same location. This ability cannot be refused by :goodwill: Refusel."
     }
   ],
@@ -717,6 +720,71 @@
       "timesPerLoop": 1,
       "restrictedToLocation": null,
       "_source": "The Leader may resolve one incident in the Script, wit the :ai: as the culprit. (This is not considered triggering the event.)"
+    }
+  ],
+  "scientist": [
+    {
+      "abilityIndex": 1,
+      "rank": 3,
+      "ko": "이 캐릭터에 놓인 모든 카운터를 제거합니다. 그 뒤, 특수 게이지를 사용하고 있다면 이 게이지를 증가시키거나 감소시킵니다.",
+      "target": {
+        "scope": "self",
+        "excludeSelf": false,
+        "tags": []
+      },
+      "effect": {
+        "operation": "removeOwnCountersAndAdjustSpecialGauge"
+      },
+      "choices": [
+        "specialGaugeAdjustment"
+      ],
+      "timesPerLoop": null,
+      "restrictedToLocation": null,
+      "implemented": false,
+      "_source": "Remove all counters from this character. Then, if you use the Extra gauge, increase or decrease this gauge."
+    }
+  ],
+  "illusion": [
+    {
+      "abilityIndex": 1,
+      "rank": 3,
+      "ko": "이 장소에 있는 캐릭터 1명을 임의의 다른 장소로 이동시킵니다.",
+      "target": {
+        "scope": "sameLocation",
+        "excludeSelf": false,
+        "tags": [],
+        "predicates": [
+          "alive"
+        ]
+      },
+      "effect": {
+        "operation": "moveCharacterToOtherLocation"
+      },
+      "choices": [
+        "destinationLocation"
+      ],
+      "timesPerLoop": 1,
+      "restrictedToLocation": null,
+      "implemented": false,
+      "_source": "Move any character from this location to any other location."
+    },
+    {
+      "abilityIndex": 2,
+      "rank": 4,
+      "ko": "이 캐릭터를 이번 루프가 끝날 때까지 게임판에서 제거합니다.",
+      "target": {
+        "scope": "self",
+        "excludeSelf": false,
+        "tags": []
+      },
+      "effect": {
+        "operation": "removeSelfFromBoardForLoop"
+      },
+      "choices": null,
+      "timesPerLoop": 1,
+      "restrictedToLocation": null,
+      "implemented": false,
+      "_source": "Remove thsi character from the board for the rest of the loop."
     }
   ]
 }

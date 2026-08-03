@@ -743,6 +743,10 @@ function goodwillDisabledMessage(
   reason: GoodwillDisabledReason,
 ): string {
   switch (reason) {
+    case "minLoop":
+      return `${view.schema.minLoop}번째 루프부터 사용 가능`;
+    case "notImplemented":
+      return "아직 구현되지 않은 능력";
     case "spent":
       return "이번 루프에 사용함";
     case "restrictedLocation":
@@ -936,7 +940,7 @@ function renderGoodwillAbilities(state: GameState): string {
     <article class="goodwill-card ${disabled ? "is-disabled" : ""}">
       <div class="goodwill-copy">
         <span>${escapeHtml(characterName(character))} · ${escapeHtml(misc("Goodwill"))} ${schema.rank}</span>
-        <strong>${escapeHtml(gameText(schema.ko ?? schema._source))}</strong>
+        <strong>${escapeHtml(gameText(schema._source, schema.ko))}</strong>
         ${reason ? `<small class="goodwill-disabled-reason">${escapeHtml(reason)}</small>` : ""}
       </div>
       <div class="goodwill-inputs">
@@ -953,8 +957,8 @@ function renderGoodwillAbilities(state: GameState): string {
         <button type="button" data-action="goodwill" data-response="refuse"
           data-character="${escapeHtml(character)}" data-rank="${schema.rank}"
           data-ability-index="${abilityIndex}" data-goodwill-key="${escapeHtml(key)}"
-          ${disabled || schema.cannotBeRefused ? "disabled" : ""}
-          ${schema.cannotBeRefused ? `title="${escapeHtml(misc("Cannot be refused", "Cannot be refused"))}"` : ""}>
+          ${disabled || schema.immuneToGoodwillRefusel ? "disabled" : ""}
+          ${schema.immuneToGoodwillRefusel ? `title="${escapeHtml(misc("Cannot be refused", "Cannot be refused"))}"` : ""}>
           ${escapeHtml(misc("Refuse", "Refuse"))}
         </button>
       </div>

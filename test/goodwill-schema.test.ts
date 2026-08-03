@@ -27,7 +27,10 @@ interface StructuredAbility {
   choices: string[] | null;
   timesPerLoop: number | null;
   restrictedToLocation: string[] | null;
-  cannotBeRefused?: boolean;
+  minLoop?: number;
+  immuneToGoodwillRefusel?: boolean;
+  implemented?: boolean;
+  _note?: string;
   _source: string;
 }
 
@@ -57,15 +60,20 @@ const traits = characterTraitsJson as unknown as Record<
 >;
 const translations = koTranslationsJson as unknown as Record<string, string>;
 const baseCharacters = koReleaseJson.characters["본판"];
+const koreanCharacters = [
+  ...baseCharacters,
+  ...koReleaseJson.characters["프로모"],
+];
 const supplied = goodwillKoJson.abilities as unknown as Record<
   string,
   SuppliedAbility[]
 >;
 
 describe("structured goodwill-ability data", () => {
-  it("covers every Korean base-box character and only ranked abilities", () => {
-    expect(Object.keys(schema).sort()).toEqual([...baseCharacters].sort());
-    expect(Object.values(schema).flat()).toHaveLength(32);
+  it("covers all 26 Korean-release characters and only ranked abilities", () => {
+    expect(Object.keys(schema).sort()).toEqual([...koreanCharacters].sort());
+    expect(Object.values(schema).flat()).toHaveLength(35);
+    expect(schema.patient).toEqual([]);
   });
 
   it("preserves each characters.json source row and usage restriction", () => {
@@ -98,8 +106,8 @@ describe("structured goodwill-ability data", () => {
       { character: "mysteryBoy", index: 1, rank: 3 },
       { character: "nurse", index: 0, rank: 2 },
     ]);
-    expect(schema.mysteryBoy[0].cannotBeRefused).toBe(true);
-    expect(schema.nurse[0].cannotBeRefused).toBe(true);
+    expect(schema.mysteryBoy[0].immuneToGoodwillRefusel).toBe(true);
+    expect(schema.nurse[0].immuneToGoodwillRefusel).toBe(true);
   });
 
   it("uses only the approved target scopes and null-or-array choices", () => {
@@ -138,10 +146,16 @@ describe("structured goodwill-ability data", () => {
       effect: { counter: "paranoia", delta: null },
       choices: ["+1", "-1"],
     });
-    expect(schema.richStudent[0].restrictedToLocation).toEqual([
-      "School",
-      "City",
-    ]);
+    expect(schema.richStudent[0]).toMatchObject({
+      ko: "(제한: 학교/도심) 같은 장소의 캐릭터 1명에 우호+1",
+      target: { scope: "sameLocation", excludeSelf: false },
+      restrictedToLocation: ["School", "City"],
+    });
+    expect(schema.popIdol[1]).toMatchObject({
+      ko: "같은 장소의 다른 캐릭터 1명에 우호+1",
+      target: { scope: "sameLocation", excludeSelf: true },
+      restrictedToLocation: null,
+    });
     expect(schema.shrineMaiden[0]).toMatchObject({
       rank: 3,
       restrictedToLocation: ["Shrine"],
@@ -149,17 +163,82 @@ describe("structured goodwill-ability data", () => {
     });
   });
 
-  it("uses the root translation dictionary for every ranked ability", () => {
+  it("prefers each ability's own Korean text over the description dictionary", () => {
     for (const [character, abilities] of Object.entries(schema)) {
       for (const ability of abilities) {
         expect(
-          ability.ko,
+          ability.ko ?? translations[ability._source],
           `${character}:${ability.abilityIndex}`,
-        ).toBe(translations[ability._source]);
+        ).toBeTruthy();
       }
     }
-    expect(Object.values(schema).flat().every(({ ko }) => ko !== null))
-      .toBe(true);
+    expect(schema.mysteryBoy[0].ko).toBe("자신의 역할 공개 (거부 불가)");
+    expect(schema.officeWorker[0].ko).toBe("회사원의 역할 공개");
+    expect(schema.mysteryBoy[0].ko).not.toBe(
+      translations["Reveal own role."],
+    );
+    expect(schema.officeWorker[0].ko).not.toBe(
+      translations["Reveal own role."],
+    );
+  });
+
+  it("keeps mysteryBoy's loop and refusal restrictions off officeWorker", () => {
+    expect(schema.mysteryBoy[0]).toMatchObject({
+      minLoop: 2,
+      immuneToGoodwillRefusel: true,
+    });
+    expect(schema.officeWorker[0]).not.toHaveProperty("minLoop");
+    expect(schema.officeWorker[0]).not.toHaveProperty(
+      "immuneToGoodwillRefusel",
+    );
+  });
+
+  it("gives duplicate English descriptions distinct Korean text unless the abilities are identical", () => {
+    const identicalAbilityExceptions = new Set([
+      ["boyStudent:0", "girlStudent:0"].sort().join("|"),
+    ]);
+    const byDescription = new Map<
+      string,
+      { character: string; abilityIndex: number }[]
+    >();
+
+    for (const character of koreanCharacters) {
+      characters[character].goodwillAbilities.forEach((ability, abilityIndex) => {
+        if (ability.rank === null) return;
+        const entries = byDescription.get(ability.en) ?? [];
+        entries.push({ character, abilityIndex });
+        byDescription.set(ability.en, entries);
+      });
+    }
+
+    for (const [description, entries] of byDescription) {
+      if (entries.length < 2) continue;
+      const groupKey = entries
+        .map(({ character, abilityIndex }) => `${character}:${abilityIndex}`)
+        .sort()
+        .join("|");
+      if (identicalAbilityExceptions.has(groupKey)) continue;
+
+      const koreanTexts = entries.map(({ character, abilityIndex }) => {
+        const structured = schema[character].find(
+          (ability) => ability.abilityIndex === abilityIndex,
+        );
+        expect(structured, `${description} / ${character}:${abilityIndex}`)
+          .toBeDefined();
+        return structured?.ko;
+      });
+      expect(new Set(koreanTexts).size, description).toBe(entries.length);
+    }
+  });
+
+  it("includes the three promotion abilities without enabling unimplemented effects", () => {
+    expect(schema.scientist).toMatchObject([
+      { abilityIndex: 1, rank: 3, implemented: false },
+    ]);
+    expect(schema.illusion).toMatchObject([
+      { abilityIndex: 1, rank: 3, implemented: false },
+      { abilityIndex: 2, rank: 4, implemented: false },
+    ]);
   });
 
   it("matches the supplied once-per-loop, refusal and location markers", () => {

@@ -121,6 +121,13 @@ describe("UI terminology", () => {
       .toBe("not in the translation dictionary");
   });
 
+  it("prefers per-ability Korean text and falls back to the description dictionary", () => {
+    expect(gameText("Reveal own role.", "회사원의 역할 공개"))
+      .toBe("회사원의 역할 공개");
+    expect(gameText("Reveal culprit for 1 incident.", null))
+      .toBe("사건 1개의 범인을 공개합니다.");
+  });
+
   it("uses the complete manual detail in the incident resolution view", () => {
     expect(incidentRuleText("hospitalIncident", [
       "Kill all characters in the Hospital.",

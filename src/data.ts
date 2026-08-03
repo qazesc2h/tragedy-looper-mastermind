@@ -1,5 +1,6 @@
 import basicTragedyScriptsJson from "../data/basic-tragedy-scripts.json";
 import charactersJson from "../data/characters.json";
+import goodwillAbilitiesJson from "../data/goodwill-abilities.json";
 import { validateScenario } from "./engine/validate";
 
 import type {
@@ -27,6 +28,7 @@ export interface GoodwillAbilityData {
   timesPerLoop: number | null;
   restrictedToLocation: readonly Location[] | null;
   immuneToGoodwillRefusel: boolean;
+  minLoop: number | null;
 }
 
 export interface ScenarioAdapterOptions {
@@ -93,6 +95,32 @@ function parseLocation(value: unknown, context: string): Location {
   return value;
 }
 
+function goodwillAbilityMinLoop(
+  id: CharacterId,
+  abilityIndex: number,
+): number | null {
+  const rawAbilities = (
+    goodwillAbilitiesJson as unknown as Record<string, unknown>
+  )[id];
+  if (!Array.isArray(rawAbilities)) return null;
+
+  const rawAbility = rawAbilities.find((candidate) =>
+    isRecord(candidate) && candidate.abilityIndex === abilityIndex
+  );
+  if (!isRecord(rawAbility) || rawAbility.minLoop === undefined) return null;
+
+  const minLoop = requireNumber(
+    rawAbility.minLoop,
+    `goodwill ability "${id}:${abilityIndex}".minLoop`,
+  );
+  if (!Number.isInteger(minLoop) || minLoop < 1) {
+    throw new Error(
+      `goodwill ability "${id}:${abilityIndex}".minLoop must be a positive integer`,
+    );
+  }
+  return minLoop;
+}
+
 function parseCharacterData(id: CharacterId, value: unknown): CharacterData {
   const raw = requireRecord(value, `character "${id}"`);
   const rawId = requireString(raw.id, `character "${id}".id`);
@@ -151,6 +179,7 @@ function parseCharacterData(id: CharacterId, value: unknown): CharacterData {
       restrictedToLocation,
       immuneToGoodwillRefusel:
         entry.immuneToGoodwillRefusel === true,
+      minLoop: goodwillAbilityMinLoop(id, index),
     };
   });
 

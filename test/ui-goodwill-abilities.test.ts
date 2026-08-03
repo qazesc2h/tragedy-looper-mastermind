@@ -81,17 +81,65 @@ describe("structured goodwill ability UI", () => {
     ).toEqual([{ kind: "character", id: "nurse" }]);
   });
 
-  it("enforces richStudent's School/City restriction", () => {
-    const state = createState(["richStudent", "boyStudent"]);
+  it("lets richStudent target self but excludes popIdol from her own rank-4 targets", () => {
+    const state = createState(["richStudent", "popIdol"]);
+    state.loop.board.popIdol.at = "School";
     unlock(state, "richStudent", 3);
+    unlock(state, "popIdol", 4);
 
-    expect(goodwillAbilityViews(state)[0].disabledReason).toBeUndefined();
+    const views = goodwillAbilityViews(state);
+    const richStudent = views.find(
+      ({ character }) => character === "richStudent",
+    );
+    const popIdol = views.find(
+      ({ character, schema }) => character === "popIdol" && schema.rank === 4,
+    );
+    expect(richStudent).toMatchObject({
+      disabledReason: undefined,
+      targets: [
+        { kind: "character", id: "richStudent" },
+        { kind: "character", id: "popIdol" },
+      ],
+    });
+    expect(popIdol?.targets).toEqual([
+      { kind: "character", id: "richStudent" },
+    ]);
 
     state.loop.board.richStudent.at = "Shrine";
-    state.loop.board.boyStudent.at = "Shrine";
-    expect(goodwillAbilityViews(state)[0].disabledReason).toBe(
-      "restrictedLocation",
-    );
+    expect(
+      goodwillAbilityViews(state).find(
+        ({ character }) => character === "richStudent",
+      )?.disabledReason,
+    ).toBe("restrictedLocation");
+  });
+
+  it("disables mysteryBoy's rank-3 ability until loop 2", () => {
+    const state = createState(["mysteryBoy"]);
+    unlock(state, "mysteryBoy", 3);
+
+    expect(goodwillAbilityViews(state)[0]).toMatchObject({
+      disabledReason: "minLoop",
+      schema: { minLoop: 2 },
+    });
+
+    state.loop.loop = 2;
+    expect(goodwillAbilityViews(state)[0].disabledReason).toBeUndefined();
+  });
+
+  it("shows promotion abilities as present but not yet implemented", () => {
+    const state = createState(["scientist", "illusion"]);
+    unlock(state, "scientist", 3);
+    unlock(state, "illusion", 4);
+
+    expect(goodwillAbilityViews(state).map(({ character, schema, disabledReason }) => ({
+      character,
+      rank: schema.rank,
+      disabledReason,
+    }))).toEqual([
+      { character: "scientist", rank: 3, disabledReason: "notImplemented" },
+      { character: "illusion", rank: 3, disabledReason: "notImplemented" },
+      { character: "illusion", rank: 4, disabledReason: "notImplemented" },
+    ]);
   });
 
   it("enforces shrineMaiden rank 3's Shrine restriction", () => {

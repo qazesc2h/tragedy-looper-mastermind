@@ -256,7 +256,7 @@ describe("goodwill availability and refusal", () => {
       subPlots: [],
       cast: { mysteryBoy: "witch" },
       incidents: [],
-      loops: 1,
+      loops: 3,
       daysPerLoop: 3,
     };
     const state: GameState = {
@@ -264,6 +264,7 @@ describe("goodwill availability and refusal", () => {
       loop: initLoop(scenario),
       history: [],
     };
+    state.loop.loop = 2;
     state.loop.phase = "P6_GOODWILL";
     state.loop.charCounters.mysteryBoy.goodwill = 3;
 
@@ -276,6 +277,60 @@ describe("goodwill availability and refusal", () => {
     expect(result.response).toBe("resolve");
     expect(result.effectApplied).toBe(true);
     expect(state.loop.revealedRoleCharacters).toEqual(["mysteryBoy"]);
+  });
+
+  it("rejects mysteryBoy's protected ability during loop 1", () => {
+    const scenario: Scenario = {
+      tragedySet: "basicTragedy",
+      mainPlot: "",
+      subPlots: [],
+      cast: { mysteryBoy: "witch" },
+      incidents: [],
+      loops: 3,
+      daysPerLoop: 3,
+    };
+    const state: GameState = {
+      scenario,
+      loop: initLoop(scenario),
+      history: [],
+    };
+    state.loop.phase = "P6_GOODWILL";
+    state.loop.charCounters.mysteryBoy.goodwill = 3;
+
+    expect(() => resolveGoodwillAbility(state, {
+      user: "mysteryBoy",
+      rank: 3,
+      abilityIndex: 1,
+    }, "resolve")).toThrow("available from loop 2");
+    expect(state.loop.revealedRoleCharacters).toBeUndefined();
+  });
+
+  it("allows officeWorker's rank-3 ability in loop 1 to be refused", () => {
+    const scenario: Scenario = {
+      tragedySet: "basicTragedy",
+      mainPlot: "",
+      subPlots: [],
+      cast: { officeWorker: "witch" },
+      incidents: [],
+      loops: 3,
+      daysPerLoop: 3,
+    };
+    const state: GameState = {
+      scenario,
+      loop: initLoop(scenario),
+      history: [],
+    };
+    state.loop.phase = "P6_GOODWILL";
+    state.loop.charCounters.officeWorker.goodwill = 3;
+
+    const result = resolveGoodwillAbility(state, {
+      user: "officeWorker",
+      rank: 3,
+      abilityIndex: 0,
+    }, "refuse");
+
+    expect(result).toMatchObject({ refused: true, effectApplied: false });
+    expect(state.loop.revealedRoleCharacters).toBeUndefined();
   });
 
   it("does not let an optional-refusal role refuse nurse's protected ability", () => {

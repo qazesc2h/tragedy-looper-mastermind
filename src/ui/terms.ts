@@ -92,9 +92,16 @@ function tokenTerm(id: string): string | undefined {
   return typeof ko === "string" && ko.length > 0 ? ko : undefined;
 }
 
-/** 번역 뒤에도 보존된 :token:을 기존 정발 용어로 치환한다. */
-export function gameText(english: string): string {
-  return translatedText(english).replace(
+/** 개별 한국어 문구를 우선하고, 없을 때만 영문 키 번역을 사용한다. */
+export function gameText(
+  english: string,
+  koreanOverride?: string | null,
+): string {
+  const localized = typeof koreanOverride === "string" &&
+      koreanOverride.length > 0
+    ? koreanOverride
+    : translatedText(english);
+  return localized.replace(
     /:([A-Za-z][A-Za-z0-9]*):/g,
     (token, id: string) => tokenTerm(id) ?? token,
   );
@@ -109,5 +116,6 @@ export function incidentRuleText(
   if (typeof detail === "string" && detail.length > 0) {
     return gameText(detail);
   }
-  return englishDescriptions.map(gameText).join(" / ");
+  return englishDescriptions.map((description) => gameText(description))
+    .join(" / ");
 }

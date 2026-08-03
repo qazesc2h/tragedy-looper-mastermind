@@ -45,11 +45,16 @@ export interface StructuredGoodwillAbility {
   choices: readonly string[] | null;
   timesPerLoop: number | null;
   restrictedToLocation: readonly Location[] | null;
-  cannotBeRefused?: boolean;
+  minLoop?: number;
+  immuneToGoodwillRefusel?: boolean;
+  implemented?: boolean;
+  _note?: string;
   _source: string;
 }
 
 export type GoodwillDisabledReason =
+  | "minLoop"
+  | "notImplemented"
   | "spent"
   | "restrictedLocation"
   | "noTarget"
@@ -267,6 +272,10 @@ function disabledReasonFor(
   targets: readonly Target[],
   choice: GoodwillChoice,
 ): GoodwillDisabledReason | undefined {
+  if (ability.minLoop !== undefined && state.loop.loop < ability.minLoop) {
+    return "minLoop";
+  }
+  if (ability.implemented === false) return "notImplemented";
   const key = `${character}:goodwill:${ability.abilityIndex}`;
   const used = state.loop.abilitiesUsedThisLoop.filter(
     (usedKey) => usedKey === key,
