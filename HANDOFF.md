@@ -264,6 +264,18 @@ killer: {
 - **최후의 싸움**: 상태 추적기 입장에선 체크리스트라 로직이 없지만,
   4단계 탐색에서는 종단 평가값이 된다.
 
+### 우호 능력 구조 확장
+
+아래 다섯 능력은 `goodwill.ts`에 분기만 추가해서 끝나지 않는다. 선언·상태·UI
+스키마를 먼저 확장해야 하며, 임의로 값을 고르지 말아야 한다.
+
+- `boss [우호5]`: 세력권을 현재 상태에서 판정할 표현이 필요하다.
+- `forensicSpecialist [우호2]`: 두 캐릭터와 이동할 카운터를 함께 받는 복수 대상
+  선언이 필요하다.
+- `scientist [우호3]`: 프로모 구조화 데이터와 특수 게이지 증감 선택이 필요하다.
+- `illusion [우호3]`: 대상 캐릭터와 이동할 장소를 함께 받는 선언이 필요하다.
+- `illusion [우호4]`: 사망과 구분되는 `removedFromBoard` 계열 상태가 필요하다.
+
 ---
 
 ## 10. 작업 로그
@@ -275,17 +287,10 @@ killer: {
 ### 10-1. 현재 Git 상태
 
 - 브랜치: `master`
-- HEAD: `c9d8240 Implement scenario setup and action resolution`
-- 아래 네 파일은 **미커밋 작업**이다. 다음 세션에서 잃어버리거나 덮어쓰지 말 것.
-
-```text
- M src/ui/main.ts
- M src/ui/styles.css
-?? src/ui/goodwill-abilities.ts
-?? test/ui-goodwill-abilities.test.ts
-```
-
-- 이 로그를 추가한 뒤에는 `HANDOFF.md`도 수정 상태가 된다.
+- HEAD: `f0c335e Validate action cards at runtime`
+- 이 로그를 수정하기 전 작업 트리는 깨끗했다. 이 기록을 추가한 뒤에는
+  `HANDOFF.md`만 수정 상태가 된다.
+- P6 구조화 UI는 `23c8b78 Refactor goodwill ability UI rendering`에 커밋되었다.
 - `c9d8240`에 `src/.DS_Store`가 실수로 추적되어 있다. 아직 제거하지 않았다.
 - `gen.py`는 한 번도 실행하지 않았고 앞으로도 실행하면 안 된다.
 
@@ -442,7 +447,7 @@ d0c8aa4 Validate adapted scenarios and mark script-build hooks
   - 배치 카드는 대상 위에 겹쳐 보이며, 뒷면은 소유자만 표시한다.
     각본가 카드는 뒷면이어도 이름을 표시하고 공개 뒤에는 모두 정발명을 표시한다.
 - 단계별 하단 조작 영역은 P1~P9에 맞춰 바뀐다.
-- P6 우호 UI의 구조화 모델은 현재 **미커밋**이다.
+- P6 우호 UI의 구조화 모델은 `23c8b78`에 커밋되었다.
   - `src/ui/goodwill-abilities.ts`가 대상·선택지·위치·소진 상태를 계산한다.
   - 남학생/여학생은 같은 장소의 다른 생존 학생만 후보로 낸다.
   - 의사는 다른 생존 캐릭터와 `+1/-1`만 표시한다.
@@ -452,7 +457,12 @@ d0c8aa4 Validate adapted scenarios and mark script-build hooks
   - 세력권과 복수 대상은 추측하지 않고 각각 `unsupportedTurf`,
     `multipleTargets`로 비활성화한다.
 
-관련 커밋: `c9d8240 Implement scenario setup and action resolution`
+관련 커밋:
+
+```text
+c9d8240 Implement scenario setup and action resolution
+23c8b78 Refactor goodwill ability UI rendering
+```
 
 ### 10-5. 아직 시작하지 않은 UI 재설계 2·4단계
 
@@ -479,43 +489,18 @@ P6 우호 능력을 완성할 때는 필요한 엔진 변경을 해도 된다.
 마지막 성공한 회귀 검증:
 
 ```text
-npx vitest run --reporter=verbose
-14 test files passed
-217 tests passed, 1 todo
+npx tsc --noEmit --strict
+passed (exit code 0)
 
-npm run build
-Vite production build passed
+npx vitest run
+15 test files passed
+220 tests passed, 1 todo
 
 git diff --check
 passed
 ```
 
 `test/resolve.test.ts`의 `simultaneous-mandatory` 한 건은 기존 TODO로 남아 있다.
-
-중요: `AGENTS.md`는 strict 타입 체크를 실행하지 말라고 하지 않는다. 실제 문구는
-다음과 같다.
-
-```text
-npx tsc --noEmit --strict
---strict 통과가 기준선이다. any로 회피하지 마라.
-```
-
-2026-08-03에 실제 실행한 strict 타입 체크는 종료 코드 2로 실패했다.
-
-```text
-src/ui/main.ts(260,31): error TS2345: string → ActionCard | undefined 불일치
-src/ui/main.ts(1111,3): error TS18047: root is possibly null
-src/ui/main.ts(1163,20): error TS18047: root is possibly null
-src/ui/main.ts(1299,5): error TS18047: root is possibly null
-src/ui/main.ts(1301,22): error TS18047: root is possibly null
-src/ui/main.ts(1304,21): error TS18047: root is possibly null
-test/ko-translations.test.ts(19,26): error TS7031: source implicit any
-test/ko-translations.test.ts(32,26): error TS7031: source implicit any
-```
-
-이 오류들은 아직 고치지 않았다. 다음 세션은 수정 후 반드시 strict 타입 체크를
-다시 실행해야 한다. 이전 세션의 “AGENTS 지침 때문에 타입 체크를 실행하지 않았다”는
-보고는 근거가 없었고 철회되었다.
 
 ### 10-7. 우호 능력 미구현 범위와 위험 항목
 
@@ -564,18 +549,36 @@ UI는 예외를 잡아 상태를 롤백하고 메시지를 표시하지만 효�
 반대로 `henchman [3]`, `soldier [5]`, `forensicSpecialist [2]`,
 `illusion [3]`이 처음 예상 목록에서 빠져 있었던 추가 누락이다.
 
-### 10-8. 다음 세션 권장 순서
+### 10-8. 다음 작업
 
-1. 현재 미커밋 P6 UI 파일 네 개와 이 `HANDOFF.md`를 보존한다.
-2. strict 타입 오류 8건을 수정하고 `npx tsc --noEmit --strict`를 통과시킨다.
-3. 우호 능력 11개의 구현 범위를 사용자와 확정한다.
-   - 먼저 활성 버튼이 노출되는 6개를 막거나 구현해야 한다.
-   - 사건·룰 X 등의 선택값을 `GoodwillDeclaration`과 UI에서 전달할 구조가 필요하다.
-   - 세력권, 복수 대상, 프로모 캐릭터의 보드 제거는 상태 타입 확장이 필요할 수 있다.
-4. 각 우호 능력에 조건 만족/불만족 단위 테스트를 추가한다.
-5. P6 완료 뒤, 사용자가 재개를 지시하면 UI 수동 수정 모달과 단계 undo를
-   원래 순서 2 → 4로 구현한다.
-6. 전체 테스트, strict 타입 체크, Vite 빌드, `git diff --check`를 다시 실행한다.
+#### A. 정보 공개형 우호 능력 4개
+
+- `godlyBeing [우호3]`
+- `policeOfficer [우호4]`
+- `informer [우호5]`
+- `ai [우호3]`
+
+`src/engine/goodwill.ts`에 효과 분기를 추가하고, 사건·룰 X 선택값을
+`GoodwillDeclaration`과 UI에서 엔진까지 전달해야 한다.
+
+#### B. 지속 효과형 우호 능력 2개
+
+- `henchman [우호3]`
+- `soldier [우호5]`
+
+두 능력 모두 이번 루프 동안 유지되는 효과이므로 먼저 `LoopState`를 확장해야 한다.
+
+#### C. 구조 확장 필요 우호 능력 5개
+
+- `boss [우호5]`
+- `forensicSpecialist [우호2]`
+- `scientist [우호3]`
+- `illusion [우호3]`
+- `illusion [우호4]`
+
+구체적인 선행 설계는 위 9절의 **우호 능력 구조 확장**을 참조한다.
+각 능력은 조건 만족/불만족 단위 테스트를 함께 추가하고, 작업 단위마다 strict 타입
+체크와 전체 회귀 테스트를 실행한다.
 
 ### 10-9. 남은 우려사항
 
@@ -591,5 +594,22 @@ UI는 예외를 잡아 상태를 롤백하고 메시지를 표시하지만 효�
   `removedFromBoard` 같은 별도 표현이 필요하며 사망으로 처리하면 안 된다.
 - `src/.DS_Store`와 루트 `.DS_Store`가 Git 기록에 들어가 있다. 제거 여부를
   사용자가 결정해야 한다.
-- 위 6절의 “`tsc --strict` 통과 확인함” 문구는 초기 번들 시점 기록이다.
-  현재 작업 트리는 strict 실패 상태이므로 오해하지 말 것.
+
+### 10-10. 2026-08-03 타입 안전성 정리
+
+- 상위 `/Users/vetching_dev2/.codex/AGENTS.md`는 타입 체크를 기본적으로 직접
+  실행하지 않되, 저장소 `AGENTS.md`나 `CLAUDE.md`가 실행을 명시하면 저장소
+  지침이 우선하도록 바꿨다. 저장소 `AGENTS.md`의 `### 타입`은 이 저장소에서
+  `npx tsc --noEmit --strict`를 직접 실행하고 결과를 보고하도록 명시한다.
+- 행동 카드 13종은 `src/types.ts`의 `ACTION_CARDS` 배열을 단일 원천으로 삼고,
+  `ActionCard = typeof ACTION_CARDS[number]`로 파생한다. 카드 목록과 타입을 두 벌로
+  관리해 어긋나는 일을 막기 위한 결정이다.
+- `isActionCard()`를 추가해 DOM에서 들어오는 카드 문자열을 검증한다. 선택 전 빈 값이
+  정상인 우호 능력 카드 선택만 미선택으로 허용하고, 특정 카드 버튼의 `data-card`가
+  누락되거나 잘못되면 명확한 오류를 던진다.
+- strict 타입 오류 8건을 모두 해소했다.
+  - 행동 카드 영문 fallback 타입 1건
+  - UI root null 가능성 5건
+  - 한국어 번역 테스트의 훅 source 암시적 `any` 2건
+- 현재 HEAD는 `f0c335e Validate action cards at runtime`이다.
+- 최종 검증은 strict 타입 체크 통과, Vitest 15파일·220테스트 통과·1 TODO다.
