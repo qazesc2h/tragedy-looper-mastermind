@@ -2,9 +2,18 @@ import koTranslationsJson from "../data/ko-translations.json";
 import { INCIDENT_IMPL } from "../src/impl/incidents";
 import { PLOT_IMPL } from "../src/impl/plots";
 import { ROLE_IMPL } from "../src/impl/roles";
+import type { Hook, IncidentHook } from "../src/types";
 import { describe, expect, it } from "vitest";
 
 const translations = koTranslationsJson as unknown as Record<string, string>;
+type ImplementationRecord = Readonly<
+  Record<string, { hooks: readonly (Hook | IncidentHook)[] }>
+>;
+const IMPLEMENTATIONS: readonly ImplementationRecord[] = [
+  ROLE_IMPL,
+  INCIDENT_IMPL,
+  PLOT_IMPL,
+];
 
 describe("root Korean translation dictionary", () => {
   it("preserves all source keys and their filled/empty state", () => {
@@ -13,8 +22,7 @@ describe("root Korean translation dictionary", () => {
   });
 
   it("translates every base role, incident and plot effect description", () => {
-    const implementations = [ROLE_IMPL, INCIDENT_IMPL, PLOT_IMPL];
-    const descriptions = implementations.flatMap((records) =>
+    const descriptions = IMPLEMENTATIONS.flatMap((records) =>
       Object.values(records).flatMap(({ hooks }) =>
         hooks.flatMap(({ source }) => source.description ?? [])
       )
@@ -27,7 +35,7 @@ describe("root Korean translation dictionary", () => {
   });
 
   it("reports the one untranslated base hook prerequisite", () => {
-    const prerequisites = [ROLE_IMPL, INCIDENT_IMPL, PLOT_IMPL].flatMap(
+    const prerequisites = IMPLEMENTATIONS.flatMap(
       (records) => Object.values(records).flatMap(({ hooks }) =>
         hooks.flatMap(({ source }) => source.prerequisite ?? [])
       ),

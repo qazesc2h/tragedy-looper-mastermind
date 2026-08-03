@@ -54,11 +54,18 @@ export type HookPoint =
   | "UNKNOWN";
 
 // ─────────────────────────────────────────────────────────── 행동 카드
-export type ActionCard =
-  | "moveVertical" | "moveHorizontal" | "moveDiagonal" | "forbidMove"
-  | "paranoiaPlus1" | "paranoiaMinus1" | "forbidParanoia"
-  | "goodwillPlus1" | "goodwillPlus2" | "forbidGoodwill"
-  | "intriguePlus1" | "intriguePlus2" | "forbidIntrigue";
+export const ACTION_CARDS = [
+  "moveVertical", "moveHorizontal", "moveDiagonal", "forbidMove",
+  "paranoiaPlus1", "paranoiaMinus1", "forbidParanoia",
+  "goodwillPlus1", "goodwillPlus2", "forbidGoodwill",
+  "intriguePlus1", "intriguePlus2", "forbidIntrigue",
+] as const;
+
+export type ActionCard = typeof ACTION_CARDS[number];
+
+export function isActionCard(value: string): value is ActionCard {
+  return (ACTION_CARDS as readonly string[]).includes(value);
+}
 
 /** 카드를 놓을 수 있는 대상 */
 export type Target =

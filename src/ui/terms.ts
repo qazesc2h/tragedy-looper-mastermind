@@ -62,7 +62,7 @@ const actionCardTerms = (
 
 export function actionCardTerm(
   id: ActionCard,
-  englishFallback = id,
+  englishFallback: string = id,
 ): string {
   const ko = actionCardTerms?.[id]?.ko;
   return typeof ko === "string" && ko.length > 0 ? ko : englishFallback;

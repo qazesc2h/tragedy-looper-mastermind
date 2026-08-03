@@ -139,6 +139,9 @@ source: {
 
 ### 타입
 
+이 지침은 상위 AGENTS.md 의 "직접 실행하지 않음" 규칙보다 우선한다.
+이 저장소에서는 tsc 를 직접 실행하고 결과를 보고해라.
+
 ```bash
 npx tsc --noEmit --strict
 ```

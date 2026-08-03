@@ -13,6 +13,7 @@ import { initLoop } from "../engine/setup";
 import { INCIDENT_IMPL } from "../impl/incidents";
 import {
   effectiveRole,
+  isActionCard,
   LOCATIONS,
   PHASE_ORDER,
   type ActionCard,
@@ -142,8 +143,13 @@ const scenarioEntries: ScenarioEntry[] = (scriptsJson as unknown[]).map(
   },
 );
 
-const root = document.querySelector<HTMLDivElement>("#app");
-if (!root) throw new Error("#app is required");
+function requireUiRoot(): HTMLElement {
+  const element = document.getElementById("app");
+  if (!element) throw new Error("UI root element not found");
+  return element;
+}
+
+const root = requireUiRoot();
 
 let notice = "";
 let selectedHandCard: SelectedHandCard | undefined;
@@ -1303,9 +1309,18 @@ function resolveGoodwillFromButton(button: HTMLButtonElement): void {
   )?.value;
   const cardValue = root.querySelector<HTMLSelectElement>(
     `[data-goodwill-card="${CSS.escape(key)}"]`,
-  )?.value as ActionCard | undefined;
+  )?.value;
 
   try {
+    let card: ActionCard | undefined;
+    if (cardValue !== undefined && cardValue !== "") {
+      if (!isActionCard(cardValue)) {
+        throw new Error(
+          `goodwill card choice has invalid action card "${cardValue}"`,
+        );
+      }
+      card = cardValue;
+    }
     resolveGoodwillAbility(
       game.state,
       {
@@ -1315,7 +1330,7 @@ function resolveGoodwillFromButton(button: HTMLButtonElement): void {
         target,
         paranoiaDelta:
           deltaValue === "1" ? 1 : deltaValue === "-1" ? -1 : undefined,
-        card: cardValue || undefined,
+        card,
       },
       response,
     );
@@ -1393,9 +1408,15 @@ root.addEventListener("click", (event) => {
 
   if (action === "select-hand-card") {
     const ownerValue = button.dataset.owner;
-    const card = button.dataset.card as ActionCard | undefined;
+    const cardValue = button.dataset.card;
     const key = button.dataset.cardKey;
-    if (!ownerValue || !card || !key) return;
+    if (cardValue === undefined || !isActionCard(cardValue)) {
+      throw new Error(
+        `select-hand-card has invalid action card "${cardValue ?? "undefined"}"`,
+      );
+    }
+    const card = cardValue;
+    if (!ownerValue || !key) return;
     const owner: CardOwner = ownerValue === "mastermind"
       ? "mastermind"
       : Number(ownerValue) as 0 | 1 | 2;
@@ -1479,8 +1500,14 @@ root.addEventListener("click", (event) => {
 
   if (action === "toggle-spent") {
     const ownerValue = button.dataset.owner;
-    const card = button.dataset.card as ActionCard | undefined;
-    if (!ownerValue || !card) return;
+    const cardValue = button.dataset.card;
+    if (cardValue === undefined || !isActionCard(cardValue)) {
+      throw new Error(
+        `toggle-spent has invalid action card "${cardValue ?? "undefined"}"`,
+      );
+    }
+    const card = cardValue;
+    if (!ownerValue) return;
     const owner = ownerValue === "mastermind"
       ? "mastermind"
       : Number(ownerValue) as 0 | 1 | 2;
