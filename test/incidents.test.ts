@@ -64,6 +64,11 @@ describe("incident resolution", () => {
     });
     expect(state.loop.board[CULPRIT].alive).toBe(true);
     expect(state.loop.incidentsFiredThisLoop).toEqual(["suicide"]);
+    expect(state.loop.incidentOccurrencesFiredThisLoop).toEqual([{
+      day: 1,
+      incident: "suicide",
+      culprit: CULPRIT,
+    }]);
   });
 
   it("returns the P7 result and advances to P8", () => {

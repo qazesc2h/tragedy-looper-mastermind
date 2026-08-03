@@ -7,6 +7,30 @@ import type {
   IncidentResult,
 } from "../types";
 
+/**
+ * 지정한 사건의 효과만 해결한다.
+ * 발생 조건 판정과 발생 이력 기록은 호출자가 별도로 담당한다.
+ */
+export function resolveIncidentEffect(
+  state: GameState,
+  incident: string,
+  culprit: CharacterId,
+  choice?: IncidentChoice,
+): boolean {
+  const impl = INCIDENT_IMPL[incident];
+  if (!impl) {
+    throw new Error(`unknown incident "${incident}"`);
+  }
+
+  // 조건은 효과 적용 전에 모두 판정한다.
+  const activeHooks = impl.hooks.filter((hook) => hook.when(state, culprit));
+  let effectApplied = false;
+  for (const hook of activeHooks) {
+    effectApplied = hook.effect(state, culprit, choice) || effectApplied;
+  }
+  return effectApplied;
+}
+
 /** 사건의 공통 발생 조건 두 가지를 판정한다. */
 export function incidentFires(
   state: GameState,
@@ -42,24 +66,24 @@ export function resolveIncident(
     return { ...base, fired: false, effectApplied: false };
   }
 
-  const impl = INCIDENT_IMPL[scheduled.incident];
-  if (!impl) {
-    throw new Error(`unknown incident "${scheduled.incident}"`);
-  }
-
-  // 조건은 효과 적용 전에 모두 판정한다.
-  const activeHooks = impl.hooks.filter((hook) =>
-    hook.when(state, scheduled.culprit)
+  const effectApplied = resolveIncidentEffect(
+    state,
+    scheduled.incident,
+    scheduled.culprit,
+    choice,
   );
-  let effectApplied = false;
-  for (const hook of activeHooks) {
-    effectApplied = hook.effect(state, scheduled.culprit, choice) ||
-      effectApplied;
-  }
 
   const firedIncidents = state.loop.incidentsFiredThisLoop ??= [];
   if (!firedIncidents.includes(scheduled.incident)) {
     firedIncidents.push(scheduled.incident);
+  }
+  const firedOccurrences = state.loop.incidentOccurrencesFiredThisLoop ??= [];
+  if (!firedOccurrences.some(({ day, incident, culprit }) =>
+    day === scheduled.day &&
+    incident === scheduled.incident &&
+    culprit === scheduled.culprit
+  )) {
+    firedOccurrences.push({ ...scheduled });
   }
 
   return { ...base, fired: true, effectApplied };

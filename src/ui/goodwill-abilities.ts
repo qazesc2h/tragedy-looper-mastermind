@@ -1,3 +1,4 @@
+import basicScriptsJson from "../../data/basic-tragedy-scripts.json";
 import goodwillAbilitiesJson from "../../data/goodwill-abilities.json";
 import { characterDataOf } from "../data";
 import {
@@ -5,7 +6,9 @@ import {
   type ActionCard,
   type CharacterId,
   type GameState,
+  type IncidentSelection,
   type Location,
+  type PlotId,
   type Target,
 } from "../types";
 
@@ -51,6 +54,7 @@ export type GoodwillDisabledReason =
   | "restrictedLocation"
   | "noTarget"
   | "noSpentCard"
+  | "noChoice"
   | "unsupportedTurf"
   | "multipleTargets";
 
@@ -58,9 +62,13 @@ export type GoodwillChoice =
   | { kind: "none" }
   | { kind: "paranoiaDelta"; options: readonly (-1 | 1)[] }
   | { kind: "spentCard"; options: readonly ActionCard[] }
-  | { kind: "incident"; options: readonly string[] }
-  | { kind: "pastIncident"; options: readonly string[] }
-  | { kind: "subplot"; options: readonly string[] }
+  | { kind: "incident"; options: readonly IncidentSelection[] }
+  | { kind: "pastIncident"; options: readonly IncidentSelection[] }
+  | {
+    kind: "subplot";
+    options: readonly PlotId[];
+    revealOptions: readonly PlotId[];
+  }
   | { kind: "counter"; options: readonly string[] };
 
 export interface GoodwillAbilityView {
@@ -77,6 +85,34 @@ export interface GoodwillAbilityView {
 const GOODWILL_ABILITIES = goodwillAbilitiesJson as unknown as Readonly<
   Record<CharacterId, readonly StructuredGoodwillAbility[]>
 >;
+
+const BASIC_TRAGEDY_SUBPLOTS = unique(
+  (basicScriptsJson as unknown[]).flatMap((raw) => {
+    if (typeof raw !== "object" || raw === null) return [];
+    const subPlots = (raw as { subPlots?: unknown }).subPlots;
+    return Array.isArray(subPlots)
+      ? subPlots.filter((plot): plot is string => typeof plot === "string")
+      : [];
+  }),
+);
+
+export function encodeIncidentSelection(
+  selection: IncidentSelection,
+): string {
+  return `${selection.day}:${selection.incident}`;
+}
+
+export function decodeIncidentSelection(
+  value: string | undefined,
+): IncidentSelection | undefined {
+  if (!value) return undefined;
+  const separator = value.indexOf(":");
+  if (separator <= 0 || separator === value.length - 1) return undefined;
+  const day = Number(value.slice(0, separator));
+  const incident = value.slice(separator + 1);
+  if (!Number.isInteger(day) || day < 1) return undefined;
+  return { day, incident };
+}
 
 function targetKinds(
   ability: StructuredGoodwillAbility,
@@ -167,6 +203,18 @@ function unique(values: readonly string[]): string[] {
   return [...new Set(values)];
 }
 
+function uniqueIncidentSelections(
+  values: readonly IncidentSelection[],
+): IncidentSelection[] {
+  const seen = new Set<string>();
+  return values.filter((selection) => {
+    const key = encodeIncidentSelection(selection);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function choiceFor(
   state: GameState,
   choices: readonly string[] | null,
@@ -187,17 +235,27 @@ function choiceFor(
   if (choices.length === 1 && choices[0] === "incident") {
     return {
       kind: "incident",
-      options: unique(state.scenario.incidents.map(({ incident }) => incident)),
+      options: uniqueIncidentSelections(
+        state.scenario.incidents.map(({ day, incident }) => ({ day, incident })),
+      ),
     };
   }
   if (choices.length === 1 && choices[0] === "pastIncident") {
     return {
       kind: "pastIncident",
-      options: unique(state.loop.incidentsFiredThisLoop ?? []),
+      options: uniqueIncidentSelections(
+        state.loop.incidentOccurrencesFiredThisLoop?.map(
+          ({ day, incident }) => ({ day, incident }),
+        ) ?? [],
+      ),
     };
   }
   if (choices.length === 1 && choices[0] === "subplot") {
-    return { kind: "subplot", options: state.scenario.subPlots };
+    return {
+      kind: "subplot",
+      options: BASIC_TRAGEDY_SUBPLOTS,
+      revealOptions: state.scenario.subPlots,
+    };
   }
   return { kind: "counter", options: choices };
 }
@@ -236,6 +294,18 @@ function disabledReasonFor(
   }
   if (choice.kind === "spentCard" && choice.options.length === 0) {
     return "noSpentCard";
+  }
+  if (
+    (choice.kind === "incident" || choice.kind === "pastIncident") &&
+    choice.options.length === 0
+  ) {
+    return "noChoice";
+  }
+  if (
+    choice.kind === "subplot" &&
+    (choice.options.length === 0 || choice.revealOptions.length === 0)
+  ) {
+    return "noChoice";
   }
   return undefined;
 }

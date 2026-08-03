@@ -1195,6 +1195,16 @@ select {
   gap: 5px;
 }
 
+.goodwill-choice-field {
+  display: grid;
+  gap: 3px;
+}
+
+.goodwill-choice-field span {
+  color: #a29581;
+  font-size: 0.58rem;
+}
+
 .goodwill-inputs:empty {
   display: none;
 }
@@ -1222,6 +1232,22 @@ select {
 .goodwill-actions button:disabled {
   cursor: default;
   opacity: 0.38;
+}
+
+.public-information ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.public-information li {
+  border-left: 3px solid #b47b35;
+  background: rgba(20, 17, 13, 0.42);
+  padding: 7px 9px;
+  color: #dfd1b7;
+  font-size: 0.74rem;
 }
 
 .phase-incident-list {

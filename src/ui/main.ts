@@ -42,6 +42,8 @@ import {
   type ResolutionNoEffect,
 } from "./action-cards";
 import {
+  decodeIncidentSelection,
+  encodeIncidentSelection,
   goodwillAbilityViews,
   type GoodwillAbilityView,
   type GoodwillDisabledReason,
@@ -754,6 +756,8 @@ function goodwillDisabledMessage(
       return misc("No eligible target", "No eligible target");
     case "noSpentCard":
       return misc("No spent card to recover", "No spent card to recover");
+    case "noChoice":
+      return "선택 가능한 항목이 없습니다";
     case "unsupportedTurf":
       return misc(
         "Turf target cannot be determined from the current state",
@@ -786,7 +790,60 @@ function renderGoodwillTarget(
     </select>`;
 }
 
+function renderAiIncidentChoiceFields(
+  state: GameState,
+  view: GoodwillAbilityView,
+  disabled: boolean,
+): string {
+  if (view.schema.effect.operation !== "resolveIncidentAsSelfWithoutTrigger") {
+    return "";
+  }
+  const characters = Object.entries(state.loop.board)
+    .filter(([, position]) => position.alive)
+    .map(([character]) => character);
+  const characterOptions = characters.map((character) => `
+    <option value="${escapeHtml(character)}">${escapeHtml(characterName(character))}</option>`
+  ).join("");
+  const selectCharacter = (field: "target" | "otherTarget", label: string) => `
+    <label class="goodwill-choice-field">
+      <span>${escapeHtml(label)}</span>
+      <select data-goodwill-incident-${field === "target" ? "target" : "other-target"}="${escapeHtml(view.key)}"
+        ${disabled ? "disabled" : ""}>
+        <option value="">${escapeHtml(misc("Select", "Select"))}</option>
+        ${characterOptions}
+      </select>
+    </label>`;
+  return `
+    ${selectCharacter("target", misc("Target", "Target"))}
+    ${selectCharacter("otherTarget", misc("Other target", "Other target"))}
+    <label class="goodwill-choice-field">
+      <span>${escapeHtml(misc("Location", "Location"))}</span>
+      <select data-goodwill-incident-location="${escapeHtml(view.key)}"
+        ${disabled ? "disabled" : ""}>
+        <option value="">${escapeHtml(misc("Select", "Select"))}</option>
+        ${LOCATIONS.map((location) => `
+          <option value="${location}">${escapeHtml(locationName(location))}</option>`).join("")}
+      </select>
+    </label>
+    <label class="goodwill-choice-field">
+      <span>${escapeHtml(misc("Counter", "Counter"))}</span>
+      <select data-goodwill-incident-counter="${escapeHtml(view.key)}"
+        ${disabled ? "disabled" : ""}>
+        <option value="">${escapeHtml(misc("Select", "Select"))}</option>
+        ${(["goodwill", "paranoia", "intrigue"] as const).map((counter) => `
+          <option value="${counter}">${escapeHtml(misc(
+            counter === "goodwill"
+              ? "Goodwill"
+              : counter === "paranoia"
+              ? "Paranoia"
+              : "Intrigue",
+          ))}</option>`).join("")}
+      </select>
+    </label>`;
+}
+
 function renderGoodwillChoice(
+  state: GameState,
   view: GoodwillAbilityView,
   disabled: boolean,
 ): string {
@@ -817,17 +874,34 @@ function renderGoodwillChoice(
         <select data-goodwill-choice="${escapeHtml(key)}"
           ${disabled ? "disabled" : ""}>
           <option value="">${escapeHtml(misc("Select", "Select"))}</option>
-          ${choice.options.map((incident) => `
-            <option value="${escapeHtml(incident)}">${escapeHtml(incidentName(incident))}</option>`).join("")}
-        </select>`;
+          ${choice.options.map((selection) => `
+            <option value="${escapeHtml(encodeIncidentSelection(selection))}">
+              ${escapeHtml(`${misc("Day")} ${selection.day} · ${incidentName(selection.incident)}`)}
+            </option>`).join("")}
+        </select>
+        ${choice.kind === "incident"
+          ? renderAiIncidentChoiceFields(state, view, disabled)
+          : ""}`;
     case "subplot":
       return `
-        <select data-goodwill-choice="${escapeHtml(key)}"
-          ${disabled ? "disabled" : ""}>
-          <option value="">${escapeHtml(misc("Select", "Select"))}</option>
-          ${choice.options.map((plot) => `
-            <option value="${escapeHtml(plot)}">${escapeHtml(plotName(plot))}</option>`).join("")}
-        </select>`;
+        <label class="goodwill-choice-field">
+          <span>리더 선언</span>
+          <select data-goodwill-choice="${escapeHtml(key)}"
+            ${disabled ? "disabled" : ""}>
+            <option value="">${escapeHtml(misc("Select", "Select"))}</option>
+            ${choice.options.map((plot) => `
+              <option value="${escapeHtml(plot)}">${escapeHtml(plotName(plot))}</option>`).join("")}
+          </select>
+        </label>
+        <label class="goodwill-choice-field">
+          <span>각본가 공개</span>
+          <select data-goodwill-reveal="${escapeHtml(key)}"
+            ${disabled ? "disabled" : ""}>
+            <option value="">${escapeHtml(misc("Select", "Select"))}</option>
+            ${choice.revealOptions.map((plot) => `
+              <option value="${escapeHtml(plot)}">${escapeHtml(plotName(plot))}</option>`).join("")}
+          </select>
+        </label>`;
     case "counter":
       return `
         <select data-goodwill-choice="${escapeHtml(key)}"
@@ -867,7 +941,7 @@ function renderGoodwillAbilities(state: GameState): string {
       </div>
       <div class="goodwill-inputs">
         ${renderGoodwillTarget(view, disabled)}
-        ${renderGoodwillChoice(view, disabled)}
+        ${renderGoodwillChoice(state, view, disabled)}
       </div>
       <div class="goodwill-actions">
         <button type="button" data-action="goodwill" data-response="resolve"
@@ -1089,6 +1163,40 @@ function renderMastermindOverlay(state: GameState): string {
     </aside>`;
 }
 
+function renderPublicInformation(state: GameState): string {
+  const roleItems = (state.loop.revealedRoleCharacters ?? []).map(
+    (character) =>
+      `${characterName(character)}의 역할: ${roleName(effectiveRole(state, character))}`,
+  );
+  const informationItems = (state.loop.publicInformationThisLoop ?? []).map(
+    (information) => {
+      switch (information.kind) {
+        case "incidentCulprit":
+          return `${characterName(information.source)}: ${misc("Day")} ${information.day} · ` +
+            `${incidentName(information.incident)}의 범인은 ${characterName(information.culprit)}`;
+        case "subplot":
+          return `리더 선언: ${plotName(information.declaredSubplot)} / ` +
+            `각본가 공개: ${plotName(information.revealedSubplot)}`;
+        case "incidentEffect":
+          return `${misc("Day")} ${information.day} · ${incidentName(information.incident)}를 ` +
+            `${characterName(information.culprit)}이(가) 범인인 것으로 효과 해결` +
+            (information.effectApplied ? "" : " (적용된 효과 없음)");
+      }
+    },
+  );
+  const items = [...roleItems, ...informationItems];
+  if (items.length === 0) return "";
+
+  return `
+    <section class="utility-panel public-information">
+      <div class="panel-heading">
+        <span class="eyebrow">P6</span>
+        <h2>이번 루프 공개 정보</h2>
+      </div>
+      <ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+    </section>`;
+}
+
 function isScenarioComplete(state: GameState): boolean {
   return state.loop.loop === state.scenario.loops &&
     state.loop.day === state.scenario.daysPerLoop &&
@@ -1157,6 +1265,7 @@ function render(): void {
             <div class="board-center">TL</div>
           </section>
           ${renderPhaseControls(state)}
+          ${renderPublicInformation(state)}
           ${renderSpentCards(state)}
         </div>
         ${renderMastermindOverlay(state)}
@@ -1310,8 +1419,20 @@ function resolveGoodwillFromButton(button: HTMLButtonElement): void {
   const cardValue = root.querySelector<HTMLSelectElement>(
     `[data-goodwill-card="${CSS.escape(key)}"]`,
   )?.value;
+  const choiceValue = root.querySelector<HTMLSelectElement>(
+    `[data-goodwill-choice="${CSS.escape(key)}"]`,
+  )?.value;
+  const revealValue = root.querySelector<HTMLSelectElement>(
+    `[data-goodwill-reveal="${CSS.escape(key)}"]`,
+  )?.value;
 
   try {
+    const view = goodwillAbilityViews(game.state).find(
+      (candidate) => candidate.key === key,
+    );
+    if (!view) {
+      throw new Error(`missing goodwill ability view "${key}"`);
+    }
     let card: ActionCard | undefined;
     if (cardValue !== undefined && cardValue !== "") {
       if (!isActionCard(cardValue)) {
@@ -1321,6 +1442,45 @@ function resolveGoodwillFromButton(button: HTMLButtonElement): void {
       }
       card = cardValue;
     }
+    const incident = view.choice.kind === "incident" ||
+        view.choice.kind === "pastIncident"
+      ? decodeIncidentSelection(choiceValue)
+      : undefined;
+    const declaredSubplot = view.choice.kind === "subplot"
+      ? choiceValue || undefined
+      : undefined;
+    const revealedSubplot = view.choice.kind === "subplot"
+      ? revealValue || undefined
+      : undefined;
+    const incidentField = (field: string): string | undefined =>
+      root.querySelector<HTMLSelectElement>(
+        `[data-goodwill-incident-${field}="${CSS.escape(key)}"]`,
+      )?.value || undefined;
+    const incidentTarget = incidentField("target");
+    const incidentOtherTarget = incidentField("other-target");
+    const incidentLocation = incidentField("location");
+    const incidentCounter = incidentField("counter");
+    if (
+      incidentLocation !== undefined &&
+      !LOCATIONS.includes(incidentLocation as Location)
+    ) {
+      throw new Error(`invalid goodwill incident location "${incidentLocation}"`);
+    }
+    if (
+      incidentCounter !== undefined &&
+      !["goodwill", "paranoia", "intrigue"].includes(incidentCounter)
+    ) {
+      throw new Error(`invalid goodwill incident counter "${incidentCounter}"`);
+    }
+    const incidentChoice = incidentTarget || incidentOtherTarget ||
+        incidentLocation || incidentCounter
+      ? {
+        target: incidentTarget,
+        otherTarget: incidentOtherTarget,
+        location: incidentLocation as Location | undefined,
+        counter: incidentCounter as IncidentCounter | undefined,
+      }
+      : undefined;
     resolveGoodwillAbility(
       game.state,
       {
@@ -1331,6 +1491,10 @@ function resolveGoodwillFromButton(button: HTMLButtonElement): void {
         paranoiaDelta:
           deltaValue === "1" ? 1 : deltaValue === "-1" ? -1 : undefined,
         card,
+        incident,
+        incidentChoice,
+        declaredSubplot,
+        revealedSubplot,
       },
       response,
     );

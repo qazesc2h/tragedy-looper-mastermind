@@ -80,6 +80,31 @@ function createState(
   return { scenario, loop, history: [] };
 }
 
+function createInformationState(
+  characters: readonly CharacterId[],
+  incidents: Scenario["incidents"],
+  subPlots: string[] = ["circleFriends", "threadsFate"],
+): GameState {
+  const scenario: Scenario = {
+    tragedySet: "basicTragedy",
+    mainPlot: "murderPlan",
+    subPlots,
+    cast: Object.fromEntries(
+      characters.map((character) => [character, "person"]),
+    ),
+    incidents,
+    loops: 3,
+    daysPerLoop: 6,
+  };
+  const state: GameState = {
+    scenario,
+    loop: initLoop(scenario),
+    history: [],
+  };
+  state.loop.phase = "P6_GOODWILL";
+  return state;
+}
+
 describe("goodwill-chain-and-refusal", () => {
   it("applies declarations in order and permits the newly enabled ability", () => {
     const testCase = fixture("goodwill-chain-and-refusal");
@@ -290,5 +315,235 @@ describe("goodwill availability and refusal", () => {
       target: "boyStudent",
     }, "refuse")).toThrow("cannot refuse goodwill abilities");
     expect(state.loop.charCounters.boyStudent.paranoia).toBe(2);
+  });
+});
+
+describe("godlyBeing rank 3 / reveal an incident culprit", () => {
+  it("reveals the selected scenario occurrence regardless of whether it fired", () => {
+    const state = createInformationState(
+      ["godlyBeing", "officeWorker", "alien"],
+      [
+        { day: 4, incident: "missingPerson", culprit: "officeWorker" },
+        { day: 5, incident: "missingPerson", culprit: "alien" },
+      ],
+    );
+    state.loop.charCounters.godlyBeing.goodwill = 3;
+
+    const result = resolveGoodwillAbility(state, {
+      user: "godlyBeing",
+      rank: 3,
+      abilityIndex: 1,
+      incident: { day: 5, incident: "missingPerson" },
+    }, "resolve");
+
+    expect(result.effectApplied).toBe(true);
+    expect(state.loop.publicInformationThisLoop).toEqual([{
+      kind: "incidentCulprit",
+      source: "godlyBeing",
+      day: 5,
+      incident: "missingPerson",
+      culprit: "alien",
+    }]);
+    expect(state.loop.incidentOccurrencesFiredThisLoop).toBeUndefined();
+  });
+
+  it("rejects an incident occurrence that is not in the scenario", () => {
+    const state = createInformationState(
+      ["godlyBeing", "officeWorker"],
+      [{ day: 4, incident: "missingPerson", culprit: "officeWorker" }],
+    );
+    state.loop.charCounters.godlyBeing.goodwill = 3;
+
+    expect(() => resolveGoodwillAbility(state, {
+      user: "godlyBeing",
+      rank: 3,
+      abilityIndex: 1,
+      incident: { day: 5, incident: "missingPerson" },
+    }, "resolve")).toThrow("chosen incident is not in the scenario");
+    expect(state.loop.publicInformationThisLoop).toBeUndefined();
+  });
+});
+
+describe("policeOfficer rank 4 / reveal a fired incident culprit", () => {
+  it("reveals an occurrence that actually fired this loop", () => {
+    const state = createInformationState(
+      ["policeOfficer", "boyStudent", "girlStudent"],
+      [
+        { day: 1, incident: "suicide", culprit: "boyStudent" },
+        { day: 2, incident: "foulEvil", culprit: "girlStudent" },
+      ],
+    );
+    state.loop.charCounters.policeOfficer.goodwill = 4;
+    state.loop.incidentsFiredThisLoop = ["suicide"];
+    state.loop.incidentOccurrencesFiredThisLoop = [{
+      day: 1,
+      incident: "suicide",
+      culprit: "boyStudent",
+    }];
+
+    resolveGoodwillAbility(state, {
+      user: "policeOfficer",
+      rank: 4,
+      abilityIndex: 0,
+      incident: { day: 1, incident: "suicide" },
+    }, "resolve");
+
+    expect(state.loop.publicInformationThisLoop).toEqual([{
+      kind: "incidentCulprit",
+      source: "policeOfficer",
+      day: 1,
+      incident: "suicide",
+      culprit: "boyStudent",
+    }]);
+  });
+
+  it("rejects a scheduled occurrence that did not fire", () => {
+    const state = createInformationState(
+      ["policeOfficer", "boyStudent", "girlStudent"],
+      [
+        { day: 1, incident: "suicide", culprit: "boyStudent" },
+        { day: 2, incident: "foulEvil", culprit: "girlStudent" },
+      ],
+    );
+    state.loop.charCounters.policeOfficer.goodwill = 4;
+    state.loop.incidentsFiredThisLoop = ["suicide", "foulEvil"];
+    state.loop.incidentOccurrencesFiredThisLoop = [{
+      day: 1,
+      incident: "suicide",
+      culprit: "boyStudent",
+    }];
+
+    expect(() => resolveGoodwillAbility(state, {
+      user: "policeOfficer",
+      rank: 4,
+      abilityIndex: 0,
+      incident: { day: 2, incident: "foulEvil" },
+    }, "resolve")).toThrow("requires an incident that fired this loop");
+    expect(state.loop.publicInformationThisLoop).toBeUndefined();
+  });
+});
+
+describe("informer rank 5 / name another active subplot", () => {
+  it("reveals the other active subplot when the leader names an active one", () => {
+    const state = createInformationState(["informer"], []);
+    state.loop.charCounters.informer.goodwill = 5;
+
+    resolveGoodwillAbility(state, {
+      user: "informer",
+      rank: 5,
+      abilityIndex: 0,
+      declaredSubplot: "circleFriends",
+      revealedSubplot: "threadsFate",
+    }, "resolve");
+
+    expect(state.loop.publicInformationThisLoop).toEqual([{
+      kind: "subplot",
+      source: "informer",
+      declaredSubplot: "circleFriends",
+      revealedSubplot: "threadsFate",
+    }]);
+  });
+
+  it("allows an inactive declaration and either active subplot as the reveal", () => {
+    const state = createInformationState(["informer"], []);
+    state.loop.charCounters.informer.goodwill = 5;
+
+    resolveGoodwillAbility(state, {
+      user: "informer",
+      rank: 5,
+      abilityIndex: 0,
+      declaredSubplot: "hiddenFreak",
+      revealedSubplot: "circleFriends",
+    }, "resolve");
+
+    expect(state.loop.publicInformationThisLoop?.[0]).toMatchObject({
+      declaredSubplot: "hiddenFreak",
+      revealedSubplot: "circleFriends",
+    });
+  });
+
+  it("does not reveal the same active subplot that the leader named", () => {
+    const state = createInformationState(["informer"], []);
+    state.loop.charCounters.informer.goodwill = 5;
+
+    expect(() => resolveGoodwillAbility(state, {
+      user: "informer",
+      rank: 5,
+      abilityIndex: 0,
+      declaredSubplot: "circleFriends",
+      revealedSubplot: "circleFriends",
+    }, "resolve")).toThrow("must reveal a different active subplot");
+  });
+});
+
+describe("ai rank 3 / resolve an incident effect as AI", () => {
+  it("uses AI as the culprit without checking or recording incident firing", () => {
+    const state = createInformationState(
+      ["ai", "boyStudent", "girlStudent"],
+      [{ day: 2, incident: "murder", culprit: "boyStudent" }],
+    );
+    state.loop.charCounters.ai.goodwill = 3;
+    state.loop.board.ai.at = "City";
+    state.loop.board.girlStudent.at = "City";
+
+    const result = resolveGoodwillAbility(state, {
+      user: "ai",
+      rank: 3,
+      abilityIndex: 2,
+      incident: { day: 2, incident: "murder" },
+      incidentChoice: { target: "girlStudent" },
+    }, "resolve");
+
+    expect(result.effectApplied).toBe(true);
+    expect(state.loop.board.girlStudent.alive).toBe(false);
+    expect(state.loop.incidentsFiredThisLoop).toBeUndefined();
+    expect(state.loop.incidentOccurrencesFiredThisLoop).toBeUndefined();
+    expect(state.loop.publicInformationThisLoop).toEqual([{
+      kind: "incidentEffect",
+      source: "ai",
+      day: 2,
+      incident: "murder",
+      culprit: "ai",
+      effectApplied: true,
+    }]);
+  });
+
+  it("uses the leader's incident choice for an effect that needs a location", () => {
+    const state = createInformationState(
+      ["ai", "officeWorker"],
+      [{ day: 4, incident: "missingPerson", culprit: "officeWorker" }],
+    );
+    state.loop.charCounters.ai.goodwill = 3;
+
+    resolveGoodwillAbility(state, {
+      user: "ai",
+      rank: 3,
+      abilityIndex: 2,
+      incident: { day: 4, incident: "missingPerson" },
+      incidentChoice: { location: "Shrine" },
+    }, "resolve");
+
+    expect(state.loop.board.ai.at).toBe("Shrine");
+    expect(state.loop.locIntrigue.Shrine).toBe(1);
+    expect(state.loop.board.officeWorker.at).not.toBe("Shrine");
+    expect(state.loop.incidentsFiredThisLoop).toBeUndefined();
+  });
+
+  it("does not choose a required incident-effect target implicitly", () => {
+    const state = createInformationState(
+      ["ai", "officeWorker"],
+      [{ day: 4, incident: "missingPerson", culprit: "officeWorker" }],
+    );
+    state.loop.charCounters.ai.goodwill = 3;
+    const before = state.loop.board.ai.at;
+
+    expect(() => resolveGoodwillAbility(state, {
+      user: "ai",
+      rank: 3,
+      abilityIndex: 2,
+      incident: { day: 4, incident: "missingPerson" },
+    }, "resolve")).toThrow("requires a location target");
+    expect(state.loop.board.ai.at).toBe(before);
+    expect(state.loop.publicInformationThisLoop).toBeUndefined();
   });
 });

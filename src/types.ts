@@ -84,7 +84,7 @@ export interface Scenario {
   mainPlot: PlotId;
   subPlots: PlotId[];       // 입문 1, 기본 2
   cast: Record<CharacterId, RoleId>;
-  incidents: { day: number; incident: IncidentId; culprit: CharacterId }[];
+  incidents: ScheduledIncident[];
   loops: number;
   daysPerLoop: number;
   /** 하수인 시작 장소 등 각본가가 루프마다 지정하는 값 */
@@ -100,6 +100,15 @@ export interface Counters {
 
 export type IncidentCounter = keyof Counters;
 
+export interface IncidentSelection {
+  day: number;
+  incident: IncidentId;
+}
+
+export interface ScheduledIncident extends IncidentSelection {
+  culprit: CharacterId;
+}
+
 /** 임의 대상을 요구하는 사건 효과에 각본가가 제공하는 선택. */
 export interface IncidentChoice {
   target?: CharacterId;
@@ -114,6 +123,30 @@ export interface IncidentResult {
   fired: boolean;
   effectApplied: boolean;
 }
+
+/** 이번 루프에 각본가가 주인공에게 전달해야 하는 공개·해결 결과. */
+export type PublicInformation =
+  | {
+    kind: "incidentCulprit";
+    source: "godlyBeing" | "policeOfficer";
+    day: number;
+    incident: IncidentId;
+    culprit: CharacterId;
+  }
+  | {
+    kind: "subplot";
+    source: "informer";
+    declaredSubplot: PlotId;
+    revealedSubplot: PlotId;
+  }
+  | {
+    kind: "incidentEffect";
+    source: "ai";
+    day: number;
+    incident: IncidentId;
+    culprit: CharacterId;
+    effectApplied: boolean;
+  };
 
 export interface LoopState {
   loop: number;
@@ -150,6 +183,12 @@ export interface LoopState {
 
   /** 이번 루프에 실제로 발생한 사건. 효과가 없었어도 기록한다. */
   incidentsFiredThisLoop?: IncidentId[];
+
+  /** 같은 사건이 여러 번 예정된 경우도 구분하는 실제 발생 기록. */
+  incidentOccurrencesFiredThisLoop?: ScheduledIncident[];
+
+  /** 이번 루프에 우호 능력으로 공개했거나 별도로 해결한 정보. */
+  publicInformationThisLoop?: PublicInformation[];
 
   /** 현재 라운드에 각본가가 발동하기로 한 [선택] 패배 조건 */
   optionalLossActivations?: Record<string, boolean>;

@@ -5,9 +5,15 @@ import {
   type ActionCard,
   type CharacterId,
   type GameState,
+  type IncidentChoice,
+  type IncidentSelection,
+  type PlotId,
+  type PublicInformation,
+  type ScheduledIncident,
   type Target,
 } from "../types";
 import { killCharacter, reviveCharacter } from "./death";
+import { resolveIncidentEffect } from "./incident";
 
 export type GoodwillResponse = "resolve" | "refuse";
 
@@ -20,6 +26,10 @@ export interface GoodwillDeclaration {
   target?: CharacterId | Target;
   paranoiaDelta?: -1 | 1;
   card?: ActionCard;
+  incident?: IncidentSelection;
+  incidentChoice?: IncidentChoice;
+  declaredSubplot?: PlotId;
+  revealedSubplot?: PlotId;
 }
 
 export interface GoodwillUse extends GoodwillDeclaration {
@@ -197,6 +207,111 @@ function removeLocationRestriction(
   return true;
 }
 
+function requireScenarioIncident(
+  state: GameState,
+  declaration: GoodwillDeclaration,
+): ScheduledIncident {
+  const selected = declaration.incident;
+  if (selected === undefined) {
+    throw new Error("goodwill ability requires an incident choice");
+  }
+  const scheduled = state.scenario.incidents.find(({ day, incident }) =>
+    day === selected.day && incident === selected.incident
+  );
+  if (scheduled === undefined) {
+    throw new Error("chosen incident is not in the scenario");
+  }
+  return scheduled;
+}
+
+function recordPublicInformation(
+  state: GameState,
+  information: PublicInformation,
+): void {
+  const records = state.loop.publicInformationThisLoop ??= [];
+  records.push(information);
+}
+
+function revealScenarioIncidentCulprit(
+  state: GameState,
+  declaration: GoodwillDeclaration,
+  source: "godlyBeing" | "policeOfficer",
+): boolean {
+  const scheduled = requireScenarioIncident(state, declaration);
+  if (source === "policeOfficer") {
+    const fired = state.loop.incidentOccurrencesFiredThisLoop?.some(
+      ({ day, incident, culprit }) =>
+        day === scheduled.day &&
+        incident === scheduled.incident &&
+        culprit === scheduled.culprit,
+    ) ?? false;
+    if (!fired) {
+      throw new Error(
+        "policeOfficer goodwill ability requires an incident that fired this loop",
+      );
+    }
+  }
+
+  recordPublicInformation(state, {
+    kind: "incidentCulprit",
+    source,
+    day: scheduled.day,
+    incident: scheduled.incident,
+    culprit: scheduled.culprit,
+  });
+  return true;
+}
+
+function revealActiveSubplot(
+  state: GameState,
+  declaration: GoodwillDeclaration,
+): boolean {
+  const declaredSubplot = declaration.declaredSubplot;
+  const revealedSubplot = declaration.revealedSubplot;
+  if (!declaredSubplot) {
+    throw new Error("informer goodwill ability requires the leader's subplot declaration");
+  }
+  if (!revealedSubplot) {
+    throw new Error("informer goodwill ability requires a subplot to reveal");
+  }
+  if (!state.scenario.subPlots.includes(revealedSubplot)) {
+    throw new Error("informer can only reveal an active subplot");
+  }
+  if (declaredSubplot === revealedSubplot) {
+    throw new Error("informer must reveal a different active subplot");
+  }
+
+  recordPublicInformation(state, {
+    kind: "subplot",
+    source: "informer",
+    declaredSubplot,
+    revealedSubplot,
+  });
+  return true;
+}
+
+function resolveIncidentAsAi(
+  state: GameState,
+  declaration: GoodwillDeclaration,
+): boolean {
+  const scheduled = requireScenarioIncident(state, declaration);
+  const effectApplied = resolveIncidentEffect(
+    state,
+    scheduled.incident,
+    declaration.user,
+    declaration.incidentChoice,
+  );
+  recordPublicInformation(state, {
+    kind: "incidentEffect",
+    source: "ai",
+    day: scheduled.day,
+    incident: scheduled.incident,
+    culprit: declaration.user,
+    effectApplied,
+  });
+  return effectApplied;
+}
+
 function applyStudentParanoiaReduction(
   state: GameState,
   declaration: GoodwillDeclaration,
@@ -299,6 +414,13 @@ function applySimpleBaseAbility(
       return reviveCharacter(state, target);
     }
 
+    case "godlyBeing:1":
+      return revealScenarioIncidentCulprit(
+        state,
+        declaration,
+        "godlyBeing",
+      );
+
     case "godlyBeing:2": {
       const target = normalizeTarget(declaration.target);
       const userLocation = state.loop.board[declaration.user].at;
@@ -319,6 +441,13 @@ function applySimpleBaseAbility(
       counters.intrigue = Math.max(0, before - 1);
       return counters.intrigue !== before;
     }
+
+    case "policeOfficer:0":
+      return revealScenarioIncidentCulprit(
+        state,
+        declaration,
+        "policeOfficer",
+      );
 
     case "policeOfficer:1": {
       const target = requireLivingCharacterInSameLocation(state, declaration);
@@ -430,6 +559,12 @@ function applySimpleBaseAbility(
       }
       return revealRole(state, target);
     }
+
+    case "informer:0":
+      return revealActiveSubplot(state, declaration);
+
+    case "ai:2":
+      return resolveIncidentAsAi(state, declaration);
 
     default:
       return undefined;
