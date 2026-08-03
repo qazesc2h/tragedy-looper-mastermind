@@ -95,6 +95,9 @@ function createInformationState(
     incidents,
     loops: 3,
     daysPerLoop: 6,
+    scriptSpecified: characters.includes("henchman")
+      ? { "startLocation:henchman": "City" }
+      : undefined,
   };
   const state: GameState = {
     scenario,
@@ -544,6 +547,38 @@ describe("ai rank 3 / resolve an incident effect as AI", () => {
       incident: { day: 4, incident: "missingPerson" },
     }, "resolve")).toThrow("requires a location target");
     expect(state.loop.board.ai.at).toBe(before);
+    expect(state.loop.publicInformationThisLoop).toBeUndefined();
+  });
+});
+
+describe("loop-long goodwill effects", () => {
+  it("records henchman's incident suppression by culprit", () => {
+    const state = createInformationState(["henchman"], []);
+    state.loop.charCounters.henchman.goodwill = 3;
+
+    const result = resolveGoodwillAbility(state, {
+      user: "henchman",
+      rank: 3,
+      abilityIndex: 1,
+    }, "resolve");
+
+    expect(result.effectApplied).toBe(true);
+    expect(state.loop.incidentCulpritSuppressedFor).toEqual(["henchman"]);
+    expect(state.loop.publicInformationThisLoop).toBeUndefined();
+  });
+
+  it("records soldier as the protagonist-death blocker without public disclosure", () => {
+    const state = createInformationState(["soldier"], []);
+    state.loop.charCounters.soldier.goodwill = 5;
+
+    const result = resolveGoodwillAbility(state, {
+      user: "soldier",
+      rank: 5,
+      abilityIndex: 1,
+    }, "resolve");
+
+    expect(result.effectApplied).toBe(true);
+    expect(state.loop.protagonistDeathPreventedBy).toEqual(["soldier"]);
     expect(state.loop.publicInformationThisLoop).toBeUndefined();
   });
 });

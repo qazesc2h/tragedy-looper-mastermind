@@ -1,6 +1,11 @@
 import { effectiveRole } from "../types";
 import type { CharacterId, GameState } from "../types";
 
+export interface ProtagonistDeathResult {
+  died: boolean;
+  blockedBy?: CharacterId;
+}
+
 function characterState(state: GameState, character: CharacterId) {
   const position = state.loop.board[character];
   const counters = state.loop.charCounters[character];
@@ -31,6 +36,19 @@ export function killCharacter(
 
   position.alive = false;
   return true;
+}
+
+/**
+ * 주인공 사망을 시도한다. 모든 주인공 사망 효과는 이 진입점을 사용한다.
+ * 주인공 패배·보호 대상 캐릭터 사망은 이 함수의 범위가 아니다.
+ */
+export function attemptProtagonistDeath(
+  state: GameState,
+): ProtagonistDeathResult {
+  const blockedBy = state.loop.protagonistDeathPreventedBy?.[0];
+  return blockedBy === undefined
+    ? { died: true }
+    : { died: false, blockedBy };
 }
 
 /** 부활을 시도하고 실제로 생존 상태가 되었는지를 반환한다. */

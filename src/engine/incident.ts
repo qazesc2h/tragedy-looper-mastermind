@@ -42,6 +42,10 @@ export function incidentFires(
     throw new Error(`incident culprit "${culprit}" is not on the board`);
   }
 
+  if (state.loop.incidentCulpritSuppressedFor?.includes(culprit)) {
+    return false;
+  }
+
   return position.alive &&
     counters.paranoia >= characterDataOf(culprit).paranoiaLimit;
 }
@@ -66,12 +70,15 @@ export function resolveIncident(
     return { ...base, fired: false, effectApplied: false };
   }
 
-  const effectApplied = resolveIncidentEffect(
-    state,
-    scheduled.incident,
-    scheduled.culprit,
-    choice,
-  );
+  // 검은 고양이는 사건이 발생한 뒤 효과만 "효과 없음"으로 바꾼다.
+  const effectApplied = scheduled.culprit === "blackCat"
+    ? false
+    : resolveIncidentEffect(
+      state,
+      scheduled.incident,
+      scheduled.culprit,
+      choice,
+    );
 
   const firedIncidents = state.loop.incidentsFiredThisLoop ??= [];
   if (!firedIncidents.includes(scheduled.incident)) {

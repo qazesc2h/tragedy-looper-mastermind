@@ -232,6 +232,31 @@ function recordPublicInformation(
   records.push(information);
 }
 
+function addCharacterOnce(
+  characters: CharacterId[],
+  character: CharacterId,
+): boolean {
+  if (characters.includes(character)) return false;
+  characters.push(character);
+  return true;
+}
+
+function suppressOwnIncidents(
+  state: GameState,
+  character: CharacterId,
+): boolean {
+  const suppressed = state.loop.incidentCulpritSuppressedFor ??= [];
+  return addCharacterOnce(suppressed, character);
+}
+
+function preventProtagonistDeath(
+  state: GameState,
+  character: CharacterId,
+): boolean {
+  const preventers = state.loop.protagonistDeathPreventedBy ??= [];
+  return addCharacterOnce(preventers, character);
+}
+
 function revealScenarioIncidentCulprit(
   state: GameState,
   declaration: GoodwillDeclaration,
@@ -508,6 +533,9 @@ function applySimpleBaseAbility(
       return changeParanoia(state, target, -1);
     }
 
+    case "henchman:1":
+      return suppressOwnIncidents(state, declaration.user);
+
     case "teacher:0": {
       const target = requireLivingCharacterInSameLocation(state, declaration);
       if (!characterDataOf(target).tags.includes("student")) {
@@ -551,6 +579,9 @@ function applySimpleBaseAbility(
       }
       return changeParanoia(state, target, 2);
     }
+
+    case "soldier:1":
+      return preventProtagonistDeath(state, declaration.user);
 
     case "forensicSpecialist:1": {
       const target = requireCharacterTarget(state, declaration);

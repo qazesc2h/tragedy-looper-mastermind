@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { resolveIncident } from "../src/engine/incident";
+import { resolveGoodwillAbility } from "../src/engine/goodwill";
+import { evaluateLoss } from "../src/engine/loss";
 import { advance } from "../src/engine/phases";
 import { initLoop } from "../src/engine/setup";
 import { INCIDENT_IMPL } from "../src/impl/incidents";
@@ -40,6 +42,46 @@ function createState(
   loop.charCounters[CULPRIT].paranoia = 2;
   loop.phase = "P7_INCIDENT";
   return { scenario, loop, history: [] };
+}
+
+function createIncidentState(
+  incident: string,
+  culprit: string,
+  characters: readonly string[],
+  mainPlot = "",
+): GameState {
+  const scenario: Scenario = {
+    tragedySet: "basicTragedy",
+    mainPlot,
+    subPlots: [],
+    cast: Object.fromEntries(
+      characters.map((character) => [character, "person"]),
+    ),
+    incidents: [{ day: 1, incident, culprit }],
+    loops: 1,
+    daysPerLoop: 3,
+    scriptSpecified: characters.includes("henchman")
+      ? { "startLocation:henchman": "City" }
+      : undefined,
+  };
+  const loop = initLoop(scenario);
+  for (const character of characters) {
+    loop.board[character].at = "City";
+  }
+  loop.charCounters[culprit].paranoia = 10;
+  loop.phase = "P7_INCIDENT";
+  return { scenario, loop, history: [] };
+}
+
+function activateHenchmanSuppression(state: GameState): void {
+  state.loop.phase = "P6_GOODWILL";
+  state.loop.charCounters.henchman.goodwill = 3;
+  resolveGoodwillAbility(state, {
+    user: "henchman",
+    rank: 3,
+    abilityIndex: 1,
+  }, "resolve");
+  state.loop.phase = "P7_INCIDENT";
 }
 
 function incidentHook(incident: string, index = 0): IncidentHook {
@@ -324,5 +366,85 @@ describe("suicide", () => {
 
     expect(targetHook.effect(state, CULPRIT)).toBe(false);
     expect(state.loop.board[CULPRIT].alive).toBe(true);
+  });
+});
+
+describe("henchman rank 3 / suppress incidents by culprit", () => {
+  it("does not fire or record an incident whose culprit is henchman", () => {
+    const state = createIncidentState(
+      "foulEvil",
+      "henchman",
+      ["henchman", "boyStudent"],
+    );
+    activateHenchmanSuppression(state);
+
+    expect(resolveIncident(state)).toEqual({
+      incident: "foulEvil",
+      culprit: "henchman",
+      fired: false,
+      effectApplied: false,
+    });
+    expect(state.loop.locIntrigue.Shrine).toBe(0);
+    expect(state.loop.incidentsFiredThisLoop).toBeUndefined();
+    expect(state.loop.incidentOccurrencesFiredThisLoop).toBeUndefined();
+  });
+
+  it("does not suppress an incident with another culprit", () => {
+    const state = createIncidentState(
+      "foulEvil",
+      "boyStudent",
+      ["henchman", "boyStudent"],
+    );
+    activateHenchmanSuppression(state);
+
+    expect(resolveIncident(state)).toEqual({
+      incident: "foulEvil",
+      culprit: "boyStudent",
+      fired: true,
+      effectApplied: true,
+    });
+    expect(state.loop.locIntrigue.Shrine).toBe(2);
+    expect(state.loop.incidentsFiredThisLoop).toEqual(["foulEvil"]);
+  });
+
+  it("keeps suppressed butterflyEffect from satisfying changeOfFuture", () => {
+    const state = createIncidentState(
+      "butterflyEffect",
+      "henchman",
+      ["henchman", "boyStudent"],
+      "changeOfFuture",
+    );
+    activateHenchmanSuppression(state);
+
+    expect(resolveIncident(state).fired).toBe(false);
+    state.loop.day = state.scenario.daysPerLoop;
+    state.loop.phase = "P9_ROUND_END";
+
+    expect(evaluateLoss(state).some(({ id }) => id === "changeOfFuture"))
+      .toBe(false);
+  });
+
+  it("records blackCat butterflyEffect as fired even though its effect is empty", () => {
+    const state = createIncidentState(
+      "butterflyEffect",
+      "blackCat",
+      ["blackCat", "boyStudent"],
+      "changeOfFuture",
+    );
+
+    expect(resolveIncident(state)).toEqual({
+      incident: "butterflyEffect",
+      culprit: "blackCat",
+      fired: true,
+      effectApplied: false,
+    });
+    expect(state.loop.incidentsFiredThisLoop).toEqual(["butterflyEffect"]);
+    state.loop.day = state.scenario.daysPerLoop;
+    state.loop.phase = "P9_ROUND_END";
+
+    expect(evaluateLoss(state)).toContainEqual(expect.objectContaining({
+      id: "changeOfFuture",
+      met: true,
+    }));
   });
 });

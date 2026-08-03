@@ -1090,6 +1090,7 @@ function renderTodayIncidents(state: GameState): string {
 
   return scheduled.map(({ incident, culprit }) => {
     const fires = incidentFires(state, culprit);
+    const effectSuppressed = culprit === "blackCat";
     const alive = state.loop.board[culprit].alive;
     const paranoia = state.loop.charCounters[culprit].paranoia;
     const limit = characterDataOf(culprit).paranoiaLimit;
@@ -1097,7 +1098,9 @@ function renderTodayIncidents(state: GameState): string {
       .map(({ source }) => source.description)
       .filter((description): description is string => Boolean(description)) ??
       [];
-    const effectText = incidentRuleText(incident, effectSources);
+    const effectText = effectSuppressed
+      ? "효과 없음"
+      : incidentRuleText(incident, effectSources);
     return `
       <article class="incident-card">
         <div class="incident-title">
@@ -1112,7 +1115,7 @@ function renderTodayIncidents(state: GameState): string {
           <span>${mark(alive)} ${escapeHtml(misc("Alive", "Alive"))}</span>
           <span>${mark(paranoia >= limit)} ${escapeHtml(misc("Paranoia"))} ${paranoia}/${limit}</span>
         </div>
-        ${renderIncidentChoice(state, incident, fires)}
+        ${renderIncidentChoice(state, incident, fires && !effectSuppressed)}
       </article>`;
   }).join("");
 }
@@ -1127,7 +1130,7 @@ function renderLossDistance(state: GameState): string {
       ? 0
       : Math.min(100, Math.round((condition.current / condition.needed) * 100));
     return `
-      <article class="loss-card ${condition.met ? "is-met" : ""}">
+      <article class="loss-card ${condition.met ? "is-met" : ""} ${condition.blockedBy ? "is-blocked" : ""}">
         <div class="loss-title">
           ${mark(condition.met)}
           <div><strong>${escapeHtml(condition.ko)}</strong>
@@ -1138,8 +1141,37 @@ function renderLossDistance(state: GameState): string {
         ${condition.daysLeft === undefined
           ? ""
           : `<small>${escapeHtml(misc("Days left", "Days left"))}: ${condition.daysLeft}</small>`}
+        ${condition.blockedBy === undefined
+          ? ""
+          : `<small class="loss-blocked-by">${escapeHtml(
+            `${characterName(condition.blockedBy)}의 능력으로 주인공 사망이 막힘`,
+          )}</small>`}
       </article>`;
   }).join("");
+}
+
+function renderOngoingGoodwillEffects(state: GameState): string {
+  const items = [
+    ...(state.loop.incidentCulpritSuppressedFor ?? []).map(
+      (character) =>
+        `${characterName(character)}: 자신이 범인인 사건은 발생하지 않음`,
+    ),
+    ...(state.loop.protagonistDeathPreventedBy ?? []).map(
+      (character) =>
+        `${characterName(character)}: 이번 루프 동안 주인공 사망 방지`,
+    ),
+  ];
+  if (items.length === 0) return "";
+
+  return `<section>
+    <div class="overlay-heading">
+      <span class="eyebrow">P6</span>
+      <h2>지속 중인 우호 능력</h2>
+    </div>
+    <ul class="ongoing-effect-list">
+      ${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
+    </ul>
+  </section>`;
 }
 
 function renderMastermindOverlay(state: GameState): string {
@@ -1153,6 +1185,7 @@ function renderMastermindOverlay(state: GameState): string {
         </div>
         ${renderTodayIncidents(state)}
       </section>
+      ${renderOngoingGoodwillEffects(state)}
       <section>
         <div class="overlay-heading">
           <span class="eyebrow">distanceToLoss()</span>

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { resolveIncident } from "../src/engine/incident";
+import { resolveGoodwillAbility } from "../src/engine/goodwill";
 import {
   distanceToLoss,
   evaluateLoss,
@@ -30,6 +31,16 @@ function createState(options: StateOptions = {}): GameState {
     scriptSpecified: options.scriptSpecified,
   };
   return { scenario, loop: initLoop(scenario), history: [] };
+}
+
+function activateSoldierProtection(state: GameState): void {
+  state.loop.phase = "P6_GOODWILL";
+  state.loop.charCounters.soldier.goodwill = 5;
+  resolveGoodwillAbility(state, {
+    user: "soldier",
+    rank: 5,
+    abilityIndex: 1,
+  }, "resolve");
 }
 
 describe("plot loss distance", () => {
@@ -472,5 +483,143 @@ describe("incident loss conditions", () => {
     expect(hospital?.met).toBe(false);
     expect(hospital?.remaining).toBe(1);
     expect(evaluateLoss(state)).toEqual([]);
+  });
+});
+
+describe("soldier rank 5 / protagonist death prevention", () => {
+  it("blocks killer protagonist death and returns soldier as blockedBy", () => {
+    const state = createState({
+      cast: { soldier: "person", girlStudent: "killer" },
+    });
+    activateSoldierProtection(state);
+    state.loop.charCounters.girlStudent.intrigue = 4;
+    state.loop.phase = "P9_ROUND_END";
+    const condition = distanceToLoss(state).find(
+      ({ id }) => id === "killer",
+    );
+
+    expect(condition).toMatchObject({
+      met: true,
+      activated: false,
+      blockedBy: "soldier",
+    });
+    expect(setOptionalLossActivation(state, condition!.key, true)).toEqual({
+      died: false,
+      blockedBy: "soldier",
+    });
+    expect(state.loop.optionalLossActivations).toBeUndefined();
+    expect(evaluateLoss(state).some(({ id }) => id === "killer")).toBe(false);
+    expect(state.loop.publicInformationThisLoop).toBeUndefined();
+  });
+
+  it("blocks lovedOne protagonist death through the same entry point", () => {
+    const state = createState({
+      cast: { soldier: "person", boyStudent: "lovedOne" },
+    });
+    activateSoldierProtection(state);
+    state.loop.charCounters.boyStudent.paranoia = 3;
+    state.loop.charCounters.boyStudent.intrigue = 1;
+    state.loop.phase = "P9_ROUND_END";
+    const condition = distanceToLoss(state).find(
+      ({ id }) => id === "lovedOne",
+    );
+
+    expect(setOptionalLossActivation(state, condition!.key, true)).toEqual({
+      died: false,
+      blockedBy: "soldier",
+    });
+    expect(condition?.blockedBy).toBe("soldier");
+    expect(evaluateLoss(state).some(({ id }) => id === "lovedOne")).toBe(false);
+  });
+
+  it("blocks hospitalIncident protagonist death without stopping the incident", () => {
+    const state = createState({
+      cast: { soldier: "person", boyStudent: "person" },
+      incidents: [{
+        day: 1,
+        incident: "hospitalIncident",
+        culprit: "boyStudent",
+      }],
+    });
+    activateSoldierProtection(state);
+    state.loop.phase = "P7_INCIDENT";
+    state.loop.charCounters.boyStudent.paranoia = 2;
+    state.loop.locIntrigue.Hospital = 2;
+    for (const position of Object.values(state.loop.board)) {
+      position.at = "City";
+    }
+
+    expect(resolveIncident(state)).toEqual({
+      incident: "hospitalIncident",
+      culprit: "boyStudent",
+      fired: true,
+      effectApplied: false,
+    });
+    expect(distanceToLoss(state)).toContainEqual(expect.objectContaining({
+      incident: "hospitalIncident",
+      blockedBy: "soldier",
+      activated: false,
+    }));
+    expect(
+      evaluateLoss(state).some(
+        ({ incident }) => incident === "hospitalIncident",
+      ),
+    ).toBe(false);
+  });
+
+  it("does not block timeTraveler protagonist defeat", () => {
+    const state = createState({
+      cast: { soldier: "person", informer: "timeTraveler" },
+    });
+    activateSoldierProtection(state);
+    state.loop.charCounters.informer.goodwill = 2;
+    state.loop.day = state.scenario.daysPerLoop;
+    state.loop.phase = "P9_ROUND_END";
+    const condition = evaluateLoss(state).find(
+      ({ id }) => id === "timeTraveler",
+    );
+
+    expect(condition).toMatchObject({
+      category: "protectedCharacter",
+      blockedBy: undefined,
+    });
+    expect(setOptionalLossActivation(state, condition!.key, true)).toBeUndefined();
+    expect(evaluateLoss(state)).toContainEqual(expect.objectContaining({
+      id: "timeTraveler",
+      activated: true,
+      blockedBy: undefined,
+    }));
+  });
+
+  it("does not block keyPerson or friend defeat conditions", () => {
+    const keyPersonState = createState({
+      cast: { soldier: "person", boyStudent: "keyPerson" },
+    });
+    activateSoldierProtection(keyPersonState);
+    keyPersonState.loop.board.boyStudent.alive = false;
+
+    expect(evaluateLoss(keyPersonState)).toContainEqual(
+      expect.objectContaining({
+        id: "keyPerson",
+        category: "protectedCharacter",
+        blockedBy: undefined,
+      }),
+    );
+
+    const friendState = createState({
+      cast: { soldier: "person", boss: "friend" },
+    });
+    activateSoldierProtection(friendState);
+    friendState.loop.board.boss.alive = false;
+    friendState.loop.day = friendState.scenario.daysPerLoop;
+    friendState.loop.phase = "P9_ROUND_END";
+
+    expect(evaluateLoss(friendState)).toContainEqual(
+      expect.objectContaining({
+        id: "friend",
+        category: "protectedCharacter",
+        blockedBy: undefined,
+      }),
+    );
   });
 });

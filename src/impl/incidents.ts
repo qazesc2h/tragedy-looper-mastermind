@@ -2,7 +2,10 @@
 //    재생성해도 when/effect 는 덮어쓰지 않도록 주의할 것.
 //    source 는 원본 영문 텍스트(수정 금지). ko 는 정발 용어.
 
-import { killCharacter } from "../engine/death";
+import {
+  attemptProtagonistDeath,
+  killCharacter,
+} from "../engine/death";
 import type {
   CharacterId,
   GameState,
@@ -187,8 +190,8 @@ export const INCIDENT_IMPL: Record<string, {
         },
         when: (s: GameState, _self: CharacterId) =>
           s.loop.locIntrigue.Hospital >= 2,
-        // 주인공 사망은 현재 캐릭터 상태와 별개인 패배 효과다.
-        effect: (_s: GameState, _self: CharacterId) => true,
+        effect: (s: GameState, _self: CharacterId) =>
+          attemptProtagonistDeath(s).died,
       },
     ],
   },

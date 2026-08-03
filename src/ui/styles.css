@@ -721,6 +721,32 @@ select {
   padding: 10px;
 }
 
+.loss-card.is-blocked {
+  border-color: #60819a;
+}
+
+.loss-blocked-by {
+  display: block;
+  margin-top: 8px;
+  color: #8fc2df;
+}
+
+.ongoing-effect-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ongoing-effect-list li {
+  border-left: 3px solid #60819a;
+  background: #201c16;
+  padding: 8px 10px;
+  color: #c8dce8;
+  font-size: 0.72rem;
+}
+
 .incident-card + .incident-card,
 .loss-card + .loss-card {
   margin-top: 8px;

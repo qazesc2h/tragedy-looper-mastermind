@@ -187,6 +187,12 @@ export interface LoopState {
   /** 같은 사건이 여러 번 예정된 경우도 구분하는 실제 발생 기록. */
   incidentOccurrencesFiredThisLoop?: ScheduledIncident[];
 
+  /** 이 캐릭터가 범인인 사건은 이번 루프 동안 발생하지 않는다. */
+  incidentCulpritSuppressedFor?: CharacterId[];
+
+  /** 이 캐릭터의 지속 효과가 이번 루프 동안 주인공 사망을 막는다. */
+  protagonistDeathPreventedBy?: CharacterId[];
+
   /** 이번 루프에 우호 능력으로 공개했거나 별도로 해결한 정보. */
   publicInformationThisLoop?: PublicInformation[];
 

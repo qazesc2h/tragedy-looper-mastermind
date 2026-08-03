@@ -12,6 +12,11 @@ import {
   type PlotId,
   type RoleId,
 } from "../types";
+import {
+  attemptProtagonistDeath,
+  type ProtagonistDeathResult,
+} from "./death";
+import { incidentFires } from "./incident";
 
 export type LossCategory =
   | "plot"
@@ -50,6 +55,7 @@ export interface LossDistance {
   timing: LossTiming;
   activation: LossActivation;
   activated: boolean;
+  blockedBy?: CharacterId;
   when: LossWhen;
   daysLeft?: number;
   plot?: PlotId;
@@ -493,8 +499,8 @@ function incidentLossDistance(
     day: scheduled.day,
     ko: impl.ko,
     conditionMet:
-      culpritPosition.alive &&
-      culpritCounters.paranoia >= paranoiaNeeded &&
+      incidentFires(state, scheduled.culprit) &&
+      scheduled.culprit !== "blackCat" &&
       lossHook.when(state, scheduled.culprit),
     label,
     requirements: [
@@ -533,11 +539,17 @@ export function distanceToLoss(state: GameState): LossDistance[] {
 
   return out.map((condition) => {
     const atTiming = isCurrentTiming(state, condition);
-    const activated = condition.activation === "mandatory"
-      ? condition.met && atTiming
-      : Boolean(state.loop.optionalLossActivations?.[condition.key]) &&
-        condition.met && atTiming;
-    return { ...condition, activated };
+    const blockedBy = condition.category === "protagonistDeath" &&
+        condition.met && atTiming
+      ? attemptProtagonistDeath(state).blockedBy
+      : undefined;
+    const activated = blockedBy === undefined && (
+      condition.activation === "mandatory"
+        ? condition.met && atTiming
+        : Boolean(state.loop.optionalLossActivations?.[condition.key]) &&
+          condition.met && atTiming
+    );
+    return { ...condition, activated, blockedBy };
   });
 }
 
@@ -562,7 +574,10 @@ function isCurrentTiming(state: GameState, condition: LossDistance): boolean {
 /** 현재 판정 시점에 실제로 성립한 패배 조건만 반환한다. */
 export function evaluateLoss(state: GameState): LossCondition[] {
   return distanceToLoss(state).filter(
-    (condition) => condition.met && isCurrentTiming(state, condition),
+    (condition) =>
+      condition.met &&
+      condition.blockedBy === undefined &&
+      isCurrentTiming(state, condition),
   );
 }
 
@@ -571,7 +586,7 @@ export function setOptionalLossActivation(
   state: GameState,
   key: string,
   activated: boolean,
-): void {
+): ProtagonistDeathResult | undefined {
   const condition = distanceToLoss(state).find(
     (candidate) => candidate.key === key,
   );
@@ -586,15 +601,22 @@ export function setOptionalLossActivation(
   }
 
   if (activated) {
+    if (condition.category === "protagonistDeath") {
+      const death = attemptProtagonistDeath(state);
+      if (!death.died) return death;
+    }
     const activations = state.loop.optionalLossActivations ??= {};
     activations[key] = true;
-    return;
+    return condition.category === "protagonistDeath"
+      ? { died: true }
+      : undefined;
   }
 
   const activations = state.loop.optionalLossActivations;
-  if (!activations) return;
+  if (!activations) return undefined;
   delete activations[key];
   if (Object.keys(activations).length === 0) {
     delete state.loop.optionalLossActivations;
   }
+  return undefined;
 }
