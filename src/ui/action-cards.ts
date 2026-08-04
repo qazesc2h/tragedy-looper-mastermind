@@ -91,6 +91,31 @@ export function placementsForOwner(
   return state.loop.placed.filter((placement) => placement.owner === owner);
 }
 
+/** P4 공개 단계에 들어가기 전에는 놓인 카드를 회수할 수 있다. */
+export function placedCardCanBeRecalled(
+  phase: Phase,
+  _placement: PlacedCard,
+): boolean {
+  return phase === "P2_MASTERMIND_ACTION" ||
+    phase === "P3_PROTAGONIST_ACTION";
+}
+
+/** UI의 공개 전 회수 동작. 회수할 수 없으면 상태를 바꾸지 않는다. */
+export function recallPlacedCard(
+  state: GameState,
+  placementIndex: number,
+): PlacedCard | undefined {
+  if (!Number.isInteger(placementIndex)) return undefined;
+  const placement = state.loop.placed[placementIndex];
+  if (
+    placement === undefined ||
+    !placedCardCanBeRecalled(state.loop.phase, placement)
+  ) {
+    return undefined;
+  }
+  return state.loop.placed.splice(placementIndex, 1)[0];
+}
+
 export function protagonistOrder(leader: 0 | 1 | 2): [0 | 1 | 2, 0 | 1 | 2, 0 | 1 | 2] {
   return [
     leader,

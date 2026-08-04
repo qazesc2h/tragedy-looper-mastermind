@@ -11,6 +11,7 @@ import {
   MASTERMIND_HAND,
   nextProtagonist,
   placedCardShowsName,
+  recallPlacedCard,
   PROTAGONIST_HAND,
   protagonistOrder,
 } from "../src/ui/action-cards";
@@ -106,6 +107,47 @@ describe("UI action-card hands", () => {
         placements: [placed[2]],
       },
     ]);
+  });
+
+  it("recalls any placed card before P4 reveal and none after", () => {
+    const state = createState();
+    const character = Object.keys(state.loop.board)[0];
+    state.loop.phase = "P2_MASTERMIND_ACTION";
+    state.loop.placed.push({
+      owner: "mastermind",
+      card: "paranoiaPlus1",
+      target: { kind: "character", id: character },
+    });
+
+    expect(recallPlacedCard(state, 0)?.card).toBe("paranoiaPlus1");
+    expect(state.loop.placed).toEqual([]);
+
+    state.loop.phase = "P3_PROTAGONIST_ACTION";
+    state.loop.placed.push(
+      {
+        owner: "mastermind",
+        card: "paranoiaPlus1",
+        target: { kind: "character", id: character },
+      },
+      {
+        owner: state.loop.leader,
+        card: "goodwillPlus1",
+        target: { kind: "character", id: character },
+      },
+    );
+
+    expect(recallPlacedCard(state, 0)?.owner).toBe("mastermind");
+    expect(recallPlacedCard(state, 0)?.owner).toBe(state.loop.leader);
+    expect(nextProtagonist(state)).toBe(state.loop.leader);
+
+    state.loop.placed.push({
+      owner: "mastermind",
+      card: "paranoiaPlus1",
+      target: { kind: "character", id: character },
+    });
+    state.loop.phase = "P4_RESOLVE";
+    expect(recallPlacedCard(state, 0)).toBeUndefined();
+    expect(state.loop.placed).toHaveLength(1);
   });
 });
 

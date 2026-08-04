@@ -47,10 +47,12 @@ import {
   handCardIsPlaced,
   MASTERMIND_HAND,
   nextProtagonist,
+  placedCardCanBeRecalled,
   placedCardShowsName,
   placementsForOwner,
   PROTAGONIST_HAND,
   protagonistOrder,
+  recallPlacedCard,
   type CardOwner,
   type HandCard,
   type ResolutionReportItem,
@@ -174,6 +176,9 @@ const root = requireUiRoot();
 let notice = "";
 let selectedHandCard: SelectedHandCard | undefined;
 let resolutionReceipt: ResolutionReceipt | undefined;
+let openCharacterModal: CharacterId | undefined;
+let openLocationModal: Location | undefined;
+let operationSheetOpen = false;
 const optionalHookSelections = new Map<string, OptionalHookSelection>();
 let tracker: TrackerStore;
 try {
@@ -315,37 +320,50 @@ function renderCardsOnTarget(state: GameState, target: Target): string {
   const resolved = receipt !== undefined;
   const cards = resolved ? receipt.cards : state.loop.placed;
   const matching = cards
-    .filter((placement) => sameTarget(placement.target, target))
-    .map((placement) => ({
+    .map((placement, placementIndex) => ({ placement, placementIndex }))
+    .filter(({ placement }) => sameTarget(placement.target, target))
+    .map(({ placement, placementIndex }) => ({
       placement,
+      placementIndex,
       showName: placedCardShowsName(
         state.loop.phase,
         placement.owner,
         resolved,
       ),
+      recallable: !resolved && selectedHandCard === undefined &&
+        placedCardCanBeRecalled(state.loop.phase, placement),
       fullName: actionCardName(placement.card),
     }));
   if (matching.length === 0) return "";
+  let recallablePlacementIndex: number | undefined;
+  for (const item of matching) {
+    if (item.recallable) recallablePlacementIndex = item.placementIndex;
+  }
 
   return `
     <div class="placed-card-stack ${
       matching.every(({ showName }) => showName) ? "is-revealed" : "is-facedown"
     }">
-      ${matching.map(({ placement, showName, fullName }) => `
+      ${matching.map(({ placement, placementIndex, showName, fullName }) => {
+        const recallable = placementIndex === recallablePlacementIndex;
+        return `
         <button type="button"
           class="placed-action-card owner-${placement.owner}"
-          disabled
+          ${recallable
+            ? `data-action="recall-card" data-placement-index="${placementIndex}"`
+            : "disabled"}
           ${showName ? `title="${escapeHtml(fullName)}"` : ""}
           aria-label="${escapeHtml(
             showName
-              ? `${ownerLabel(placement.owner)} · ${fullName}`
-              : ownerLabel(placement.owner),
+              ? `${ownerLabel(placement.owner)} · ${fullName}${recallable ? " · 탭하여 회수" : ""}`
+              : `${ownerLabel(placement.owner)}${recallable ? " · 탭하여 회수" : ""}`,
           )}">
           <span>${escapeHtml(ownerLabel(placement.owner))}</span>
           ${showName
             ? `<strong>${escapeHtml(fullName)}</strong>`
             : `<b aria-hidden="true">TL</b>`}
-        </button>`).join("")}
+        </button>`;
+      }).join("")}
     </div>`;
 }
 
@@ -386,38 +404,25 @@ function renderCharacter(state: GameState, character: CharacterId): string {
     : `<span class="culprit-badge">범인 · ${culpritDays.map((day) => `${day}일`).join(" · ")}</span>`;
 
   return `
-    <article class="character-unit ${position.alive ? "is-alive" : "is-dead"}">
-      <div class="identity-frame">
-        <button type="button" class="identity-card" data-action="board-character"
-          data-character="${escapeHtml(character)}"
-          aria-label="${escapeHtml(`${characterName(character)} — ${aliveLabel}`)}">
-          <span class="card-corner">TL</span>
+    <article class="character-chip-wrap ${position.alive ? "is-alive" : "is-dead"}">
+      <button type="button" class="character-chip" data-action="board-character"
+        data-character="${escapeHtml(character)}"
+        aria-label="${escapeHtml(`${characterName(character)} — ${roleName(role)} — ${aliveLabel}`)}">
+        <span class="character-chip-heading">
           <strong>${escapeHtml(characterName(character))}</strong>
-          <span class="role-badge">${escapeHtml(roleName(role))}</span>
+          <span class="life-state"><i aria-hidden="true"></i>${escapeHtml(aliveLabel)}</span>
+        </span>
+        <span class="character-chip-meta">
+          <span class="character-chip-role">${escapeHtml(roleName(role))}</span>
           ${culpritBadge}
-          <span class="life-state">${escapeHtml(aliveLabel)}</span>
-        </button>
-        ${renderCardsOnTarget(state, { kind: "character", id: character })}
-      </div>
-      <div class="character-controls">
-        ${renderCounter(character, "goodwill", counters.goodwill)}
-        ${renderCounter(
-          character,
-          "paranoia",
-          counters.paranoia,
-          `/${data.paranoiaLimit}`,
-        )}
-        ${renderCounter(character, "intrigue", counters.intrigue)}
-        <label class="location-select">
-          <span>${escapeHtml(misc("Location", "Location"))}</span>
-          <select data-action="move-character" data-character="${escapeHtml(character)}">
-            ${LOCATIONS.map((location) => `
-              <option value="${location}" ${position.at === location ? "selected" : ""}>
-                ${escapeHtml(locationName(location))}
-              </option>`).join("")}
-          </select>
-        </label>
-      </div>
+        </span>
+        <span class="character-chip-counters">
+          <span>우 ${counters.goodwill}</span>
+          <span>불 ${counters.paranoia}/${data.paranoiaLimit}</span>
+          <span>음 ${counters.intrigue}</span>
+        </span>
+      </button>
+      ${renderCardsOnTarget(state, { kind: "character", id: character })}
     </article>`;
 }
 
@@ -430,17 +435,9 @@ function renderLocation(state: GameState, location: Location): string {
       <header class="location-header">
         <button type="button" class="location-target" data-action="board-location"
           data-location="${location}">
-          <span class="eyebrow">${escapeHtml(misc("Location", "Location"))}</span>
-          <h2>${escapeHtml(locationName(location))}</h2>
+          <span>${escapeHtml(locationName(location))}</span>
+          <strong>${escapeHtml(misc("Intrigue"))} ${state.loop.locIntrigue[location]}</strong>
         </button>
-        <div class="location-intrigue">
-          <span>${escapeHtml(misc("Intrigue"))}</span>
-          <button type="button" data-action="location-counter" data-location="${location}"
-            data-delta="-1" aria-label="${escapeHtml(`${misc("Intrigue")} -1`)}">−</button>
-          <strong>${state.loop.locIntrigue[location]}</strong>
-          <button type="button" data-action="location-counter" data-location="${location}"
-            data-delta="1" aria-label="${escapeHtml(`${misc("Intrigue")} +1`)}">+</button>
-        </div>
       </header>
       ${renderCardsOnTarget(state, { kind: "location", at: location })}
       <div class="character-grid">
@@ -448,6 +445,87 @@ function renderLocation(state: GameState, location: Location): string {
           `<p class="empty-location">${escapeHtml(misc("No character", "No character"))}</p>`}
       </div>
     </section>`;
+}
+
+function renderCharacterModal(state: GameState): string {
+  const character = openCharacterModal;
+  if (!character || state.loop.board[character] === undefined) return "";
+  const position = state.loop.board[character];
+  const counters = state.loop.charCounters[character];
+  const data = characterDataOf(character);
+  const aliveLabel = position.alive
+    ? misc("Alive", "Alive")
+    : misc("Dead", "Dead");
+
+  return `
+    <div class="modal-layer">
+      <button type="button" class="modal-scrim" data-action="close-character-modal"
+        aria-label="상세 닫기"></button>
+      <section class="detail-modal" role="dialog" aria-modal="true"
+        aria-labelledby="character-modal-title">
+        <header class="detail-modal-header">
+          <div>
+            <span class="eyebrow">${escapeHtml(roleName(effectiveRole(state, character)))}</span>
+            <h2 id="character-modal-title">${escapeHtml(characterName(character))}</h2>
+          </div>
+          <button type="button" class="icon-button" data-action="close-character-modal"
+            aria-label="상세 닫기">×</button>
+        </header>
+        <button type="button" class="life-toggle ${position.alive ? "is-alive" : "is-dead"}"
+          data-action="toggle-character-life" data-character="${escapeHtml(character)}">
+          <span>${escapeHtml(aliveLabel)}</span>
+          <strong>${position.alive ? "탭하여 사망 처리" : "탭하여 생존 처리"}</strong>
+        </button>
+        <div class="detail-counter-list">
+          ${renderCounter(character, "goodwill", counters.goodwill)}
+          ${renderCounter(
+            character,
+            "paranoia",
+            counters.paranoia,
+            `/${data.paranoiaLimit}`,
+          )}
+          ${renderCounter(character, "intrigue", counters.intrigue)}
+        </div>
+        <label class="location-select">
+          <span>${escapeHtml(misc("Location", "Location"))}</span>
+          <select data-action="move-character" data-character="${escapeHtml(character)}">
+            ${LOCATIONS.map((location) => `
+              <option value="${location}" ${position.at === location ? "selected" : ""}>
+                ${escapeHtml(locationName(location))}
+              </option>`).join("")}
+          </select>
+        </label>
+      </section>
+    </div>`;
+}
+
+function renderLocationModal(state: GameState): string {
+  const location = openLocationModal;
+  if (!location) return "";
+  return `
+    <div class="modal-layer">
+      <button type="button" class="modal-scrim" data-action="close-location-modal"
+        aria-label="장소 상세 닫기"></button>
+      <section class="detail-modal location-detail-modal" role="dialog" aria-modal="true"
+        aria-labelledby="location-modal-title">
+        <header class="detail-modal-header">
+          <div>
+            <span class="eyebrow">${escapeHtml(misc("Location", "Location"))}</span>
+            <h2 id="location-modal-title">${escapeHtml(locationName(location))}</h2>
+          </div>
+          <button type="button" class="icon-button" data-action="close-location-modal"
+            aria-label="장소 상세 닫기">×</button>
+        </header>
+        <div class="location-modal-counter">
+          <span>${escapeHtml(misc("Intrigue"))}</span>
+          <button type="button" data-action="location-counter" data-location="${location}"
+            data-delta="-1" aria-label="${escapeHtml(`${misc("Intrigue")} -1`)}">−</button>
+          <strong>${state.loop.locIntrigue[location]}</strong>
+          <button type="button" data-action="location-counter" data-location="${location}"
+            data-delta="1" aria-label="${escapeHtml(`${misc("Intrigue")} +1`)}">+</button>
+        </div>
+      </section>
+    </div>`;
 }
 
 function renderPhases(state: GameState): string {
@@ -608,14 +686,21 @@ function renderPlacementPrompt(): string {
     </p>`;
 }
 
-function renderMastermindAction(state: GameState): string {
+function renderMastermindAction(
+  state: GameState,
+  correctingBeforeReveal = false,
+): string {
   const placed = placementsForOwner(state, "mastermind").length;
   return `
     <section class="operation-panel card-placement-panel">
       <div class="operation-heading">
         <div>
-          <span class="eyebrow">2 · ${escapeHtml(ownerLabel("mastermind"))}</span>
-          <h2>${escapeHtml(phaseName("P2_MASTERMIND_ACTION"))}</h2>
+          <span class="eyebrow">${correctingBeforeReveal ? "배치 수정" : "2"} · ${escapeHtml(ownerLabel("mastermind"))}</span>
+          <h2>${escapeHtml(
+            correctingBeforeReveal
+              ? "각본가 카드 다시 배치"
+              : phaseName("P2_MASTERMIND_ACTION"),
+          )}</h2>
         </div>
         <strong class="placement-progress ${placed === 3 ? "is-complete" : ""}">${placed}/3</strong>
       </div>
@@ -1125,7 +1210,9 @@ function renderPhaseControls(state: GameState): string {
     case "P2_MASTERMIND_ACTION":
       return renderMastermindAction(state);
     case "P3_PROTAGONIST_ACTION":
-      return renderProtagonistAction(state);
+      return placementsForOwner(state, "mastermind").length < 3
+        ? renderMastermindAction(state, true)
+        : renderProtagonistAction(state);
     case "P4_RESOLVE":
       return `<section class="operation-panel">
         <div class="resolve-control-copy">
@@ -1153,7 +1240,7 @@ function renderPhaseControls(state: GameState): string {
     case "P7_INCIDENT":
       return `<section class="operation-panel">
         ${heading(7, phaseName(state.loop.phase))}
-        <div class="phase-incident-list">${renderTodayIncidents(state)}</div>
+        <div class="phase-incident-list">${renderTodayIncidents(state, true)}</div>
         <div class="operation-footer">${renderAdvanceButton(misc("Incident trigger"))}</div>
       </section>`;
     case "P8_LEADER_PASS":
@@ -1182,6 +1269,108 @@ function renderPhaseControls(state: GameState): string {
         )}</div>
       </section>`;
   }
+}
+
+interface DockPrimaryAction {
+  action: "advance" | "reveal-cards";
+  label: string;
+  disabled: boolean;
+}
+
+function dockPrimaryAction(state: GameState): DockPrimaryAction {
+  switch (state.loop.phase) {
+    case "P2_MASTERMIND_ACTION":
+      return {
+        action: "advance",
+        label: "배치 완료",
+        disabled: placementsForOwner(state, "mastermind").length !== 3,
+      };
+    case "P3_PROTAGONIST_ACTION":
+      return {
+        action: "advance",
+        label: "배치 완료",
+        disabled: placementsForOwner(state, "mastermind").length !== 3 ||
+          nextProtagonist(state) !== undefined,
+      };
+    case "P4_RESOLVE":
+      return {
+        action: "reveal-cards",
+        label: "카드 공개",
+        disabled: state.loop.placed.length !== 6,
+      };
+    case "P7_INCIDENT":
+      return { action: "advance", label: "사건 판정", disabled: false };
+    case "P9_ROUND_END":
+      return {
+        action: "advance",
+        label: !state.loop.roundEndMandatoryResolved
+          ? "강제 해결"
+          : state.loop.day === state.scenario.daysPerLoop
+          ? "루프 종료"
+          : "다음 단계",
+        disabled: false,
+      };
+    default:
+      return { action: "advance", label: "다음 단계", disabled: false };
+  }
+}
+
+function dockProgress(state: GameState): string {
+  if (selectedHandCard) {
+    return `${actionCardName(selectedHandCard.card)} → 대상 선택`;
+  }
+  if (state.loop.phase === "P2_MASTERMIND_ACTION") {
+    return `각본가 카드 ${placementsForOwner(state, "mastermind").length}/3`;
+  }
+  if (state.loop.phase === "P3_PROTAGONIST_ACTION") {
+    const mastermindPlaced = placementsForOwner(state, "mastermind").length;
+    if (mastermindPlaced < 3) {
+      return `각본가 카드 다시 배치 · ${mastermindPlaced}/3`;
+    }
+    const placed = state.loop.placed.filter(
+      ({ owner }) => owner !== "mastermind",
+    ).length;
+    const current = nextProtagonist(state);
+    return current === undefined
+      ? "주인공 카드 3/3"
+      : `${ownerLabel(current)} · ${placed}/3`;
+  }
+  return "조작 열기";
+}
+
+function renderOperationDock(state: GameState): string {
+  const phaseIndex = PHASE_ORDER.indexOf(state.loop.phase) + 1;
+  const primary = dockPrimaryAction(state);
+  return `
+    <section class="operation-dock" aria-label="현재 단계 조작">
+      ${operationSheetOpen
+        ? `<button type="button" class="operation-scrim" data-action="close-operation-sheet"
+              aria-label="조작 패널 닫기"></button>
+            <div class="operation-sheet" role="dialog" aria-modal="true"
+              aria-label="${escapeHtml(phaseName(state.loop.phase))} 조작">
+              <header class="operation-sheet-header">
+                <div><span>${phaseIndex}/9</span><strong>${escapeHtml(phaseName(state.loop.phase))}</strong></div>
+                <button type="button" class="icon-button" data-action="close-operation-sheet"
+                  aria-label="조작 패널 닫기">×</button>
+              </header>
+              <div class="operation-sheet-body">${renderPhaseControls(state)}</div>
+            </div>`
+        : ""}
+      <div class="operation-dock-bar">
+        <button type="button" class="undo-placeholder" disabled>
+          <span>되돌리기</span><small>준비 중</small>
+        </button>
+        <button type="button" class="phase-dock-status" data-action="toggle-operation-sheet"
+          aria-expanded="${operationSheetOpen}">
+          <span>${phaseIndex}/9 · ${escapeHtml(phaseName(state.loop.phase))}</span>
+          <strong>${escapeHtml(dockProgress(state))}</strong>
+        </button>
+        <button type="button" class="dock-primary" data-action="${primary.action}"
+          ${primary.disabled ? "disabled" : ""}>
+          ${escapeHtml(primary.label)}
+        </button>
+      </div>
+    </section>`;
 }
 
 function mark(pass: boolean): string {
@@ -1238,7 +1427,10 @@ function renderIncidentChoice(
     </div>`;
 }
 
-function renderTodayIncidents(state: GameState): string {
+function renderTodayIncidents(
+  state: GameState,
+  interactive = false,
+): string {
   const scheduled = state.scenario.incidents.filter(
     ({ day }) => day === state.loop.day,
   );
@@ -1282,7 +1474,9 @@ function renderTodayIncidents(state: GameState): string {
           <span>${mark(paranoia >= limit)} ${escapeHtml(misc("Paranoia"))} ${paranoia}/${limit}</span>
           <span>${mark(!culpritSuppressed)} 발생 억제 없음</span>
         </div>
-        ${renderIncidentChoice(state, incident, fires && !effectSuppressed)}
+        ${interactive
+          ? renderIncidentChoice(state, incident, fires && !effectSuppressed)
+          : ""}
       </article>`;
   }).join("");
 }
@@ -1454,17 +1648,45 @@ function renderIncidentSchedule(state: GameState): string {
 function renderMastermindOverlay(state: GameState): string {
   if (!tracker.mastermindOverlay) return "";
   return `
-    <aside class="mastermind-overlay">
-      ${renderScenarioInformation(state)}
-      ${renderIncidentSchedule(state)}
-      ${renderOngoingGoodwillEffects(state)}
-      <section>
-        <div class="overlay-heading">
-          <span class="eyebrow">distanceToLoss()</span>
-          <h2>${escapeHtml(misc("Victory Conditions"))}</h2>
+    <aside class="mastermind-overlay" aria-label="각본가 정보">
+      <details class="info-accordion today-information" open>
+        <summary>
+          <span><small>오늘</small><strong>사건·범인·판정 상태</strong></span>
+          <i aria-hidden="true"></i>
+        </summary>
+        <div class="info-accordion-body phase-incident-list">
+          ${renderTodayIncidents(state)}
         </div>
-        <div class="loss-list">${renderLossDistance(state)}</div>
-      </section>
+      </details>
+      <details class="info-accordion">
+        <summary>
+          <span><small>시나리오</small><strong>룰과 역할</strong></span>
+          <i aria-hidden="true"></i>
+        </summary>
+        <div class="info-accordion-body">${renderScenarioInformation(state)}</div>
+      </details>
+      <details class="info-accordion">
+        <summary>
+          <span><small>전체 일정</small><strong>사건 일정</strong></span>
+          <i aria-hidden="true"></i>
+        </summary>
+        <div class="info-accordion-body">${renderIncidentSchedule(state)}</div>
+      </details>
+      <details class="info-accordion">
+        <summary>
+          <span><small>진척</small><strong>${escapeHtml(misc("Victory Conditions"))}</strong></span>
+          <i aria-hidden="true"></i>
+        </summary>
+        <div class="info-accordion-body loss-list">${renderLossDistance(state)}</div>
+      </details>
+      <details class="info-accordion spent-information">
+        <summary>
+          <span><small>1루프당 1회</small><strong>${escapeHtml(misc("Spent cards", "Spent cards"))}</strong></span>
+          <i aria-hidden="true"></i>
+        </summary>
+        <div class="info-accordion-body">${renderSpentCards(state)}</div>
+      </details>
+      ${renderOngoingGoodwillEffects(state)}
     </aside>`;
 }
 
@@ -1699,22 +1921,23 @@ function render(): void {
     ? `${renderPhases(state)}
       ${renderPhaseLog(state)}
       <main class="workspace ${tracker.mastermindOverlay ? "with-overlay" : ""}">
+        ${renderMastermindOverlay(state)}
         <div class="primary-column">
           <section class="game-board ${selectedHandCard ? "is-targeting" : ""}"
             aria-label="${escapeHtml(misc("Location", "Location"))}">
             ${LOCATIONS.map((location) => renderLocation(state, location)).join("")}
           </section>
           ${renderResolutionReceipt(state)}
-          ${renderPhaseControls(state)}
           ${renderPublicInformation(state)}
-          ${renderSpentCards(state)}
         </div>
-        ${renderMastermindOverlay(state)}
-      </main>`
+      </main>
+      ${renderOperationDock(state)}
+      ${renderCharacterModal(state)}
+      ${renderLocationModal(state)}`
     : renderGameFlow(state);
 
   root.innerHTML = `
-    <div class="app-shell">
+    <div class="app-shell ${state.gamePhase === "ROUND" ? "has-operation-dock" : ""}">
       <header class="topbar">
         <div class="brand">
           <span>${escapeHtml(misc("(제품명) Tragedy Looper", "Tragedy Looper"))}</span>
@@ -1814,9 +2037,17 @@ function placeSelectedCard(target: Target): void {
     return;
   }
   const state = currentState();
+  const mastermindNeedsReplacement =
+    state.loop.phase === "P3_PROTAGONIST_ACTION" &&
+    placementsForOwner(state, "mastermind").length < 3;
   if (
     (state.loop.phase === "P2_MASTERMIND_ACTION" && selected.owner !== "mastermind") ||
-    (state.loop.phase === "P3_PROTAGONIST_ACTION" && selected.owner !== nextProtagonist(state))
+    (mastermindNeedsReplacement && selected.owner !== "mastermind") ||
+    (
+      state.loop.phase === "P3_PROTAGONIST_ACTION" &&
+      !mastermindNeedsReplacement &&
+      selected.owner !== nextProtagonist(state)
+    )
   ) {
     notice = misc("It is not this player's turn", "It is not this player's turn");
     render();
@@ -1836,6 +2067,9 @@ function placeSelectedCard(target: Target): void {
   }
 
   selectedHandCard = undefined;
+  openCharacterModal = undefined;
+  openLocationModal = undefined;
+  operationSheetOpen = true;
   commit("action-card-placement", (game) => {
     game.loop.placed.push(placement);
   });
@@ -1865,6 +2099,7 @@ function revealActionCards(): void {
       items: collectResolutionReport(before, state, cards),
     };
     selectedHandCard = undefined;
+    operationSheetOpen = false;
     optionalHookSelections.clear();
     notice = "";
     saveState(entry.id, state, "cards-resolved");
@@ -2005,7 +2240,10 @@ function advanceCurrentPhase(): void {
     }
     if (
       state.loop.phase === "P3_PROTAGONIST_ACTION" &&
-      nextProtagonist(state) !== undefined
+      (
+        placementsForOwner(state, "mastermind").length !== 3 ||
+        nextProtagonist(state) !== undefined
+      )
     ) {
       throw new Error(misc("3 cards required", "3 cards required"));
     }
@@ -2014,6 +2252,7 @@ function advanceCurrentPhase(): void {
       advanceGame(state, incidentChoiceFromUi());
     }
     selectedHandCard = undefined;
+    operationSheetOpen = false;
     if (phaseBefore !== "P5_MASTERMIND_ABILITY") {
       resolutionReceipt = undefined;
     }
@@ -2033,6 +2272,56 @@ root.addEventListener("click", (event) => {
   );
   if (!button) return;
   const action = button.dataset.action;
+
+  if (action === "toggle-operation-sheet") {
+    operationSheetOpen = !operationSheetOpen;
+    render();
+    return;
+  }
+
+  if (action === "close-operation-sheet") {
+    operationSheetOpen = false;
+    render();
+    return;
+  }
+
+  if (action === "close-character-modal") {
+    openCharacterModal = undefined;
+    render();
+    return;
+  }
+
+  if (action === "close-location-modal") {
+    openLocationModal = undefined;
+    render();
+    return;
+  }
+
+  if (action === "toggle-character-life") {
+    const character = button.dataset.character;
+    if (!character) return;
+    commit("character-life", (state) => {
+      state.loop.board[character].alive = !state.loop.board[character].alive;
+    });
+    return;
+  }
+
+  if (action === "recall-card") {
+    const placementIndex = Number(button.dataset.placementIndex);
+    const state = currentState();
+    if (!Number.isInteger(placementIndex)) return;
+    if (recallPlacedCard(state, placementIndex) === undefined) {
+      notice = "이 카드는 공개 전 현재 배치 차례에만 회수할 수 있습니다.";
+      render();
+      return;
+    }
+    selectedHandCard = undefined;
+    operationSheetOpen = true;
+    notice = "";
+    saveState(activeScenarioEntry().id, state, "action-card-recall");
+    render();
+    return;
+  }
 
   if (action === "advance") {
     advanceCurrentPhase();
@@ -2132,10 +2421,16 @@ root.addEventListener("click", (event) => {
       ? "mastermind"
       : Number(ownerValue) as 0 | 1 | 2;
     const state = currentState();
+    const mastermindNeedsReplacement =
+      state.loop.phase === "P3_PROTAGONIST_ACTION" &&
+      placementsForOwner(state, "mastermind").length < 3;
     const ownerIsActive = state.loop.phase === "P2_MASTERMIND_ACTION"
       ? owner === "mastermind"
-      : state.loop.phase === "P3_PROTAGONIST_ACTION" &&
-        owner === nextProtagonist(state);
+      : state.loop.phase === "P3_PROTAGONIST_ACTION" && (
+        mastermindNeedsReplacement
+          ? owner === "mastermind"
+          : owner === nextProtagonist(state)
+      );
     if (!ownerIsActive) {
       notice = misc("It is not this player's turn", "It is not this player's turn");
       render();
@@ -2145,6 +2440,9 @@ root.addEventListener("click", (event) => {
         selectedHandCard.key === key
       ? undefined
       : { owner, card, key };
+    operationSheetOpen = false;
+    openCharacterModal = undefined;
+    openLocationModal = undefined;
     notice = "";
     render();
     return;
@@ -2157,21 +2455,20 @@ root.addEventListener("click", (event) => {
       placeSelectedCard({ kind: "character", id: character });
       return;
     }
-    if (["P2_MASTERMIND_ACTION", "P3_PROTAGONIST_ACTION"].includes(currentState().loop.phase)) {
-      notice = misc("Select a card first", "Select a card first");
-      render();
-      return;
-    }
-    commit("character-life", (state) => {
-      state.loop.board[character].alive = !state.loop.board[character].alive;
-    });
+    openLocationModal = undefined;
+    openCharacterModal = character;
+    notice = "";
+    render();
     return;
   }
 
   if (action === "board-location") {
     const location = button.dataset.location as Location | undefined;
-    if (!location || !selectedHandCard) {
-      notice = misc("Select a card first", "Select a card first");
+    if (!location) return;
+    if (!selectedHandCard) {
+      openCharacterModal = undefined;
+      openLocationModal = location;
+      notice = "";
       render();
       return;
     }
@@ -2277,6 +2574,9 @@ root.addEventListener("change", (event) => {
     tracker.activeScenarioId = entry.id;
     selectedHandCard = undefined;
     resolutionReceipt = undefined;
+    openCharacterModal = undefined;
+    openLocationModal = undefined;
+    operationSheetOpen = false;
     optionalHookSelections.clear();
     if (!tracker.games[entry.id]) {
       saveState(entry.id, createGame(entry), "scenario-start");
