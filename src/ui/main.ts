@@ -63,6 +63,11 @@ import {
   type GoodwillDisabledReason,
 } from "./goodwill-abilities";
 import {
+  incidentDaysForCharacter,
+  incidentScheduleRows,
+  type IncidentScheduleRow,
+} from "./mastermind-panel";
+import {
   emptyTrackerStore,
   loadTrackerStore,
   persistGameState,
@@ -375,9 +380,10 @@ function renderCharacter(state: GameState, character: CharacterId): string {
   const aliveLabel = position.alive
     ? misc("Alive", "Alive")
     : misc("Dead", "Dead");
-  const roleBadge = tracker.mastermindOverlay
-    ? `<span class="role-badge">${escapeHtml(roleName(role))}</span>`
-    : "";
+  const culpritDays = incidentDaysForCharacter(state, character);
+  const culpritBadge = culpritDays.length === 0
+    ? ""
+    : `<span class="culprit-badge">범인 · ${culpritDays.map((day) => `${day}일`).join(" · ")}</span>`;
 
   return `
     <article class="character-unit ${position.alive ? "is-alive" : "is-dead"}">
@@ -387,7 +393,8 @@ function renderCharacter(state: GameState, character: CharacterId): string {
           aria-label="${escapeHtml(`${characterName(character)} — ${aliveLabel}`)}">
           <span class="card-corner">TL</span>
           <strong>${escapeHtml(characterName(character))}</strong>
-          ${roleBadge}
+          <span class="role-badge">${escapeHtml(roleName(role))}</span>
+          ${culpritBadge}
           <span class="life-state">${escapeHtml(aliveLabel)}</span>
         </button>
         ${renderCardsOnTarget(state, { kind: "character", id: character })}
@@ -1347,17 +1354,109 @@ function renderOngoingGoodwillEffects(state: GameState): string {
   </section>`;
 }
 
+function renderScenarioInformation(state: GameState): string {
+  const plots = [
+    { label: "룰 Y", id: state.scenario.mainPlot },
+    ...state.scenario.subPlots.map((id, index) => ({
+      label: `룰 X${index + 1}`,
+      id,
+    })),
+  ];
+
+  return `<section class="scenario-information-panel">
+    <div class="overlay-heading">
+      <span class="eyebrow">${escapeHtml(misc("Script"))}</span>
+      <h2>룰과 역할</h2>
+    </div>
+    <dl class="scenario-rule-list">
+      ${plots.map(({ label, id }) => `
+        <div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(
+          id ? plotName(id) : misc("None", "None"),
+        )}</dd></div>`).join("")}
+    </dl>
+    <ul class="scenario-cast-list">
+      ${Object.keys(state.scenario.cast).map((character) => {
+        const culpritDays = incidentDaysForCharacter(state, character);
+        return `<li>
+          <span>${escapeHtml(characterName(character))}</span>
+          <b>${escapeHtml(roleName(effectiveRole(state, character)))}</b>
+          ${culpritDays.length === 0
+            ? ""
+            : `<em>범인 · ${culpritDays.map((day) => `${day}일`).join(" · ")}</em>`}
+        </li>`;
+      }).join("")}
+    </ul>
+  </section>`;
+}
+
+function recordedIncidentStatus(row: IncidentScheduleRow): string {
+  if (row.outcome === "fired") {
+    if (!row.judgmentRecorded) return "발생 · 상세 기록 없음";
+    return row.effectApplied === false ? "발생 · 효과 없음" : "발생";
+  }
+  if (row.outcome === "notFired") {
+    const reasons = row.outcomeReasons.map(incidentFailureLabel);
+    return reasons.length > 0
+      ? `미발생 · ${reasons.join(" · ")}`
+      : "미발생 · 사유 기록 없음";
+  }
+  return "";
+}
+
+function pendingIncidentStatus(row: IncidentScheduleRow): string {
+  if (row.timing === "today") {
+    return row.conditionMet
+      ? "발생 조건 충족"
+      : `미달 · ${row.currentFailureReasons.map(incidentFailureLabel).join(" · ")}`;
+  }
+
+  const urgency = row.paranoiaNeeded > 0
+    ? `불안 ${row.paranoiaNeeded}개 필요`
+    : row.conditionMet
+    ? "현재 발생 조건 충족"
+    : row.currentFailureReasons.map(incidentFailureLabel).join(" · ");
+  return `${row.daysUntil}일 남음 · ${urgency}`;
+}
+
+function renderIncidentSchedule(state: GameState): string {
+  const rows = incidentScheduleRows(state);
+  return `<section class="incident-schedule-panel">
+    <div class="overlay-heading">
+      <span class="eyebrow">${escapeHtml(misc("Incident step"))}</span>
+      <h2>사건 일정</h2>
+    </div>
+    ${rows.length === 0
+      ? `<p class="empty-overlay">${escapeHtml(misc("No incident"))}</p>`
+      : `<div class="incident-schedule-scroll"><table class="incident-schedule">
+          <thead><tr><th>날짜</th><th>사건</th><th>범인</th><th>상태</th></tr></thead>
+          <tbody>${rows.map((row) => {
+            const timingLabel = row.timing === "past"
+              ? "지남"
+              : row.timing === "today"
+              ? "오늘"
+              : `D-${row.daysUntil}`;
+            const status = row.outcome
+              ? recordedIncidentStatus(row)
+              : pendingIncidentStatus(row);
+            return `<tr class="is-${row.timing}">
+              <td><strong>${row.day}일</strong><span>${timingLabel}</span></td>
+              <td>${escapeHtml(incidentName(row.incident))}</td>
+              <td>${escapeHtml(characterName(row.culprit))}</td>
+              <td>${row.timing === "past"
+                ? ""
+                : `<strong>불안 ${row.paranoia}/${row.paranoiaLimit}</strong>`}<span>${escapeHtml(status)}</span></td>
+            </tr>`;
+          }).join("")}</tbody>
+        </table></div>`}
+  </section>`;
+}
+
 function renderMastermindOverlay(state: GameState): string {
   if (!tracker.mastermindOverlay) return "";
   return `
     <aside class="mastermind-overlay">
-      <section>
-        <div class="overlay-heading">
-          <span class="eyebrow">${escapeHtml(misc("Day"))} ${state.loop.day}</span>
-          <h2>${escapeHtml(misc("Incident trigger"))}</h2>
-        </div>
-        ${renderTodayIncidents(state)}
-      </section>
+      ${renderScenarioInformation(state)}
+      ${renderIncidentSchedule(state)}
       ${renderOngoingGoodwillEffects(state)}
       <section>
         <div class="overlay-heading">
@@ -1604,9 +1703,6 @@ function render(): void {
           <section class="game-board ${selectedHandCard ? "is-targeting" : ""}"
             aria-label="${escapeHtml(misc("Location", "Location"))}">
             ${LOCATIONS.map((location) => renderLocation(state, location)).join("")}
-            <div class="board-axis axis-x"></div>
-            <div class="board-axis axis-y"></div>
-            <div class="board-center">TL</div>
           </section>
           ${renderResolutionReceipt(state)}
           ${renderPhaseControls(state)}
