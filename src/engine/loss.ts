@@ -14,8 +14,10 @@ import {
 } from "../types";
 import {
   attemptProtagonistDeath,
+  protagonistDeathBlocker,
   type ProtagonistDeathResult,
 } from "./death";
+import { requestLoopEnd } from "./flow";
 import { incidentFires } from "./incident";
 
 export type LossCategory =
@@ -541,7 +543,7 @@ export function distanceToLoss(state: GameState): LossDistance[] {
     const atTiming = isCurrentTiming(state, condition);
     const blockedBy = condition.category === "protagonistDeath" &&
         condition.met && atTiming
-      ? attemptProtagonistDeath(state).blockedBy
+      ? protagonistDeathBlocker(state)
       : undefined;
     const activated = blockedBy === undefined && (
       condition.activation === "mandatory"
@@ -563,8 +565,10 @@ function isCurrentTiming(state: GameState, condition: LossDistance): boolean {
       return state.loop.phase === "P9_ROUND_END" &&
         state.loop.day === state.scenario.daysPerLoop;
     case "loopEnd":
-      return state.loop.phase === "P9_ROUND_END" &&
-        state.loop.day === state.scenario.daysPerLoop;
+      return state.gamePhase === "LOOP_JUDGMENT" || (
+        state.loop.phase === "P9_ROUND_END" &&
+        state.loop.day === state.scenario.daysPerLoop
+      );
     case "incident":
       return state.loop.phase === "P7_INCIDENT" &&
         condition.day === state.loop.day;
@@ -607,6 +611,11 @@ export function setOptionalLossActivation(
     }
     const activations = state.loop.optionalLossActivations ??= {};
     activations[key] = true;
+    if (condition.category !== "protagonistDeath") {
+      requestLoopEnd(state, "effect", [key]);
+    } else if (state.pendingLoopEnd) {
+      requestLoopEnd(state, "protagonistDeath", [key]);
+    }
     return condition.category === "protagonistDeath"
       ? { died: true }
       : undefined;

@@ -41,7 +41,7 @@ function createState(
   }
   loop.charCounters[CULPRIT].paranoia = 2;
   loop.phase = "P7_INCIDENT";
-  return { scenario, loop, history: [] };
+  return { scenario, gamePhase: "ROUND", loop, history: [], loopOutcomes: [] };
 }
 
 function createIncidentState(
@@ -70,7 +70,7 @@ function createIncidentState(
   }
   loop.charCounters[culprit].paranoia = 10;
   loop.phase = "P7_INCIDENT";
-  return { scenario, loop, history: [] };
+  return { scenario, gamePhase: "ROUND", loop, history: [], loopOutcomes: [] };
 }
 
 function activateHenchmanSuppression(state: GameState): void {

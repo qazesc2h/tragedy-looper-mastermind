@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { endLoop, resolveHooks } from "../src/engine/phases";
+import { settleGameFlow } from "../src/engine/game";
+import { requestLoopEnd } from "../src/engine/flow";
+import { resolveHooks } from "../src/engine/phases";
 import { initLoop } from "../src/engine/setup";
 import { PLOT_IMPL } from "../src/impl/plots";
 import { effectiveRole } from "../src/types";
@@ -27,7 +29,20 @@ function createPlotState(plot: PlotId): GameState {
     loops: 3,
     daysPerLoop: 4,
   };
-  return { scenario, loop: initLoop(scenario), history: [] };
+  return {
+    scenario,
+    gamePhase: "ROUND",
+    loop: initLoop(scenario),
+    history: [],
+    loopOutcomes: [],
+  };
+}
+
+function endLoop(state: GameState): void {
+  state.gamePhase = "ROUND";
+  delete state.result;
+  requestLoopEnd(state, "lastDay");
+  settleGameFlow(state);
 }
 
 function plotHook(plot: PlotId): Hook {

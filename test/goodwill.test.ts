@@ -78,7 +78,7 @@ function createState(
     Object.assign(loop.charCounters[character], counters);
   }
 
-  return { scenario, loop, history: [] };
+  return { scenario, gamePhase: "ROUND", loop, history: [], loopOutcomes: [] };
 }
 
 function createInformationState(
@@ -102,8 +102,10 @@ function createInformationState(
   };
   const state: GameState = {
     scenario,
+    gamePhase: "ROUND",
     loop: initLoop(scenario),
     history: [],
+    loopOutcomes: [],
   };
   state.loop.phase = "P6_GOODWILL";
   return state;
@@ -211,8 +213,10 @@ describe("goodwill availability and refusal", () => {
     };
     const state: GameState = {
       scenario,
+      gamePhase: "ROUND",
       loop: initLoop(scenario),
       history: [],
+      loopOutcomes: [],
     };
     state.loop.phase = "P6_GOODWILL";
     state.loop.charCounters.classRep.goodwill = 2;
@@ -262,8 +266,10 @@ describe("goodwill availability and refusal", () => {
     };
     const state: GameState = {
       scenario,
+      gamePhase: "ROUND",
       loop: initLoop(scenario),
       history: [],
+      loopOutcomes: [],
     };
     state.loop.loop = 2;
     state.loop.phase = "P6_GOODWILL";
@@ -292,8 +298,10 @@ describe("goodwill availability and refusal", () => {
     };
     const state: GameState = {
       scenario,
+      gamePhase: "ROUND",
       loop: initLoop(scenario),
       history: [],
+      loopOutcomes: [],
     };
     state.loop.phase = "P6_GOODWILL";
     state.loop.charCounters.mysteryBoy.goodwill = 3;
@@ -318,8 +326,10 @@ describe("goodwill availability and refusal", () => {
     };
     const state: GameState = {
       scenario,
+      gamePhase: "ROUND",
       loop: initLoop(scenario),
       history: [],
+      loopOutcomes: [],
     };
     state.loop.phase = "P6_GOODWILL";
     state.loop.charCounters.officeWorker.goodwill = 3;
@@ -346,8 +356,10 @@ describe("goodwill availability and refusal", () => {
     };
     const state: GameState = {
       scenario,
+      gamePhase: "ROUND",
       loop: initLoop(scenario),
       history: [],
+      loopOutcomes: [],
     };
     state.loop.phase = "P6_GOODWILL";
     state.loop.charCounters.nurse.goodwill = 2;

@@ -97,7 +97,7 @@ function createFixtureState(testCase: ManualCase): GameState {
   }
   loop.placed = structuredClone(testCase.placed);
 
-  return { scenario, loop, history: [] };
+  return { scenario, gamePhase: "ROUND", loop, history: [], loopOutcomes: [] };
 }
 
 function expectFixtureResult(
@@ -225,8 +225,10 @@ describe("manual resolution examples", () => {
       };
       const state: GameState = {
         scenario,
+        gamePhase: "ROUND",
         loop: initLoop(scenario),
         history: [],
+        loopOutcomes: [],
       };
       state.loop.board[triggerCase.culprit].alive = triggerCase.alive;
       state.loop.charCounters[triggerCase.culprit].paranoia =

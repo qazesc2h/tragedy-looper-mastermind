@@ -15,7 +15,13 @@ import type { GameState, PlacedCard } from "../src/types";
 
 function createState(): GameState {
   const scenario = adaptBasicTragedyScript(scriptsJson[0]);
-  return { scenario, loop: initLoop(scenario), history: [] };
+  return {
+    scenario,
+    gamePhase: "ROUND",
+    loop: initLoop(scenario),
+    history: [],
+    loopOutcomes: [],
+  };
 }
 
 describe("UI action-card hands", () => {

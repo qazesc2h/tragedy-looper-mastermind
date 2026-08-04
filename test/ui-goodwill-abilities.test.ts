@@ -17,7 +17,13 @@ function createState(characters: readonly CharacterId[]): GameState {
     loops: 3,
     daysPerLoop: 4,
   };
-  const state = { scenario, loop: initLoop(scenario), history: [] };
+  const state: GameState = {
+    scenario,
+    gamePhase: "ROUND",
+    loop: initLoop(scenario),
+    history: [],
+    loopOutcomes: [],
+  };
   state.loop.phase = "P6_GOODWILL";
   return state;
 }

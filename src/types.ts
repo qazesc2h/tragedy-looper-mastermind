@@ -46,6 +46,63 @@ export const PHASE_ORDER: Phase[] = [
   "P7_INCIDENT", "P8_LEADER_PASS", "P9_ROUND_END",
 ];
 
+// ─────────────────────────────────────────────────────────── 게임 전체 단계
+/** 9단계 라운드를 감싸는 게임/루프 수준 상태 머신. */
+export type GamePhase =
+  | "SETUP_SCENARIO"
+  | "SETUP_REVEAL"
+  | "SETUP_STAGE"
+  | "SETUP_LEADER"
+  | "LOOP_TIME_GAP"
+  | "LOOP_CHARACTER_PLACEMENT"
+  | "LOOP_COUNTER_SETUP"
+  | "LOOP_CARD_DISTRIBUTION"
+  | "ROUND"
+  | "LOOP_JUDGMENT"
+  | "FINAL_GUESS"
+  | "GAME_OVER";
+
+export type LoopEndReason = "lastDay" | "effect" | "protagonistDeath";
+
+export interface LoopEndRequest {
+  reason: LoopEndReason;
+  day: number;
+  phase: Phase;
+  lossKeys: string[];
+}
+
+export interface RecordedLoss {
+  key: string;
+  id: string;
+  ko: string;
+  label: string;
+}
+
+export interface LoopOutcome {
+  loop: number;
+  day: number;
+  reason: LoopEndReason;
+  result: "protagonistsWon" | "protagonistsLost";
+  losses: RecordedLoss[];
+}
+
+export interface FinalGuessAttempt {
+  character: CharacterId;
+  guessedRole: RoleId;
+  actualRole: RoleId;
+  correct: boolean;
+}
+
+export interface FinalGuessState {
+  reason: "timeGap" | "finalLoopLoss";
+  attempts: FinalGuessAttempt[];
+}
+
+export interface GameResult {
+  winner: "mastermind" | "protagonists";
+  reason: "loopVictory" | "finalGuessFailure" | "finalGuessSuccess";
+}
+
 /** 9단계 바깥에서 걸리는 훅 지점 */
 export type HookPoint =
   | Phase
@@ -199,15 +256,30 @@ export interface LoopState {
   /** 현재 라운드에 각본가가 발동하기로 한 [선택] 패배 조건 */
   optionalLossActivations?: Record<string, boolean>;
 
+  /** P9의 동시 [강제] 효과를 판정·적용한 뒤 [선택] 입력을 기다리는 상태 */
+  roundEndMandatoryResolved?: boolean;
+
   /** 특수 게이지 (기본편 미사용, 확장 대비) */
   specialGauge?: number;
 }
 
 export interface GameState {
   scenario: Scenario;
+  gamePhase: GamePhase;
   loop: LoopState;
   /** 루프 종료 시점 스냅샷 — 인과율(threadsFate) 등 루프 간 참조에 필요 */
   history: LoopState[];
+  /** 이미 판정이 끝난 루프의 결과. 게임 종료 뒤에도 회고용으로 보존한다. */
+  loopOutcomes: LoopOutcome[];
+  /** 효과 해결 중 발생한 종료 신호. 동시 해결이 끝날 때까지 적용을 미룬다. */
+  pendingLoopEnd?: LoopEndRequest;
+  finalGuess?: FinalGuessState;
+  result?: GameResult;
+  /** 시간의 틈 권장 10분 타이머. 실행 중이면 endsAt으로 남은 시간을 계산한다. */
+  timeGapTimer?: {
+    remainingSeconds: number;
+    endsAt?: string;
+  };
 }
 
 // ─────────────────────────────────────────────────────────── 훅

@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import { killCharacter, reviveCharacter } from "../src/engine/death";
+import { settleGameFlow } from "../src/engine/game";
+import { requestLoopEnd } from "../src/engine/flow";
 import {
   advance,
   collectHooks,
-  endLoop,
   resolveHooks,
 } from "../src/engine/phases";
 import { resolveActions } from "../src/engine/resolve";
@@ -49,7 +50,7 @@ function createState(): GameState {
   loop.board[KILLER].at = "City";
   loop.board[BRAIN].at = "City";
   loop.board[CULTIST].at = "City";
-  return { scenario, loop, history: [] };
+  return { scenario, gamePhase: "ROUND", loop, history: [], loopOutcomes: [] };
 }
 
 function createRoleState(cast: Scenario["cast"]): GameState {
@@ -66,7 +67,14 @@ function createRoleState(cast: Scenario["cast"]): GameState {
   for (const character of Object.keys(loop.board)) {
     loop.board[character].at = "City";
   }
-  return { scenario, loop, history: [] };
+  return { scenario, gamePhase: "ROUND", loop, history: [], loopOutcomes: [] };
+}
+
+function endLoop(state: GameState): void {
+  state.gamePhase = "ROUND";
+  delete state.result;
+  requestLoopEnd(state, "lastDay");
+  settleGameFlow(state);
 }
 
 function hook(role: string, index = 0): Hook {
@@ -85,6 +93,7 @@ function applyIfEligible(
 ): void {
   if (targetHook.when(state, self)) {
     targetHook.effect(state, self, target);
+    settleGameFlow(state);
   }
 }
 
@@ -811,6 +820,7 @@ describe("factor / gained abilities", () => {
 
     expect(cityHook.when(state, FACTOR)).toBe(true);
     resolveHooks(state, "ALWAYS");
+    settleGameFlow(state);
 
     expect(state.history).toHaveLength(1);
     expect(state.history[0].board[FACTOR].alive).toBe(false);

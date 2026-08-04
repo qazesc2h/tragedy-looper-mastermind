@@ -1,0 +1,285 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  advanceGame,
+  chooseInitialLeader,
+  continueAfterLoopJudgment,
+  continueFromTimeGap,
+  createGameState,
+  settleGameFlow,
+  skipToFinalGuess,
+  submitFinalGuess,
+} from "../src/engine/game";
+import { setOptionalLossActivation } from "../src/engine/loss";
+import { effectiveRole, type GameState, type Scenario } from "../src/types";
+
+function scenario(overrides: Partial<Scenario> = {}): Scenario {
+  return {
+    tragedySet: "basicTragedy",
+    mainPlot: "",
+    subPlots: [],
+    cast: { boyStudent: "person" },
+    incidents: [],
+    loops: 3,
+    daysPerLoop: 3,
+    ...overrides,
+  };
+}
+
+function startRound(state: GameState, leader: 0 | 1 | 2 = 0): void {
+  chooseInitialLeader(state, leader);
+  continueFromTimeGap(state);
+}
+
+describe("game setup and loop preparation", () => {
+  it("stops at leader choice, then time gap, and preserves the chosen leader", () => {
+    const state = createGameState(scenario());
+
+    expect(state.gamePhase).toBe("SETUP_LEADER");
+    chooseInitialLeader(state, 2);
+    expect(state.gamePhase).toBe("LOOP_TIME_GAP");
+    expect(state.timeGapTimer).toEqual({ remainingSeconds: 600 });
+
+    continueFromTimeGap(state);
+    expect(state.gamePhase).toBe("ROUND");
+    expect(state.loop.phase).toBe("P1_ROUND_START");
+    expect(state.loop.leader).toBe(2);
+    expect(state.loop.spentOncePerLoop).toEqual({
+      mastermind: [],
+      protagonists: [[], [], []],
+    });
+  });
+
+  it("keeps the leader and applies LOOP_START effects after counter reset", () => {
+    const state = createGameState(scenario({
+      mainPlot: "sealedItem",
+      subPlots: ["threadsFate"],
+      loops: 2,
+      daysPerLoop: 1,
+    }));
+    startRound(state, 2);
+    state.loop.charCounters.boyStudent.goodwill = 1;
+    state.loop.locIntrigue.Shrine = 2;
+    state.loop.phase = "P9_ROUND_END";
+
+    advanceGame(state);
+    expect(state.gamePhase).toBe("LOOP_JUDGMENT");
+    continueAfterLoopJudgment(state);
+    expect(state.gamePhase).toBe("LOOP_TIME_GAP");
+    expect(state.loop.loop).toBe(2);
+    expect(state.loop.leader).toBe(2);
+
+    continueFromTimeGap(state);
+    expect(state.loop.charCounters.boyStudent.goodwill).toBe(0);
+    expect(state.loop.charCounters.boyStudent.paranoia).toBe(2);
+    expect(state.loop.leader).toBe(2);
+  });
+});
+
+describe("immediate loop interruption and judgment", () => {
+  it("ends immediately but still reveals a simultaneously dead friend (FAQ Q20)", () => {
+    const state = createGameState(scenario({
+      cast: {
+        boyStudent: "keyPerson",
+        boss: "friend",
+      },
+    }));
+    startRound(state);
+    state.loop.phase = "P7_INCIDENT";
+    state.loop.board.boyStudent.alive = false;
+    state.loop.board.boss.alive = false;
+
+    settleGameFlow(state);
+
+    expect(state.gamePhase).toBe("LOOP_JUDGMENT");
+    expect(state.loop.phase).toBe("P7_INCIDENT");
+    expect(state.history).toHaveLength(1);
+    expect(state.history[0].revealedRoleCharacters).toEqual(["boss"]);
+    expect(state.loopOutcomes[0].losses.map(({ id }) => id)).toEqual(
+      expect.arrayContaining(["keyPerson", "friend"]),
+    );
+    expect(() => advanceGame(state)).toThrow(
+      "round phase cannot advance during LOOP_JUDGMENT",
+    );
+
+    settleGameFlow(state);
+    expect(state.history).toHaveLength(1);
+    expect(state.loopOutcomes).toHaveLength(1);
+  });
+
+  it("does not end when protagonist death is blocked", () => {
+    const state = createGameState(scenario({
+      cast: { soldier: "person", girlStudent: "killer" },
+    }));
+    startRound(state);
+    state.loop.phase = "P9_ROUND_END";
+    state.loop.charCounters.girlStudent.intrigue = 4;
+    state.loop.protagonistDeathPreventedBy = ["soldier"];
+    const condition = setOptionalLossActivation(
+      state,
+      "role:killer:girlStudent",
+      true,
+    );
+
+    expect(condition).toEqual({ died: false, blockedBy: "soldier" });
+    expect(state.pendingLoopEnd).toBeUndefined();
+    expect(settleGameFlow(state)).toBeUndefined();
+    expect(state.gamePhase).toBe("ROUND");
+  });
+
+  it("resolves P9 mandatory effects before accepting an optional loss", () => {
+    const state = createGameState(scenario({
+      cast: { informer: "timeTraveler" },
+      daysPerLoop: 1,
+    }));
+    startRound(state);
+    state.loop.phase = "P9_ROUND_END";
+    state.loop.charCounters.informer.goodwill = 2;
+
+    advanceGame(state);
+    expect(state.gamePhase).toBe("ROUND");
+    expect(state.loop.phase).toBe("P9_ROUND_END");
+    expect(state.loop.roundEndMandatoryResolved).toBe(true);
+
+    setOptionalLossActivation(
+      state,
+      "role:timeTraveler:informer",
+      true,
+    );
+    settleGameFlow(state);
+
+    expect(state.gamePhase).toBe("LOOP_JUDGMENT");
+    expect(state.loopOutcomes[0].losses).toContainEqual(
+      expect.objectContaining({ id: "timeTraveler" }),
+    );
+  });
+});
+
+describe("last-day outcomes", () => {
+  it("ends the whole game when no loss condition is met", () => {
+    const state = createGameState(scenario({ loops: 3, daysPerLoop: 1 }));
+    startRound(state);
+    state.loop.phase = "P9_ROUND_END";
+
+    advanceGame(state);
+
+    expect(state.gamePhase).toBe("GAME_OVER");
+    expect(state.result).toEqual({
+      winner: "protagonists",
+      reason: "loopVictory",
+    });
+    expect(state.loopOutcomes).toEqual([expect.objectContaining({
+      loop: 1,
+      result: "protagonistsWon",
+      losses: [],
+    })]);
+    expect(state.loop.loop).toBe(1);
+  });
+
+  it("records a loss and goes to the next loop only after judgment", () => {
+    const state = createGameState(scenario({
+      mainPlot: "sealedItem",
+      loops: 2,
+      daysPerLoop: 1,
+    }));
+    startRound(state, 1);
+    state.loop.locIntrigue.Shrine = 2;
+    state.loop.phase = "P9_ROUND_END";
+
+    advanceGame(state);
+
+    expect(state.gamePhase).toBe("LOOP_JUDGMENT");
+    expect(state.loopOutcomes[0]).toEqual(expect.objectContaining({
+      result: "protagonistsLost",
+      losses: [expect.objectContaining({ id: "sealedItem" })],
+    }));
+    expect(state.loop.loop).toBe(1);
+
+    continueAfterLoopJudgment(state);
+    expect(state.gamePhase).toBe("LOOP_TIME_GAP");
+    expect(state.loop.loop).toBe(2);
+    expect(state.loop.leader).toBe(1);
+  });
+
+  it("sends a final-loop loss to the final guess", () => {
+    const state = createGameState(scenario({
+      mainPlot: "sealedItem",
+      loops: 1,
+      daysPerLoop: 1,
+    }));
+    startRound(state);
+    state.loop.locIntrigue.Shrine = 2;
+    state.loop.phase = "P9_ROUND_END";
+
+    advanceGame(state);
+    expect(state.gamePhase).toBe("LOOP_JUDGMENT");
+    continueAfterLoopJudgment(state);
+
+    expect(state.gamePhase).toBe("FINAL_GUESS");
+    expect(state.finalGuess).toEqual({
+      reason: "finalLoopLoss",
+      attempts: [],
+    });
+  });
+});
+
+describe("final guess", () => {
+  it("requires every scenario character, including a person", () => {
+    const state = createGameState(scenario({
+      cast: {
+        boyStudent: "keyPerson",
+        officeWorker: "person",
+      },
+    }));
+    chooseInitialLeader(state, 0);
+    skipToFinalGuess(state);
+
+    expect(submitFinalGuess(state, "boyStudent", "keyPerson").correct)
+      .toBe(true);
+    expect(state.gamePhase).toBe("FINAL_GUESS");
+    expect(submitFinalGuess(state, "officeWorker", "person").correct)
+      .toBe(true);
+    expect(state.gamePhase).toBe("GAME_OVER");
+    expect(state.result).toEqual({
+      winner: "protagonists",
+      reason: "finalGuessSuccess",
+    });
+  });
+
+  it("gives the mastermind the game on the first wrong answer", () => {
+    const state = createGameState(scenario());
+    chooseInitialLeader(state, 0);
+    skipToFinalGuess(state);
+
+    expect(submitFinalGuess(state, "boyStudent", "serialKiller").correct)
+      .toBe(false);
+    expect(state.result).toEqual({
+      winner: "mastermind",
+      reason: "finalGuessFailure",
+    });
+    expect(state.gamePhase).toBe("GAME_OVER");
+  });
+
+  it("resets paranoiaVirus before judging a transformed person as person", () => {
+    const state = createGameState(scenario({
+      mainPlot: "sealedItem",
+      subPlots: ["paranoiaVirus"],
+      loops: 1,
+      daysPerLoop: 1,
+    }));
+    startRound(state);
+    state.loop.charCounters.boyStudent.paranoia = 3;
+    state.loop.locIntrigue.Shrine = 2;
+    state.loop.phase = "P9_ROUND_END";
+    expect(effectiveRole(state, "boyStudent")).toBe("serialKiller");
+
+    advanceGame(state);
+    continueAfterLoopJudgment(state);
+
+    expect(state.gamePhase).toBe("FINAL_GUESS");
+    expect(state.loop.charCounters.boyStudent.paranoia).toBe(0);
+    expect(state.loop.board.boyStudent.alive).toBe(true);
+    expect(effectiveRole(state, "boyStudent")).toBe("person");
+    expect(submitFinalGuess(state, "boyStudent", "person").correct).toBe(true);
+  });
+});

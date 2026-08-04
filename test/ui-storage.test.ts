@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { initLoop } from "../src/engine/setup";
 import {
   emptyTrackerStore,
+  LEGACY_TRACKER_STORAGE_KEY,
   loadTrackerStore,
   persistGameState,
   TRACKER_STORAGE_KEY,
@@ -40,7 +41,13 @@ function state(): GameState {
     loops: 3,
     daysPerLoop: 4,
   };
-  return { scenario, loop: initLoop(scenario), history: [] };
+  return {
+    scenario,
+    gamePhase: "ROUND",
+    loop: initLoop(scenario),
+    history: [],
+    loopOutcomes: [],
+  };
 }
 
 describe("UI localStorage snapshots", () => {
@@ -102,6 +109,70 @@ describe("UI localStorage snapshots", () => {
     const storage = new MemoryStorage();
     storage.setItem(TRACKER_STORAGE_KEY, "not-json");
     expect(loadTrackerStore(storage)).toEqual(emptyTrackerStore());
+  });
+
+  it("migrates an active v1 game to the ROUND game phase", () => {
+    const storage = new MemoryStorage();
+    const current = state();
+    const {
+      gamePhase: _gamePhase,
+      loopOutcomes: _loopOutcomes,
+      ...legacyState
+    } = current;
+    storage.setItem(LEGACY_TRACKER_STORAGE_KEY, JSON.stringify({
+      version: 1,
+      activeScenarioId: "basicTragedy:1",
+      mastermindOverlay: true,
+      games: {
+        "basicTragedy:1": {
+          state: legacyState,
+          observationsByLoop: {},
+          updatedAt: "2026-08-03T00:00:00.000Z",
+        },
+      },
+    }));
+
+    const migrated = loadTrackerStore(storage);
+    expect(migrated.version).toBe(2);
+    expect(migrated.games["basicTragedy:1"].state.gamePhase).toBe("ROUND");
+    expect(migrated.games["basicTragedy:1"].state.loopOutcomes).toEqual([]);
+  });
+
+  it("migrates a closed final-loop v1 game after resetting the final guess board", () => {
+    const storage = new MemoryStorage();
+    const current = state();
+    current.loop.loop = current.scenario.loops;
+    current.loop.day = current.scenario.daysPerLoop;
+    current.loop.phase = "P9_ROUND_END";
+    current.loop.charCounters.boyStudent.paranoia = 3;
+    current.history.push(structuredClone(current.loop));
+    const {
+      gamePhase: _gamePhase,
+      loopOutcomes: _loopOutcomes,
+      ...legacyState
+    } = current;
+    storage.setItem(LEGACY_TRACKER_STORAGE_KEY, JSON.stringify({
+      version: 1,
+      activeScenarioId: "basicTragedy:1",
+      mastermindOverlay: true,
+      games: {
+        "basicTragedy:1": {
+          state: legacyState,
+          observationsByLoop: {},
+          updatedAt: "2026-08-03T00:00:00.000Z",
+        },
+      },
+    }));
+
+    const migrated = loadTrackerStore(storage);
+    const migratedState = migrated.games["basicTragedy:1"].state;
+    expect(migratedState.gamePhase).toBe("FINAL_GUESS");
+    expect(migratedState.finalGuess).toEqual({
+      reason: "finalLoopLoss",
+      attempts: [],
+    });
+    expect(migratedState.loop.charCounters.boyStudent.paranoia).toBe(0);
+    expect(migratedState.history).toHaveLength(1);
   });
 });
 

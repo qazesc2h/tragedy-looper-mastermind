@@ -1,9 +1,17 @@
 import { effectiveRole } from "../types";
 import type { CharacterId, GameState } from "../types";
+import { requestLoopEnd } from "./flow";
 
 export interface ProtagonistDeathResult {
   died: boolean;
   blockedBy?: CharacterId;
+}
+
+/** 주인공 사망을 막는 현재 지속 효과를 부작용 없이 조회한다. */
+export function protagonistDeathBlocker(
+  state: GameState,
+): CharacterId | undefined {
+  return state.loop.protagonistDeathPreventedBy?.[0];
 }
 
 function characterState(state: GameState, character: CharacterId) {
@@ -45,10 +53,13 @@ export function killCharacter(
 export function attemptProtagonistDeath(
   state: GameState,
 ): ProtagonistDeathResult {
-  const blockedBy = state.loop.protagonistDeathPreventedBy?.[0];
-  return blockedBy === undefined
-    ? { died: true }
-    : { died: false, blockedBy };
+  const blockedBy = protagonistDeathBlocker(state);
+  if (blockedBy !== undefined) {
+    return { died: false, blockedBy };
+  }
+
+  requestLoopEnd(state, "protagonistDeath");
+  return { died: true };
 }
 
 /** 부활을 시도하고 실제로 생존 상태가 되었는지를 반환한다. */

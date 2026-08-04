@@ -23,8 +23,10 @@ function createState(): GameState {
   };
   return {
     scenario,
+    gamePhase: "ROUND",
     loop: initLoop(scenario),
     history: [],
+    loopOutcomes: [],
   };
 }
 

@@ -10,8 +10,8 @@ import type {
   RoleId,
   Target,
 } from "../types";
-import { endLoop } from "../engine/phases";
 import { killCharacter } from "../engine/death";
+import { requestLoopEnd } from "../engine/flow";
 
 function isLastDay(state: GameState): boolean {
   return state.loop.day === state.scenario.daysPerLoop;
@@ -182,7 +182,7 @@ export const ROLE_IMPL: Record<string, {
         when: (s: GameState, self: CharacterId) =>
           !s.loop.board[self].alive,
         effect: (s: GameState, _self: CharacterId) => {
-          endLoop(s);
+          requestLoopEnd(s, "effect");
         },
       },
     ],
@@ -301,7 +301,7 @@ export const ROLE_IMPL: Record<string, {
           isLastDay(s) &&
           s.loop.charCounters[self].goodwill <= 2,
         effect: (s: GameState, _self: CharacterId) => {
-          endLoop(s);
+          requestLoopEnd(s, "effect");
         },
       },
     ],

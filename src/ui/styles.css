@@ -870,6 +870,249 @@ select {
   background: linear-gradient(90deg, #9f6d2d, #d38a45);
 }
 
+.optional-loss-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  border-top: 1px solid #493f31;
+  padding-top: 9px;
+  color: #f0c27b;
+  font-size: 0.7rem;
+}
+
+.game-flow-screen {
+  display: grid;
+  gap: 18px;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.game-progress {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid #50442f;
+  border-radius: 12px;
+  background: #1d1a14;
+}
+
+.game-progress-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 64px;
+  border-right: 1px solid #3f3728;
+  padding: 12px;
+  color: #877e6e;
+}
+
+.game-progress-step:last-child {
+  border-right: 0;
+}
+
+.game-progress-step span {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid #5b4e38;
+  border-radius: 50%;
+  font-size: 0.7rem;
+}
+
+.game-progress-step strong {
+  font-size: 0.76rem;
+}
+
+.game-progress-step.is-complete {
+  color: #9fcca6;
+}
+
+.game-progress-step.is-complete span {
+  border-color: #55765a;
+  background: #27402c;
+}
+
+.game-progress-step.is-current {
+  background: #3b2d1c;
+  color: #f2ca83;
+  box-shadow: inset 0 -3px #c88d38;
+}
+
+.flow-card {
+  border: 1px solid #665236;
+  border-radius: 14px;
+  background: linear-gradient(145deg, #282117, #1b1813);
+  padding: 28px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+}
+
+.flow-card h1 {
+  margin: 6px 0 12px;
+  color: #f1d9a8;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.flow-card > p {
+  color: #bdb09a;
+  line-height: 1.65;
+}
+
+.leader-choice,
+.flow-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.leader-choice button,
+.flow-actions button:not(.next-phase),
+.final-guess-form button {
+  min-height: 42px;
+  border: 1px solid #80653e;
+  border-radius: 8px;
+  background: #30271b;
+  padding: 9px 14px;
+}
+
+.leader-choice button:hover,
+.flow-actions button:not(.next-phase):hover {
+  background: #4a3923;
+}
+
+.primary-actions {
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 26px;
+  border-top: 1px solid #493d2c;
+  padding-top: 18px;
+}
+
+.danger-action {
+  border-color: #8e4e43 !important;
+  color: #efaaa0;
+}
+
+.flow-card .flow-warning {
+  margin-top: 18px;
+  border: 1px solid #8a5e31;
+  border-radius: 8px;
+  background: #382819;
+  padding: 11px 13px;
+  color: #f1c47a;
+  font-weight: 700;
+}
+
+.time-gap-timer {
+  margin-top: 22px;
+  color: #f2c46e;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: clamp(2.8rem, 9vw, 5.5rem);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.loop-outcome-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.loop-outcome {
+  border: 1px solid #574a37;
+  border-left: 4px solid #9d6e32;
+  border-radius: 8px;
+  background: #201c16;
+  padding: 12px 14px;
+}
+
+.loop-outcome.is-win {
+  border-left-color: #66956d;
+}
+
+.loop-outcome > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.loop-outcome span,
+.loop-outcome p {
+  color: #a99d88;
+  font-size: 0.75rem;
+}
+
+.loop-outcome p {
+  margin: 8px 0 0;
+  line-height: 1.55;
+}
+
+.final-guess-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  margin: 22px 0;
+  border: 1px solid #4e422f;
+  border-radius: 10px;
+  background: #201c16;
+  padding: 16px;
+}
+
+.final-guess-form label {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  color: #b9ad97;
+  font-size: 0.72rem;
+}
+
+.final-guess-form select,
+.final-guess-form button {
+  width: 100%;
+  min-width: 0;
+}
+
+.final-guess-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.76rem;
+}
+
+.final-guess-table th,
+.final-guess-table td {
+  border-bottom: 1px solid #453a2b;
+  padding: 10px;
+  text-align: left;
+}
+
+.final-guess-table th {
+  color: #cbb98f;
+}
+
+.game-over-card.is-protagonist-win {
+  border-color: #628469;
+}
+
+.game-over-card.is-mastermind-win {
+  border-color: #91584b;
+}
+
+.outcome-summary {
+  margin-top: 26px;
+  border-top: 1px solid #4b3f2d;
+  padding-top: 18px;
+}
+
+.outcome-summary h2 {
+  color: #dbc292;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
 .operation-panel,
 .resolution-receipt {
   margin-top: 18px;
@@ -1385,9 +1628,45 @@ select {
   .round-end-grid {
     grid-template-columns: 1fr;
   }
+
+  .final-guess-form {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .final-guess-form button {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 540px) {
+  .game-flow-screen {
+    padding: 14px;
+  }
+
+  .flow-card {
+    padding: 20px;
+  }
+
+  .game-progress {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .game-progress-step:nth-child(2) {
+    border-right: 0;
+  }
+
+  .game-progress-step:nth-child(-n + 2) {
+    border-bottom: 1px solid #3f3728;
+  }
+
+  .final-guess-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .final-guess-form button {
+    grid-column: auto;
+  }
+
   .character-grid,
   .spent-grid,
   .mastermind-overlay {

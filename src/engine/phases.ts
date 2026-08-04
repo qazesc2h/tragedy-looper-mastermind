@@ -10,6 +10,24 @@ import { effectiveAbilityRoles, ROLE_IMPL } from "../impl/roles";
 import { PLOT_IMPL } from "../impl/plots";
 import { resolveActions } from "./resolve";
 import { resolveIncident } from "./incident";
+import { requestLoopEnd } from "./flow";
+import { evaluateLoss } from "./loss";
+
+function requestEndForActivatedLosses(s: GameState): void {
+  // LOOP_END 조건은 라운드 종료 훅과 LAST_DAY 처리를 마친 뒤 finishLoop()에서
+  // 판정한다. P9 진입 시점에 먼저 잡으면 P9 훅을 건너뛰게 된다.
+  const activated = evaluateLoss(s).filter(
+    (condition) => condition.activated && condition.timing !== "loopEnd",
+  );
+  if (activated.length === 0) return;
+  requestLoopEnd(
+    s,
+    activated.some(({ category }) => category === "protagonistDeath")
+      ? "protagonistDeath"
+      : "effect",
+    activated.map(({ key }) => key),
+  );
+}
 
 /** 지금 이 시점에 걸리는 모든 훅을 모은다. */
 export function collectHooks(s: GameState, at: HookPoint): {
@@ -61,6 +79,12 @@ export function advance(
   s: GameState,
   incidentChoice?: IncidentChoice,
 ): IncidentResult | undefined {
+  if (s.gamePhase !== "ROUND") {
+    throw new Error(`round phase cannot advance during ${s.gamePhase}`);
+  }
+  requestEndForActivatedLosses(s);
+  if (s.pendingLoopEnd) return undefined;
+
   let incidentResult: IncidentResult | undefined;
   switch (s.loop.phase) {
     case "P1_ROUND_START":
@@ -99,10 +123,32 @@ export function advance(
       break;
 
     case "P9_ROUND_END":
-      resolveHooks(s, "P9_ROUND_END");
+      if (!s.loop.roundEndMandatoryResolved) {
+        resolveHooks(s, "P9_ROUND_END");
+        requestEndForActivatedLosses(s);
+        if (s.pendingLoopEnd) return undefined;
+
+        const optionalHookAvailable = collectHooks(s, "P9_ROUND_END").some(
+          ({ hook, self }) => hook.kind === "optional" && hook.when(s, self),
+        );
+        const optionalLossAvailable = evaluateLoss(s).some(
+          (condition) =>
+            condition.activation === "optional" &&
+            condition.met &&
+            condition.blockedBy === undefined,
+        );
+        if (optionalHookAvailable || optionalLossAvailable) {
+          s.loop.roundEndMandatoryResolved = true;
+          return undefined;
+        }
+      }
+      delete s.loop.roundEndMandatoryResolved;
       if (s.loop.day === s.scenario.daysPerLoop) {
         resolveHooks(s, "LAST_DAY");
-        endLoop(s);
+        requestEndForActivatedLosses(s);
+        if (!s.pendingLoopEnd) {
+          requestLoopEnd(s, "lastDay");
+        }
         return undefined;
       }
       delete s.loop.optionalLossActivations;
@@ -111,16 +157,10 @@ export function advance(
       return undefined;
   }
 
+  requestEndForActivatedLosses(s);
+  if (s.pendingLoopEnd) return incidentResult;
+
   const i = PHASE_ORDER.indexOf(s.loop.phase as Phase);
   s.loop.phase = PHASE_ORDER[i + 1];
   return incidentResult;
-}
-
-export function endLoop(s: GameState): void {
-  resolveHooks(s, "LOOP_END");
-  // [선택] 패배 발동은 라운드 상태이며 루프 스냅샷에 남기지 않는다.
-  delete s.loop.optionalLossActivations;
-  // 인과율(threadsFate) 등 루프 간 참조를 위해 반드시 스냅샷을 남긴다.
-  s.history.push(structuredClone(s.loop));
-  // TODO: 승패 판정 → 다음 루프 준비 또는 최후의 싸움
 }

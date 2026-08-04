@@ -58,8 +58,10 @@ describe("signWithMe scriptBuild source hook", () => {
     expect(scenario).toBeDefined();
     const state = {
       scenario: scenario!,
+      gamePhase: "ROUND" as const,
       loop: initLoop(scenario!),
       history: [],
+      loopOutcomes: [],
     };
     const before = structuredClone(state);
 

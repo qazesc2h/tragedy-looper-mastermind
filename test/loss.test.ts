@@ -2,12 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import { resolveIncident } from "../src/engine/incident";
 import { resolveGoodwillAbility } from "../src/engine/goodwill";
+import { advanceGame } from "../src/engine/game";
 import {
   distanceToLoss,
   evaluateLoss,
   setOptionalLossActivation,
 } from "../src/engine/loss";
-import { advance } from "../src/engine/phases";
 import { initLoop } from "../src/engine/setup";
 import type { GameState, Scenario } from "../src/types";
 
@@ -30,7 +30,13 @@ function createState(options: StateOptions = {}): GameState {
     daysPerLoop: 3,
     scriptSpecified: options.scriptSpecified,
   };
-  return { scenario, loop: initLoop(scenario), history: [] };
+  return {
+    scenario,
+    gamePhase: "ROUND",
+    loop: initLoop(scenario),
+    history: [],
+    loopOutcomes: [],
+  };
 }
 
 function activateSoldierProtection(state: GameState): void {
@@ -310,7 +316,7 @@ describe("role loss conditions", () => {
       activated: true,
     }));
 
-    advance(state);
+    advanceGame(state);
     expect(state.loop.optionalLossActivations).toBeUndefined();
     expect(state.history[0].optionalLossActivations).toBeUndefined();
   });
@@ -378,7 +384,7 @@ describe("role loss conditions", () => {
       activated: true,
     }));
 
-    advance(state);
+    advanceGame(state);
     expect(state.loop.optionalLossActivations).toBeUndefined();
   });
 

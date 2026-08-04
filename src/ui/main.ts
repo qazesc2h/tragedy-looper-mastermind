@@ -1,16 +1,26 @@
 import scriptsJson from "../../data/basic-tragedy-scripts.json";
 import { adaptBasicTragedyScript, characterDataOf } from "../data";
 import { resolveGoodwillAbility } from "../engine/goodwill";
+import {
+  advanceGame,
+  chooseInitialLeader,
+  continueAfterLoopJudgment,
+  continueFromTimeGap,
+  createGameState,
+  settleGameFlow,
+  skipToFinalGuess,
+  submitFinalGuess,
+} from "../engine/game";
 import { incidentFires } from "../engine/incident";
 import { validatePlacement } from "../engine/legal";
-import { distanceToLoss } from "../engine/loss";
-import { advance, collectHooks, resolveHooks } from "../engine/phases";
+import { distanceToLoss, setOptionalLossActivation } from "../engine/loss";
+import { collectHooks } from "../engine/phases";
 import {
   MASTERMIND_ONCE_PER_LOOP,
   PROTAGONIST_ONCE_PER_LOOP,
 } from "../engine/resolve";
-import { initLoop } from "../engine/setup";
 import { INCIDENT_IMPL } from "../impl/incidents";
+import { ROLE_IMPL } from "../impl/roles";
 import {
   effectiveRole,
   isActionCard,
@@ -185,13 +195,7 @@ function activeScenarioEntry(): ScenarioEntry {
 
 function createGame(entry: ScenarioEntry): GameState {
   const scenario = structuredClone(entry.scenario);
-  const state: GameState = {
-    scenario,
-    loop: initLoop(scenario),
-    history: [],
-  };
-  resolveHooks(state, "LOOP_START");
-  return state;
+  return createGameState(scenario);
 }
 
 function saveState(
@@ -233,6 +237,7 @@ function commit(reason: string, mutate: (state: GameState) => void): void {
   const entry = activeScenarioEntry();
   const state = currentState();
   mutate(state);
+  settleGameFlow(state);
   notice = "";
   saveState(entry.id, state, reason);
   render();
@@ -701,7 +706,14 @@ function renderHookList(
 ): string {
   const available = collectHooks(state, phase)
     .map((entry, index) => ({ ...entry, index }))
-    .filter(({ hook, self }) => hook.when(state, self));
+    .filter(({ hook, self }) => hook.when(state, self))
+    // 시간 여행자의 "Loop ends" 선택은 아래 패배 조건 발동 컨트롤이
+    // activated 기록까지 함께 담당한다. 같은 선택을 두 번 표시하지 않는다.
+    .filter(({ hook }) => !(
+      phase === "P9_ROUND_END" &&
+      hook.kind === "optional" &&
+      hook.source.description === "Loop ends"
+    ));
   if (available.length === 0) {
     return `<p class="empty-overlay">${escapeHtml(misc("No available ability", "No available ability"))}</p>`;
   }
@@ -1019,12 +1031,19 @@ function renderPhaseControls(state: GameState): string {
       return `<section class="operation-panel">
         ${heading(9, phaseName(state.loop.phase))}
         <div class="round-end-grid">
-          <div>${renderHookList(state, state.loop.phase, false)}</div>
+          <div>${renderHookList(
+            state,
+            state.loop.phase,
+            Boolean(state.loop.roundEndMandatoryResolved),
+          )}</div>
           <div class="loss-list">${renderLossDistance(state)}</div>
         </div>
         <div class="operation-footer">${renderAdvanceButton(
-          isScenarioComplete(state) ? misc("Final Guess") : misc("Next phase", "Next phase"),
-          isScenarioComplete(state),
+          !state.loop.roundEndMandatoryResolved
+            ? "강제 효과 해결"
+            : state.loop.day === state.scenario.daysPerLoop
+            ? "루프 종료·승패 판정"
+            : misc("Next phase", "Next phase"),
         )}</div>
       </section>`;
   }
@@ -1150,6 +1169,19 @@ function renderLossDistance(state: GameState): string {
           : `<small class="loss-blocked-by">${escapeHtml(
             `${characterName(condition.blockedBy)}의 능력으로 주인공 사망이 막힘`,
           )}</small>`}
+        ${condition.activation === "optional" &&
+            condition.met &&
+            condition.blockedBy === undefined &&
+            state.gamePhase === "ROUND" &&
+            state.loop.phase === "P9_ROUND_END" &&
+            state.loop.roundEndMandatoryResolved
+          ? `<label class="optional-loss-toggle">
+              <input type="checkbox" data-action="optional-loss"
+                data-loss-key="${escapeHtml(condition.key)}"
+                ${condition.activated ? "checked" : ""} />
+              <span>이 패배 조건을 발동한다</span>
+            </label>`
+          : ""}
       </article>`;
   }).join("");
 }
@@ -1234,11 +1266,180 @@ function renderPublicInformation(state: GameState): string {
     </section>`;
 }
 
-function isScenarioComplete(state: GameState): boolean {
-  return state.loop.loop === state.scenario.loops &&
-    state.loop.day === state.scenario.daysPerLoop &&
-    state.loop.phase === "P9_ROUND_END" &&
-    state.history.some(({ loop }) => loop === state.loop.loop);
+function renderProgressSteps(
+  labels: readonly string[],
+  completed: number,
+  current?: number,
+): string {
+  return `<div class="game-progress">${labels.map((label, index) => `
+    <div class="game-progress-step ${index < completed ? "is-complete" : ""} ${index === current ? "is-current" : ""}">
+      <span>${index < completed ? "✓" : index + 1}</span>
+      <strong>${escapeHtml(label)}</strong>
+    </div>`).join("")}</div>`;
+}
+
+function renderLoopOutcomes(state: GameState): string {
+  if (state.loopOutcomes.length === 0) {
+    return `<p class="empty-overlay">아직 종료된 루프가 없습니다.</p>`;
+  }
+  return `<div class="loop-outcome-list">${state.loopOutcomes.map((outcome) => `
+    <article class="loop-outcome ${outcome.result === "protagonistsLost" ? "is-loss" : "is-win"}">
+      <div>
+        <strong>${outcome.loop}루프 · ${outcome.day}일</strong>
+        <span>${outcome.result === "protagonistsLost" ? "주인공 패배" : "주인공 승리"}</span>
+      </div>
+      <p>${outcome.losses.length > 0
+        ? outcome.losses.map(({ ko, label }) => `${ko}: ${label}`).map(escapeHtml).join("<br />")
+        : "충족된 패배 조건 없음"}</p>
+    </article>`).join("")}</div>`;
+}
+
+function timeGapRemaining(state: GameState): number {
+  const timer = state.timeGapTimer;
+  if (!timer) return 10 * 60;
+  if (!timer.endsAt) return timer.remainingSeconds;
+  return Math.max(0, Math.ceil(
+    (new Date(timer.endsAt).getTime() - Date.now()) / 1000,
+  ));
+}
+
+function renderTimeGap(state: GameState): string {
+  const remaining = timeGapRemaining(state);
+  const minutes = String(Math.floor(remaining / 60)).padStart(2, "0");
+  const seconds = String(remaining % 60).padStart(2, "0");
+  const running = Boolean(state.timeGapTimer?.endsAt);
+  return `<main class="game-flow-screen">
+    ${renderProgressSteps([
+      "시간의 틈",
+      "캐릭터 배치",
+      "카운터 제거 및 배치",
+      "카드 분배",
+    ], 0, 0)}
+    <section class="flow-card time-gap-card">
+      <span class="eyebrow">${state.loop.loop}루프 시작</span>
+      <h1>시간의 틈</h1>
+      <p>주인공 토론 시간입니다. 각본가는 시간만 관리합니다. 권장 시간은 10분입니다.</p>
+      <div class="time-gap-timer" aria-live="polite">${minutes}:${seconds}</div>
+      <div class="flow-actions">
+        <button type="button" data-action="time-gap-${running ? "pause" : "start"}">${running ? "일시 정지" : "타이머 시작"}</button>
+        <button type="button" data-action="time-gap-reset">10분으로 초기화</button>
+      </div>
+      <div class="flow-actions primary-actions">
+        <button type="button" class="next-phase" data-action="continue-loop-start">루프 준비 계속 →</button>
+        <button type="button" class="danger-action" data-action="skip-final-guess">최후의 싸움으로 이동</button>
+      </div>
+      <p class="flow-warning">⚠ 남은 루프를 진행하지 않으므로 주인공 측이 더 불리해집니다.</p>
+    </section>
+  </main>`;
+}
+
+function renderFinalGuessAttempts(state: GameState): string {
+  const attempts = state.finalGuess?.attempts ?? [];
+  if (attempts.length === 0) return `<p class="empty-overlay">아직 선언한 역할이 없습니다.</p>`;
+  return `<table class="final-guess-table">
+    <thead><tr><th>캐릭터</th><th>주인공 선언</th><th>정답</th><th>결과</th></tr></thead>
+    <tbody>${attempts.map((attempt) => `<tr>
+      <td>${escapeHtml(characterName(attempt.character))}</td>
+      <td>${escapeHtml(roleName(attempt.guessedRole))}</td>
+      <td>${escapeHtml(roleName(attempt.actualRole))}</td>
+      <td>${attempt.correct ? "✓ 정답" : "✗ 오답"}</td>
+    </tr>`).join("")}</tbody>
+  </table>`;
+}
+
+function renderFinalGuess(state: GameState): string {
+  const guessed = new Set(
+    state.finalGuess?.attempts.map(({ character }) => character) ?? [],
+  );
+  const remaining = Object.keys(state.scenario.cast).filter(
+    (character) => !guessed.has(character),
+  );
+  return `<main class="game-flow-screen">
+    <section class="flow-card">
+      <span class="eyebrow">Final Guess</span>
+      <h1>최후의 싸움</h1>
+      <p>시작 장소·생존 상태·카운터가 초기화되었습니다. 시나리오의 모든 캐릭터는 엑스트라까지 맞혀야 합니다.</p>
+      <div class="final-guess-form">
+        <label><span>캐릭터</span><select data-final-field="character">
+          <option value="">선택</option>
+          ${remaining.map((character) => `<option value="${escapeHtml(character)}">${escapeHtml(characterName(character))}</option>`).join("")}
+        </select></label>
+        <label><span>주인공이 선언한 역할</span><select data-final-field="role">
+          <option value="">선택</option>
+          ${Object.keys(ROLE_IMPL).map((role) => `<option value="${escapeHtml(role)}">${escapeHtml(roleName(role))}</option>`).join("")}
+        </select></label>
+        <button type="button" class="next-phase" data-action="submit-final-guess" ${remaining.length === 0 ? "disabled" : ""}>정오 판정</button>
+      </div>
+      ${renderFinalGuessAttempts(state)}
+    </section>
+  </main>`;
+}
+
+function renderLoopJudgment(state: GameState): string {
+  const outcome = state.loopOutcomes.at(-1);
+  if (!outcome) return "";
+  const finalLoop = state.loop.loop >= state.scenario.loops;
+  return `<main class="game-flow-screen">
+    <section class="flow-card">
+      <span class="eyebrow">Loop Judgment</span>
+      <h1>${state.loop.loop}루프 — 주인공 패배</h1>
+      <p>승패 판정을 완료했고 루프 종료 스냅샷을 기록했습니다.</p>
+      ${renderLoopOutcomes(state)}
+      <div class="flow-actions primary-actions">
+        <button type="button" class="next-phase" data-action="continue-after-judgment">
+          ${finalLoop ? "최후의 싸움 →" : "다음 루프 준비 →"}
+        </button>
+      </div>
+    </section>
+  </main>`;
+}
+
+function renderGameOver(state: GameState): string {
+  const protagonistsWon = state.result?.winner === "protagonists";
+  return `<main class="game-flow-screen">
+    <section class="flow-card game-over-card ${protagonistsWon ? "is-protagonist-win" : "is-mastermind-win"}">
+      <span class="eyebrow">Game Over</span>
+      <h1>${protagonistsWon ? "주인공 승리" : "각본가 승리"}</h1>
+      ${state.finalGuess ? renderFinalGuessAttempts(state) : ""}
+      <div class="outcome-summary">
+        <h2>루프별 결과</h2>
+        ${renderLoopOutcomes(state)}
+      </div>
+    </section>
+  </main>`;
+}
+
+function renderGameFlow(state: GameState): string {
+  switch (state.gamePhase) {
+    case "SETUP_SCENARIO":
+    case "SETUP_REVEAL":
+    case "SETUP_STAGE":
+    case "SETUP_LEADER":
+      return `<main class="game-flow-screen">
+        ${renderProgressSteps(["시나리오 준비", "시나리오 공개", "무대 구축", "리더 결정"], 3, 3)}
+        <section class="flow-card">
+          <span class="eyebrow">Game Setup</span>
+          <h1>초기 리더 결정</h1>
+          <p>리더는 게임 준비에서 한 번만 정하고 이후 루프에도 유지합니다.</p>
+          <div class="leader-choice">${([0, 1, 2] as const).map((leader) => `
+            <button type="button" data-action="choose-leader" data-leader="${leader}">${escapeHtml(ownerLabel(leader))}</button>`).join("")}</div>
+        </section>
+      </main>`;
+    case "LOOP_TIME_GAP":
+      return renderTimeGap(state);
+    case "LOOP_CHARACTER_PLACEMENT":
+    case "LOOP_COUNTER_SETUP":
+    case "LOOP_CARD_DISTRIBUTION":
+      return renderTimeGap(state);
+    case "LOOP_JUDGMENT":
+      return renderLoopJudgment(state);
+    case "FINAL_GUESS":
+      return renderFinalGuess(state);
+    case "GAME_OVER":
+      return renderGameOver(state);
+    case "ROUND":
+      return "";
+  }
 }
 
 function observationCount(): number {
@@ -1258,6 +1459,24 @@ function render(): void {
     state.scenario.tragedySet,
     state.scenario.tragedySet,
   );
+  const gameContent = state.gamePhase === "ROUND"
+    ? `${renderPhases(state)}
+      <main class="workspace ${tracker.mastermindOverlay ? "with-overlay" : ""}">
+        <div class="primary-column">
+          <section class="game-board ${selectedHandCard ? "is-targeting" : ""}"
+            aria-label="${escapeHtml(misc("Location", "Location"))}">
+            ${LOCATIONS.map((location) => renderLocation(state, location)).join("")}
+            <div class="board-axis axis-x"></div>
+            <div class="board-axis axis-y"></div>
+            <div class="board-center">TL</div>
+          </section>
+          ${renderPhaseControls(state)}
+          ${renderPublicInformation(state)}
+          ${renderSpentCards(state)}
+        </div>
+        ${renderMastermindOverlay(state)}
+      </main>`
+    : renderGameFlow(state);
 
   root.innerHTML = `
     <div class="app-shell">
@@ -1290,23 +1509,7 @@ function render(): void {
       </header>
 
       ${notice ? `<div class="notice" role="alert">${escapeHtml(notice)}</div>` : ""}
-      ${renderPhases(state)}
-
-      <main class="workspace ${tracker.mastermindOverlay ? "with-overlay" : ""}">
-        <div class="primary-column">
-          <section class="game-board ${selectedHandCard ? "is-targeting" : ""}"
-            aria-label="${escapeHtml(misc("Location", "Location"))}">
-            ${LOCATIONS.map((location) => renderLocation(state, location)).join("")}
-            <div class="board-axis axis-x"></div>
-            <div class="board-axis axis-y"></div>
-            <div class="board-center">TL</div>
-          </section>
-          ${renderPhaseControls(state)}
-          ${renderPublicInformation(state)}
-          ${renderSpentCards(state)}
-        </div>
-        ${renderMastermindOverlay(state)}
-      </main>
+      ${gameContent}
     </div>`;
 }
 
@@ -1342,12 +1545,16 @@ function decodeTarget(value: string | undefined): Target | undefined {
 
 function applySelectedOptionalHooks(state: GameState): void {
   const phase = state.loop.phase;
-  if (phase !== "P4_RESOLVE" && phase !== "P5_MASTERMIND_ABILITY") return;
+  if (
+    phase !== "P4_RESOLVE" &&
+    phase !== "P5_MASTERMIND_ABILITY" &&
+    !(phase === "P9_ROUND_END" && state.loop.roundEndMandatoryResolved)
+  ) return;
   const hooks = collectHooks(state, phase);
-  hooks.forEach(({ hook, self }, index) => {
+  for (const [index, { hook, self }] of hooks.entries()) {
     const selection = optionalHookSelections.get(hookKey(phase, self, index));
-    if (!selection?.selected || hook.kind !== "optional") return;
-    if (!hook.when(state, self)) return;
+    if (!selection?.selected || hook.kind !== "optional") continue;
+    if (!hook.when(state, self)) continue;
 
     const targetOptions = hookTargetOptions(
       state,
@@ -1359,7 +1566,9 @@ function applySelectedOptionalHooks(state: GameState): void {
       throw new Error(misc("Select a target", "Select a target"));
     }
     hook.effect(state, self, target);
-  });
+    settleGameFlow(state);
+    if (state.gamePhase !== "ROUND") return;
+  }
 }
 
 function placeSelectedCard(target: Target): void {
@@ -1412,7 +1621,7 @@ function revealActionCards(): void {
   try {
     applySelectedOptionalHooks(state);
     const before = structuredClone(state);
-    advance(state);
+    advanceGame(state);
     resolutionReceipt = {
       scenarioId: entry.id,
       loop: state.loop.loop,
@@ -1535,6 +1744,7 @@ function resolveGoodwillFromButton(button: HTMLButtonElement): void {
       },
       response,
     );
+    settleGameFlow(game.state);
     notice = "";
     saveState(entry.id, game.state, `goodwill-${response}`);
   } catch (error) {
@@ -1549,10 +1759,7 @@ function advanceCurrentPhase(): void {
   const game = tracker.games[entry.id];
   const before = structuredClone(game.state);
   const state = game.state;
-  if (isScenarioComplete(state)) return;
-  const endingLoop = state.loop.phase === "P9_ROUND_END" &&
-    state.loop.day === state.scenario.daysPerLoop;
-  const endingLoopNumber = state.loop.loop;
+  if (state.gamePhase !== "ROUND") return;
 
   try {
     if (
@@ -1568,15 +1775,8 @@ function advanceCurrentPhase(): void {
       throw new Error(misc("3 cards required", "3 cards required"));
     }
     applySelectedOptionalHooks(state);
-    advance(state, incidentChoiceFromUi());
-    if (endingLoop) {
-      saveState(entry.id, state, "loop-end");
-      if (endingLoopNumber < state.scenario.loops) {
-        const nextLoop = initLoop(state.scenario);
-        nextLoop.loop = endingLoopNumber + 1;
-        state.loop = nextLoop;
-        resolveHooks(state, "LOOP_START");
-      }
+    if (state.gamePhase === "ROUND") {
+      advanceGame(state, incidentChoiceFromUi());
     }
     selectedHandCard = undefined;
     resolutionReceipt = undefined;
@@ -1599,6 +1799,79 @@ root.addEventListener("click", (event) => {
 
   if (action === "advance") {
     advanceCurrentPhase();
+    return;
+  }
+
+  if (action === "choose-leader") {
+    const leader = Number(button.dataset.leader);
+    if (leader !== 0 && leader !== 1 && leader !== 2) return;
+    commit("setup-leader", (state) => {
+      chooseInitialLeader(state, leader);
+    });
+    return;
+  }
+
+  if (action === "time-gap-start") {
+    commit("time-gap-timer-start", (state) => {
+      const remaining = timeGapRemaining(state);
+      state.timeGapTimer = {
+        remainingSeconds: remaining,
+        endsAt: new Date(Date.now() + remaining * 1000).toISOString(),
+      };
+    });
+    return;
+  }
+
+  if (action === "time-gap-pause") {
+    commit("time-gap-timer-pause", (state) => {
+      state.timeGapTimer = { remainingSeconds: timeGapRemaining(state) };
+    });
+    return;
+  }
+
+  if (action === "time-gap-reset") {
+    commit("time-gap-timer-reset", (state) => {
+      state.timeGapTimer = { remainingSeconds: 10 * 60 };
+    });
+    return;
+  }
+
+  if (action === "continue-loop-start") {
+    commit("loop-start", (state) => {
+      continueFromTimeGap(state);
+    });
+    return;
+  }
+
+  if (action === "skip-final-guess") {
+    commit("final-guess-skip", (state) => {
+      skipToFinalGuess(state);
+    });
+    return;
+  }
+
+  if (action === "continue-after-judgment") {
+    commit("loop-judgment-continue", (state) => {
+      continueAfterLoopJudgment(state);
+    });
+    return;
+  }
+
+  if (action === "submit-final-guess") {
+    const character = root.querySelector<HTMLSelectElement>(
+      '[data-final-field="character"]',
+    )?.value;
+    const guessedRole = root.querySelector<HTMLSelectElement>(
+      '[data-final-field="role"]',
+    )?.value;
+    if (!character || !guessedRole) {
+      notice = "캐릭터와 역할을 모두 선택해 주세요.";
+      render();
+      return;
+    }
+    commit("final-guess-attempt", (state) => {
+      submitFinalGuess(state, character, guessedRole);
+    });
     return;
   }
 
@@ -1748,6 +2021,19 @@ root.addEventListener("change", (event) => {
     return;
   }
 
+  if (action === "optional-loss") {
+    const key = control.dataset.lossKey;
+    if (!key) return;
+    commit("optional-loss-activation", (state) => {
+      setOptionalLossActivation(
+        state,
+        key,
+        (control as HTMLInputElement).checked,
+      );
+    });
+    return;
+  }
+
   if (action === "scenario") {
     const entry = scenarioEntries.find(({ id }) => id === control.value);
     if (!entry) return;
@@ -1791,3 +2077,10 @@ root.addEventListener("change", (event) => {
 });
 
 render();
+
+window.setInterval(() => {
+  const state = currentState();
+  if (state.gamePhase === "LOOP_TIME_GAP" && state.timeGapTimer?.endsAt) {
+    render();
+  }
+}, 1000);
