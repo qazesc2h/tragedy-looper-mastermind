@@ -5,9 +5,12 @@ import { initLoop } from "../src/engine/setup";
 import {
   collectNoEffectCards,
   collectResolutionChanges,
+  collectResolutionReport,
+  groupPlacementsByTarget,
   handCardIsPlaced,
   MASTERMIND_HAND,
   nextProtagonist,
+  placedCardShowsName,
   PROTAGONIST_HAND,
   protagonistOrder,
 } from "../src/ui/action-cards";
@@ -57,6 +60,52 @@ describe("UI action-card hands", () => {
 
     expect(handCardIsPlaced(state, "mastermind", MASTERMIND_HAND, 0)).toBe(true);
     expect(handCardIsPlaced(state, "mastermind", MASTERMIND_HAND, 1)).toBe(false);
+  });
+
+  it("shows mastermind card names face-down and protagonist names only from P4", () => {
+    expect(placedCardShowsName(
+      "P3_PROTAGONIST_ACTION",
+      "mastermind",
+      false,
+    )).toBe(true);
+    expect(placedCardShowsName(
+      "P3_PROTAGONIST_ACTION",
+      0,
+      false,
+    )).toBe(false);
+    expect(placedCardShowsName("P4_RESOLVE", 0, false)).toBe(true);
+  });
+
+  it("groups overlapping cards under their shared target", () => {
+    const character = Object.keys(createState().loop.board)[0];
+    const placed: PlacedCard[] = [
+      {
+        owner: "mastermind",
+        card: "moveHorizontal",
+        target: { kind: "character", id: character },
+      },
+      {
+        owner: 0,
+        card: "moveVertical",
+        target: { kind: "character", id: character },
+      },
+      {
+        owner: 1,
+        card: "goodwillPlus1",
+        target: { kind: "location", at: "Shrine" },
+      },
+    ];
+
+    expect(groupPlacementsByTarget(placed)).toEqual([
+      {
+        target: { kind: "character", id: character },
+        placements: [placed[0], placed[1]],
+      },
+      {
+        target: { kind: "location", at: "Shrine" },
+        placements: [placed[2]],
+      },
+    ]);
   });
 });
 
@@ -138,5 +187,35 @@ describe("UI card-resolution report", () => {
     ];
 
     expect(collectNoEffectCards(before, after, placed)).toEqual([]);
+  });
+
+  it("orders every movement before counters and keeps no-effects mastermind-only", () => {
+    const before = createState();
+    const [counterCharacter, movingCharacter] = Object.keys(before.loop.board);
+    const after = structuredClone(before);
+    after.loop.charCounters[counterCharacter].goodwill = 1;
+    after.loop.board[movingCharacter].at =
+      before.loop.board[movingCharacter].at === "City" ? "School" : "City";
+    const placed: PlacedCard[] = [
+      {
+        owner: "mastermind",
+        card: "intriguePlus1",
+        target: { kind: "location", at: "Shrine" },
+      },
+      {
+        owner: 0,
+        card: "forbidIntrigue",
+        target: { kind: "location", at: "Shrine" },
+      },
+    ];
+
+    const report = collectResolutionReport(before, after, placed);
+
+    expect(report.map(({ audience, category }) => ({ audience, category })))
+      .toEqual([
+        { audience: "protagonists", category: "movement" },
+        { audience: "protagonists", category: "counter" },
+        { audience: "mastermind", category: "noEffect" },
+      ]);
   });
 });

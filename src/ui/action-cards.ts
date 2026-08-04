@@ -1,10 +1,16 @@
-import { intrigueForbidActive, isMoveCard } from "../engine/movement";
+import { characterDataOf } from "../data";
 import {
-  effectiveRole,
+  intrigueForbidActive,
+  isMoveCard,
+  resolveMove,
+  type MoveCard,
+} from "../engine/movement";
+import {
   type ActionCard,
   type GameState,
   type IncidentCounter,
   type Location,
+  type Phase,
   type PlacedCard,
   type Target,
 } from "../types";
@@ -41,6 +47,42 @@ export const PROTAGONIST_HAND: readonly HandCard[] = [
 ];
 
 export type CardOwner = PlacedCard["owner"];
+
+export interface PlacementGroup {
+  target: Target;
+  placements: PlacedCard[];
+}
+
+/** 해결 선언 전에 같은 대상에 놓인 카드를 한 묶음으로 만든다. */
+export function groupPlacementsByTarget(
+  placed: readonly PlacedCard[],
+): PlacementGroup[] {
+  const groups = new Map<string, PlacementGroup>();
+  for (const placement of placed) {
+    const key = placement.target.kind === "character"
+      ? `character:${placement.target.id}`
+      : `location:${placement.target.at}`;
+    const group = groups.get(key);
+    if (group) {
+      group.placements.push(placement);
+    } else {
+      groups.set(key, {
+        target: structuredClone(placement.target),
+        placements: [placement],
+      });
+    }
+  }
+  return [...groups.values()];
+}
+
+/** 각본가 카드는 항상, 주인공 카드는 P4 공개 뒤에만 이름을 보인다. */
+export function placedCardShowsName(
+  phase: Phase,
+  owner: CardOwner,
+  resolved: boolean,
+): boolean {
+  return owner === "mastermind" || resolved || phase === "P4_RESOLVE";
+}
 
 export function placementsForOwner(
   state: GameState,
@@ -109,18 +151,32 @@ export type ResolutionChange =
 export interface ResolutionNoEffect {
   placement: PlacedCard;
   blockedBy?: ActionCard;
+  reason?: "forbiddenLocation" | "ineffectiveTarget";
 }
+
+export type ResolutionReportItem =
+  | {
+    audience: "protagonists";
+    category: "movement" | "counter";
+    change: ResolutionChange;
+  }
+  | {
+    audience: "mastermind";
+    category: "noEffect";
+    noEffect: ResolutionNoEffect;
+  };
 
 export function collectResolutionChanges(
   before: GameState,
   after: GameState,
 ): ResolutionChange[] {
-  const changes: ResolutionChange[] = [];
+  const movements: ResolutionChange[] = [];
+  const counters: ResolutionChange[] = [];
   for (const character of Object.keys(before.loop.board)) {
     const beforePosition = before.loop.board[character];
     const afterPosition = after.loop.board[character];
     if (beforePosition.at !== afterPosition.at) {
-      changes.push({
+      movements.push({
         kind: "movement",
         character,
         before: beforePosition.at,
@@ -132,7 +188,7 @@ export function collectResolutionChanges(
       const previous = before.loop.charCounters[character][counter];
       const current = after.loop.charCounters[character][counter];
       if (previous !== current) {
-        changes.push({
+        counters.push({
           kind: "characterCounter",
           character,
           counter,
@@ -147,7 +203,7 @@ export function collectResolutionChanges(
     const previous = before.loop.locIntrigue[location];
     const current = after.loop.locIntrigue[location];
     if (previous !== current) {
-      changes.push({
+      counters.push({
         kind: "locationIntrigue",
         location,
         before: previous,
@@ -155,7 +211,7 @@ export function collectResolutionChanges(
       });
     }
   }
-  return changes;
+  return [...movements, ...counters];
 }
 
 function sameTarget(left: Target, right: Target): boolean {
@@ -193,10 +249,8 @@ function intrigueIsIgnored(state: GameState, target: Target): boolean {
 }
 
 function goodwillIsIgnored(state: GameState, target: Target): boolean {
-  return target.kind === "character" && (
-    state.loop.timeTravelersIgnoringForbidGoodwill?.includes(target.id) === true ||
-    effectiveRole(state, target.id) === "timeTraveler"
-  );
+  return target.kind === "character" &&
+    state.loop.timeTravelersIgnoringForbidGoodwill?.includes(target.id) === true;
 }
 
 function blockedBy(
@@ -242,9 +296,83 @@ export function collectNoEffectCards(
   _after: GameState,
   placed: readonly PlacedCard[],
 ): ResolutionNoEffect[] {
-  return placed.flatMap((placement) => {
+  const noEffects: ResolutionNoEffect[] = [];
+  for (const placement of placed) {
     const blocker = blockedBy(before, placed, placement);
-    if (blocker) return [{ placement, blockedBy: blocker }];
-    return [];
-  });
+    if (blocker) {
+      noEffects.push({ placement, blockedBy: blocker });
+      continue;
+    }
+
+    const needsCharacter = isMoveCard(placement.card) ||
+      placement.card === "goodwillPlus1" ||
+      placement.card === "goodwillPlus2" ||
+      placement.card === "paranoiaPlus1" ||
+      placement.card === "paranoiaMinus1";
+    if (needsCharacter && placement.target.kind !== "character") {
+      noEffects.push({ placement, reason: "ineffectiveTarget" });
+    }
+  }
+
+  const movementByCharacter = new Map<string, PlacedCard[]>();
+  for (const placement of placed) {
+    if (placement.target.kind !== "character" || !isMoveCard(placement.card)) {
+      continue;
+    }
+    const movements = movementByCharacter.get(placement.target.id) ?? [];
+    movements.push(placement);
+    movementByCharacter.set(placement.target.id, movements);
+  }
+
+  for (const [character, movements] of movementByCharacter) {
+    if (movements.some((placement) =>
+      noEffects.some((item) => item.placement === placement)
+    )) {
+      continue;
+    }
+    const position = before.loop.board[character];
+    const result = resolveMove({
+      character,
+      from: position.at,
+      cards: movements.map(({ card }) => card as MoveCard),
+      forbidden: false,
+      forbiddenLocations:
+        before.loop.locationRestrictionsRemoved?.includes(character)
+          ? []
+          : [...characterDataOf(character).forbiddenLocation],
+    });
+    if (result.reason === "forbidden-location") {
+      for (const placement of movements) {
+        noEffects.push({ placement, reason: "forbiddenLocation" });
+      }
+    }
+  }
+
+  return noEffects;
+}
+
+/** 주인공에게 전달할 변동을 먼저, 원인을 숨길 무효 항목을 나중에 둔다. */
+export function collectResolutionReport(
+  before: GameState,
+  after: GameState,
+  placed: readonly PlacedCard[],
+): ResolutionReportItem[] {
+  const publicItems: ResolutionReportItem[] = collectResolutionChanges(
+    before,
+    after,
+  ).map((change) => ({
+    audience: "protagonists",
+    category: change.kind === "movement" ? "movement" : "counter",
+    change,
+  }));
+  const privateItems: ResolutionReportItem[] = collectNoEffectCards(
+    before,
+    after,
+    placed,
+  ).map((noEffect) => ({
+    audience: "mastermind",
+    category: "noEffect",
+    noEffect,
+  }));
+  return [...publicItems, ...privateItems];
 }

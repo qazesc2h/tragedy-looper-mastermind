@@ -47,5 +47,6 @@ export function initLoop(scenario: Scenario): LoopState {
     },
     abilitiesUsedThisLoop: [],
     placed: [],
+    phaseLog: [],
   };
 }

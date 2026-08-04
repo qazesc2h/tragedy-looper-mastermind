@@ -4,15 +4,19 @@ import {
   type FinalGuessAttempt,
   type GameState,
   type IncidentChoice,
+  type IncidentFailureReason,
   type IncidentResult,
   type LoopOutcome,
+  type Phase,
+  type PhaseLogEntry,
   type RecordedLoss,
   type RoleId,
   type Scenario,
 } from "../types";
 import { requestLoopEnd } from "./flow";
+import { incidentFailureReasons } from "./incident";
 import { evaluateLoss, type LossCondition } from "./loss";
-import { advance, resolveHooks } from "./phases";
+import { advance, collectHooks, resolveHooks } from "./phases";
 import { initLoop } from "./setup";
 
 const TIME_GAP_SECONDS = 10 * 60;
@@ -81,6 +85,7 @@ export function continueFromTimeGap(state: GameState): void {
 
   delete state.timeGapTimer;
   state.gamePhase = "ROUND";
+  advanceAutomaticRoundPhases(state);
 }
 
 function recordedLoss(condition: LossCondition): RecordedLoss {
@@ -165,7 +170,109 @@ export function settleGameFlow(state: GameState): LoopOutcome | undefined {
   return state.pendingLoopEnd ? finishLoop(state) : undefined;
 }
 
-/** 기존 9단계 advance를 게임 전체 상태 머신과 함께 실행한다. */
+function appendPhaseLog(
+  state: GameState,
+  entry: PhaseLogEntry,
+): void {
+  (state.loop.phaseLog ??= []).push(entry);
+}
+
+function activeHookExists(state: GameState, phase: Phase): boolean {
+  return collectHooks(state, phase).some(
+    ({ hook, self }) => hook.when(state, self),
+  );
+}
+
+function advanceRoundOnce(
+  state: GameState,
+  incidentChoice?: IncidentChoice,
+): IncidentResult | undefined {
+  const phase = state.loop.phase;
+  const loop = state.loop.loop;
+  const day = state.loop.day;
+  const leader = state.loop.leader;
+  const scheduled = phase === "P7_INCIDENT"
+    ? state.scenario.incidents.find((incident) => incident.day === day)
+    : undefined;
+  const failureReasons: IncidentFailureReason[] = scheduled
+    ? incidentFailureReasons(state, scheduled.culprit)
+    : [];
+
+  const result = advance(state, incidentChoice);
+
+  if (phase === "P7_INCIDENT") {
+    if (!scheduled) {
+      appendPhaseLog(state, {
+        loop,
+        day,
+        phase,
+        kind: "notApplicable",
+      });
+    } else if (result) {
+      appendPhaseLog(state, {
+        loop,
+        day,
+        phase,
+        kind: "incidentJudged",
+        incident: scheduled.incident,
+        culprit: scheduled.culprit,
+        fired: result.fired,
+        effectApplied: result.effectApplied,
+        failureReasons: result.fired ? [] : failureReasons,
+      });
+    }
+  } else if (phase === "P8_LEADER_PASS") {
+    appendPhaseLog(state, {
+      loop,
+      day,
+      phase,
+      kind: "leaderPassed",
+      from: leader,
+      to: state.loop.leader,
+    });
+  }
+
+  settleGameFlow(state);
+  return result;
+}
+
+/** 내용이 없는 단계와 리더 교대를 연속 처리하고 각 단계를 기록한다. */
+export function advanceAutomaticRoundPhases(state: GameState): void {
+  while (state.gamePhase === "ROUND") {
+    const phase = state.loop.phase;
+    const noActiveHook = (
+      phase === "P1_ROUND_START" || phase === "P5_MASTERMIND_ABILITY"
+    ) && !activeHookExists(state, phase);
+
+    if (noActiveHook) {
+      appendPhaseLog(state, {
+        loop: state.loop.loop,
+        day: state.loop.day,
+        phase,
+        kind: "notApplicable",
+      });
+      advanceRoundOnce(state);
+      continue;
+    }
+
+    if (
+      phase === "P7_INCIDENT" &&
+      !state.scenario.incidents.some(({ day }) => day === state.loop.day)
+    ) {
+      advanceRoundOnce(state);
+      continue;
+    }
+
+    if (phase === "P8_LEADER_PASS") {
+      advanceRoundOnce(state);
+      continue;
+    }
+
+    break;
+  }
+}
+
+/** 기존 9단계 advance 뒤 자동 통과 가능한 후속 단계를 함께 실행한다. */
 export function advanceGame(
   state: GameState,
   incidentChoice?: IncidentChoice,
@@ -173,8 +280,8 @@ export function advanceGame(
   if (state.gamePhase !== "ROUND") {
     throw new Error(`round phase cannot advance during ${state.gamePhase}`);
   }
-  const result = advance(state, incidentChoice);
-  settleGameFlow(state);
+  const result = advanceRoundOnce(state, incidentChoice);
+  advanceAutomaticRoundPhases(state);
   return result;
 }
 

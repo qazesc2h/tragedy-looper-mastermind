@@ -4,8 +4,31 @@ import type {
   CharacterId,
   GameState,
   IncidentChoice,
+  IncidentFailureReason,
   IncidentResult,
 } from "../types";
+
+/** 예정 사건이 발생하지 않는 이유를 각본가 화면에 표시한다. */
+export function incidentFailureReasons(
+  state: GameState,
+  culprit: CharacterId,
+): IncidentFailureReason[] {
+  const position = state.loop.board[culprit];
+  const counters = state.loop.charCounters[culprit];
+  if (!position || !counters) {
+    throw new Error(`incident culprit "${culprit}" is not on the board`);
+  }
+
+  const reasons: IncidentFailureReason[] = [];
+  if (!position.alive) reasons.push("culpritDead");
+  if (counters.paranoia < characterDataOf(culprit).paranoiaLimit) {
+    reasons.push("insufficientParanoia");
+  }
+  if (state.loop.incidentCulpritSuppressedFor?.includes(culprit)) {
+    reasons.push("culpritSuppressed");
+  }
+  return reasons;
+}
 
 /**
  * 지정한 사건의 효과만 해결한다.
@@ -36,18 +59,7 @@ export function incidentFires(
   state: GameState,
   culprit: CharacterId,
 ): boolean {
-  const position = state.loop.board[culprit];
-  const counters = state.loop.charCounters[culprit];
-  if (!position || !counters) {
-    throw new Error(`incident culprit "${culprit}" is not on the board`);
-  }
-
-  if (state.loop.incidentCulpritSuppressedFor?.includes(culprit)) {
-    return false;
-  }
-
-  return position.alive &&
-    counters.paranoia >= characterDataOf(culprit).paranoiaLimit;
+  return incidentFailureReasons(state, culprit).length === 0;
 }
 
 /** 현재 날짜에 예정된 사건을 판정하고, 발생했다면 그 효과를 해결한다. */

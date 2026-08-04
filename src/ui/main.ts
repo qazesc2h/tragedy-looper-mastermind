@@ -11,9 +11,13 @@ import {
   skipToFinalGuess,
   submitFinalGuess,
 } from "../engine/game";
-import { incidentFires } from "../engine/incident";
+import {
+  incidentFailureReasons,
+  incidentFires,
+} from "../engine/incident";
 import { validatePlacement } from "../engine/legal";
 import { distanceToLoss, setOptionalLossActivation } from "../engine/loss";
+import { intrigueForbidActive } from "../engine/movement";
 import { collectHooks } from "../engine/phases";
 import {
   MASTERMIND_ONCE_PER_LOOP,
@@ -38,18 +42,18 @@ import {
   type Target,
 } from "../types";
 import {
-  collectNoEffectCards,
-  collectResolutionChanges,
+  collectResolutionReport,
+  groupPlacementsByTarget,
   handCardIsPlaced,
   MASTERMIND_HAND,
   nextProtagonist,
+  placedCardShowsName,
   placementsForOwner,
   PROTAGONIST_HAND,
   protagonistOrder,
   type CardOwner,
   type HandCard,
-  type ResolutionChange,
-  type ResolutionNoEffect,
+  type ResolutionReportItem,
 } from "./action-cards";
 import {
   decodeIncidentSelection,
@@ -93,8 +97,7 @@ interface ResolutionReceipt {
   loop: number;
   day: number;
   cards: PlacedCard[];
-  changes: ResolutionChange[];
-  noEffects: ResolutionNoEffect[];
+  items: ResolutionReportItem[];
 }
 
 interface OptionalHookSelection {
@@ -268,6 +271,13 @@ function phaseName(phase: Phase): string {
   return PHASE_TERM[phase]();
 }
 
+function incidentFailureLabel(reason: string): string {
+  if (reason === "culpritDead") return "범인 사망";
+  if (reason === "insufficientParanoia") return "불안 미달";
+  if (reason === "culpritSuppressed") return "사건 발생 억제";
+  return reason;
+}
+
 function actionCardName(card: ActionCard): string {
   const english = ACTION_CARD_EN[card] ?? card;
   return actionCardTerm(card, english);
@@ -297,19 +307,25 @@ function receiptFor(state: GameState): ResolutionReceipt | undefined {
 
 function renderCardsOnTarget(state: GameState, target: Target): string {
   const receipt = receiptFor(state);
-  const revealed = receipt !== undefined;
-  const cards = revealed ? receipt.cards : state.loop.placed;
+  const resolved = receipt !== undefined;
+  const cards = resolved ? receipt.cards : state.loop.placed;
   const matching = cards
     .filter((placement) => sameTarget(placement.target, target))
     .map((placement) => ({
       placement,
-      showName: revealed || placement.owner === "mastermind",
+      showName: placedCardShowsName(
+        state.loop.phase,
+        placement.owner,
+        resolved,
+      ),
       fullName: actionCardName(placement.card),
     }));
   if (matching.length === 0) return "";
 
   return `
-    <div class="placed-card-stack ${revealed ? "is-revealed" : "is-facedown"}">
+    <div class="placed-card-stack ${
+      matching.every(({ showName }) => showName) ? "is-revealed" : "is-facedown"
+    }">
       ${matching.map(({ placement, showName, fullName }) => `
         <button type="button"
           class="placed-action-card owner-${placement.owner}"
@@ -438,6 +454,31 @@ function renderPhases(state: GameState): string {
             <strong>${escapeHtml(phaseName(phase))}</strong>
           </div>`).join("")}
       </div>
+    </section>`;
+}
+
+function renderPhaseLog(state: GameState): string {
+  const entries = (state.loop.phaseLog ?? []).slice(-8);
+  if (entries.length === 0) return "";
+
+  const line = (entry: (typeof entries)[number]): string => {
+    if (entry.kind === "notApplicable") {
+      return `${phaseName(entry.phase)} · 해당 없음`;
+    }
+    if (entry.kind === "leaderPassed") {
+      return `${phaseName(entry.phase)} · ${ownerLabel(entry.from)} → ${ownerLabel(entry.to)}`;
+    }
+    const result = entry.fired
+      ? entry.effectApplied ? "발생 · 효과 적용" : "발생 · 효과 없음"
+      : `발생하지 않음 (${entry.failureReasons.map(incidentFailureLabel).join(" · ")})`;
+    return `${phaseName(entry.phase)} · ${incidentName(entry.incident)} · ${result}`;
+  };
+
+  return `
+    <section class="phase-log" aria-label="진행 기록">
+      <strong>진행 기록</strong>
+      <ol>${entries.map((entry) => `
+        <li><span>${entry.day}일째</span>${escapeHtml(line(entry))}</li>`).join("")}</ol>
     </section>`;
 }
 
@@ -623,6 +664,45 @@ function renderProtagonistAction(state: GameState): string {
     </section>`;
 }
 
+function placementCardClass(card: ActionCard): string {
+  if (card.startsWith("move")) return "is-movement";
+  if (card.startsWith("forbid")) return "is-forbid";
+  return "is-counter";
+}
+
+function renderPlacementSummary(state: GameState): string {
+  const groups = groupPlacementsByTarget(state.loop.placed);
+  const intrigueForbids = state.loop.placed.filter(
+    ({ card }) => card === "forbidIntrigue",
+  );
+  const intrigueForbidCancelled = intrigueForbids.length >= 2 &&
+    !intrigueForbidActive(intrigueForbids);
+
+  return `
+    <section class="resolution-preview">
+      <div class="resolution-preview-heading">
+        <span class="eyebrow">${escapeHtml(misc("Resolving Cards"))}</span>
+        <h3>배치 요약</h3>
+      </div>
+      <div class="placement-groups">
+        ${groups.map(({ target, placements }) => `
+          <article class="placement-group ${placements.length > 1 ? "has-overlap" : ""}">
+            <strong>${escapeHtml(targetLabel(target))}</strong>
+            <ul>
+              ${placements.map((placement) => `
+                <li class="${placementCardClass(placement.card)}">
+                  <span>${escapeHtml(ownerLabel(placement.owner))}</span>
+                  <b>${escapeHtml(actionCardName(placement.card))}</b>
+                </li>`).join("")}
+            </ul>
+          </article>`).join("")}
+      </div>
+      ${intrigueForbidCancelled
+        ? `<p class="resolution-preview-note">음모 금지 ${intrigueForbids.length}장 · 라운드 전체 상쇄</p>`
+        : ""}
+    </section>`;
+}
+
 function counterLabel(counter: IncidentCounter): string {
   const labels: Record<IncidentCounter, string> = {
     goodwill: misc("Goodwill"),
@@ -638,35 +718,80 @@ function targetLabel(target: Target): string {
     : locationName(target.at);
 }
 
+function signedDelta(before: number, after: number): string {
+  const delta = after - before;
+  return delta > 0 ? `+${delta}` : String(delta);
+}
+
+function publicResolutionLine(item: Extract<
+  ResolutionReportItem,
+  { audience: "protagonists" }
+>): string {
+  const change = item.change;
+  if (change.kind === "movement") {
+    return `${characterName(change.character)} ${locationName(change.before)} → ${locationName(change.after)}`;
+  }
+  if (change.kind === "locationIntrigue") {
+    return `${locationName(change.location)} ${misc("Intrigue")}${signedDelta(change.before, change.after)}`;
+  }
+  return `${characterName(change.character)} ${counterLabel(change.counter)}${signedDelta(change.before, change.after)}`;
+}
+
+function privateResolutionLine(item: Extract<
+  ResolutionReportItem,
+  { audience: "mastermind" }
+>): string {
+  const { placement, blockedBy, reason } = item.noEffect;
+  const cause = blockedBy
+    ? actionCardName(blockedBy)
+    : reason === "forbiddenLocation"
+    ? "금지 장소"
+    : reason === "ineffectiveTarget"
+    ? "대상에 적용되지 않음"
+    : misc("No effect", "No effect");
+  return `${ownerLabel(placement.owner)} · ${targetLabel(placement.target)} · ${actionCardName(placement.card)} (${cause})`;
+}
+
 function renderResolutionReceipt(state: GameState): string {
   const receipt = receiptFor(state);
   if (!receipt) return "";
-  const lines = [
-    ...receipt.changes.map((change) => {
-      if (change.kind === "movement") {
-        return `${characterName(change.character)} · ${locationName(change.before)} → ${locationName(change.after)}`;
-      }
-      if (change.kind === "locationIntrigue") {
-        return `${locationName(change.location)} · ${misc("Intrigue")} ${change.before} → ${change.after}`;
-      }
-      return `${characterName(change.character)} · ${counterLabel(change.counter)} ${change.before} → ${change.after}`;
-    }),
-    ...receipt.noEffects.map(({ placement, blockedBy }) =>
-      `${targetLabel(placement.target)} · ${actionCardName(placement.card)}: ${
-        blockedBy ? actionCardName(blockedBy) : misc("No effect", "No effect")
-      }`
-    ),
-  ];
+  const publicItems = receipt.items.filter(
+    (item): item is Extract<ResolutionReportItem, { audience: "protagonists" }> =>
+      item.audience === "protagonists",
+  );
+  const privateItems = receipt.items.filter(
+    (item): item is Extract<ResolutionReportItem, { audience: "mastermind" }> =>
+      item.audience === "mastermind",
+  );
   return `
     <section class="resolution-receipt" aria-live="polite">
       <div>
         <span class="eyebrow">${escapeHtml(misc("Resolving Cards"))}</span>
         <h2>${escapeHtml(misc("Result summary", "Result summary"))}</h2>
       </div>
-      <ul>
-        ${(lines.length > 0 ? lines : [misc("No effect", "No effect")])
-          .map((line) => `<li>${escapeHtml(line)}</li>`).join("")}
-      </ul>
+      <div class="resolution-audiences">
+        <section class="resolution-public">
+          <h3>주인공에게 전달 · 변동 사항만</h3>
+          <ul>
+            ${(publicItems.length > 0
+              ? publicItems.map((item) => ({
+                category: item.category === "movement" ? "이동" : "카운터",
+                line: publicResolutionLine(item),
+              }))
+              : [{ category: "변동", line: misc("No effect", "No effect") }])
+              .map(({ category, line }) => `<li><b>[${escapeHtml(category)}]</b> ${escapeHtml(line)}</li>`)
+              .join("")}
+          </ul>
+        </section>
+        ${privateItems.length > 0
+          ? `<section class="resolution-private">
+              <h3>각본가 전용 · 전달 금지</h3>
+              <ul>${privateItems.map((item) =>
+                `<li><b>[무효]</b> ${escapeHtml(privateResolutionLine(item))}</li>`
+              ).join("")}</ul>
+            </section>`
+          : ""}
+      </div>
     </section>`;
 }
 
@@ -995,16 +1120,19 @@ function renderPhaseControls(state: GameState): string {
     case "P3_PROTAGONIST_ACTION":
       return renderProtagonistAction(state);
     case "P4_RESOLVE":
-      return `<section class="operation-panel compact-operation">
+      return `<section class="operation-panel">
         <div class="resolve-control-copy">
           ${heading(4, phaseName(state.loop.phase))}
+          ${renderPlacementSummary(state)}
           ${renderHookList(state, state.loop.phase, true)}
         </div>
-        ${renderAdvanceButton(misc("Resolving Cards"), state.loop.placed.length !== 6, "reveal-cards")}
+        <div class="operation-footer">
+          <span>6장 배치 확정</span>
+          ${renderAdvanceButton(misc("Resolving Cards"), state.loop.placed.length !== 6, "reveal-cards")}
+        </div>
       </section>`;
     case "P5_MASTERMIND_ABILITY":
-      return `${renderResolutionReceipt(state)}
-        <section class="operation-panel">
+      return `<section class="operation-panel">
           ${heading(5, phaseName(state.loop.phase))}
           ${renderHookList(state, state.loop.phase, true)}
           <div class="operation-footer">${renderAdvanceButton()}</div>
@@ -1113,10 +1241,13 @@ function renderTodayIncidents(state: GameState): string {
 
   return scheduled.map(({ incident, culprit }) => {
     const fires = incidentFires(state, culprit);
+    const failureReasons = incidentFailureReasons(state, culprit);
     const effectSuppressed = culprit === "blackCat";
     const alive = state.loop.board[culprit].alive;
     const paranoia = state.loop.charCounters[culprit].paranoia;
     const limit = characterDataOf(culprit).paranoiaLimit;
+    const culpritSuppressed = state.loop.incidentCulpritSuppressedFor
+      ?.includes(culprit) === true;
     const effectSources = INCIDENT_IMPL[incident]?.hooks
       .map(({ source }) => source.description)
       .filter((description): description is string => Boolean(description)) ??
@@ -1134,9 +1265,15 @@ function renderTodayIncidents(state: GameState): string {
         ${effectText
           ? `<p class="incident-effect">${escapeHtml(effectText)}</p>`
           : ""}
+        <p class="incident-judgment ${fires ? "is-fired" : "is-not-fired"}">
+          ${fires
+            ? "판정 결과 · 발생"
+            : `판정 결과 · 발생하지 않음 (${failureReasons.map(incidentFailureLabel).join(" · ")})`}
+        </p>
         <div class="incident-conditions">
           <span>${mark(alive)} ${escapeHtml(misc("Alive", "Alive"))}</span>
           <span>${mark(paranoia >= limit)} ${escapeHtml(misc("Paranoia"))} ${paranoia}/${limit}</span>
+          <span>${mark(!culpritSuppressed)} 발생 억제 없음</span>
         </div>
         ${renderIncidentChoice(state, incident, fires && !effectSuppressed)}
       </article>`;
@@ -1461,6 +1598,7 @@ function render(): void {
   );
   const gameContent = state.gamePhase === "ROUND"
     ? `${renderPhases(state)}
+      ${renderPhaseLog(state)}
       <main class="workspace ${tracker.mastermindOverlay ? "with-overlay" : ""}">
         <div class="primary-column">
           <section class="game-board ${selectedHandCard ? "is-targeting" : ""}"
@@ -1470,6 +1608,7 @@ function render(): void {
             <div class="board-axis axis-y"></div>
             <div class="board-center">TL</div>
           </section>
+          ${renderResolutionReceipt(state)}
           ${renderPhaseControls(state)}
           ${renderPublicInformation(state)}
           ${renderSpentCards(state)}
@@ -1627,8 +1766,7 @@ function revealActionCards(): void {
       loop: state.loop.loop,
       day: state.loop.day,
       cards,
-      changes: collectResolutionChanges(before, state),
-      noEffects: collectNoEffectCards(before, state, cards),
+      items: collectResolutionReport(before, state, cards),
     };
     selectedHandCard = undefined;
     optionalHookSelections.clear();
@@ -1760,6 +1898,7 @@ function advanceCurrentPhase(): void {
   const before = structuredClone(game.state);
   const state = game.state;
   if (state.gamePhase !== "ROUND") return;
+  const phaseBefore = state.loop.phase;
 
   try {
     if (
@@ -1779,7 +1918,9 @@ function advanceCurrentPhase(): void {
       advanceGame(state, incidentChoiceFromUi());
     }
     selectedHandCard = undefined;
-    resolutionReceipt = undefined;
+    if (phaseBefore !== "P5_MASTERMIND_ABILITY") {
+      resolutionReceipt = undefined;
+    }
     optionalHookSelections.clear();
     notice = "";
     saveState(entry.id, state, "phase-advance");

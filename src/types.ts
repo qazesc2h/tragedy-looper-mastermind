@@ -181,6 +181,39 @@ export interface IncidentResult {
   effectApplied: boolean;
 }
 
+export type IncidentFailureReason =
+  | "culpritDead"
+  | "insufficientParanoia"
+  | "culpritSuppressed";
+
+/** 자동 통과와 판정 결과를 각본가가 나중에도 확인할 수 있는 라운드 기록. */
+export type PhaseLogEntry =
+  | {
+    loop: number;
+    day: number;
+    phase: "P1_ROUND_START" | "P5_MASTERMIND_ABILITY" | "P7_INCIDENT";
+    kind: "notApplicable";
+  }
+  | {
+    loop: number;
+    day: number;
+    phase: "P7_INCIDENT";
+    kind: "incidentJudged";
+    incident: IncidentId;
+    culprit: CharacterId;
+    fired: boolean;
+    effectApplied: boolean;
+    failureReasons: IncidentFailureReason[];
+  }
+  | {
+    loop: number;
+    day: number;
+    phase: "P8_LEADER_PASS";
+    kind: "leaderPassed";
+    from: 0 | 1 | 2;
+    to: 0 | 1 | 2;
+  };
+
 /** 이번 루프에 각본가가 주인공에게 전달해야 하는 공개·해결 결과. */
 export type PublicInformation =
   | {
@@ -228,6 +261,9 @@ export interface LoopState {
 
   /** 이번 라운드에 놓인 카드 (P4에서 소비) */
   placed: PlacedCard[];
+
+  /** 자동 통과·사건 판정·리더 교대 기록 */
+  phaseLog?: PhaseLogEntry[];
 
   /** 이번 P4에서 음모 금지 무시 능력을 발동한 광신도 */
   cultistsIgnoringForbidIntrigue?: CharacterId[];

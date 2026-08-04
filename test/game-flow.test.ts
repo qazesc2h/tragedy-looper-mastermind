@@ -42,8 +42,14 @@ describe("game setup and loop preparation", () => {
 
     continueFromTimeGap(state);
     expect(state.gamePhase).toBe("ROUND");
-    expect(state.loop.phase).toBe("P1_ROUND_START");
+    expect(state.loop.phase).toBe("P2_MASTERMIND_ACTION");
     expect(state.loop.leader).toBe(2);
+    expect(state.loop.phaseLog).toEqual([{
+      loop: 1,
+      day: 1,
+      phase: "P1_ROUND_START",
+      kind: "notApplicable",
+    }]);
     expect(state.loop.spentOncePerLoop).toEqual({
       mastermind: [],
       protagonists: [[], [], []],
@@ -73,6 +79,103 @@ describe("game setup and loop preparation", () => {
     expect(state.loop.charCounters.boyStudent.goodwill).toBe(0);
     expect(state.loop.charCounters.boyStudent.paranoia).toBe(2);
     expect(state.loop.leader).toBe(2);
+  });
+});
+
+describe("automatic empty round phases", () => {
+  it("skips an unavailable mastermind ability after resolving cards", () => {
+    const state = createGameState(scenario());
+    startRound(state);
+    state.loop.phase = "P4_RESOLVE";
+
+    advanceGame(state);
+
+    expect(state.loop.phase).toBe("P6_GOODWILL");
+    expect(state.loop.phaseLog).toContainEqual({
+      loop: 1,
+      day: 1,
+      phase: "P5_MASTERMIND_ABILITY",
+      kind: "notApplicable",
+    });
+  });
+
+  it("stops when a mastermind ability can fire", () => {
+    const state = createGameState(scenario({
+      cast: { boyStudent: "brain" },
+    }));
+    startRound(state);
+    state.loop.phase = "P4_RESOLVE";
+
+    advanceGame(state);
+
+    expect(state.loop.phase).toBe("P5_MASTERMIND_ABILITY");
+    expect(state.loop.phaseLog).not.toContainEqual(
+      expect.objectContaining({ phase: "P5_MASTERMIND_ABILITY" }),
+    );
+  });
+
+  it("skips a day without an incident and automatically passes the leader", () => {
+    const state = createGameState(scenario());
+    startRound(state);
+    state.loop.phase = "P6_GOODWILL";
+
+    advanceGame(state);
+
+    expect(state.loop.phase).toBe("P9_ROUND_END");
+    expect(state.loop.leader).toBe(1);
+    expect(state.loop.phaseLog).toEqual(expect.arrayContaining([
+      {
+        loop: 1,
+        day: 1,
+        phase: "P7_INCIDENT",
+        kind: "notApplicable",
+      },
+      {
+        loop: 1,
+        day: 1,
+        phase: "P8_LEADER_PASS",
+        kind: "leaderPassed",
+        from: 0,
+        to: 1,
+      },
+    ]));
+  });
+
+  it("does not auto-skip a scheduled incident whose condition is unmet", () => {
+    const state = createGameState(scenario({
+      incidents: [{
+        day: 1,
+        incident: "foulEvil",
+        culprit: "boyStudent",
+      }],
+    }));
+    startRound(state);
+    state.loop.phase = "P6_GOODWILL";
+
+    advanceGame(state);
+    expect(state.loop.phase).toBe("P7_INCIDENT");
+    expect(state.loop.phaseLog).not.toContainEqual(
+      expect.objectContaining({ phase: "P7_INCIDENT" }),
+    );
+
+    expect(advanceGame(state)).toEqual({
+      incident: "foulEvil",
+      culprit: "boyStudent",
+      fired: false,
+      effectApplied: false,
+    });
+    expect(state.loop.phase).toBe("P9_ROUND_END");
+    expect(state.loop.phaseLog).toContainEqual({
+      loop: 1,
+      day: 1,
+      phase: "P7_INCIDENT",
+      kind: "incidentJudged",
+      incident: "foulEvil",
+      culprit: "boyStudent",
+      fired: false,
+      effectApplied: false,
+      failureReasons: ["insufficientParanoia"],
+    });
   });
 });
 
