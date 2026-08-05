@@ -77,6 +77,7 @@ import {
   persistTrackerPreferences,
   type TrackerStore,
 } from "./storage";
+import { serializeCurrentStateDump } from "./state-dump";
 import {
   actionCardTerm,
   gameText,
@@ -245,6 +246,26 @@ function currentState(): GameState {
   const saved = tracker.games[entry.id];
   if (!saved) throw new Error(`missing saved game for ${entry.id}`);
   return saved.state;
+}
+
+function copyCurrentState(): void {
+  const clipboard = navigator.clipboard;
+  if (clipboard === undefined) {
+    notice = "클립보드를 사용할 수 없습니다.";
+    render();
+    return;
+  }
+  const json = serializeCurrentStateDump(currentState());
+  void clipboard.writeText(json).then(
+    () => {
+      notice = "현재 상태를 복사했습니다.";
+      render();
+    },
+    (error: unknown) => {
+      notice = `상태 복사 실패: ${errorMessage(error)}`;
+      render();
+    },
+  );
 }
 
 function commit(reason: string, mutate: (state: GameState) => void): void {
@@ -1972,10 +1993,15 @@ function render(): void {
             <strong>${escapeHtml(misc("Day"))} ${state.loop.day}/${state.scenario.daysPerLoop}</strong>
             <small>${escapeHtml(misc("Snapshots", "Snapshots"))} ${observationCount()}</small>
           </div>
-          <label class="overlay-toggle">
-            <input type="checkbox" data-action="overlay" ${tracker.mastermindOverlay ? "checked" : ""} />
-            <span>${escapeHtml(misc("Mastermind Aid"))}</span>
-          </label>
+          <div class="session-actions">
+            <label class="overlay-toggle">
+              <input type="checkbox" data-action="overlay" ${tracker.mastermindOverlay ? "checked" : ""} />
+              <span>${escapeHtml(misc("Mastermind Aid"))}</span>
+            </label>
+            <button type="button" class="copy-state-button" data-action="copy-state">
+              현재 상태 복사
+            </button>
+          </div>
         </div>
       </header>
 
@@ -2308,6 +2334,11 @@ root.addEventListener("click", (event) => {
   if (action === "toggle-operation-sheet") {
     operationSheetOpen = !operationSheetOpen;
     render();
+    return;
+  }
+
+  if (action === "copy-state") {
+    copyCurrentState();
     return;
   }
 

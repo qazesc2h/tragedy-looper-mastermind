@@ -163,6 +163,14 @@ select {
   color: var(--ink-dim);
 }
 
+.session-actions {
+  display: flex;
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .overlay-toggle {
   display: flex;
   min-height: 44px;
@@ -182,6 +190,16 @@ select {
   width: 20px;
   height: 20px;
   accent-color: #c78b2c;
+}
+
+.copy-state-button {
+  min-height: 44px;
+  border: 1px solid #66573e;
+  border-radius: 999px;
+  background: #211d16;
+  padding: 8px 12px;
+  color: var(--ink);
+  font-size: 0.75rem;
 }
 
 .notice {
