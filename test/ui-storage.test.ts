@@ -6,6 +6,7 @@ import {
   loadTrackerStore,
   persistGameState,
   RETIRED_TRACKER_STORAGE_KEYS,
+  STORAGE_RESET_NOTICE,
   TRACKER_STORAGE_KEY,
   type LocalKeyValueStore,
   type StoredGame,
@@ -152,11 +153,32 @@ describe("UI localStorage snapshots", () => {
     ).toBe(1);
   });
 
-  it("falls back to an empty store when saved JSON is invalid", () => {
+  it("deletes invalid JSON and reports that the app will start over", () => {
     const storage = new MemoryStorage();
     storage.setItem(TRACKER_STORAGE_KEY, "not-json");
-    expect(loadTrackerStore(storage, storedGameDefaults))
-      .toEqual(emptyTrackerStore());
+    expect(() => loadTrackerStore(storage, storedGameDefaults))
+      .toThrow(STORAGE_RESET_NOTICE);
+    expect(storage.getItem(TRACKER_STORAGE_KEY)).toBeNull();
+  });
+
+  it("discards the whole save instead of partially restoring malformed data", () => {
+    const storage = new MemoryStorage();
+    const validDefaults = storedGameDefaults("basicTragedy:1");
+    if (validDefaults === undefined) {
+      throw new Error("missing test defaults");
+    }
+    storage.setItem(TRACKER_STORAGE_KEY, JSON.stringify({
+      activeScenarioId: "basicTragedy:1",
+      mastermindOverlay: true,
+      games: {
+        "basicTragedy:1": validDefaults,
+        unknownScenario: { malformed: true },
+      },
+    }));
+
+    expect(() => loadTrackerStore(storage, storedGameDefaults))
+      .toThrow(STORAGE_RESET_NOTICE);
+    expect(storage.getItem(TRACKER_STORAGE_KEY)).toBeNull();
   });
 
   it("fills missing state fields from current defaults without losing saved values", () => {

@@ -5,6 +5,8 @@ export const RETIRED_TRACKER_STORAGE_KEYS = [
   "tragedy-looper:tracker:v1",
   "tragedy-looper-mastermind:tracker:v1",
 ] as const;
+export const STORAGE_RESET_NOTICE =
+  "저장 데이터를 읽을 수 없어 새로 시작합니다.";
 
 export interface LoopObservation {
   recordedAt: string;
@@ -148,7 +150,8 @@ export function loadTrackerStore(
     const parsed: unknown = JSON.parse(raw);
     return restoreTrackerStore(parsed, storedGameDefaults);
   } catch {
-    return emptyTrackerStore();
+    storage.removeItem(TRACKER_STORAGE_KEY);
+    throw new Error(STORAGE_RESET_NOTICE);
   }
 }
 
