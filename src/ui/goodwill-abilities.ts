@@ -86,6 +86,7 @@ export interface GoodwillAbilityView {
   targetRequired: boolean;
   choice: GoodwillChoice;
   disabledReason?: GoodwillDisabledReason;
+  disabledDiagnostic?: string;
 }
 
 const GOODWILL_ABILITIES = goodwillAbilitiesJson as unknown as Readonly<
@@ -321,6 +322,65 @@ function disabledReasonFor(
   return undefined;
 }
 
+function disabledDiagnosticFor(
+  state: GameState,
+  character: CharacterId,
+  ability: StructuredGoodwillAbility,
+  targets: readonly Target[],
+  choice: GoodwillChoice,
+  reason: GoodwillDisabledReason,
+): string {
+  switch (reason) {
+    case "dead":
+      return `alive=${state.loop.board[character].alive}`;
+    case "minLoop":
+      return `loop=${state.loop.loop}, minLoop=${ability.minLoop}`;
+    case "notImplemented":
+      return `implemented=${ability.implemented}`;
+    case "spent": {
+      const key = `${character}:goodwill:${ability.abilityIndex}`;
+      const used = state.loop.abilitiesUsedThisLoop.filter(
+        (usedKey) => usedKey === key,
+      ).length;
+      return `used=${used}, limit=${ability.timesPerLoop}`;
+    }
+    case "restrictedLocation":
+      return `at=${state.loop.board[character].at}, allowed=${
+        JSON.stringify(ability.restrictedToLocation)
+      }`;
+    case "noTarget":
+      return `scope=${ability.target.scope}, excludeSelf=${
+        ability.target.excludeSelf
+      }, tags=${JSON.stringify(ability.target.tags)}, predicates=${
+        JSON.stringify(ability.target.predicates ?? [])
+      }, candidates=${JSON.stringify(targets)}`;
+    case "noSpentCard":
+      return `leader=${state.loop.leader}, spent=${
+        JSON.stringify(state.loop.spentOncePerLoop.protagonists)
+      }`;
+    case "noChoice":
+      if (choice.kind === "subplot") {
+        return `choice=subplot, declarations=${
+          JSON.stringify(choice.options)
+        }, reveals=${JSON.stringify(choice.revealOptions)}`;
+      }
+      if (
+        choice.kind === "incident" ||
+        choice.kind === "pastIncident" ||
+        choice.kind === "counter"
+      ) {
+        return `choice=${choice.kind}, candidates=${JSON.stringify(choice.options)}`;
+      }
+      return `choice=${choice.kind}, candidates=[]`;
+    case "unsupportedTurf":
+      return "predicate=inUserTurf, candidates=unsupported";
+    case "multipleTargets":
+      return `required=${ability.target.count ?? 1}, candidates=${
+        JSON.stringify(targets)
+      }`;
+  }
+}
+
 /** P6에 표시할 능력을 구조화 데이터의 제약과 현재 상태로 계산한다. */
 export function goodwillAbilityViews(state: GameState): GoodwillAbilityView[] {
   return Object.keys(state.loop.board).flatMap((character) =>
@@ -328,6 +388,13 @@ export function goodwillAbilityViews(state: GameState): GoodwillAbilityView[] {
       if (state.loop.charCounters[character].goodwill < schema.rank) return [];
       const targets = targetsFor(state, character, schema);
       const choice = choiceFor(state, schema.choices);
+      const disabledReason = disabledReasonFor(
+        state,
+        character,
+        schema,
+        targets,
+        choice,
+      );
       return [{
         character,
         abilityIndex: schema.abilityIndex,
@@ -337,13 +404,17 @@ export function goodwillAbilityViews(state: GameState): GoodwillAbilityView[] {
         targetRequired:
           schema.target.scope !== "none" && schema.target.scope !== "self",
         choice,
-        disabledReason: disabledReasonFor(
-          state,
-          character,
-          schema,
-          targets,
-          choice,
-        ),
+        disabledReason,
+        disabledDiagnostic: disabledReason === undefined
+          ? undefined
+          : disabledDiagnosticFor(
+            state,
+            character,
+            schema,
+            targets,
+            choice,
+            disabledReason,
+          ),
       }];
     })
   );

@@ -49,11 +49,13 @@ describe("structured goodwill ability UI", () => {
     expect(views.find(({ character }) => character === "officeWorker"))
       .toMatchObject({
         disabledReason: "dead",
+        disabledDiagnostic: "alive=false",
         targetRequired: false,
       });
     expect(views.find(({ character }) => character === "boyStudent"))
       .toMatchObject({
         disabledReason: "dead",
+        disabledDiagnostic: "alive=false",
         targetRequired: true,
       });
   });
@@ -77,11 +79,14 @@ describe("structured goodwill ability UI", () => {
     ]);
 
     state.loop.board.girlStudent.at = "City";
-    expect(
-      goodwillAbilityViews(state).find(
-        ({ character }) => character === "boyStudent",
-      )?.disabledReason,
-    ).toBe("noTarget");
+    const unavailableBoy = goodwillAbilityViews(state).find(
+      ({ character }) => character === "boyStudent",
+    );
+    expect(unavailableBoy?.disabledReason).toBe("noTarget");
+    expect(unavailableBoy?.disabledDiagnostic).toBe(
+      'scope=sameLocation, excludeSelf=true, tags=["student"], ' +
+      'predicates=["alive"], candidates=[]',
+    );
   });
 
   it("offers doctor rank 2 only other living characters nearby and the +1/-1 choice", () => {
@@ -150,6 +155,7 @@ describe("structured goodwill ability UI", () => {
 
     expect(goodwillAbilityViews(state)[0]).toMatchObject({
       disabledReason: "minLoop",
+      disabledDiagnostic: "loop=1, minLoop=2",
       schema: { minLoop: 2 },
     });
 
@@ -162,15 +168,68 @@ describe("structured goodwill ability UI", () => {
     unlock(state, "scientist", 3);
     unlock(state, "illusion", 4);
 
-    expect(goodwillAbilityViews(state).map(({ character, schema, disabledReason }) => ({
+    expect(goodwillAbilityViews(state).map(({
+      character,
+      schema,
+      disabledReason,
+      disabledDiagnostic,
+    }) => ({
       character,
       rank: schema.rank,
       disabledReason,
+      disabledDiagnostic,
     }))).toEqual([
-      { character: "scientist", rank: 3, disabledReason: "notImplemented" },
-      { character: "illusion", rank: 3, disabledReason: "notImplemented" },
-      { character: "illusion", rank: 4, disabledReason: "notImplemented" },
+      {
+        character: "scientist",
+        rank: 3,
+        disabledReason: "notImplemented",
+        disabledDiagnostic: "implemented=false",
+      },
+      {
+        character: "illusion",
+        rank: 3,
+        disabledReason: "notImplemented",
+        disabledDiagnostic: "implemented=false",
+      },
+      {
+        character: "illusion",
+        rank: 4,
+        disabledReason: "notImplemented",
+        disabledDiagnostic: "implemented=false",
+      },
     ]);
+  });
+
+  it("shows evidence for unsupported turf and multiple-target abilities", () => {
+    const state = createState([
+      "boss",
+      "forensicSpecialist",
+      "boyStudent",
+      "girlStudent",
+    ]);
+    for (const character of Object.keys(state.loop.board)) {
+      state.loop.board[character].at = "City";
+    }
+    unlock(state, "boss", 5);
+    unlock(state, "forensicSpecialist", 2);
+
+    const views = goodwillAbilityViews(state);
+    expect(views.find(
+      ({ character, schema }) => character === "boss" && schema.rank === 5,
+    )).toMatchObject({
+      disabledReason: "unsupportedTurf",
+      disabledDiagnostic: "predicate=inUserTurf, candidates=unsupported",
+    });
+    expect(views.find(
+      ({ character, schema }) =>
+        character === "forensicSpecialist" && schema.rank === 2,
+    )).toMatchObject({
+      disabledReason: "multipleTargets",
+      disabledDiagnostic:
+        'required=2, candidates=[{"kind":"character","id":"boss"},' +
+        '{"kind":"character","id":"boyStudent"},' +
+        '{"kind":"character","id":"girlStudent"}]',
+    });
   });
 
   it("enforces shrineMaiden rank 3's Shrine restriction", () => {
@@ -184,16 +243,20 @@ describe("structured goodwill ability UI", () => {
     });
 
     state.loop.board.shrineMaiden.at = "City";
-    expect(goodwillAbilityViews(state)[0].disabledReason).toBe(
-      "restrictedLocation",
-    );
+    expect(goodwillAbilityViews(state)[0]).toMatchObject({
+      disabledReason: "restrictedLocation",
+      disabledDiagnostic: 'at=City, allowed=["Shrine"]',
+    });
   });
 
   it("shows once-per-loop abilities as spent and requires a recoverable card", () => {
     const state = createState(["classRep"]);
     unlock(state, "classRep", 2);
 
-    expect(goodwillAbilityViews(state)[0].disabledReason).toBe("noSpentCard");
+    expect(goodwillAbilityViews(state)[0]).toMatchObject({
+      disabledReason: "noSpentCard",
+      disabledDiagnostic: "leader=0, spent=[[],[],[]]",
+    });
 
     state.loop.spentOncePerLoop.protagonists[0].push("moveVertical");
     expect(goodwillAbilityViews(state)[0]).toMatchObject({
@@ -202,7 +265,10 @@ describe("structured goodwill ability UI", () => {
     });
 
     state.loop.abilitiesUsedThisLoop.push("classRep:goodwill:0");
-    expect(goodwillAbilityViews(state)[0].disabledReason).toBe("spent");
+    expect(goodwillAbilityViews(state)[0]).toMatchObject({
+      disabledReason: "spent",
+      disabledDiagnostic: "used=1, limit=1",
+    });
   });
 
   it("keeps both journalist rank-2 abilities as separate rows", () => {
@@ -267,6 +333,7 @@ describe("structured goodwill ability UI", () => {
 
     expect(goodwillAbilityViews(state)[0]).toMatchObject({
       disabledReason: "noChoice",
+      disabledDiagnostic: "choice=pastIncident, candidates=[]",
       choice: { kind: "pastIncident", options: [] },
     });
 

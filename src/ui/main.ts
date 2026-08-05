@@ -1163,7 +1163,14 @@ function renderGoodwillAbilities(state: GameState): string {
     return `<p class="empty-overlay">${escapeHtml(misc("No available ability", "No available ability"))}</p>`;
   }
   return `<div class="goodwill-list">${abilities.map((view) => {
-    const { character, abilityIndex, key, schema, disabledReason } = view;
+    const {
+      character,
+      abilityIndex,
+      key,
+      schema,
+      disabledReason,
+      disabledDiagnostic,
+    } = view;
     const disabled = disabledReason !== undefined;
     const reason = disabledReason === undefined
       ? ""
@@ -1174,6 +1181,9 @@ function renderGoodwillAbilities(state: GameState): string {
         <span>${escapeHtml(characterName(character))} · ${escapeHtml(misc("Goodwill"))} ${schema.rank}</span>
         <strong>${escapeHtml(gameText(schema._source, schema.ko))}</strong>
         ${reason ? `<small class="goodwill-disabled-reason">${escapeHtml(reason)}</small>` : ""}
+        ${disabledDiagnostic
+          ? `<small class="goodwill-disabled-diagnostic">(${escapeHtml(disabledDiagnostic)})</small>`
+          : ""}
       </div>
       <div class="goodwill-inputs">
         ${renderGoodwillTarget(view, disabled)}
