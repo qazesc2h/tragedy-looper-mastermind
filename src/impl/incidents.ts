@@ -71,6 +71,8 @@ function killEffectApplied(
     state.loop.charCounters[character].protection !== before.protection;
 }
 
+// IMPLEMENTED_ELSEWHERE: src/engine/incident.ts resolveIncidentEffect()
+// 사건 훅의 ALWAYS는 원문 timing 보존용이며 발생한 사건만 직접 해결한다.
 /** 기본편 사건 — 총 9건 */
 export const INCIDENT_IMPL: Record<string, {
   ko: string;

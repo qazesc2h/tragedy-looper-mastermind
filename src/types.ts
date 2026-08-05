@@ -319,13 +319,25 @@ export interface GameState {
 }
 
 // ─────────────────────────────────────────────────────────── 훅
+export interface DeathHookContext {
+  kind: "death";
+  /** 같은 원자적 효과 묶음에서 실제로 사망한 캐릭터들 */
+  deadCharacters: readonly CharacterId[];
+}
+
+export type HookContext = DeathHookContext;
+
 export interface Hook {
   phase: HookPoint;
   kind: "mandatory" | "optional" | "lossTragedy" | "lossDeath" | "scriptBuild";
   timesPerLoop?: number;
   /** 원본 영문 (수정 금지) — 구현 검증용 근거 */
   source: { timing: string; prerequisite?: string; description?: string };
-  when: (s: GameState, self: CharacterId) => boolean;
+  when: (
+    s: GameState,
+    self: CharacterId,
+    context?: HookContext,
+  ) => boolean;
   /** 동시 해결 전에 확정해야 하는 효과 대상 */
   effectTarget?: (s: GameState, self: CharacterId) => Target | undefined;
   effect: (

@@ -3,7 +3,7 @@
 
 import {
   type GameState, type Hook, type HookPoint, type IncidentChoice,
-  type IncidentResult, type Phase,
+  type HookContext, type IncidentResult, type Phase,
   PHASE_ORDER,
 } from "../types";
 import { effectiveAbilityRoles, ROLE_IMPL } from "../impl/roles";
@@ -12,6 +12,7 @@ import { resolveActions } from "./resolve";
 import { resolveIncident } from "./incident";
 import { requestLoopEnd } from "./flow";
 import { evaluateLoss } from "./loss";
+import { withDeathBatch } from "./death";
 
 function requestEndForActivatedLosses(s: GameState): void {
   // LOOP_END 조건은 라운드 종료 훅과 LAST_DAY 처리를 마친 뒤 finishLoop()에서
@@ -58,18 +59,25 @@ export function collectHooks(s: GameState, at: HookPoint): {
  * "동시"란 조건 판정을 모두 먼저 하고 나서 효과를 적용한다는 뜻이다.
  * FAQ Q21: 연쇄 살인마 둘이 단 둘이 있으면 서로 죽인다 — 순차 처리하면
  * 한쪽만 죽는다. 반드시 판정/적용을 분리할 것.
+ * 이 강제 훅 묶음 전체가 하나의 사망 배치이며 단계 밖으로 이어지지 않는다.
  */
-export function resolveHooks(s: GameState, at: HookPoint): void {
+export function resolveHooks(
+  s: GameState,
+  at: HookPoint,
+  context?: HookContext,
+): void {
   const all = collectHooks(s, at);
 
   const mandatory = all.filter((x) => x.hook.kind !== "optional");
   const fired = mandatory
-    .filter((x) => x.hook.when(s, x.self))
+    .filter((x) => x.hook.when(s, x.self, context))
     .map((x) => ({
       ...x,
       target: x.hook.effectTarget?.(s, x.self),
     }));                                                        // ① 전원 판정
-  for (const x of fired) x.hook.effect(s, x.self, x.target);     // ② 일괄 적용
+  withDeathBatch(s, () => {
+    for (const x of fired) x.hook.effect(s, x.self, x.target);   // ② 일괄 적용
+  });
 
   // TODO: [선택] 훅은 각본가에게 목록을 제시하고 순서/발동 여부를 받아야 한다.
   //       자동 진행이 아니라 UI 상호작용 지점.
@@ -101,8 +109,9 @@ export function advance(
       break;
 
     case "P4_RESOLVE":
+      // 강제 훅과 이동→나머지 행동 해결은 서로 다른 사망 배치다.
       resolveHooks(s, "P4_RESOLVE");
-      resolveActions(s);
+      withDeathBatch(s, () => resolveActions(s));
       break;
 
     case "P5_MASTERMIND_ABILITY":

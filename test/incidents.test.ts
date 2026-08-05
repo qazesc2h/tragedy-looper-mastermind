@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { resolveIncident } from "../src/engine/incident";
 import { resolveGoodwillAbility } from "../src/engine/goodwill";
+import { settleGameFlow } from "../src/engine/game";
 import { evaluateLoss } from "../src/engine/loss";
 import { advance } from "../src/engine/phases";
 import { initLoop } from "../src/engine/setup";
@@ -252,6 +253,47 @@ describe("hospitalIncident", () => {
     state.loop.locIntrigue.Hospital = 1;
 
     expect(lossHook.when(state, CULPRIT)).toBe(false);
+  });
+
+  it("does not add paranoia when both lovers die in the same incident", () => {
+    const state = createState("hospitalIncident", {
+      [CULPRIT]: "person",
+      [TARGET]: "lover",
+      [OTHER]: "lovedOne",
+    });
+    state.loop.locIntrigue.Hospital = 1;
+    state.loop.board[TARGET].at = "Hospital";
+    state.loop.board[OTHER].at = "Hospital";
+
+    resolveIncident(state);
+
+    expect(state.loop.board[TARGET].alive).toBe(false);
+    expect(state.loop.board[OTHER].alive).toBe(false);
+    expect(state.loop.charCounters[TARGET].paranoia).toBe(0);
+    expect(state.loop.charCounters[OTHER].paranoia).toBe(0);
+  });
+
+  it("resolves a lover reaction before a simultaneous keyPerson loss", () => {
+    const lovedOne = "boss";
+    const state = createState("hospitalIncident", {
+      [CULPRIT]: "person",
+      [TARGET]: "lover",
+      [OTHER]: "keyPerson",
+      [lovedOne]: "lovedOne",
+    });
+    state.loop.locIntrigue.Hospital = 1;
+    state.loop.board[TARGET].at = "Hospital";
+    state.loop.board[OTHER].at = "Hospital";
+
+    advance(state);
+
+    expect(state.loop.charCounters[lovedOne].paranoia).toBe(6);
+    expect(state.pendingLoopEnd).toBeDefined();
+
+    settleGameFlow(state);
+
+    expect(state.gamePhase).toBe("LOOP_JUDGMENT");
+    expect(state.history[0].charCounters[lovedOne].paranoia).toBe(6);
   });
 });
 

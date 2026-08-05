@@ -6,6 +6,7 @@ import { effectiveRole } from "../types";
 import type {
   GameState,
   CharacterId,
+  HookContext,
   Hook,
   RoleId,
   Target,
@@ -142,14 +143,13 @@ function roleWasRevealed(
   );
 }
 
-function counterpartIsDead(
+function counterpartDied(
   state: GameState,
   counterpartRole: RoleId,
+  context: HookContext | undefined,
 ): boolean {
-  const counterpart = characterWithRole(state, counterpartRole);
-  return (
-    counterpart !== undefined &&
-    !state.loop.board[counterpart].alive
+  return context?.kind === "death" && context.deadCharacters.some(
+    (character) => effectiveRole(state, character) === counterpartRole,
   );
 }
 
@@ -179,6 +179,8 @@ export const ROLE_IMPL: Record<string, {
           prerequisite: `This character dies.`,
           description: `The loop ends immediately.`,
         },
+        // IMPLEMENTED_ELSEWHERE: src/engine/loss.ts evaluateLoss()
+        // 일반 ALWAYS 디스패처가 아니라 즉시 패배 조건 조회로 처리한다.
         when: (s: GameState, self: CharacterId) =>
           !s.loop.board[self].alive,
         effect: (s: GameState, _self: CharacterId) => {
@@ -375,15 +377,18 @@ export const ROLE_IMPL: Record<string, {
     ko: "연인B",
     hooks: [
       {
-        phase: "ALWAYS",
+        phase: "ON_DEATH",
         kind: "mandatory",
         source: {
           timing: "Always",
           prerequisite: `The :lovedOne: dies`,
           description: `This character gets 6 :paranoia:.`,
         },
-        when: (s: GameState, _self: CharacterId) =>
-          counterpartIsDead(s, "lovedOne"),
+        when: (
+          s: GameState,
+          _self: CharacterId,
+          context?: HookContext,
+        ) => counterpartDied(s, "lovedOne", context),
         effect: (s: GameState, self: CharacterId) => {
           if (s.loop.board[self].alive) {
             s.loop.charCounters[self].paranoia += 6;
@@ -397,15 +402,18 @@ export const ROLE_IMPL: Record<string, {
     ko: "연인A",
     hooks: [
       {
-        phase: "ALWAYS",
+        phase: "ON_DEATH",
         kind: "mandatory",
         source: {
           timing: "Always",
           prerequisite: `The :lover: dies`,
           description: `This character gets 6 :paranoia:.`,
         },
-        when: (s: GameState, _self: CharacterId) =>
-          counterpartIsDead(s, "lover"),
+        when: (
+          s: GameState,
+          _self: CharacterId,
+          context?: HookContext,
+        ) => counterpartDied(s, "lover", context),
         effect: (s: GameState, self: CharacterId) => {
           if (s.loop.board[self].alive) {
             s.loop.charCounters[self].paranoia += 6;
@@ -481,6 +489,7 @@ export const ROLE_IMPL: Record<string, {
           prerequisite: `There is at least 2 :intrigue: on the School`,
           description: `This character gains the :conspiracyTheorist:‘s ability, but not its role.`,
         },
+        // IMPLEMENTED_ELSEWHERE: effectiveAbilityRoles()가 이 훅을 조회한다.
         when: (s: GameState, _self: CharacterId) =>
           factorHasConspiracyTheoristAbility(s),
         effect: (_s: GameState, _self: CharacterId) =>
@@ -494,6 +503,7 @@ export const ROLE_IMPL: Record<string, {
           prerequisite: `There is at least 2 :intrigue: on the City`,
           description: `This character gains the :keyPerson:’s ability, but not its role.`,
         },
+        // IMPLEMENTED_ELSEWHERE: effectiveAbilityRoles()가 이 훅을 조회한다.
         when: (s: GameState, _self: CharacterId) =>
           factorHasKeyPersonAbility(s),
         effect: (_s: GameState, _self: CharacterId) => "keyPerson",

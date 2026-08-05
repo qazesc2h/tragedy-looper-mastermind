@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { killCharacter, reviveCharacter } from "../src/engine/death";
+import {
+  killCharacter,
+  reviveCharacter,
+  withDeathBatch,
+} from "../src/engine/death";
 import { settleGameFlow } from "../src/engine/game";
 import { requestLoopEnd } from "../src/engine/flow";
 import {
@@ -680,72 +684,121 @@ describe("lover / lovedOne death reactions", () => {
   const loverHook = hook("lover");
   const lovedOneHook = hook("lovedOne");
 
-  it("confirms lover is Lover B and reacts to Lover A's death", () => {
+  it("reacts through killCharacter when Lover A dies", () => {
     const state = createRoleState({
       [LOVER]: "lover",
       [LOVED_ONE]: "lovedOne",
     });
-    state.loop.board[LOVED_ONE].alive = false;
 
     expect(ROLE_IMPL.lover.ko).toBe("연인B");
-    expect(loverHook.when(state, LOVER)).toBe(true);
-    applyIfEligible(loverHook, state, LOVER);
+    expect(loverHook.phase).toBe("ON_DEATH");
+    expect(killCharacter(state, LOVED_ONE)).toBe(true);
 
     expect(state.loop.charCounters[LOVER].paranoia).toBe(6);
   });
 
-  it("does not trigger Lover B while Lover A is alive", () => {
+  it("does not react when an unrelated character dies", () => {
     const state = createRoleState({
       [LOVER]: "lover",
       [LOVED_ONE]: "lovedOne",
+      [FRIEND]: "person",
     });
 
-    expect(loverHook.when(state, LOVER)).toBe(false);
-    applyIfEligible(loverHook, state, LOVER);
+    expect(killCharacter(state, FRIEND)).toBe(true);
 
     expect(state.loop.charCounters[LOVER].paranoia).toBe(0);
+    expect(state.loop.charCounters[LOVED_ONE].paranoia).toBe(0);
   });
 
-  it("confirms lovedOne is Lover A and reacts to Lover B's death", () => {
+  it("reacts through killCharacter when Lover B dies", () => {
     const state = createRoleState({
       [LOVER]: "lover",
       [LOVED_ONE]: "lovedOne",
     });
-    state.loop.board[LOVER].alive = false;
 
     expect(ROLE_IMPL.lovedOne.ko).toBe("연인A");
-    expect(lovedOneHook.when(state, LOVED_ONE)).toBe(true);
-    applyIfEligible(lovedOneHook, state, LOVED_ONE);
+    expect(lovedOneHook.phase).toBe("ON_DEATH");
+    expect(killCharacter(state, LOVER)).toBe(true);
 
     expect(state.loop.charCounters[LOVED_ONE].paranoia).toBe(6);
   });
 
-  it("does not trigger Lover A while Lover B is alive", () => {
+  it("does not record a death blocked by protection", () => {
     const state = createRoleState({
       [LOVER]: "lover",
       [LOVED_ONE]: "lovedOne",
     });
+    state.loop.charCounters[LOVED_ONE].protection = 1;
 
-    expect(lovedOneHook.when(state, LOVED_ONE)).toBe(false);
-    applyIfEligible(lovedOneHook, state, LOVED_ONE);
+    expect(killCharacter(state, LOVED_ONE)).toBe(false);
 
-    expect(state.loop.charCounters[LOVED_ONE].paranoia).toBe(0);
+    expect(state.loop.board[LOVED_ONE].alive).toBe(true);
+    expect(state.loop.charCounters[LOVED_ONE].protection).toBe(0);
+    expect(state.loop.charCounters[LOVER].paranoia).toBe(0);
   });
 
-  it("does nothing when both lovers are already dead", () => {
+  it("does nothing when both lovers die in the same batch", () => {
     const state = createRoleState({
       [LOVER]: "lover",
       [LOVED_ONE]: "lovedOne",
     });
-    state.loop.board[LOVER].alive = false;
-    state.loop.board[LOVED_ONE].alive = false;
 
-    expect(loverHook.when(state, LOVER)).toBe(true);
-    expect(lovedOneHook.when(state, LOVED_ONE)).toBe(true);
-    resolveHooks(state, "ALWAYS");
+    withDeathBatch(state, () => {
+      expect(killCharacter(state, LOVER)).toBe(true);
+      expect(killCharacter(state, LOVED_ONE)).toBe(true);
+    });
 
     expect(state.loop.charCounters[LOVER].paranoia).toBe(0);
     expect(state.loop.charCounters[LOVED_ONE].paranoia).toBe(0);
+  });
+
+  it("treats death after revival as a fresh death event", () => {
+    const state = createRoleState({
+      [LOVER]: "lover",
+      [LOVED_ONE]: "lovedOne",
+    });
+
+    expect(killCharacter(state, LOVED_ONE)).toBe(true);
+    expect(state.loop.charCounters[LOVER].paranoia).toBe(6);
+    expect(reviveCharacter(state, LOVED_ONE)).toBe(true);
+    expect(killCharacter(state, LOVED_ONE)).toBe(true);
+
+    expect(state.loop.charCounters[LOVER].paranoia).toBe(12);
+  });
+
+  it("finishes all death reactions before settling a keyPerson loss", () => {
+    const state = createRoleState({
+      [CULTIST]: "keyPerson",
+      [LOVER]: "lover",
+      [LOVED_ONE]: "lovedOne",
+    });
+
+    withDeathBatch(state, () => {
+      expect(killCharacter(state, CULTIST)).toBe(true);
+      expect(killCharacter(state, LOVER)).toBe(true);
+    });
+
+    expect(state.loop.charCounters[LOVED_ONE].paranoia).toBe(6);
+    expect(state.gamePhase).toBe("ROUND");
+
+    settleGameFlow(state);
+
+    expect(state.gamePhase).toBe("LOOP_JUDGMENT");
+    expect(state.history[0].charCounters[LOVED_ONE].paranoia).toBe(6);
+  });
+
+  it("closes the P9 mandatory batch before resolving death reactions", () => {
+    const state = createRoleState({
+      [BRAIN]: "serialKiller",
+      [LOVER]: "lover",
+      [LOVED_ONE]: "lovedOne",
+    });
+    state.loop.board[LOVER].at = "School";
+
+    resolveHooks(state, "P9_ROUND_END");
+
+    expect(state.loop.board[LOVED_ONE].alive).toBe(false);
+    expect(state.loop.charCounters[LOVER].paranoia).toBe(6);
   });
 });
 

@@ -1,6 +1,7 @@
 import scriptsJson from "../../data/basic-tragedy-scripts.json";
 import { adaptBasicTragedyScript, characterDataOf } from "../data";
 import { resolveGoodwillAbility } from "../engine/goodwill";
+import { withDeathBatch } from "../engine/death";
 import {
   advanceGame,
   chooseInitialLeader,
@@ -2041,7 +2042,8 @@ function applySelectedOptionalHooks(state: GameState): void {
     if (targetOptions.length > 0 && target === undefined) {
       throw new Error(misc("Select a target", "Select a target"));
     }
-    hook.effect(state, self, target);
+    // 선택 훅은 선택한 하나마다 사망 배치를 닫고 종료 판정을 한다.
+    withDeathBatch(state, () => hook.effect(state, self, target));
     settleGameFlow(state);
     if (state.gamePhase !== "ROUND") return;
   }

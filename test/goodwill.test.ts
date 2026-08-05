@@ -188,6 +188,44 @@ describe("goodwill-comes-after-card-resolve", () => {
 });
 
 describe("goodwill availability and refusal", () => {
+  it("closes an alien rank-4 death batch after the ability resolves", () => {
+    const scenario: Scenario = {
+      tragedySet: "basicTragedy",
+      mainPlot: "",
+      subPlots: [],
+      cast: {
+        alien: "person",
+        girlStudent: "lovedOne",
+        boyStudent: "lover",
+      },
+      incidents: [],
+      loops: 1,
+      daysPerLoop: 3,
+    };
+    const state: GameState = {
+      scenario,
+      gamePhase: "ROUND",
+      loop: initLoop(scenario),
+      history: [],
+      loopOutcomes: [],
+    };
+    state.loop.phase = "P6_GOODWILL";
+    for (const character of Object.keys(state.loop.board)) {
+      state.loop.board[character].at = "City";
+    }
+    state.loop.charCounters.alien.goodwill = 4;
+
+    resolveGoodwillAbility(state, {
+      user: "alien",
+      rank: 4,
+      abilityIndex: 0,
+      target: "girlStudent",
+    }, "resolve");
+
+    expect(state.loop.board.girlStudent.alive).toBe(false);
+    expect(state.loop.charCounters.boyStudent.paranoia).toBe(6);
+  });
+
   it("requires at least the printed rank in goodwill", () => {
     const state = createState("goodwill-chain-and-refusal");
     state.loop.phase = "P6_GOODWILL";

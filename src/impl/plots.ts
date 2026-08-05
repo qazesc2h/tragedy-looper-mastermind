@@ -72,7 +72,8 @@ export const PLOT_IMPL: Record<string, {
           timing: "Always",
           description: `:keyPerson: must be a :girl:.`,
         },
-        // SCRIPT_BUILD: 런타임 훅 아님. src/engine/validate.ts 참조
+        // IMPLEMENTED_ELSEWHERE: src/engine/validate.ts validateScenario()
+        // SCRIPT_BUILD: 런타임 훅 아님.
         // 이 훅은 원문 보존용이다. 런타임 로직을 넣지 않는다.
         when: (_s: GameState, _self: CharacterId) => false,
         effect: (_s: GameState, _self: CharacterId) => {},

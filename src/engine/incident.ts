@@ -7,6 +7,7 @@ import type {
   IncidentFailureReason,
   IncidentResult,
 } from "../types";
+import { withDeathBatch } from "./death";
 
 /** 예정 사건이 발생하지 않는 이유를 각본가 화면에 표시한다. */
 export function incidentFailureReasons(
@@ -45,13 +46,15 @@ export function resolveIncidentEffect(
     throw new Error(`unknown incident "${incident}"`);
   }
 
-  // 조건은 효과 적용 전에 모두 판정한다.
+  // 조건은 효과 적용 전에 모두 판정한다. 활성 훅 전체가 P7 사망 배치 하나다.
   const activeHooks = impl.hooks.filter((hook) => hook.when(state, culprit));
-  let effectApplied = false;
-  for (const hook of activeHooks) {
-    effectApplied = hook.effect(state, culprit, choice) || effectApplied;
-  }
-  return effectApplied;
+  return withDeathBatch(state, () => {
+    let effectApplied = false;
+    for (const hook of activeHooks) {
+      effectApplied = hook.effect(state, culprit, choice) || effectApplied;
+    }
+    return effectApplied;
+  });
 }
 
 /** 사건의 공통 발생 조건 두 가지를 판정한다. */

@@ -12,7 +12,7 @@ import {
   type ScheduledIncident,
   type Target,
 } from "../types";
-import { killCharacter, reviveCharacter } from "./death";
+import { killCharacter, reviveCharacter, withDeathBatch } from "./death";
 import { resolveIncidentEffect } from "./incident";
 
 export type GoodwillResponse = "resolve" | "refuse";
@@ -652,10 +652,13 @@ export function resolveGoodwillAbility(
     };
   }
 
-  const effectApplied = applySimpleBaseAbility(
-    state,
-    declaration,
-    selected,
+  // P6 선언 하나의 효과가 끝나면 사망 배치를 즉시 닫는다.
+  const effectApplied = withDeathBatch(state, () =>
+    applySimpleBaseAbility(
+      state,
+      declaration,
+      selected,
+    )
   );
   if (effectApplied === undefined) {
     throw new Error(
