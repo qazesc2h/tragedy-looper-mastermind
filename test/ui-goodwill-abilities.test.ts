@@ -1,11 +1,20 @@
 import { describe, expect, it } from "vitest";
+import { resolveGoodwillAbility } from "../src/engine/goodwill";
+import { advanceGame } from "../src/engine/game";
+import { validatePlacement } from "../src/engine/legal";
 import { initLoop } from "../src/engine/setup";
 import {
   decodeIncidentSelection,
   encodeIncidentSelection,
   goodwillAbilityViews,
 } from "../src/ui/goodwill-abilities";
-import type { CharacterId, GameState, Scenario } from "../src/types";
+import type {
+  ActionCard,
+  CharacterId,
+  GameState,
+  PlacedCard,
+  Scenario,
+} from "../src/types";
 
 function createState(characters: readonly CharacterId[]): GameState {
   const scenario: Scenario = {
@@ -30,6 +39,53 @@ function createState(characters: readonly CharacterId[]): GameState {
 
 function unlock(state: GameState, character: CharacterId, goodwill: number): void {
   state.loop.charCounters[character].goodwill = goodwill;
+}
+
+function resolveLeaderCardThroughP4(
+  state: GameState,
+  card: ActionCard,
+): void {
+  const leader = state.loop.leader;
+  const placements: PlacedCard[] = [
+    {
+      owner: "mastermind",
+      card: "paranoiaPlus1",
+      target: { kind: "character", id: "classRep" },
+    },
+    {
+      owner: "mastermind",
+      card: "paranoiaMinus1",
+      target: { kind: "character", id: "boyStudent" },
+    },
+    {
+      owner: "mastermind",
+      card: "intriguePlus1",
+      target: { kind: "location", at: "Shrine" },
+    },
+    {
+      owner: leader,
+      card,
+      target: { kind: "character", id: "classRep" },
+    },
+    {
+      owner: ((leader + 1) % 3) as 0 | 1 | 2,
+      card: "goodwillPlus1",
+      target: { kind: "character", id: "boyStudent" },
+    },
+    {
+      owner: ((leader + 2) % 3) as 0 | 1 | 2,
+      card: "paranoiaPlus1",
+      target: { kind: "character", id: "girlStudent" },
+    },
+  ];
+  state.loop.placed = [];
+  for (const placement of placements) {
+    expect(validatePlacement(state, placement)).toEqual({ ok: true });
+    state.loop.placed.push(placement);
+  }
+  state.loop.phase = "P4_RESOLVE";
+  advanceGame(state);
+  expect(state.loop.phase).toBe("P6_GOODWILL");
 }
 
 describe("structured goodwill ability UI", () => {
@@ -249,8 +305,12 @@ describe("structured goodwill ability UI", () => {
     });
   });
 
-  it("shows once-per-loop abilities as spent and requires a recoverable card", () => {
-    const state = createState(["classRep"]);
+  it.each<ActionCard>([
+    "goodwillPlus2",
+    "paranoiaMinus1",
+    "forbidMove",
+  ])("recovers the leader's %s card after the actual P4 path", (card) => {
+    const state = createState(["classRep", "boyStudent", "girlStudent"]);
     unlock(state, "classRep", 2);
 
     expect(goodwillAbilityViews(state)[0]).toMatchObject({
@@ -258,17 +318,61 @@ describe("structured goodwill ability UI", () => {
       disabledDiagnostic: "leader=0, spent=[[],[],[]]",
     });
 
-    state.loop.spentOncePerLoop.protagonists[0].push("moveVertical");
-    expect(goodwillAbilityViews(state)[0]).toMatchObject({
+    resolveLeaderCardThroughP4(state, card);
+    const view = goodwillAbilityViews(state).find(
+      ({ character, schema }) => character === "classRep" && schema.rank === 2,
+    );
+    expect(view).toMatchObject({
       disabledReason: undefined,
-      choice: { kind: "spentCard", options: ["moveVertical"] },
+      choice: { kind: "spentCard", options: [card] },
+    });
+    expect(state.loop.spentOncePerLoop.protagonists[0]).toEqual([card]);
+
+    resolveGoodwillAbility(state, {
+      user: "classRep",
+      rank: 2,
+      abilityIndex: 0,
+      card,
+    }, "resolve");
+
+    expect(state.loop.spentOncePerLoop.protagonists[0]).toEqual([]);
+  });
+
+  it("uses the new leader's spent cards after P8 passes leadership", () => {
+    const state = createState(["classRep", "boyStudent", "girlStudent"]);
+    unlock(state, "classRep", 2);
+    state.loop.phase = "P7_INCIDENT";
+
+    advanceGame(state);
+    expect(state.loop.phase).toBe("P9_ROUND_END");
+    expect(state.loop.leader).toBe(1);
+    advanceGame(state);
+    expect(state.loop).toMatchObject({
+      day: 2,
+      phase: "P2_MASTERMIND_ACTION",
+      leader: 1,
     });
 
-    state.loop.abilitiesUsedThisLoop.push("classRep:goodwill:0");
-    expect(goodwillAbilityViews(state)[0]).toMatchObject({
-      disabledReason: "spent",
-      disabledDiagnostic: "used=1, limit=1",
+    resolveLeaderCardThroughP4(state, "goodwillPlus2");
+    expect(state.loop.spentOncePerLoop.protagonists).toEqual([
+      [],
+      ["goodwillPlus2"],
+      [],
+    ]);
+    expect(goodwillAbilityViews(state).find(
+      ({ character, schema }) => character === "classRep" && schema.rank === 2,
+    )).toMatchObject({
+      disabledReason: undefined,
+      choice: { kind: "spentCard", options: ["goodwillPlus2"] },
     });
+
+    resolveGoodwillAbility(state, {
+      user: "classRep",
+      rank: 2,
+      abilityIndex: 0,
+      card: "goodwillPlus2",
+    }, "resolve");
+    expect(state.loop.spentOncePerLoop.protagonists).toEqual([[], [], []]);
   });
 
   it("keeps both journalist rank-2 abilities as separate rows", () => {
