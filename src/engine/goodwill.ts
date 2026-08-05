@@ -102,6 +102,11 @@ function assertAbilityAvailable(
   if (state.loop.phase !== "P6_GOODWILL") {
     throw new Error("goodwill abilities can only be used during P6_GOODWILL");
   }
+  if (!position.alive) {
+    throw new Error(
+      `character "${declaration.user}" is dead and cannot use goodwill abilities`,
+    );
+  }
   if (
     selected.ability.minLoop !== null &&
     state.loop.loop < selected.ability.minLoop

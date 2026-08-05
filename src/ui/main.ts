@@ -973,6 +973,8 @@ function goodwillDisabledMessage(
   reason: GoodwillDisabledReason,
 ): string {
   switch (reason) {
+    case "dead":
+      return "사망";
     case "minLoop":
       return `${view.schema.minLoop}번째 루프부터 사용 가능`;
     case "notImplemented":

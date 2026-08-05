@@ -33,6 +33,31 @@ function unlock(state: GameState, character: CharacterId, goodwill: number): voi
 }
 
 describe("structured goodwill ability UI", () => {
+  it("disables dead officeWorker and boyStudent abilities as dead", () => {
+    const state = createState([
+      "officeWorker",
+      "boyStudent",
+      "girlStudent",
+    ]);
+    unlock(state, "officeWorker", 3);
+    unlock(state, "boyStudent", 2);
+    state.loop.board.officeWorker.alive = false;
+    state.loop.board.boyStudent.alive = false;
+
+    const views = goodwillAbilityViews(state);
+
+    expect(views.find(({ character }) => character === "officeWorker"))
+      .toMatchObject({
+        disabledReason: "dead",
+        targetRequired: false,
+      });
+    expect(views.find(({ character }) => character === "boyStudent"))
+      .toMatchObject({
+        disabledReason: "dead",
+        targetRequired: true,
+      });
+  });
+
   it("offers boyStudent and girlStudent only another living student in the same location", () => {
     const state = createState(["boyStudent", "girlStudent"]);
     unlock(state, "boyStudent", 2);

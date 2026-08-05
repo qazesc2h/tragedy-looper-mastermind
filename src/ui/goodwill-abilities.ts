@@ -53,6 +53,7 @@ export interface StructuredGoodwillAbility {
 }
 
 export type GoodwillDisabledReason =
+  | "dead"
   | "minLoop"
   | "notImplemented"
   | "spent"
@@ -272,6 +273,7 @@ function disabledReasonFor(
   targets: readonly Target[],
   choice: GoodwillChoice,
 ): GoodwillDisabledReason | undefined {
+  if (!state.loop.board[character].alive) return "dead";
   if (ability.minLoop !== undefined && state.loop.loop < ability.minLoop) {
     return "minLoop";
   }

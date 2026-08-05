@@ -188,6 +188,53 @@ describe("goodwill-comes-after-card-resolve", () => {
 });
 
 describe("goodwill availability and refusal", () => {
+  it("rejects dead officeWorker and boyStudent as ability users", () => {
+    const scenario: Scenario = {
+      tragedySet: "basicTragedy",
+      mainPlot: "",
+      subPlots: [],
+      cast: {
+        officeWorker: "person",
+        boyStudent: "person",
+        girlStudent: "person",
+      },
+      incidents: [],
+      loops: 1,
+      daysPerLoop: 3,
+    };
+    const state: GameState = {
+      scenario,
+      gamePhase: "ROUND",
+      loop: initLoop(scenario),
+      history: [],
+      loopOutcomes: [],
+    };
+    state.loop.phase = "P6_GOODWILL";
+    for (const character of Object.keys(state.loop.board)) {
+      state.loop.board[character].at = "City";
+    }
+    state.loop.charCounters.officeWorker.goodwill = 3;
+    state.loop.charCounters.boyStudent.goodwill = 2;
+    state.loop.charCounters.girlStudent.paranoia = 1;
+    state.loop.board.officeWorker.alive = false;
+    state.loop.board.boyStudent.alive = false;
+
+    expect(() => resolveGoodwillAbility(state, {
+      user: "officeWorker",
+      rank: 3,
+      abilityIndex: 0,
+    }, "resolve")).toThrow("is dead and cannot use goodwill abilities");
+    expect(() => resolveGoodwillAbility(state, {
+      user: "boyStudent",
+      rank: 2,
+      abilityIndex: 0,
+      target: "girlStudent",
+    }, "resolve")).toThrow("is dead and cannot use goodwill abilities");
+
+    expect(state.loop.revealedRoleCharacters).toBeUndefined();
+    expect(state.loop.charCounters.girlStudent.paranoia).toBe(1);
+  });
+
   it("closes an alien rank-4 death batch after the ability resolves", () => {
     const scenario: Scenario = {
       tragedySet: "basicTragedy",
