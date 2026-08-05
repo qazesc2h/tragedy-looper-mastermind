@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest";
 import { initLoop } from "../src/engine/setup";
 import {
   emptyTrackerStore,
-  LEGACY_TRACKER_STORAGE_KEY,
   loadTrackerStore,
   persistGameState,
+  RETIRED_TRACKER_STORAGE_KEYS,
   TRACKER_STORAGE_KEY,
   type LocalKeyValueStore,
 } from "../src/ui/storage";
@@ -28,6 +28,10 @@ class MemoryStorage implements LocalKeyValueStore {
 
   setItem(key: string, value: string): void {
     this.values.set(key, value);
+  }
+
+  removeItem(key: string): void {
+    this.values.delete(key);
   }
 }
 
@@ -53,9 +57,34 @@ function state(): GameState {
 describe("UI localStorage snapshots", () => {
   it("uses a project-specific key namespace", () => {
     expect(TRACKER_STORAGE_KEY)
-      .toBe("tragedy-looper-mastermind:tracker:v2");
-    expect(LEGACY_TRACKER_STORAGE_KEY)
-      .toBe("tragedy-looper-mastermind:tracker:v1");
+      .toBe("tragedy-looper-mastermind:tracker");
+    expect(RETIRED_TRACKER_STORAGE_KEYS).toEqual([
+      "tragedy-looper:tracker:v1",
+      "tragedy-looper-mastermind:tracker:v1",
+    ]);
+    expect(emptyTrackerStore()).not.toHaveProperty("version");
+  });
+
+  it("removes only the explicitly retired keys without reading them", () => {
+    const storage = new MemoryStorage();
+    const oldData = JSON.stringify({
+      mastermindOverlay: false,
+      games: { legacy: "must not be restored" },
+    });
+    for (const key of RETIRED_TRACKER_STORAGE_KEYS) {
+      storage.setItem(key, oldData);
+    }
+    storage.setItem("tragedy-looper-ko:tracker:v1", "keep-ko-data");
+    storage.setItem("tragedy-looper-mastermind:other:v1", "keep-other-data");
+
+    expect(loadTrackerStore(storage)).toEqual(emptyTrackerStore());
+    for (const key of RETIRED_TRACKER_STORAGE_KEYS) {
+      expect(storage.getItem(key)).toBeNull();
+    }
+    expect(storage.getItem("tragedy-looper-ko:tracker:v1"))
+      .toBe("keep-ko-data");
+    expect(storage.getItem("tragedy-looper-mastermind:other:v1"))
+      .toBe("keep-other-data");
   });
 
   it("stores observations under each loop and restores the current game", () => {
@@ -118,69 +147,6 @@ describe("UI localStorage snapshots", () => {
     expect(loadTrackerStore(storage)).toEqual(emptyTrackerStore());
   });
 
-  it("migrates an active v1 game to the ROUND game phase", () => {
-    const storage = new MemoryStorage();
-    const current = state();
-    const {
-      gamePhase: _gamePhase,
-      loopOutcomes: _loopOutcomes,
-      ...legacyState
-    } = current;
-    storage.setItem(LEGACY_TRACKER_STORAGE_KEY, JSON.stringify({
-      version: 1,
-      activeScenarioId: "basicTragedy:1",
-      mastermindOverlay: true,
-      games: {
-        "basicTragedy:1": {
-          state: legacyState,
-          observationsByLoop: {},
-          updatedAt: "2026-08-03T00:00:00.000Z",
-        },
-      },
-    }));
-
-    const migrated = loadTrackerStore(storage);
-    expect(migrated.version).toBe(2);
-    expect(migrated.games["basicTragedy:1"].state.gamePhase).toBe("ROUND");
-    expect(migrated.games["basicTragedy:1"].state.loopOutcomes).toEqual([]);
-  });
-
-  it("migrates a closed final-loop v1 game after resetting the final guess board", () => {
-    const storage = new MemoryStorage();
-    const current = state();
-    current.loop.loop = current.scenario.loops;
-    current.loop.day = current.scenario.daysPerLoop;
-    current.loop.phase = "P9_ROUND_END";
-    current.loop.charCounters.boyStudent.paranoia = 3;
-    current.history.push(structuredClone(current.loop));
-    const {
-      gamePhase: _gamePhase,
-      loopOutcomes: _loopOutcomes,
-      ...legacyState
-    } = current;
-    storage.setItem(LEGACY_TRACKER_STORAGE_KEY, JSON.stringify({
-      version: 1,
-      activeScenarioId: "basicTragedy:1",
-      mastermindOverlay: true,
-      games: {
-        "basicTragedy:1": {
-          state: legacyState,
-          observationsByLoop: {},
-          updatedAt: "2026-08-03T00:00:00.000Z",
-        },
-      },
-    }));
-
-    const migrated = loadTrackerStore(storage);
-    const migratedState = migrated.games["basicTragedy:1"].state;
-    expect(migratedState.gamePhase).toBe("FINAL_GUESS");
-    expect(migratedState.finalGuess).toEqual({
-      reason: "finalLoopLoss",
-      attempts: [],
-    });
-    expect(migratedState.loop.charCounters.boyStudent.paranoia).toBe(0);
-    expect(migratedState.history).toHaveLength(1);
-  });
 });
 
 describe("UI terminology", () => {

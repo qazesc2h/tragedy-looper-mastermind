@@ -1,9 +1,10 @@
 import type { GameState, LoopState, Phase } from "../types";
-import { prepareFinalGuess } from "../engine/game";
 
-export const TRACKER_STORAGE_KEY = "tragedy-looper-mastermind:tracker:v2";
-export const LEGACY_TRACKER_STORAGE_KEY =
-  "tragedy-looper-mastermind:tracker:v1";
+export const TRACKER_STORAGE_KEY = "tragedy-looper-mastermind:tracker";
+export const RETIRED_TRACKER_STORAGE_KEYS = [
+  "tragedy-looper:tracker:v1",
+  "tragedy-looper-mastermind:tracker:v1",
+] as const;
 
 export interface LoopObservation {
   recordedAt: string;
@@ -21,7 +22,6 @@ export interface StoredGame {
 }
 
 export interface TrackerStore {
-  version: 2;
   activeScenarioId?: string;
   mastermindOverlay: boolean;
   games: Record<string, StoredGame>;
@@ -30,104 +30,33 @@ export interface TrackerStore {
 export interface LocalKeyValueStore {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
+  removeItem(key: string): void;
 }
 
 export function emptyTrackerStore(): TrackerStore {
-  return { version: 2, mastermindOverlay: true, games: {} };
+  return { mastermindOverlay: true, games: {} };
 }
 
 function isTrackerStore(value: unknown): value is TrackerStore {
   if (typeof value !== "object" || value === null) return false;
   const candidate = value as Partial<TrackerStore>;
-  return candidate.version === 2 &&
-    typeof candidate.mastermindOverlay === "boolean" &&
+  return typeof candidate.mastermindOverlay === "boolean" &&
     typeof candidate.games === "object" &&
     candidate.games !== null;
 }
 
-function migrateV1(value: unknown): TrackerStore | undefined {
-  if (typeof value !== "object" || value === null) return undefined;
-  const candidate = value as {
-    version?: unknown;
-    activeScenarioId?: unknown;
-    mastermindOverlay?: unknown;
-    games?: unknown;
-  };
-  if (
-    candidate.version !== 1 ||
-    typeof candidate.mastermindOverlay !== "boolean" ||
-    typeof candidate.games !== "object" ||
-    candidate.games === null
-  ) {
-    return undefined;
-  }
-
-  const games: TrackerStore["games"] = {};
-  for (const [scenarioId, storedValue] of Object.entries(candidate.games)) {
-    if (typeof storedValue !== "object" || storedValue === null) continue;
-    const stored = storedValue as {
-      state?: unknown;
-      observationsByLoop?: unknown;
-      updatedAt?: unknown;
-    };
-    if (typeof stored.state !== "object" || stored.state === null) continue;
-
-    const state = structuredClone(stored.state) as GameState;
-    state.loopOutcomes = [];
-    const wasFinalLoopClosed =
-      state.loop.loop === state.scenario.loops &&
-      state.loop.day === state.scenario.daysPerLoop &&
-      state.loop.phase === "P9_ROUND_END" &&
-      state.history.some(({ loop }) => loop === state.loop.loop);
-    state.gamePhase = wasFinalLoopClosed ? "LOOP_JUDGMENT" : "ROUND";
-    if (wasFinalLoopClosed) {
-      prepareFinalGuess(state, "finalLoopLoss");
-    }
-
-    games[scenarioId] = {
-      state,
-      observationsByLoop:
-        typeof stored.observationsByLoop === "object" &&
-          stored.observationsByLoop !== null
-          ? stored.observationsByLoop as Record<string, LoopObservation[]>
-          : {},
-      updatedAt: typeof stored.updatedAt === "string"
-        ? stored.updatedAt
-        : new Date(0).toISOString(),
-    };
-  }
-
-  return {
-    version: 2,
-    activeScenarioId: typeof candidate.activeScenarioId === "string"
-      ? candidate.activeScenarioId
-      : undefined,
-    mastermindOverlay: candidate.mastermindOverlay,
-    games,
-  };
-}
-
 export function loadTrackerStore(storage: LocalKeyValueStore): TrackerStore {
+  for (const key of RETIRED_TRACKER_STORAGE_KEYS) {
+    storage.removeItem(key);
+  }
   const raw = storage.getItem(TRACKER_STORAGE_KEY);
-
-  if (raw !== null) {
-    try {
-      const parsed: unknown = JSON.parse(raw);
-      if (isTrackerStore(parsed)) return parsed;
-    } catch {
-      return emptyTrackerStore();
-    }
+  if (raw === null) return emptyTrackerStore();
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return isTrackerStore(parsed) ? parsed : emptyTrackerStore();
+  } catch {
+    return emptyTrackerStore();
   }
-
-  const legacyRaw = storage.getItem(LEGACY_TRACKER_STORAGE_KEY);
-  if (legacyRaw !== null) {
-    try {
-      return migrateV1(JSON.parse(legacyRaw)) ?? emptyTrackerStore();
-    } catch {
-      return emptyTrackerStore();
-    }
-  }
-  return emptyTrackerStore();
 }
 
 function loopSignature(loop: LoopState): string {
