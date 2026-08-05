@@ -1,0 +1,116 @@
+User-agent: *
+Disallow: /
+
+# OpenAI
+User-agent: GPTBot
+Disallow: /
+
+User-agent: OAI-SearchBot
+Disallow: /
+
+User-agent: ChatGPT-User
+Disallow: /
+
+# Anthropic
+User-agent: ClaudeBot
+Disallow: /
+
+User-agent: Claude-SearchBot
+Disallow: /
+
+User-agent: Claude-User
+Disallow: /
+
+User-agent: anthropic-ai
+Disallow: /
+
+# Google
+User-agent: Google-Extended
+Disallow: /
+
+User-agent: Google-CloudVertexBot
+Disallow: /
+
+# Common Crawl
+User-agent: CCBot
+Disallow: /
+
+# Perplexity
+User-agent: PerplexityBot
+Disallow: /
+
+User-agent: Perplexity-User
+Disallow: /
+
+# ByteDance
+User-agent: Bytespider
+Disallow: /
+
+# Amazon
+User-agent: Amazonbot
+Disallow: /
+
+User-agent: Amzn-SearchBot
+Disallow: /
+
+User-agent: Amzn-User
+Disallow: /
+
+# Apple
+User-agent: Applebot-Extended
+Disallow: /
+
+# Cohere
+User-agent: cohere-ai
+Disallow: /
+
+User-agent: cohere-training-data-crawler
+Disallow: /
+
+# Meta
+User-agent: FacebookBot
+Disallow: /
+
+User-agent: Meta-ExternalAgent
+Disallow: /
+
+User-agent: Meta-ExternalFetcher
+Disallow: /
+
+User-agent: meta-webindexer
+Disallow: /
+
+# Mistral AI
+User-agent: MistralAI-Index
+Disallow: /
+
+User-agent: MistralAI-User
+Disallow: /
+
+# Other major AI and dataset crawlers
+User-agent: AI2Bot
+Disallow: /
+
+User-agent: AI2Bot-Dolma
+Disallow: /
+
+User-agent: Diffbot
+Disallow: /
+
+User-agent: DuckAssistBot
+Disallow: /
+
+User-agent: ImagesiftBot
+Disallow: /
+
+User-agent: omgili
+Disallow: /
+
+User-agent: omgilibot
+Disallow: /
+
+User-agent: Timpibot
+Disallow: /
+
+User-agent: YouBot
+Disallow: /

@@ -1766,3 +1766,36 @@ select {
   border-top: 1px solid #4b3f2d;
   padding-top: 14px;
 }
+
+.site-footer {
+  border-top: 1px solid #3f3728;
+  background: rgba(18, 16, 13, 0.88);
+  color: var(--ink-dim);
+}
+
+.site-footer-content {
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 18px 12px calc(18px + env(safe-area-inset-bottom));
+}
+
+.site-footer p {
+  margin: 0;
+  font-size: 0.7rem;
+  line-height: 1.65;
+}
+
+.site-footer p + p {
+  margin-top: 12px;
+}
+
+.site-footer a {
+  color: #bda875;
+  text-decoration-color: #6e5b38;
+  text-underline-offset: 2px;
+}
+
+.site-footer a:hover {
+  color: var(--gold-strong);
+}
