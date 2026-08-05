@@ -51,6 +51,13 @@ function state(): GameState {
 }
 
 describe("UI localStorage snapshots", () => {
+  it("uses a project-specific key namespace", () => {
+    expect(TRACKER_STORAGE_KEY)
+      .toBe("tragedy-looper-mastermind:tracker:v2");
+    expect(LEGACY_TRACKER_STORAGE_KEY)
+      .toBe("tragedy-looper-mastermind:tracker:v1");
+  });
+
   it("stores observations under each loop and restores the current game", () => {
     const storage = new MemoryStorage();
     const tracker = emptyTrackerStore();

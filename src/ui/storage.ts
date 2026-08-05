@@ -1,8 +1,9 @@
 import type { GameState, LoopState, Phase } from "../types";
 import { prepareFinalGuess } from "../engine/game";
 
-export const TRACKER_STORAGE_KEY = "tragedy-looper:tracker:v2";
-export const LEGACY_TRACKER_STORAGE_KEY = "tragedy-looper:tracker:v1";
+export const TRACKER_STORAGE_KEY = "tragedy-looper-mastermind:tracker:v2";
+export const LEGACY_TRACKER_STORAGE_KEY =
+  "tragedy-looper-mastermind:tracker:v1";
 
 export interface LoopObservation {
   recordedAt: string;
