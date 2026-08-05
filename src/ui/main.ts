@@ -58,6 +58,7 @@ import {
   type HandCard,
   type ResolutionReportItem,
 } from "./action-cards";
+import { APP_VERSION } from "./app-version";
 import {
   decodeIncidentSelection,
   encodeIncidentSelection,
@@ -2025,7 +2026,10 @@ function render(): void {
       <header class="topbar">
         <div class="brand">
           <span>${escapeHtml(misc("(제품명) Tragedy Looper", "Tragedy Looper"))}</span>
-          <strong>${escapeHtml(misc("Mastermind Aid"))}</strong>
+          <div class="brand-product">
+            <strong>${escapeHtml(misc("Mastermind Aid"))}</strong>
+            <small>v${escapeHtml(APP_VERSION)}</small>
+          </div>
         </div>
         <div class="session-meta">
           <label class="scenario-picker">

@@ -114,6 +114,18 @@ p {
   font-size: 1.05rem;
 }
 
+.brand-product {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.brand-product small {
+  color: var(--ink-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.65rem;
+}
+
 .session-meta {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
