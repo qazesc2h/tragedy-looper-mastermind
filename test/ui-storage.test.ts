@@ -8,6 +8,7 @@ import {
   RETIRED_TRACKER_STORAGE_KEYS,
   TRACKER_STORAGE_KEY,
   type LocalKeyValueStore,
+  type StoredGame,
 } from "../src/ui/storage";
 import {
   actionCardTerm,
@@ -54,6 +55,15 @@ function state(): GameState {
   };
 }
 
+function storedGameDefaults(scenarioId: string): StoredGame | undefined {
+  if (scenarioId !== "basicTragedy:1") return undefined;
+  return {
+    state: state(),
+    observationsByLoop: {},
+    updatedAt: new Date(0).toISOString(),
+  };
+}
+
 describe("UI localStorage snapshots", () => {
   it("uses a project-specific key namespace", () => {
     expect(TRACKER_STORAGE_KEY)
@@ -77,7 +87,8 @@ describe("UI localStorage snapshots", () => {
     storage.setItem("tragedy-looper-ko:tracker:v1", "keep-ko-data");
     storage.setItem("tragedy-looper-mastermind:other:v1", "keep-other-data");
 
-    expect(loadTrackerStore(storage)).toEqual(emptyTrackerStore());
+    expect(loadTrackerStore(storage, storedGameDefaults))
+      .toEqual(emptyTrackerStore());
     for (const key of RETIRED_TRACKER_STORAGE_KEYS) {
       expect(storage.getItem(key)).toBeNull();
     }
@@ -128,7 +139,7 @@ describe("UI localStorage snapshots", () => {
       new Date("2026-08-03T00:03:00.000Z"),
     );
 
-    const restored = loadTrackerStore(storage);
+    const restored = loadTrackerStore(storage, storedGameDefaults);
     expect(restored.activeScenarioId).toBe("basicTragedy:1");
     expect(restored.games["basicTragedy:1"].state.loop.loop).toBe(2);
     expect(restored.games["basicTragedy:1"].observationsByLoop["1"])
@@ -144,7 +155,44 @@ describe("UI localStorage snapshots", () => {
   it("falls back to an empty store when saved JSON is invalid", () => {
     const storage = new MemoryStorage();
     storage.setItem(TRACKER_STORAGE_KEY, "not-json");
-    expect(loadTrackerStore(storage)).toEqual(emptyTrackerStore());
+    expect(loadTrackerStore(storage, storedGameDefaults))
+      .toEqual(emptyTrackerStore());
+  });
+
+  it("fills missing state fields from current defaults without losing saved values", () => {
+    const storage = new MemoryStorage();
+    const current = state();
+    current.loop.day = 2;
+    current.loop.charCounters.boyStudent.goodwill = 2;
+    const {
+      spentOncePerLoop: _spentOncePerLoop,
+      abilitiesUsedThisLoop: _abilitiesUsedThisLoop,
+      ...savedLoop
+    } = current.loop;
+    const { loopOutcomes: _loopOutcomes, ...savedState } = current;
+    storage.setItem(TRACKER_STORAGE_KEY, JSON.stringify({
+      activeScenarioId: "basicTragedy:1",
+      games: {
+        "basicTragedy:1": {
+          state: { ...savedState, loop: savedLoop },
+          observationsByLoop: {},
+          updatedAt: "2026-08-05T00:00:00.000Z",
+        },
+      },
+    }));
+
+    const restored = loadTrackerStore(storage, storedGameDefaults);
+    expect(restored.mastermindOverlay).toBe(true);
+    expect(restored.games["basicTragedy:1"].state.loop.day).toBe(2);
+    expect(
+      restored.games["basicTragedy:1"].state.loop.charCounters.boyStudent
+        .goodwill,
+    ).toBe(2);
+    expect(restored.games["basicTragedy:1"].state.loop.spentOncePerLoop)
+      .toEqual({ mastermind: [], protagonists: [[], [], []] });
+    expect(restored.games["basicTragedy:1"].state.loop.abilitiesUsedThisLoop)
+      .toEqual([]);
+    expect(restored.games["basicTragedy:1"].state.loopOutcomes).toEqual([]);
   });
 
 });

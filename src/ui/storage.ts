@@ -22,10 +22,12 @@ export interface StoredGame {
 }
 
 export interface TrackerStore {
-  activeScenarioId?: string;
+  activeScenarioId: string;
   mastermindOverlay: boolean;
   games: Record<string, StoredGame>;
 }
+
+export type StoredGameDefaults = (scenarioId: string) => StoredGame | undefined;
 
 export interface LocalKeyValueStore {
   getItem(key: string): string | null;
@@ -34,18 +36,109 @@ export interface LocalKeyValueStore {
 }
 
 export function emptyTrackerStore(): TrackerStore {
-  return { mastermindOverlay: true, games: {} };
+  return { activeScenarioId: "", mastermindOverlay: true, games: {} };
 }
 
-function isTrackerStore(value: unknown): value is TrackerStore {
-  if (typeof value !== "object" || value === null) return false;
-  const candidate = value as Partial<TrackerStore>;
-  return typeof candidate.mastermindOverlay === "boolean" &&
-    typeof candidate.games === "object" &&
-    candidate.games !== null;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-export function loadTrackerStore(storage: LocalKeyValueStore): TrackerStore {
+/** 기본 객체의 구조를 따라 누락 값을 채우고 알려진 필드의 타입 충돌을 거부한다. */
+function mergeDefaults<T>(defaults: T, saved: unknown, path: string): T {
+  if (saved === undefined) return structuredClone(defaults);
+  if (Array.isArray(defaults)) {
+    if (!Array.isArray(saved)) {
+      throw new Error(`${path} must be an array`);
+    }
+    return structuredClone(saved) as T;
+  }
+  if (isRecord(defaults)) {
+    if (!isRecord(saved)) {
+      throw new Error(`${path} must be an object`);
+    }
+    const merged = structuredClone(saved);
+    for (const [key, defaultValue] of Object.entries(defaults)) {
+      merged[key] = mergeDefaults(defaultValue, saved[key], `${path}.${key}`);
+    }
+    return merged as T;
+  }
+  if (typeof saved !== typeof defaults || saved === null) {
+    throw new Error(`${path} has an invalid type`);
+  }
+  return structuredClone(saved) as T;
+}
+
+function restoreObservations(
+  defaults: StoredGame,
+  saved: unknown,
+  path: string,
+): Record<string, LoopObservation[]> {
+  if (!isRecord(saved)) throw new Error(`${path} must be an object`);
+  const observationDefaults: LoopObservation = {
+    recordedAt: new Date(0).toISOString(),
+    reason: "",
+    loop: defaults.state.loop.loop,
+    day: defaults.state.loop.day,
+    phase: defaults.state.loop.phase,
+    state: defaults.state.loop,
+  };
+  return Object.fromEntries(Object.entries(saved).map(([loop, observations]) => {
+    if (!Array.isArray(observations)) {
+      throw new Error(`${path}.${loop} must be an array`);
+    }
+    return [loop, observations.map((observation, index) =>
+      mergeDefaults(observationDefaults, observation, `${path}.${loop}.${index}`)
+    )];
+  }));
+}
+
+function restoreStoredGame(
+  defaults: StoredGame,
+  saved: unknown,
+  path: string,
+): StoredGame {
+  const restored = mergeDefaults(defaults, saved, path);
+  restored.state.history = restored.state.history.map((loop, index) =>
+    mergeDefaults(defaults.state.loop, loop, `${path}.state.history.${index}`)
+  );
+  restored.observationsByLoop = restoreObservations(
+    defaults,
+    restored.observationsByLoop,
+    `${path}.observationsByLoop`,
+  );
+  return restored;
+}
+
+function restoreTrackerStore(
+  saved: unknown,
+  storedGameDefaults: StoredGameDefaults,
+): TrackerStore {
+  const restored = mergeDefaults(emptyTrackerStore(), saved, "tracker");
+  if (
+    restored.activeScenarioId !== "" &&
+    storedGameDefaults(restored.activeScenarioId) === undefined
+  ) {
+    throw new Error("tracker.activeScenarioId is unknown");
+  }
+  restored.games = Object.fromEntries(
+    Object.entries(restored.games).map(([scenarioId, game]) => {
+      const defaults = storedGameDefaults(scenarioId);
+      if (defaults === undefined) {
+        throw new Error(`tracker.games.${scenarioId} is unknown`);
+      }
+      return [
+        scenarioId,
+        restoreStoredGame(defaults, game, `tracker.games.${scenarioId}`),
+      ];
+    }),
+  );
+  return restored;
+}
+
+export function loadTrackerStore(
+  storage: LocalKeyValueStore,
+  storedGameDefaults: StoredGameDefaults,
+): TrackerStore {
   for (const key of RETIRED_TRACKER_STORAGE_KEYS) {
     storage.removeItem(key);
   }
@@ -53,7 +146,7 @@ export function loadTrackerStore(storage: LocalKeyValueStore): TrackerStore {
   if (raw === null) return emptyTrackerStore();
   try {
     const parsed: unknown = JSON.parse(raw);
-    return isTrackerStore(parsed) ? parsed : emptyTrackerStore();
+    return restoreTrackerStore(parsed, storedGameDefaults);
   } catch {
     return emptyTrackerStore();
   }

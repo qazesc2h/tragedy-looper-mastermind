@@ -76,6 +76,7 @@ import {
   loadTrackerStore,
   persistGameState,
   persistTrackerPreferences,
+  type StoredGame,
   type TrackerStore,
 } from "./storage";
 import { serializeCurrentStateDump } from "./state-dump";
@@ -183,9 +184,20 @@ let openCharacterModal: CharacterId | undefined;
 let openLocationModal: Location | undefined;
 let operationSheetOpen = false;
 const optionalHookSelections = new Map<string, OptionalHookSelection>();
+
+function defaultStoredGame(scenarioId: string): StoredGame | undefined {
+  const entry = scenarioEntries.find(({ id }) => id === scenarioId);
+  if (entry === undefined) return undefined;
+  return {
+    state: createGame(entry),
+    observationsByLoop: {},
+    updatedAt: new Date(0).toISOString(),
+  };
+}
+
 let tracker: TrackerStore;
 try {
-  tracker = loadTrackerStore(window.localStorage);
+  tracker = loadTrackerStore(window.localStorage, defaultStoredGame);
 } catch (error) {
   tracker = emptyTrackerStore();
   notice = errorMessage(error);
