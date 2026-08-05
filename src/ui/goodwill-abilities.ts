@@ -121,6 +121,13 @@ export function decodeIncidentSelection(
   return { day, incident };
 }
 
+export function subplotRevealOptions(
+  choice: Extract<GoodwillChoice, { kind: "subplot" }>,
+  declaredSubplot: PlotId | undefined,
+): PlotId[] {
+  return choice.revealOptions.filter((plot) => plot !== declaredSubplot);
+}
+
 function targetKinds(
   ability: StructuredGoodwillAbility,
 ): readonly GoodwillTargetKind[] {

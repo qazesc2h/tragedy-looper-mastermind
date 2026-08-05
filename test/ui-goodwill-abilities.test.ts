@@ -7,6 +7,7 @@ import {
   decodeIncidentSelection,
   encodeIncidentSelection,
   goodwillAbilityViews,
+  subplotRevealOptions,
 } from "../src/ui/goodwill-abilities";
 import type {
   ActionCard,
@@ -469,6 +470,13 @@ describe("structured goodwill ability UI", () => {
       throw new Error("expected subplot choice");
     }
     expect(choice.options).toContain("hiddenFreak");
+    expect(subplotRevealOptions(choice, "circleFriends")).toEqual([
+      "threadsFate",
+    ]);
+    expect(subplotRevealOptions(choice, "hiddenFreak")).toEqual([
+      "circleFriends",
+      "threadsFate",
+    ]);
   });
 
   it("round-trips the incident value rendered in data-goodwill-choice", () => {

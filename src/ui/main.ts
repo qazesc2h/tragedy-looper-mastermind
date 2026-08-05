@@ -62,6 +62,7 @@ import {
   decodeIncidentSelection,
   encodeIncidentSelection,
   goodwillAbilityViews,
+  subplotRevealOptions,
   type GoodwillAbilityView,
   type GoodwillDisabledReason,
 } from "./goodwill-abilities";
@@ -1143,7 +1144,9 @@ function renderGoodwillChoice(
       return `
         <label class="goodwill-choice-field">
           <span>리더 선언</span>
-          <select data-goodwill-choice="${escapeHtml(key)}"
+          <select data-action="goodwill-subplot-declaration"
+            data-goodwill-key="${escapeHtml(key)}"
+            data-goodwill-choice="${escapeHtml(key)}"
             ${disabled ? "disabled" : ""}>
             <option value="">${escapeHtml(misc("Select", "Select"))}</option>
             ${choice.options.map((plot) => `
@@ -1155,7 +1158,7 @@ function renderGoodwillChoice(
           <select data-goodwill-reveal="${escapeHtml(key)}"
             ${disabled ? "disabled" : ""}>
             <option value="">${escapeHtml(misc("Select", "Select"))}</option>
-            ${choice.revealOptions.map((plot) => `
+            ${subplotRevealOptions(choice, undefined).map((plot) => `
               <option value="${escapeHtml(plot)}">${escapeHtml(plotName(plot))}</option>`).join("")}
           </select>
         </label>`;
@@ -1176,6 +1179,41 @@ function renderGoodwillChoice(
             )}</option>`).join("")}
         </select>`;
   }
+}
+
+function syncGoodwillSubplotRevealOptions(
+  declarationControl: HTMLSelectElement,
+): void {
+  const key = declarationControl.dataset.goodwillKey;
+  if (!key) {
+    throw new Error("goodwill subplot declaration is missing its ability key");
+  }
+  const view = goodwillAbilityViews(currentState()).find(
+    (candidate) => candidate.key === key,
+  );
+  if (view?.choice.kind !== "subplot") {
+    throw new Error(`goodwill ability "${key}" has no subplot choice`);
+  }
+  const revealControl = root.querySelector<HTMLSelectElement>(
+    `[data-goodwill-reveal="${CSS.escape(key)}"]`,
+  );
+  if (!revealControl) {
+    throw new Error(`goodwill ability "${key}" is missing its reveal control`);
+  }
+  const declaredValue = declarationControl.value;
+  const declaredSubplot = declaredValue === ""
+    ? undefined
+    : view.choice.options.find((plot) => plot === declaredValue);
+  if (declaredValue !== "" && declaredSubplot === undefined) {
+    throw new Error(`unknown declared subplot: ${declaredValue}`);
+  }
+  const previous = revealControl.value;
+  const allowed = subplotRevealOptions(view.choice, declaredSubplot);
+  revealControl.innerHTML = `
+    <option value="">${escapeHtml(misc("Select", "Select"))}</option>
+    ${allowed.map((plot) => `
+      <option value="${escapeHtml(plot)}">${escapeHtml(plotName(plot))}</option>`).join("")}`;
+  revealControl.value = allowed.includes(previous) ? previous : "";
 }
 
 function renderGoodwillAbilities(state: GameState): string {
@@ -2596,6 +2634,10 @@ root.addEventListener("click", (event) => {
 root.addEventListener("change", (event) => {
   const control = event.target as HTMLInputElement | HTMLSelectElement;
   const action = control.dataset.action;
+  if (action === "goodwill-subplot-declaration") {
+    syncGoodwillSubplotRevealOptions(control as HTMLSelectElement);
+    return;
+  }
   if (action === "optional-hook") {
     const key = control.dataset.hookKey;
     if (!key) return;
