@@ -72,8 +72,11 @@ import { characterLocationInformation } from "./character-locations";
 import {
   incidentDayLabelsForCharacter,
   incidentDaysForCharacter,
+  incidentScheduleSummary,
   incidentScheduleRows,
   incidentScheduleRowsForCharacter,
+  lossDistanceSummary,
+  spentCardsSummary,
   type IncidentScheduleRow,
 } from "./mastermind-panel";
 import { phaseLogGroupIsOpen, phaseLogGroups } from "./phase-log";
@@ -1876,23 +1879,26 @@ function renderMastermindOverlay(state: GameState): string {
         </summary>
         <div class="info-accordion-body">${renderScenarioInformation(state)}</div>
       </details>
-      <details class="info-accordion">
+      <details class="info-accordion compact-information">
         <summary>
-          <span><small>전체 일정</small><strong>사건 일정</strong></span>
+          <strong>사건 일정</strong>
+          <span class="accordion-summary-value">${escapeHtml(incidentScheduleSummary(state))}</span>
           <i aria-hidden="true"></i>
         </summary>
         <div class="info-accordion-body">${renderIncidentSchedule(state)}</div>
       </details>
-      <details class="info-accordion">
+      <details class="info-accordion compact-information">
         <summary>
-          <span><small>진척</small><strong>${escapeHtml(misc("Victory Conditions"))}</strong></span>
+          <strong>${escapeHtml(misc("Victory Conditions"))}</strong>
+          <span class="accordion-summary-value">${escapeHtml(lossDistanceSummary(state))}</span>
           <i aria-hidden="true"></i>
         </summary>
         <div class="info-accordion-body loss-list">${renderLossDistance(state)}</div>
       </details>
-      <details class="info-accordion spent-information">
+      <details class="info-accordion spent-information compact-information">
         <summary>
-          <span><small>1루프당 1회</small><strong>${escapeHtml(misc("Spent cards", "소진 카드"))}</strong></span>
+          <strong>${escapeHtml(misc("Spent cards", "소진 카드"))}</strong>
+          <span class="accordion-summary-value">${escapeHtml(spentCardsSummary(state))}</span>
           <i aria-hidden="true"></i>
         </summary>
         <div class="info-accordion-body">${renderSpentCards(state)}</div>

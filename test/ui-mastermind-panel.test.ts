@@ -4,8 +4,11 @@ import { initLoop } from "../src/engine/setup";
 import {
   incidentDayLabelsForCharacter,
   incidentDaysForCharacter,
+  incidentScheduleSummary,
   incidentScheduleRows,
   incidentScheduleRowsForCharacter,
+  lossDistanceSummary,
+  spentCardsSummary,
 } from "../src/ui/mastermind-panel";
 import type { GameState, Scenario } from "../src/types";
 
@@ -118,5 +121,18 @@ describe("mastermind incident schedule", () => {
           judgmentRecorded: true,
         },
       ]);
+  });
+
+  it("summarizes collapsed incident, loss, and spent-card panels", () => {
+    const state = createState();
+    expect(incidentScheduleSummary(state)).toBe("오늘 1건");
+
+    state.scenario.mainPlot = "sealedItem";
+    state.loop.locIntrigue.Shrine = 1;
+    expect(lossDistanceSummary(state)).toBe("신사 음모 1/2");
+
+    state.loop.spentOncePerLoop.mastermind.push("moveVertical");
+    state.loop.spentOncePerLoop.protagonists[1].push("goodwillPlus2");
+    expect(spentCardsSummary(state)).toBe("각본가 1 · 주인공 0/1/0");
   });
 });

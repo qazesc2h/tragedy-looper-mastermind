@@ -824,6 +824,30 @@ select {
   transition: transform 120ms ease;
 }
 
+.compact-information summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 10px;
+  min-height: 44px;
+  gap: 7px;
+  padding: 6px 10px;
+}
+
+.compact-information summary > strong {
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.compact-information .accordion-summary-value {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: #a99a80;
+  font-size: 0.68rem;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .info-accordion[open] summary i {
   transform: rotate(225deg);
 }

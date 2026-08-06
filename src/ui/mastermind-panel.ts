@@ -1,5 +1,6 @@
 import { characterDataOf } from "../data";
 import { incidentFailureReasons, incidentFires } from "../engine/incident";
+import { distanceToLoss } from "../engine/loss";
 import type {
   CharacterId,
   GameState,
@@ -120,4 +121,28 @@ export function incidentDayLabelsForCharacter(
   character: CharacterId,
 ): string[] {
   return incidentDaysForCharacter(state, character).map((day) => `${day}일`);
+}
+
+export function incidentScheduleSummary(state: GameState): string {
+  const todayCount = state.scenario.incidents.filter(
+    ({ day }) => day === state.loop.day,
+  ).length;
+  return todayCount === 0 ? "오늘 없음" : `오늘 ${todayCount}건`;
+}
+
+export function lossDistanceSummary(state: GameState): string {
+  const nearest = distanceToLoss(state)
+    .map((condition, index) => ({ condition, index }))
+    .sort((left, right) =>
+      Number(right.condition.met) - Number(left.condition.met) ||
+      left.condition.remaining - right.condition.remaining ||
+      left.index - right.index
+    )[0]?.condition;
+  return nearest?.label ?? "조건 없음";
+}
+
+export function spentCardsSummary(state: GameState): string {
+  const protagonists = state.loop.spentOncePerLoop.protagonists
+    .map((cards) => cards.length).join("/");
+  return `각본가 ${state.loop.spentOncePerLoop.mastermind.length} · 주인공 ${protagonists}`;
 }
