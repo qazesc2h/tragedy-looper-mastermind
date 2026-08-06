@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>390px 캐릭터 칩 경계 검사</title>
+    <style>
+      html, body { margin: 0; background: #111; color: #eee; font-family: monospace; }
+      iframe { display: block; width: 390px; height: 844px; border: 0; }
+      pre { margin: 0; padding: 12px; white-space: pre-wrap; }
+    </style>
+  </head>
+  <body>
+    <iframe id="app-frame" src="/" title="390px 앱 렌더"></iframe>
+    <pre id="result">게임판 렌더 대기 중</pre>
+    <script type="module">
+      import { characterChipLayoutViolations } from "/src/ui/mobile-layout-check.ts";
+
+      const frame = document.querySelector("#app-frame");
+      const result = document.querySelector("#result");
+
+      async function inspect() {
+        const frameDocument = frame.contentDocument;
+        const board = frameDocument?.querySelector(".game-board");
+        if (!frameDocument || !board) {
+          setTimeout(inspect, 50);
+          return;
+        }
+        await frame.contentWindow.document.fonts.ready;
+        const violations = characterChipLayoutViolations(frameDocument);
+        const counts = [...frameDocument.querySelectorAll(".character-grid")]
+          .map((grid) => grid.querySelectorAll(".character-chip-wrap").length);
+        const measurements = [...frameDocument.querySelectorAll(".board-location")]
+          .map((location) => {
+            const grid = location.querySelector(".character-grid");
+            const gridRect = grid.getBoundingClientRect();
+            return {
+              location: location.querySelector(".location-target span")
+                ?.textContent?.trim(),
+              count: grid.querySelectorAll(".character-chip-wrap").length,
+              grid: {
+                left: gridRect.left,
+                right: gridRect.right,
+                width: gridRect.width,
+              },
+              chips: [...grid.querySelectorAll(".character-chip")].map((chip) => {
+                const rect = chip.getBoundingClientRect();
+                const counters = chip.querySelector(".character-chip-counters");
+                return {
+                  name: chip.getAttribute("aria-label"),
+                  left: rect.left,
+                  right: rect.right,
+                  width: rect.width,
+                  clientWidth: chip.clientWidth,
+                  scrollWidth: chip.scrollWidth,
+                  countersClientWidth: counters.clientWidth,
+                  countersScrollWidth: counters.scrollWidth,
+                };
+              }),
+            };
+          });
+        const report = {
+          viewport: {
+            width: frame.contentWindow.innerWidth,
+            height: frame.contentWindow.innerHeight,
+          },
+          counts,
+          chipCount: counts.reduce((sum, count) => sum + count, 0),
+          measurements,
+          violations,
+        };
+        window.mobileLayoutReport = report;
+        document.documentElement.dataset.layoutResult =
+          violations.length === 0 ? "pass" : "fail";
+        result.textContent = `${violations.length === 0 ? "PASS" : "FAIL"}\n${
+          JSON.stringify(report, null, 2)
+        }`;
+        frame.contentWindow.scrollTo({
+          top: Math.max(0, board.offsetTop - 8),
+          behavior: "instant",
+        });
+        if (violations.length > 0) {
+          throw new Error(`character chip layout overflow: ${JSON.stringify(violations)}`);
+        }
+      }
+
+      frame.addEventListener("load", inspect);
+    </script>
+  </body>
+</html>

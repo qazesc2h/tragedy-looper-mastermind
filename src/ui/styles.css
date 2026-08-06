@@ -519,14 +519,17 @@ select {
 .character-chip-wrap {
   position: relative;
   display: grid;
-  min-width: 70px;
+  min-width: 0;
   flex: 1 1 calc(50% - 3px);
   gap: 4px;
+  container-name: character-chip;
+  container-type: inline-size;
 }
 
 .character-chip {
   display: grid;
   width: 100%;
+  max-width: 100%;
   min-width: 0;
   min-height: 64px;
   align-content: center;
@@ -534,7 +537,7 @@ select {
   border: 1px solid rgba(190, 166, 110, 0.56);
   border-radius: 9px;
   background: rgba(20, 18, 14, 0.9);
-  padding: 5px 6px;
+  padding: 5px 4px;
   color: var(--ink);
   text-align: left;
 }
@@ -613,13 +616,43 @@ select {
 }
 
 .character-chip-counters {
-  display: flex;
-  justify-content: space-between;
-  gap: 3px;
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px 3px;
   color: #d7ccba;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.68rem;
+  font-size: 0.62rem;
   white-space: nowrap;
+}
+
+.character-chip-counters > span {
+  min-width: 0;
+}
+
+.character-chip-counters > span:nth-child(2) {
+  text-align: right;
+}
+
+.character-chip-counters > span:nth-child(3) {
+  grid-column: 1 / -1;
+}
+
+@container character-chip (min-width: 124px) {
+  .character-chip-counters {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 3px;
+    font-size: 0.68rem;
+  }
+
+  .character-chip-counters > span:nth-child(2) {
+    text-align: center;
+  }
+
+  .character-chip-counters > span:nth-child(3) {
+    grid-column: auto;
+    text-align: right;
+  }
 }
 
 .character-chip-wrap.is-dead .character-chip {
