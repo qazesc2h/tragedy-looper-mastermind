@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test": "vitest run",
+    "test": "vitest run && npm run test:mobile-layout",
+    "test:unit": "vitest run",
+    "test:mobile-layout": "node scripts/test-mobile-layout.mjs",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

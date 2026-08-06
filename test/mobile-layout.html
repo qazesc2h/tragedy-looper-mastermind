@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>390px 캐릭터 칩 경계 검사</title>
+    <title>390px 모바일 레이아웃 검사</title>
     <style>
       html, body { margin: 0; background: #111; color: #eee; font-family: monospace; }
       iframe { display: block; width: 390px; height: 844px; border: 0; }
@@ -11,80 +11,297 @@
     </style>
   </head>
   <body>
-    <iframe id="app-frame" src="/" title="390px 앱 렌더"></iframe>
-    <pre id="result">게임판 렌더 대기 중</pre>
+    <iframe id="app-frame" title="390px 앱 렌더"></iframe>
+    <pre id="result">실제 브라우저 렌더 대기 중</pre>
     <script type="module">
       import { characterChipLayoutViolations } from "/src/ui/mobile-layout-check.ts";
 
+      const WIDTH = 390;
+      const HEIGHT = 844;
+      const MINIMUM_VISIBLE_BOARD_PX = 120;
+      const STORAGE_KEYS = [
+        "tragedy-looper-mastermind:tracker",
+        "tragedy-looper:tracker:v1",
+        "tragedy-looper-mastermind:tracker:v1",
+      ];
       const frame = document.querySelector("#app-frame");
       const result = document.querySelector("#result");
+      const originalStorage = new Map(
+        STORAGE_KEYS.map((key) => [key, window.localStorage.getItem(key)]),
+      );
+      const reports = [];
+      const failures = [];
 
-      async function inspect() {
-        const frameDocument = frame.contentDocument;
-        const board = frameDocument?.querySelector(".game-board");
-        if (!frameDocument || !board) {
-          setTimeout(inspect, 50);
-          return;
-        }
-        await frame.contentWindow.document.fonts.ready;
-        const violations = characterChipLayoutViolations(frameDocument);
-        const counts = [...frameDocument.querySelectorAll(".character-grid")]
-          .map((grid) => grid.querySelectorAll(".character-chip-wrap").length);
-        const measurements = [...frameDocument.querySelectorAll(".board-location")]
-          .map((location) => {
-            const grid = location.querySelector(".character-grid");
-            const gridRect = grid.getBoundingClientRect();
-            return {
-              location: location.querySelector(".location-target span")
-                ?.textContent?.trim(),
-              count: grid.querySelectorAll(".character-chip-wrap").length,
-              grid: {
-                left: gridRect.left,
-                right: gridRect.right,
-                width: gridRect.width,
-              },
-              chips: [...grid.querySelectorAll(".character-chip")].map((chip) => {
-                const rect = chip.getBoundingClientRect();
-                const counters = chip.querySelector(".character-chip-counters");
-                return {
-                  name: chip.getAttribute("aria-label"),
-                  left: rect.left,
-                  right: rect.right,
-                  width: rect.width,
-                  clientWidth: chip.clientWidth,
-                  scrollWidth: chip.scrollWidth,
-                  countersClientWidth: counters.clientWidth,
-                  countersScrollWidth: counters.scrollWidth,
-                };
-              }),
-            };
-          });
-        const report = {
-          viewport: {
-            width: frame.contentWindow.innerWidth,
-            height: frame.contentWindow.innerHeight,
-          },
-          counts,
-          chipCount: counts.reduce((sum, count) => sum + count, 0),
-          measurements,
-          violations,
-        };
-        window.mobileLayoutReport = report;
-        document.documentElement.dataset.layoutResult =
-          violations.length === 0 ? "pass" : "fail";
-        result.textContent = `${violations.length === 0 ? "PASS" : "FAIL"}\n${
-          JSON.stringify(report, null, 2)
-        }`;
-        frame.contentWindow.scrollTo({
-          top: Math.max(0, board.offsetTop - 8),
-          behavior: "instant",
-        });
-        if (violations.length > 0) {
-          throw new Error(`character chip layout overflow: ${JSON.stringify(violations)}`);
+      function restoreStorage() {
+        for (const [key, value] of originalStorage) {
+          if (value === null) window.localStorage.removeItem(key);
+          else window.localStorage.setItem(key, value);
         }
       }
 
-      frame.addEventListener("load", inspect);
+      for (const key of STORAGE_KEYS) window.localStorage.removeItem(key);
+
+      function pause(ms = 50) {
+        return new Promise((resolve) => window.setTimeout(resolve, ms));
+      }
+
+      async function waitFor(read, description, timeoutMs = 8_000) {
+        const startedAt = performance.now();
+        while (performance.now() - startedAt < timeoutMs) {
+          const value = read();
+          if (value) return value;
+          await pause();
+        }
+        throw new Error(`대기 시간 초과: ${description}`);
+      }
+
+      function frameDocument() {
+        const document = frame.contentDocument;
+        if (!document) throw new Error("iframe document를 읽을 수 없습니다.");
+        return document;
+      }
+
+      function frameWindow() {
+        const current = frame.contentWindow;
+        if (!current) throw new Error("iframe window를 읽을 수 없습니다.");
+        return current;
+      }
+
+      function click(selector) {
+        const element = frameDocument().querySelector(selector);
+        if (!(element instanceof frameWindow().HTMLElement)) {
+          throw new Error(`클릭 대상을 찾을 수 없습니다: ${selector}`);
+        }
+        element.click();
+      }
+
+      function locationOf(character) {
+        const chip = frameDocument().querySelector(
+          `.character-chip[data-character="${character}"]`,
+        );
+        const location = chip?.closest(".board-location")?.querySelector(
+          "[data-action='board-location']",
+        );
+        return location?.dataset.location;
+      }
+
+      async function enterRound() {
+        const document = frameDocument();
+        document.querySelector("[data-action='choose-leader']")?.click();
+        await pause();
+        document.querySelector("[data-action='continue-loop-start']")?.click();
+        await waitFor(
+          () => frameDocument().querySelector(".game-board"),
+          "ROUND 게임판",
+        );
+        await frameDocument().fonts.ready;
+      }
+
+      async function selectScenario(title) {
+        const select = frameDocument().querySelector("[data-action='scenario']");
+        if (!(select instanceof frameWindow().HTMLSelectElement)) {
+          throw new Error("시나리오 선택기를 찾을 수 없습니다.");
+        }
+        const option = [...select.options].find(
+          (candidate) => candidate.textContent?.trim() === title,
+        );
+        if (!option) throw new Error(`시나리오를 찾을 수 없습니다: ${title}`);
+        select.value = option.value;
+        select.dispatchEvent(new (frameWindow().Event)("change", { bubbles: true }));
+        await pause();
+        await enterRound();
+      }
+
+      async function moveCharacter(character, location) {
+        if (locationOf(character) === location) return;
+        click(`[data-action='board-character'][data-character="${character}"]`);
+        const select = await waitFor(
+          () => frameDocument().querySelector(
+            `[data-action='move-character'][data-character="${character}"]`,
+          ),
+          `${character} 이동 선택기`,
+        );
+        select.value = location;
+        select.dispatchEvent(new (frameWindow().Event)("change", { bubbles: true }));
+        await waitFor(
+          () => locationOf(character) === location,
+          `${character} → ${location}`,
+        );
+        frameDocument().querySelector("[data-action='close-character-modal']")?.click();
+        await pause();
+      }
+
+      function locationCounts() {
+        return [...frameDocument().querySelectorAll(".character-grid")]
+          .map((grid) => grid.querySelectorAll(".character-chip-wrap").length);
+      }
+
+      function horizontalOverflow() {
+        const document = frameDocument();
+        return {
+          viewportWidth: frameWindow().innerWidth,
+          scrollWidth: document.documentElement.scrollWidth,
+        };
+      }
+
+      function recordBoardLayout(label, expectedCounts) {
+        const document = frameDocument();
+        const counts = locationCounts();
+        const violations = characterChipLayoutViolations(document);
+        const horizontal = horizontalOverflow();
+        const report = { label, counts, expectedCounts, horizontal, violations };
+        reports.push(report);
+        if (JSON.stringify(counts) !== JSON.stringify(expectedCounts)) {
+          failures.push(`${label}: 인원 분포 ${JSON.stringify(counts)} != ${JSON.stringify(expectedCounts)}`);
+        }
+        if (violations.length > 0) {
+          failures.push(`${label}: 캐릭터 칩 경계 위반 ${JSON.stringify(violations)}`);
+        }
+        if (horizontal.scrollWidth > WIDTH || horizontal.viewportWidth !== WIDTH) {
+          failures.push(`${label}: 가로 폭 ${JSON.stringify(horizontal)}`);
+        }
+      }
+
+      async function inspectDockAndToast() {
+        const document = frameDocument();
+        const currentWindow = frameWindow();
+        currentWindow.scrollTo(0, document.documentElement.scrollHeight);
+        await pause(100);
+        const dock = document.querySelector(".operation-dock-bar");
+        const footer = document.querySelector(".site-footer");
+        if (!dock || !footer) throw new Error("조작 독 또는 페이지 하단을 찾을 수 없습니다.");
+        const dockRect = dock.getBoundingClientRect();
+        const footerRect = footer.getBoundingClientRect();
+        const dockReport = {
+          dock: { top: dockRect.top, bottom: dockRect.bottom },
+          contentBottom: footerRect.bottom,
+          viewportHeight: currentWindow.innerHeight,
+        };
+        reports.push({ label: "하단 조작 독", ...dockReport });
+        if (footerRect.bottom > dockRect.top + 0.5) {
+          failures.push(`하단 조작 독이 문서 끝을 가림: ${JSON.stringify(dockReport)}`);
+        }
+        if (dockRect.bottom > currentWindow.innerHeight + 0.5) {
+          failures.push(`하단 조작 독이 뷰포트를 벗어남: ${JSON.stringify(dockReport)}`);
+        }
+
+        click("[data-action='copy-state']");
+        const toast = await waitFor(
+          () => frameDocument().querySelector(".notice-toast"),
+          "상태 복사 토스트",
+        );
+        const toastRect = toast.getBoundingClientRect();
+        const liveDockRect = frameDocument().querySelector(".operation-dock-bar")
+          .getBoundingClientRect();
+        const toastReport = {
+          toast: { top: toastRect.top, bottom: toastRect.bottom },
+          dock: { top: liveDockRect.top, bottom: liveDockRect.bottom },
+        };
+        reports.push({ label: "토스트와 조작 독", ...toastReport });
+        if (toastRect.bottom > liveDockRect.top + 0.5) {
+          failures.push(`토스트가 조작 독을 가림: ${JSON.stringify(toastReport)}`);
+        }
+        frameDocument().querySelector("[data-action='dismiss-notice']")?.click();
+        await pause();
+      }
+
+      async function inspectOpenCardPanel() {
+        const document = frameDocument();
+        const board = document.querySelector(".game-board");
+        if (!board) throw new Error("카드 패널 검사에서 게임판을 찾을 수 없습니다.");
+        board.scrollIntoView({ block: "start" });
+        await pause(100);
+        click("[data-action='toggle-operation-sheet']");
+        const sheet = await waitFor(
+          () => frameDocument().querySelector(".operation-sheet"),
+          "카드 선택 패널",
+        );
+        const boardRect = frameDocument().querySelector(".game-board").getBoundingClientRect();
+        const sheetRect = sheet.getBoundingClientRect();
+        const visibleBoard = Math.max(
+          0,
+          Math.min(boardRect.bottom, sheetRect.top) - Math.max(boardRect.top, 0),
+        );
+        const horizontal = horizontalOverflow();
+        const panelReport = {
+          minimumVisibleBoard: MINIMUM_VISIBLE_BOARD_PX,
+          visibleBoard,
+          board: { top: boardRect.top, bottom: boardRect.bottom },
+          sheet: { top: sheetRect.top, bottom: sheetRect.bottom },
+          horizontal,
+        };
+        reports.push({ label: "카드 선택 패널", ...panelReport });
+        if (visibleBoard < MINIMUM_VISIBLE_BOARD_PX) {
+          failures.push(`카드 선택 패널 위 게임판 노출 부족: ${JSON.stringify(panelReport)}`);
+        }
+        if (horizontal.scrollWidth > WIDTH) {
+          failures.push(`카드 선택 패널 가로 스크롤: ${JSON.stringify(horizontal)}`);
+        }
+        click("[data-action='close-operation-sheet']");
+        await pause();
+      }
+
+      async function run() {
+        await enterRound();
+
+        const starts = {
+          patient: "Hospital",
+          nurse: "Hospital",
+          shrineMaiden: "Shrine",
+          policeOfficer: "City",
+          officeWorker: "City",
+          informer: "City",
+          boyStudent: "School",
+          girlStudent: "School",
+          classRep: "School",
+        };
+        for (const [character, location] of Object.entries(starts)) {
+          await moveCharacter(character, location);
+        }
+        recordBoardLayout("1~3명 분산", [2, 1, 3, 3]);
+
+        await moveCharacter("officeWorker", "Hospital");
+        await moveCharacter("informer", "Hospital");
+        recordBoardLayout("한 장소 4명", [4, 1, 1, 3]);
+        await inspectDockAndToast();
+        await inspectOpenCardPanel();
+
+        await selectScenario("Neverending Happy & Sad Story");
+        const characters = [...frameDocument().querySelectorAll(
+          ".character-chip[data-character]",
+        )].map((chip) => chip.dataset.character);
+        if (characters.length !== 11 || characters.some((character) => !character)) {
+          failures.push(`11명 시나리오 캐릭터 수: ${characters.length}`);
+        } else {
+          for (const character of characters) {
+            await moveCharacter(character, "Hospital");
+          }
+        }
+        recordBoardLayout("한 장소 11명", [11, 0, 0, 0]);
+
+        restoreStorage();
+        const report = {
+          viewport: { width: frameWindow().innerWidth, height: frameWindow().innerHeight },
+          reports,
+          failures,
+        };
+        window.mobileLayoutReport = report;
+        const passed = failures.length === 0;
+        document.documentElement.dataset.layoutResult = passed ? "pass" : "fail";
+        result.textContent = `${passed ? "PASS" : "FAIL"}\n${JSON.stringify(report, null, 2)}`;
+        if (!passed) throw new Error(`모바일 레이아웃 위반: ${JSON.stringify(failures)}`);
+      }
+
+      frame.addEventListener("load", () => {
+        void run().catch((error) => {
+          restoreStorage();
+          document.documentElement.dataset.layoutResult = "fail";
+          failures.push(error instanceof Error ? error.message : String(error));
+          result.textContent = `FAIL\n${JSON.stringify({ reports, failures }, null, 2)}`;
+          console.error(error);
+        });
+      }, { once: true });
+      frame.src = "/";
     </script>
   </body>
 </html>
