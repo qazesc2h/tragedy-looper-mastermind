@@ -186,6 +186,8 @@ let openCharacterModal: CharacterId | undefined;
 let openLocationModal: Location | undefined;
 let operationSheetOpen = false;
 const optionalHookSelections = new Map<string, OptionalHookSelection>();
+let noticeDismissTimer: number | undefined;
+const NOTICE_DURATION_MS = 5_000;
 
 function defaultStoredGame(scenarioId: string): StoredGame | undefined {
   const entry = scenarioEntries.find(({ id }) => id === scenarioId);
@@ -216,6 +218,21 @@ function escapeHtml(value: unknown): string {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function scheduleNoticeDismiss(): void {
+  if (noticeDismissTimer !== undefined) {
+    window.clearTimeout(noticeDismissTimer);
+    noticeDismissTimer = undefined;
+  }
+  if (notice === "") return;
+  const scheduledNotice = notice;
+  noticeDismissTimer = window.setTimeout(() => {
+    noticeDismissTimer = undefined;
+    if (notice !== scheduledNotice) return;
+    notice = "";
+    render();
+  }, NOTICE_DURATION_MS);
 }
 
 function activeScenarioEntry(): ScenarioEntry {
@@ -2063,8 +2080,13 @@ function render(): void {
         </div>
       </header>
 
-      ${notice ? `<div class="notice" role="alert">${escapeHtml(notice)}</div>` : ""}
       ${gameContent}
+      ${notice
+        ? `<div class="notice-toast" role="alert">
+            <span>${escapeHtml(notice)}</span>
+            <button type="button" data-action="dismiss-notice" aria-label="알림 닫기">×</button>
+          </div>`
+        : ""}
       <footer class="site-footer" aria-label="저작권 및 비공식 도구 안내">
         <div class="site-footer-content">
           <p>
@@ -2084,6 +2106,7 @@ function render(): void {
         </div>
       </footer>
     </div>`;
+  scheduleNoticeDismiss();
 }
 
 function incidentChoiceFromUi(): IncidentChoice | undefined {
@@ -2400,6 +2423,12 @@ root.addEventListener("click", (event) => {
 
   if (action === "copy-state") {
     copyCurrentState();
+    return;
+  }
+
+  if (action === "dismiss-notice") {
+    notice = "";
+    render();
     return;
   }
 
