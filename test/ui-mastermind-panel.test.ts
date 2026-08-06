@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { initLoop } from "../src/engine/setup";
 import {
+  incidentDayLabelsForCharacter,
   incidentDaysForCharacter,
   incidentScheduleRows,
 } from "../src/ui/mastermind-panel";
@@ -104,5 +105,7 @@ describe("mastermind incident schedule", () => {
       1,
       2,
     ]);
+    expect(incidentDayLabelsForCharacter(createState(), "girlStudent"))
+      .toEqual(["1일", "2일"]);
   });
 });

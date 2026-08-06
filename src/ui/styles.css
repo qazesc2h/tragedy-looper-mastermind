@@ -536,8 +536,22 @@ select {
   color: #f1cf8c;
 }
 
+.culprit-badges {
+  display: flex;
+  min-width: 0;
+  max-width: 70%;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 2px;
+}
+
 .culprit-badge {
   flex: 0 0 auto;
+  border: 1px solid rgba(239, 170, 160, 0.35);
+  border-radius: 999px;
+  background: rgba(116, 43, 38, 0.34);
+  padding: 1px 4px;
   color: #efaaa0;
 }
 

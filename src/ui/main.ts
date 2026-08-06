@@ -69,6 +69,7 @@ import {
   type GoodwillDisabledReason,
 } from "./goodwill-abilities";
 import {
+  incidentDayLabelsForCharacter,
   incidentDaysForCharacter,
   incidentScheduleRows,
   type IncidentScheduleRow,
@@ -452,10 +453,14 @@ function renderCharacter(state: GameState, character: CharacterId): string {
   const aliveLabel = position.alive
     ? misc("Alive", "Alive")
     : misc("Dead", "Dead");
-  const culpritDays = incidentDaysForCharacter(state, character);
-  const culpritBadge = culpritDays.length === 0
+  const culpritDayLabels = incidentDayLabelsForCharacter(state, character);
+  const culpritBadges = culpritDayLabels.length === 0
     ? ""
-    : `<span class="culprit-badge">범인 · ${culpritDays.map((day) => `${day}일`).join(" · ")}</span>`;
+    : `<span class="culprit-badges" aria-label="사건 범인 날짜">
+        ${culpritDayLabels.map((label) =>
+          `<span class="culprit-badge">${escapeHtml(label)}</span>`
+        ).join("")}
+      </span>`;
 
   return `
     <article class="character-chip-wrap ${position.alive ? "is-alive" : "is-dead"}">
@@ -468,7 +473,7 @@ function renderCharacter(state: GameState, character: CharacterId): string {
         </span>
         <span class="character-chip-meta">
           <span class="character-chip-role">${escapeHtml(roleName(role))}</span>
-          ${culpritBadge}
+          ${culpritBadges}
         </span>
         <span class="character-chip-counters">
           <span>우 ${counters.goodwill}</span>

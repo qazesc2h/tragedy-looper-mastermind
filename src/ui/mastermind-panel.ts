@@ -105,3 +105,10 @@ export function incidentDaysForCharacter(
     .map(({ day }) => day)
     .sort((left, right) => left - right);
 }
+
+export function incidentDayLabelsForCharacter(
+  state: GameState,
+  character: CharacterId,
+): string[] {
+  return incidentDaysForCharacter(state, character).map((day) => `${day}일`);
+}
