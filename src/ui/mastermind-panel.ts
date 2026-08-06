@@ -96,6 +96,15 @@ export function incidentScheduleRows(
     });
 }
 
+export function incidentScheduleRowsForCharacter(
+  state: GameState,
+  character: CharacterId,
+): IncidentScheduleRow[] {
+  return incidentScheduleRows(state).filter(
+    ({ culprit }) => culprit === character,
+  );
+}
+
 export function incidentDaysForCharacter(
   state: GameState,
   character: CharacterId,

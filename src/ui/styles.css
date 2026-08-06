@@ -1649,6 +1649,76 @@ select {
   gap: 7px;
 }
 
+.character-incident-information {
+  display: grid;
+  gap: 7px;
+  border-top: 1px solid #493d2d;
+  padding-top: 10px;
+}
+
+.character-incident-information h3 {
+  margin: 0;
+  color: #e8d3aa;
+  font-size: 0.86rem;
+}
+
+.empty-detail-information {
+  margin: 0;
+  color: var(--ink-dim);
+  font-size: 0.74rem;
+}
+
+.character-incident-list {
+  display: grid;
+  gap: 6px;
+}
+
+.character-incident-row {
+  display: grid;
+  gap: 3px;
+  border: 1px solid #514536;
+  border-left: 3px solid #8a5047;
+  border-radius: 8px;
+  background: #201c16;
+  padding: 7px 8px;
+}
+
+.character-incident-row.is-met {
+  border-left-color: #69976f;
+}
+
+.character-incident-row header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.character-incident-row header strong {
+  font-size: 0.78rem;
+}
+
+.character-incident-row header span {
+  color: var(--danger);
+  font-weight: 900;
+}
+
+.character-incident-row.is-met header span {
+  color: var(--success);
+}
+
+.character-incident-row p,
+.character-incident-row small {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 0.7rem;
+  line-height: 1.35;
+}
+
+.character-incident-judgment {
+  color: #d6b478 !important;
+}
+
 .counter-control,
 .location-modal-counter {
   display: grid;

@@ -5,6 +5,7 @@ import {
   incidentDayLabelsForCharacter,
   incidentDaysForCharacter,
   incidentScheduleRows,
+  incidentScheduleRowsForCharacter,
 } from "../src/ui/mastermind-panel";
 import type { GameState, Scenario } from "../src/types";
 
@@ -107,5 +108,15 @@ describe("mastermind incident schedule", () => {
     ]);
     expect(incidentDayLabelsForCharacter(createState(), "girlStudent"))
       .toEqual(["1일", "2일"]);
+    expect(incidentScheduleRowsForCharacter(createState(), "girlStudent"))
+      .toMatchObject([
+        { day: 1, outcome: "fired", judgmentRecorded: true },
+        {
+          day: 2,
+          outcome: "notFired",
+          outcomeReasons: ["insufficientParanoia"],
+          judgmentRecorded: true,
+        },
+      ]);
   });
 });

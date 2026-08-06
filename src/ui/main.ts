@@ -72,6 +72,7 @@ import {
   incidentDayLabelsForCharacter,
   incidentDaysForCharacter,
   incidentScheduleRows,
+  incidentScheduleRowsForCharacter,
   type IncidentScheduleRow,
 } from "./mastermind-panel";
 import {
@@ -506,6 +507,42 @@ function renderLocation(state: GameState, location: Location): string {
     </section>`;
 }
 
+function renderCharacterIncidentInformation(
+  state: GameState,
+  character: CharacterId,
+): string {
+  const rows = incidentScheduleRowsForCharacter(state, character);
+  return `
+    <section class="character-incident-information">
+      <h3>범인 사건</h3>
+      ${rows.length === 0
+        ? `<p class="empty-detail-information">이 캐릭터가 범인인 사건 없음</p>`
+        : `<div class="character-incident-list">
+            ${rows.map((row) => {
+              const conditionStatus = row.conditionMet
+                ? "현재 조건 충족"
+                : `현재 조건 미충족 · ${row.currentFailureReasons
+                  .map(incidentFailureLabel).join(" · ")}`;
+              const judgmentStatus = row.outcome
+                ? recordedIncidentStatus(row)
+                : pendingIncidentStatus(row);
+              return `
+                <article class="character-incident-row ${row.conditionMet ? "is-met" : "is-unmet"}">
+                  <header>
+                    <strong>${row.day}일 · ${escapeHtml(incidentName(row.incident))}</strong>
+                    <span>${row.conditionMet ? "✓" : "✗"}</span>
+                  </header>
+                  <p>현재 불안 ${row.paranoia} / 최대 불안 ${row.paranoiaLimit}</p>
+                  <small>${escapeHtml(conditionStatus)}</small>
+                  <small class="character-incident-judgment">
+                    ${escapeHtml(row.outcome ? `지난 판정 · ${judgmentStatus}` : `예정 · ${judgmentStatus}`)}
+                  </small>
+                </article>`;
+            }).join("")}
+          </div>`}
+    </section>`;
+}
+
 function renderCharacterModal(state: GameState): string {
   const character = openCharacterModal;
   if (!character || state.loop.board[character] === undefined) return "";
@@ -545,6 +582,7 @@ function renderCharacterModal(state: GameState): string {
           )}
           ${renderCounter(character, "intrigue", counters.intrigue)}
         </div>
+        ${renderCharacterIncidentInformation(state, character)}
         <label class="location-select">
           <span>${escapeHtml(misc("Location", "Location"))}</span>
           <select data-action="move-character" data-character="${escapeHtml(character)}">
