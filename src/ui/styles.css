@@ -1649,6 +1649,61 @@ select {
   gap: 7px;
 }
 
+.character-location-information {
+  display: grid;
+  gap: 7px;
+  border-top: 1px solid #493d2d;
+  padding-top: 10px;
+}
+
+.character-location-information h3 {
+  margin: 0;
+  color: #e8d3aa;
+  font-size: 0.86rem;
+}
+
+.character-location-information dl {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.character-location-information dl > div {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 8px;
+  border-radius: 7px;
+  background: #201c16;
+  padding: 7px 8px;
+}
+
+.character-location-information dt,
+.character-location-information dd {
+  margin: 0;
+  font-size: 0.74rem;
+  line-height: 1.4;
+}
+
+.character-location-information dt {
+  color: var(--ink-dim);
+}
+
+.character-location-information dd {
+  color: var(--ink-muted);
+}
+
+.character-location-information dd strong {
+  display: block;
+  margin-top: 2px;
+  color: var(--success);
+  font-size: 0.7rem;
+}
+
+.character-location-information .is-removed dd span {
+  color: var(--ink-dim);
+  text-decoration: line-through;
+}
+
 .character-incident-information {
   display: grid;
   gap: 7px;

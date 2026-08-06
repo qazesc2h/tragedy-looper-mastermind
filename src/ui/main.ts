@@ -68,6 +68,7 @@ import {
   type GoodwillAbilityView,
   type GoodwillDisabledReason,
 } from "./goodwill-abilities";
+import { characterLocationInformation } from "./character-locations";
 import {
   incidentDayLabelsForCharacter,
   incidentDaysForCharacter,
@@ -543,6 +544,45 @@ function renderCharacterIncidentInformation(
     </section>`;
 }
 
+function renderCharacterLocationInformation(
+  state: GameState,
+  character: CharacterId,
+): string {
+  const information = characterLocationInformation(state, character);
+  const startLocation = information.startLocationIsMastermindChoice
+    ? `매 루프 각본가 지정 · 이번 루프 ${
+      information.selectedStartLocation
+        ? locationName(information.selectedStartLocation)
+        : "미지정"
+    }`
+    : information.selectedStartLocation
+    ? locationName(information.selectedStartLocation)
+    : "없음";
+  const forbiddenLocations = information.forbiddenLocations.length === 0
+    ? "없음"
+    : information.forbiddenLocations.map(locationName).join(" · ");
+
+  return `
+    <section class="character-location-information">
+      <h3>장소 정보</h3>
+      <dl>
+        <div>
+          <dt>시작 위치</dt>
+          <dd>${escapeHtml(startLocation)}</dd>
+        </div>
+        <div class="${information.restrictionsRemoved ? "is-removed" : ""}">
+          <dt>금지 장소</dt>
+          <dd>
+            <span>${escapeHtml(forbiddenLocations)}</span>
+            ${information.restrictionsRemoved
+              ? `<strong>해제됨 · 의사[우호3]</strong>`
+              : ""}
+          </dd>
+        </div>
+      </dl>
+    </section>`;
+}
+
 function renderCharacterModal(state: GameState): string {
   const character = openCharacterModal;
   if (!character || state.loop.board[character] === undefined) return "";
@@ -582,6 +622,7 @@ function renderCharacterModal(state: GameState): string {
           )}
           ${renderCounter(character, "intrigue", counters.intrigue)}
         </div>
+        ${renderCharacterLocationInformation(state, character)}
         ${renderCharacterIncidentInformation(state, character)}
         <label class="location-select">
           <span>${escapeHtml(misc("Location", "Location"))}</span>
