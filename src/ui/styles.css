@@ -1305,24 +1305,32 @@ select {
 
 .action-hand {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 7px;
+  gap: 4px;
+}
+
+.action-hand.is-mastermind-hand {
+  grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
+}
+
+.action-hand.is-protagonist-hand {
+  grid-template-columns: repeat(auto-fit, minmax(76px, 1fr));
 }
 
 .hand-card {
   position: relative;
   display: grid;
   min-width: 0;
-  min-height: 64px;
+  min-height: 46px;
   align-content: space-between;
-  gap: 4px;
+  gap: 2px;
+  overflow: hidden;
   border: 1px solid #655237;
-  border-left-width: 4px;
-  border-radius: 8px;
+  border-left-width: 3px;
+  border-radius: 7px;
   background: #2a241b;
-  padding: 8px;
+  padding: 5px 4px;
   color: #e4d9c5;
-  text-align: left;
+  text-align: center;
 }
 
 .hand-card.is-selected {
@@ -1337,20 +1345,27 @@ select {
 }
 
 .hand-card span {
-  font-size: 0.78rem;
+  overflow: hidden;
+  font-size: 0.68rem;
   font-weight: 800;
-  line-height: 1.2;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .hand-card small,
 .hand-card b {
+  overflow: hidden;
   color: #9d907a;
-  font-size: 0.67rem;
+  font-size: 0.55rem;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .protagonist-hands {
   display: grid;
-  gap: 7px;
+  gap: 4px;
 }
 
 .protagonist-hand {
@@ -1358,19 +1373,20 @@ select {
   border: 1px solid #483e30;
   border-radius: 9px;
   background: #201d17;
-  padding: 8px;
+  padding: 4px 7px;
   opacity: 0.54;
 }
 
 .protagonist-hand.is-current {
   border-color: #c48a3b;
   background: #2b2419;
+  padding-block: 6px;
   opacity: 1;
 }
 
 .protagonist-hand header {
   display: flex;
-  min-height: 44px;
+  min-height: 28px;
   align-items: center;
   justify-content: space-between;
   gap: 8px;

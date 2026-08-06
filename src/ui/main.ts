@@ -44,6 +44,7 @@ import {
 } from "../types";
 import {
   collectResolutionReport,
+  cardPanelShouldReopenAfterPlacement,
   groupPlacementsByTarget,
   handCardIsPlaced,
   MASTERMIND_HAND,
@@ -686,8 +687,11 @@ function renderHand(
   hand: readonly HandCard[],
   enabled: boolean,
 ): string {
+  const handClass = owner === "mastermind"
+    ? "is-mastermind-hand"
+    : "is-protagonist-hand";
   return `
-    <div class="action-hand">
+    <div class="action-hand ${handClass}">
       ${hand.map((entry, index) => {
         const placed = handCardIsPlaced(state, owner, hand, index);
         const selected = selectedHandCard?.owner === owner &&
@@ -2181,7 +2185,10 @@ function placeSelectedCard(target: Target): void {
   selectedHandCard = undefined;
   openCharacterModal = undefined;
   openLocationModal = undefined;
-  operationSheetOpen = true;
+  operationSheetOpen = cardPanelShouldReopenAfterPlacement(
+    state,
+    placement.owner,
+  );
   commit("action-card-placement", (game) => {
     game.loop.placed.push(placement);
   });
@@ -2433,7 +2440,7 @@ root.addEventListener("click", (event) => {
       return;
     }
     selectedHandCard = undefined;
-    operationSheetOpen = true;
+    operationSheetOpen = false;
     notice = "";
     saveState(activeScenarioEntry().id, state, "action-card-recall");
     render();

@@ -91,6 +91,28 @@ export function placementsForOwner(
   return state.loop.placed.filter((placement) => placement.owner === owner);
 }
 
+/** 카드 1장을 더 놓은 뒤 같은 단계에서 선택할 카드가 남는지 계산한다. */
+export function cardPanelShouldReopenAfterPlacement(
+  state: GameState,
+  placedOwner: CardOwner,
+): boolean {
+  const mastermindCount = placementsForOwner(state, "mastermind").length +
+    (placedOwner === "mastermind" ? 1 : 0);
+  if (state.loop.phase === "P2_MASTERMIND_ACTION") {
+    return mastermindCount < 3;
+  }
+  if (state.loop.phase !== "P3_PROTAGONIST_ACTION") return false;
+  if (mastermindCount < 3) return true;
+
+  const protagonistOwners = new Set(
+    state.loop.placed.flatMap(({ owner }) =>
+      owner === "mastermind" ? [] : [owner]
+    ),
+  );
+  if (placedOwner !== "mastermind") protagonistOwners.add(placedOwner);
+  return protagonistOwners.size < 3;
+}
+
 /** P4 공개 단계에 들어가기 전에는 놓인 카드를 회수할 수 있다. */
 export function placedCardCanBeRecalled(
   phase: Phase,

@@ -6,6 +6,7 @@ import {
   collectNoEffectCards,
   collectResolutionChanges,
   collectResolutionReport,
+  cardPanelShouldReopenAfterPlacement,
   groupPlacementsByTarget,
   handCardIsPlaced,
   MASTERMIND_HAND,
@@ -148,6 +149,38 @@ describe("UI action-card hands", () => {
     state.loop.phase = "P4_RESOLVE";
     expect(recallPlacedCard(state, 0)).toBeUndefined();
     expect(state.loop.placed).toHaveLength(1);
+  });
+
+  it("reopens the card panel only while placements remain", () => {
+    const state = createState();
+    const target = {
+      kind: "character" as const,
+      id: Object.keys(state.loop.board)[0],
+    };
+    state.loop.phase = "P2_MASTERMIND_ACTION";
+    expect(cardPanelShouldReopenAfterPlacement(state, "mastermind")).toBe(true);
+    state.loop.placed.push(
+      { owner: "mastermind", card: "paranoiaPlus1", target },
+      { owner: "mastermind", card: "paranoiaMinus1", target },
+    );
+    expect(cardPanelShouldReopenAfterPlacement(state, "mastermind")).toBe(false);
+    state.loop.placed.push({
+      owner: "mastermind",
+      card: "forbidParanoia",
+      target,
+    });
+
+    state.loop.phase = "P3_PROTAGONIST_ACTION";
+    expect(cardPanelShouldReopenAfterPlacement(state, 0)).toBe(true);
+    state.loop.placed.push(
+      { owner: 0, card: "goodwillPlus1", target },
+      { owner: 1, card: "goodwillPlus1", target },
+    );
+    expect(cardPanelShouldReopenAfterPlacement(state, 2)).toBe(false);
+    state.loop.placed.push({ owner: 2, card: "goodwillPlus1", target });
+
+    state.loop.placed.splice(0, 1);
+    expect(cardPanelShouldReopenAfterPlacement(state, "mastermind")).toBe(false);
   });
 });
 
