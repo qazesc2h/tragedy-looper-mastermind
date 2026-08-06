@@ -454,8 +454,8 @@ function renderCharacter(state: GameState, character: CharacterId): string {
   const data = characterDataOf(character);
   const role = effectiveRole(state, character);
   const aliveLabel = position.alive
-    ? misc("Alive", "Alive")
-    : misc("Dead", "Dead");
+    ? misc("Alive", "생존")
+    : misc("Dead", "사망");
   const culpritDayLabels = incidentDayLabelsForCharacter(state, character);
   const culpritBadges = culpritDayLabels.length === 0
     ? ""
@@ -472,7 +472,10 @@ function renderCharacter(state: GameState, character: CharacterId): string {
         aria-label="${escapeHtml(`${characterName(character)} — ${roleName(role)} — ${aliveLabel}`)}">
         <span class="character-chip-heading">
           <strong>${escapeHtml(characterName(character))}</strong>
-          <span class="life-state"><i aria-hidden="true"></i>${escapeHtml(aliveLabel)}</span>
+          <span class="life-state" aria-label="${escapeHtml(aliveLabel)}"
+            title="${escapeHtml(aliveLabel)}">
+            <i aria-hidden="true"></i><span class="visually-hidden">${escapeHtml(aliveLabel)}</span>
+          </span>
         </span>
         <span class="character-chip-meta">
           <span class="character-chip-role">${escapeHtml(roleName(role))}</span>
@@ -591,8 +594,8 @@ function renderCharacterModal(state: GameState): string {
   const counters = state.loop.charCounters[character];
   const data = characterDataOf(character);
   const aliveLabel = position.alive
-    ? misc("Alive", "Alive")
-    : misc("Dead", "Dead");
+    ? misc("Alive", "생존")
+    : misc("Dead", "사망");
 
   return `
     <div class="modal-layer">
@@ -769,7 +772,7 @@ function renderSpentCards(state: GameState): string {
     <section class="utility-panel spent-panel">
       <div class="panel-heading">
         <span class="eyebrow">${escapeHtml(oncePerLoop)}</span>
-        <h2>${escapeHtml(misc("Spent cards", "Spent cards"))}</h2>
+        <h2>${escapeHtml(misc("Spent cards", "소진 카드"))}</h2>
       </div>
       <div class="spent-grid">
         ${renderSpentOwner(state, "mastermind")}
@@ -1678,7 +1681,7 @@ function renderTodayIncidents(
             : `판정 결과 · 발생하지 않음 (${failureReasons.map(incidentFailureLabel).join(" · ")})`}
         </p>
         <div class="incident-conditions">
-          <span>${mark(alive)} ${escapeHtml(misc("Alive", "Alive"))}</span>
+          <span>${mark(alive)} ${escapeHtml(misc("Alive", "생존"))}</span>
           <span>${mark(paranoia >= limit)} ${escapeHtml(misc("Paranoia"))} ${paranoia}/${limit}</span>
           <span>${mark(!culpritSuppressed)} 발생 억제 없음</span>
         </div>
@@ -1889,7 +1892,7 @@ function renderMastermindOverlay(state: GameState): string {
       </details>
       <details class="info-accordion spent-information">
         <summary>
-          <span><small>1루프당 1회</small><strong>${escapeHtml(misc("Spent cards", "Spent cards"))}</strong></span>
+          <span><small>1루프당 1회</small><strong>${escapeHtml(misc("Spent cards", "소진 카드"))}</strong></span>
           <i aria-hidden="true"></i>
         </summary>
         <div class="info-accordion-body">${renderSpentCards(state)}</div>

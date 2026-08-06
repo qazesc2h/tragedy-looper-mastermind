@@ -76,6 +76,16 @@ p {
   overflow-wrap: anywhere;
 }
 
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .app-shell {
   min-height: 100vh;
 }
@@ -550,16 +560,28 @@ select {
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 3px;
   color: #b7cbb9;
-  font-size: 0.63rem;
 }
 
 .life-state i {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #77b580;
+  position: relative;
+  width: 8px;
+  height: 12px;
+  border: 1px solid #9ccba3;
+  border-radius: 2px;
+  background: #47704e;
+  box-shadow: 0 0 0 1px rgba(14, 18, 13, 0.7);
+}
+
+.life-state i::after {
+  content: "";
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  left: 1px;
+  height: 2px;
+  border-radius: 1px;
+  background: #bce0c1;
 }
 
 .character-chip-meta {
@@ -654,7 +676,13 @@ select {
 }
 
 .character-chip-wrap.is-dead .life-state i {
-  background: #c86859;
+  border-color: #dc8d80;
+  background: #84473f;
+  transform: rotate(180deg);
+}
+
+.character-chip-wrap.is-dead .life-state i::after {
+  background: #efb0a5;
 }
 
 .empty-location,
