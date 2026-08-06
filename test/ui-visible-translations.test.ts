@@ -8,4 +8,8 @@ describe("explicit UI translation fallbacks", () => {
     expect(misc("Alive", "생존")).toBe("생존");
     expect(misc("Dead", "사망")).toBe("사망");
   });
+
+  it("uses the existing official label for the final guess screen", () => {
+    expect(misc("Final Guess")).toBe("최후의 싸움");
+  });
 });

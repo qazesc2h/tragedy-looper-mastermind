@@ -2031,7 +2031,7 @@ function renderFinalGuess(state: GameState): string {
   );
   return `<main class="game-flow-screen">
     <section class="flow-card">
-      <span class="eyebrow">Final Guess</span>
+      <span class="eyebrow">${escapeHtml(misc("Final Guess"))}</span>
       <h1>최후의 싸움</h1>
       <p>시작 장소·생존 상태·카운터가 초기화되었습니다. 시나리오의 모든 캐릭터는 엑스트라까지 맞혀야 합니다.</p>
       <div class="final-guess-form">
