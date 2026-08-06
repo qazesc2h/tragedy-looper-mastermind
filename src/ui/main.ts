@@ -76,6 +76,7 @@ import {
   incidentScheduleRowsForCharacter,
   type IncidentScheduleRow,
 } from "./mastermind-panel";
+import { phaseLogGroupIsOpen, phaseLogGroups } from "./phase-log";
 import {
   emptyTrackerStore,
   loadTrackerStore,
@@ -681,27 +682,44 @@ function renderPhases(state: GameState): string {
 }
 
 function renderPhaseLog(state: GameState): string {
-  const entries = (state.loop.phaseLog ?? []).slice(-8);
-  if (entries.length === 0) return "";
+  const groups = phaseLogGroups(state);
+  if (groups.length === 0) return "";
 
-  const line = (entry: (typeof entries)[number]): string => {
+  const line = (entry: (typeof groups)[number]["entries"][number]): string => {
     if (entry.kind === "notApplicable") {
-      return `${phaseName(entry.phase)} · 해당 없음`;
+      return "해당 없음";
     }
     if (entry.kind === "leaderPassed") {
-      return `${phaseName(entry.phase)} · ${ownerLabel(entry.from)} → ${ownerLabel(entry.to)}`;
+      return `${ownerLabel(entry.from)} → ${ownerLabel(entry.to)}`;
     }
     const result = entry.fired
       ? entry.effectApplied ? "발생 · 효과 적용" : "발생 · 효과 없음"
       : `발생하지 않음 (${entry.failureReasons.map(incidentFailureLabel).join(" · ")})`;
-    return `${phaseName(entry.phase)} · ${incidentName(entry.incident)} · ${result}`;
+    return `${incidentName(entry.incident)} · ${result}`;
   };
+  const entryCount = groups.reduce(
+    (sum, group) => sum + group.entries.length,
+    0,
+  );
 
   return `
     <section class="phase-log" aria-label="진행 기록">
-      <strong>진행 기록</strong>
-      <ol>${entries.map((entry) => `
-        <li><span>${entry.day}일째</span>${escapeHtml(line(entry))}</li>`).join("")}</ol>
+      <header class="phase-log-header">
+        <strong>진행 기록</strong>
+        <span>${entryCount}건</span>
+      </header>
+      <div class="phase-log-groups">
+        ${groups.map((group) => `
+          <details class="phase-log-group" ${phaseLogGroupIsOpen(state, group) ? "open" : ""}>
+            <summary>
+              <span>루프 ${group.loop} · ${group.day}일</span>
+              <strong>${escapeHtml(phaseName(group.phase))}</strong>
+              <small>${group.entries.length}건</small>
+            </summary>
+            <ol>${group.entries.map((entry) => `
+              <li>${escapeHtml(line(entry))}</li>`).join("")}</ol>
+          </details>`).join("")}
+      </div>
     </section>`;
 }
 
