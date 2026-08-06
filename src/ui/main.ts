@@ -2149,10 +2149,7 @@ function render(): void {
       <header class="topbar">
         <div class="brand">
           <span>${escapeHtml(misc("(제품명) Tragedy Looper", "Tragedy Looper"))}</span>
-          <div class="brand-product">
-            <strong>${escapeHtml(misc("Mastermind Aid"))}</strong>
-            <small>v${escapeHtml(APP_VERSION)}</small>
-          </div>
+          <strong>${escapeHtml(misc("Mastermind Aid"))}</strong>
         </div>
         <div class="session-meta">
           <label class="scenario-picker">
@@ -2190,22 +2187,25 @@ function render(): void {
           </div>`
         : ""}
       <footer class="site-footer" aria-label="저작권 및 비공식 도구 안내">
-        <div class="site-footer-content">
-          <p>
-            『트래지디 루퍼』는 BakaFire Party 의 저작물입니다.<br />
-            Game Design: BakaFire / Character Design &amp; Illustration: 紺ノ玲<br />
-            <a href="https://bakafire.main.jp/rooper/">https://bakafire.main.jp/rooper/</a>
-          </p>
-          <p>
-            한국어판: 엠티에스 게임즈 (번역 홍석철)<br />
-            <a href="https://www.mtsgames.kr">https://www.mtsgames.kr</a>
-          </p>
-          <p>
-            본 도구는 팬이 제작한 비공식 보조 도구이며,<br />
-            BakaFire Party 및 엠티에스 게임즈와 관련이 없습니다.<br />
-            게임을 소유한 사용자의 플레이 보조를 목적으로 합니다.
-          </p>
-        </div>
+        <details class="site-footer-details">
+          <summary><span>정보</span><small>v${escapeHtml(APP_VERSION)}</small></summary>
+          <div class="site-footer-content">
+            <p>
+              『트래지디 루퍼』는 BakaFire Party 의 저작물입니다.<br />
+              Game Design: BakaFire / Character Design &amp; Illustration: 紺ノ玲<br />
+              <a href="https://bakafire.main.jp/rooper/">https://bakafire.main.jp/rooper/</a>
+            </p>
+            <p>
+              한국어판: 엠티에스 게임즈 (번역 홍석철)<br />
+              <a href="https://www.mtsgames.kr">https://www.mtsgames.kr</a>
+            </p>
+            <p>
+              본 도구는 팬이 제작한 비공식 보조 도구이며,<br />
+              BakaFire Party 및 엠티에스 게임즈와 관련이 없습니다.<br />
+              게임을 소유한 사용자의 플레이 보조를 목적으로 합니다.
+            </p>
+          </div>
+        </details>
       </footer>
     </div>`;
   scheduleNoticeDismiss();
