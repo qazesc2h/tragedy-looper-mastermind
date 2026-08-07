@@ -89,10 +89,12 @@ import {
 } from "./mastermind-panel";
 import { phaseLogGroupIsOpen, phaseLogGroups } from "./phase-log";
 import {
+  clearAppStorage,
   emptyTrackerStore,
   loadTrackerStore,
   persistGameState,
   persistTrackerPreferences,
+  prepareNewGame,
   type StoredGame,
   type TrackerStore,
 } from "./storage";
@@ -278,21 +280,60 @@ function saveState(
   }
 }
 
-function ensureActiveGame(): void {
-  const entry = activeScenarioEntry();
-  tracker.activeScenarioId = entry.id;
-  if (!tracker.games[entry.id]) {
-    saveState(entry.id, createGame(entry), "scenario-start");
-  }
-}
-
-ensureActiveGame();
-
 function currentState(): GameState {
   const entry = activeScenarioEntry();
   const saved = tracker.games[entry.id];
   if (!saved) throw new Error(`missing saved game for ${entry.id}`);
   return saved.state;
+}
+
+function resetTransientUi(): void {
+  selectedHandCard = undefined;
+  resolutionReceipt = undefined;
+  openCharacterModal = undefined;
+  openLocationModal = undefined;
+  operationSheetOpen = false;
+  optionalHookSelections.clear();
+}
+
+function startFreshScenario(entry: ScenarioEntry): void {
+  delete tracker.games[entry.id];
+  tracker.activeScenarioId = entry.id;
+  resetTransientUi();
+  notice = "";
+  saveState(entry.id, createGame(entry), "scenario-start");
+  render();
+}
+
+function requestNewGame(): void {
+  if (tracker.activeScenarioId === "") return;
+  const state = currentState();
+  const warning = state.gamePhase === "GAME_OVER"
+    ? "새 게임을 시작하면 현재 게임 기록이 사라집니다. 계속하시겠습니까?"
+    : "새 게임을 시작하면 진행 중인 게임이 사라집니다. 계속하시겠습니까?";
+  if (!window.confirm(warning)) return;
+  try {
+    prepareNewGame(window.localStorage, tracker);
+    resetTransientUi();
+    notice = "";
+  } catch (error) {
+    notice = errorMessage(error);
+  }
+  render();
+}
+
+function requestCompleteStorageDeletion(): void {
+  const warning = "경고: 이 앱의 모든 저장 데이터를 완전히 삭제합니다. 모든 게임 진행과 설정이 사라지며 되돌릴 수 없습니다. 계속하시겠습니까?";
+  if (!window.confirm(warning)) return;
+  try {
+    clearAppStorage(window.localStorage);
+    tracker = emptyTrackerStore();
+    resetTransientUi();
+    notice = "";
+  } catch (error) {
+    notice = errorMessage(error);
+  }
+  render();
 }
 
 function copyCurrentState(): void {
@@ -2156,6 +2197,9 @@ function renderGameOver(state: GameState): string {
         <h2>루프별 결과</h2>
         ${renderLoopOutcomes(state)}
       </div>
+      <div class="flow-actions primary-actions">
+        <button type="button" class="next-phase" data-action="new-game">새 게임</button>
+      </div>
     </section>
   </main>`;
 }
@@ -2202,7 +2246,77 @@ function observationCount(): number {
   );
 }
 
+function renderSiteFooter(): string {
+  return `<footer class="site-footer" aria-label="저작권 및 비공식 도구 안내">
+    <details class="site-footer-details">
+      <summary><span>정보</span><small>v${escapeHtml(APP_VERSION)}</small></summary>
+      <div class="site-footer-content">
+        <div class="storage-actions" aria-label="저장 데이터 관리">
+          <button type="button" data-action="new-game">새 게임 시작</button>
+          <button type="button" class="danger-action" data-action="delete-all-storage">저장 데이터 완전 삭제</button>
+        </div>
+        <p class="storage-actions-note">두 작업은 확인 후 실행되며 되돌릴 수 없습니다.</p>
+        <p>
+          『트래지디 루퍼』는 BakaFire Party 의 저작물입니다.<br />
+          Game Design: BakaFire / Character Design &amp; Illustration: 紺ノ玲<br />
+          <a href="https://bakafire.main.jp/rooper/">https://bakafire.main.jp/rooper/</a>
+        </p>
+        <p>
+          한국어판: 엠티에스 게임즈 (번역 홍석철)<br />
+          <a href="https://www.mtsgames.kr">https://www.mtsgames.kr</a>
+        </p>
+        <p>
+          본 도구는 팬이 제작한 비공식 보조 도구이며,<br />
+          BakaFire Party 및 엠티에스 게임즈와 관련이 없습니다.<br />
+          게임을 소유한 사용자의 플레이 보조를 목적으로 합니다.
+        </p>
+      </div>
+    </details>
+  </footer>`;
+}
+
+function renderScenarioSelection(): void {
+  root.innerHTML = `
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <span>${escapeHtml(misc("(제품명) Tragedy Looper", "Tragedy Looper"))}</span>
+          <strong>${escapeHtml(misc("Mastermind Aid"))}</strong>
+        </div>
+      </header>
+      <main class="game-flow-screen scenario-selection-screen">
+        <section class="flow-card">
+          <span class="eyebrow">${escapeHtml(misc("Game Setup"))}</span>
+          <h1>시나리오 선택</h1>
+          <p>새로 시작할 시나리오를 선택하세요.</p>
+          <label class="new-game-scenario-picker">
+            <span>${escapeHtml(misc("Script"))}</span>
+            <select data-new-game-scenario>
+              ${scenarioEntries.map((entry) => `
+                <option value="${entry.id}">${escapeHtml(entry.title)}</option>`).join("")}
+            </select>
+          </label>
+          <div class="flow-actions primary-actions">
+            <button type="button" class="next-phase" data-action="start-selected-scenario">게임 시작</button>
+          </div>
+        </section>
+      </main>
+      ${notice
+        ? `<div class="notice-toast" role="alert">
+            <span>${escapeHtml(notice)}</span>
+            <button type="button" data-action="dismiss-notice" aria-label="알림 닫기">×</button>
+          </div>`
+        : ""}
+      ${renderSiteFooter()}
+    </div>`;
+  scheduleNoticeDismiss();
+}
+
 function render(): void {
+  if (tracker.activeScenarioId === "") {
+    renderScenarioSelection();
+    return;
+  }
   const entry = activeScenarioEntry();
   const state = currentState();
   const tragedySet = term(
@@ -2271,27 +2385,7 @@ function render(): void {
             <button type="button" data-action="dismiss-notice" aria-label="알림 닫기">×</button>
           </div>`
         : ""}
-      <footer class="site-footer" aria-label="저작권 및 비공식 도구 안내">
-        <details class="site-footer-details">
-          <summary><span>정보</span><small>v${escapeHtml(APP_VERSION)}</small></summary>
-          <div class="site-footer-content">
-            <p>
-              『트래지디 루퍼』는 BakaFire Party 의 저작물입니다.<br />
-              Game Design: BakaFire / Character Design &amp; Illustration: 紺ノ玲<br />
-              <a href="https://bakafire.main.jp/rooper/">https://bakafire.main.jp/rooper/</a>
-            </p>
-            <p>
-              한국어판: 엠티에스 게임즈 (번역 홍석철)<br />
-              <a href="https://www.mtsgames.kr">https://www.mtsgames.kr</a>
-            </p>
-            <p>
-              본 도구는 팬이 제작한 비공식 보조 도구이며,<br />
-              BakaFire Party 및 엠티에스 게임즈와 관련이 없습니다.<br />
-              게임을 소유한 사용자의 플레이 보조를 목적으로 합니다.
-            </p>
-          </div>
-        </details>
-      </footer>
+      ${renderSiteFooter()}
     </div>`;
   scheduleNoticeDismiss();
 }
@@ -2610,6 +2704,25 @@ root.addEventListener("click", (event) => {
 
   if (action === "copy-state") {
     copyCurrentState();
+    return;
+  }
+
+  if (action === "new-game") {
+    requestNewGame();
+    return;
+  }
+
+  if (action === "delete-all-storage") {
+    requestCompleteStorageDeletion();
+    return;
+  }
+
+  if (action === "start-selected-scenario") {
+    const scenarioId = root.querySelector<HTMLSelectElement>(
+      "[data-new-game-scenario]",
+    )?.value;
+    const entry = scenarioEntries.find(({ id }) => id === scenarioId);
+    if (entry !== undefined) startFreshScenario(entry);
     return;
   }
 
@@ -3005,6 +3118,7 @@ root.addEventListener("change", (event) => {
 render();
 
 window.setInterval(() => {
+  if (tracker.activeScenarioId === "") return;
   const state = currentState();
   if (state.gamePhase === "LOOP_TIME_GAP" && state.timeGapTimer?.endsAt) {
     render();

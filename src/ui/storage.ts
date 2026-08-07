@@ -2,6 +2,7 @@ import { LOCATIONS } from "../types";
 import type { GameState, Location, LoopState, Phase } from "../types";
 
 export const TRACKER_STORAGE_KEY = "tragedy-looper-mastermind:tracker";
+export const APP_STORAGE_PREFIX = "tragedy-looper-mastermind:";
 export const RETIRED_TRACKER_STORAGE_KEYS = [
   "tragedy-looper:tracker:v1",
   "tragedy-looper-mastermind:tracker:v1",
@@ -33,13 +34,37 @@ export interface TrackerStore {
 export type StoredGameDefaults = (scenarioId: string) => StoredGame | undefined;
 
 export interface LocalKeyValueStore {
+  readonly length: number;
   getItem(key: string): string | null;
+  key(index: number): string | null;
   setItem(key: string, value: string): void;
   removeItem(key: string): void;
 }
 
 export function emptyTrackerStore(): TrackerStore {
   return { activeScenarioId: "", mastermindOverlay: true, games: {} };
+}
+
+/** 현재 게임만 버리고 새 시나리오를 고를 수 있는 상태를 저장한다. */
+export function prepareNewGame(
+  storage: LocalKeyValueStore,
+  tracker: TrackerStore,
+): void {
+  if (tracker.activeScenarioId !== "") {
+    delete tracker.games[tracker.activeScenarioId];
+  }
+  tracker.activeScenarioId = "";
+  storage.setItem(TRACKER_STORAGE_KEY, JSON.stringify(tracker));
+}
+
+/** 이 앱의 접두사가 붙은 저장 키만 모두 삭제한다. */
+export function clearAppStorage(storage: LocalKeyValueStore): void {
+  const appKeys: string[] = [];
+  for (let index = 0; index < storage.length; index += 1) {
+    const key = storage.key(index);
+    if (key?.startsWith(APP_STORAGE_PREFIX)) appKeys.push(key);
+  }
+  for (const key of appKeys) storage.removeItem(key);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

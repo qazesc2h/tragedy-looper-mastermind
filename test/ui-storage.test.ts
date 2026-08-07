@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { initLoop } from "../src/engine/setup";
 import {
+  APP_STORAGE_PREFIX,
+  clearAppStorage,
   emptyTrackerStore,
   loadTrackerStore,
+  prepareNewGame,
   persistGameState,
   RETIRED_TRACKER_STORAGE_KEYS,
   STORAGE_RESET_NOTICE,
@@ -24,8 +27,16 @@ import type { ActionCard, GameState, Scenario } from "../src/types";
 class MemoryStorage implements LocalKeyValueStore {
   private readonly values = new Map<string, string>();
 
+  get length(): number {
+    return this.values.size;
+  }
+
   getItem(key: string): string | null {
     return this.values.get(key) ?? null;
+  }
+
+  key(index: number): string | null {
+    return [...this.values.keys()][index] ?? null;
   }
 
   setItem(key: string, value: string): void {
@@ -67,6 +78,7 @@ function storedGameDefaults(scenarioId: string): StoredGame | undefined {
 
 describe("UI localStorage snapshots", () => {
   it("uses a project-specific key namespace", () => {
+    expect(APP_STORAGE_PREFIX).toBe("tragedy-looper-mastermind:");
     expect(TRACKER_STORAGE_KEY)
       .toBe("tragedy-looper-mastermind:tracker");
     expect(RETIRED_TRACKER_STORAGE_KEYS).toEqual([
@@ -74,6 +86,47 @@ describe("UI localStorage snapshots", () => {
       "tragedy-looper-mastermind:tracker:v1",
     ]);
     expect(emptyTrackerStore()).not.toHaveProperty("version");
+  });
+
+  it("starts a new game without retaining the active game's progress", () => {
+    const storage = new MemoryStorage();
+    const tracker = emptyTrackerStore();
+    const game = state();
+    game.loop.day = 3;
+    game.loop.charCounters.boyStudent.intrigue = 2;
+    persistGameState(
+      storage,
+      tracker,
+      "basicTragedy:1",
+      game,
+      "in-progress",
+    );
+
+    prepareNewGame(storage, tracker);
+
+    expect(tracker.activeScenarioId).toBe("");
+    expect(tracker.games).not.toHaveProperty("basicTragedy:1");
+    expect(loadTrackerStore(storage, storedGameDefaults)).toEqual({
+      activeScenarioId: "",
+      mastermindOverlay: true,
+      games: {},
+    });
+  });
+
+  it("deletes every app-prefixed key and preserves the Korean site keys", () => {
+    const storage = new MemoryStorage();
+    storage.setItem(TRACKER_STORAGE_KEY, "tracker");
+    storage.setItem("tragedy-looper-mastermind:debug:v1", "debug");
+    storage.setItem("tragedy-looper-ko:tracker:v1", "keep-ko-data");
+    storage.setItem("unrelated:key", "keep-unrelated-data");
+
+    clearAppStorage(storage);
+
+    expect(storage.getItem(TRACKER_STORAGE_KEY)).toBeNull();
+    expect(storage.getItem("tragedy-looper-mastermind:debug:v1")).toBeNull();
+    expect(storage.getItem("tragedy-looper-ko:tracker:v1"))
+      .toBe("keep-ko-data");
+    expect(storage.getItem("unrelated:key")).toBe("keep-unrelated-data");
   });
 
   it("removes only the explicitly retired keys without reading them", () => {

@@ -89,16 +89,15 @@
         frame.src = `/?trait-flow-case=${encodeURIComponent(label)}`;
         await loaded;
         await waitFor(
+          () => frameDocument().querySelector("[data-action='start-selected-scenario']"),
+          `${label} 시나리오 선택`,
+        );
+        changeSelect("[data-new-game-scenario]", scenarioId);
+        click("[data-action='start-selected-scenario']");
+        await waitFor(
           () => frameDocument().querySelector("[data-action='choose-leader']"),
           `${label} 리더 선택`,
         );
-        if (scenarioId !== "basicTragedy:1") {
-          changeSelect("[data-action='scenario']", scenarioId);
-          await waitFor(
-            () => frameDocument().querySelector("[data-action='choose-leader']"),
-            `${label} 시나리오 전환`,
-          );
-        }
       }
 
       async function enterRound() {

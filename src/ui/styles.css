@@ -2100,6 +2100,22 @@ select {
   margin: 18px 0;
 }
 
+.new-game-scenario-picker {
+  display: grid;
+  gap: 6px;
+  margin-top: 18px;
+}
+
+.new-game-scenario-picker span {
+  color: var(--ink-muted);
+  font-size: 0.72rem;
+}
+
+.new-game-scenario-picker select {
+  width: 100%;
+  min-height: 44px;
+}
+
 .final-guess-table {
   width: 100%;
   border-collapse: collapse;
@@ -2155,6 +2171,27 @@ select {
   padding: 10px 12px calc(12px + env(safe-area-inset-bottom));
 }
 
+.storage-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.storage-actions button {
+  min-height: 44px;
+  border: 1px solid #665236;
+  border-radius: 8px;
+  background: #272118;
+  padding: 9px 10px;
+  font-size: 0.72rem;
+}
+
+.site-footer .storage-actions-note {
+  margin-bottom: 12px;
+  color: #9c8c75;
+}
+
 .site-footer p {
   margin: 0;
   font-size: 0.62rem;
@@ -2173,4 +2210,10 @@ select {
 
 .site-footer a:hover {
   color: var(--gold-strong);
+}
+
+@media (max-width: 420px) {
+  .storage-actions {
+    grid-template-columns: 1fr;
+  }
 }

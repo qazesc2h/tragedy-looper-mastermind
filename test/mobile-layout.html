@@ -88,8 +88,20 @@
 
       async function enterRound() {
         const document = frameDocument();
+        document.querySelector("[data-action='start-selected-scenario']")?.click();
+        await pause();
         document.querySelector("[data-action='choose-leader']")?.click();
         await pause();
+        const henchmanLocation = document.querySelector(
+          "[data-action='loop-start-trait-location'][data-character='henchman']",
+        );
+        if (henchmanLocation) {
+          henchmanLocation.value = "Hospital";
+          henchmanLocation.dispatchEvent(new (frameWindow().Event)("change", {
+            bubbles: true,
+          }));
+          await pause();
+        }
         document.querySelector("[data-action='continue-loop-start']")?.click();
         await waitFor(
           () => frameDocument().querySelector(".game-board"),
@@ -223,6 +235,115 @@
         await pause();
       }
 
+      async function inspectStorageActions() {
+        const document = frameDocument();
+        const currentWindow = frameWindow();
+        const details = document.querySelector(".site-footer-details");
+        if (!(details instanceof currentWindow.HTMLDetailsElement)) {
+          throw new Error("정보 접이식 영역을 찾을 수 없습니다.");
+        }
+        details.open = true;
+        details.scrollIntoView({ block: "end" });
+        await pause(100);
+
+        const actions = ["new-game", "delete-all-storage"];
+        const confirmations = [];
+        currentWindow.confirm = (message) => {
+          confirmations.push(message);
+          return false;
+        };
+        for (const action of actions) {
+          const button = details.querySelector(`[data-action='${action}']`);
+          if (!(button instanceof currentWindow.HTMLButtonElement)) {
+            failures.push(`정보 영역 저장 버튼 없음: ${action}`);
+            continue;
+          }
+          const rect = button.getBoundingClientRect();
+          const actionReport = {
+            action,
+            rect: { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom },
+            width: rect.width,
+            height: rect.height,
+          };
+          reports.push({ label: `정보 영역 ${action}`, ...actionReport });
+          if (rect.left < -0.5 || rect.right > WIDTH + 0.5 || rect.height < 44) {
+            failures.push(`정보 영역 저장 버튼 경계: ${JSON.stringify(actionReport)}`);
+          }
+          button.click();
+        }
+        if (confirmations.length !== actions.length) {
+          failures.push(`저장 버튼 확인 호출 ${confirmations.length}/${actions.length}`);
+        }
+        reports.push({ label: "저장 버튼 확인", confirmations });
+        details.open = false;
+        await pause();
+      }
+
+      async function inspectResetFlows() {
+        const currentWindow = frameWindow();
+        const storage = currentWindow.localStorage;
+        const savedBefore = JSON.parse(
+          storage.getItem("tragedy-looper-mastermind:tracker"),
+        );
+        const previousScenarioId = savedBefore.activeScenarioId;
+        currentWindow.confirm = () => true;
+
+        let details = frameDocument().querySelector(".site-footer-details");
+        details.open = true;
+        details.querySelector("[data-action='new-game']").click();
+        await waitFor(
+          () => frameDocument().querySelector("[data-action='start-selected-scenario']"),
+          "새 게임 뒤 시나리오 선택 화면",
+        );
+        const savedAfterNewGame = JSON.parse(
+          storage.getItem("tragedy-looper-mastermind:tracker"),
+        );
+        const newGameReport = {
+          activeScenarioId: savedAfterNewGame.activeScenarioId,
+          previousScenarioRemoved: !(previousScenarioId in savedAfterNewGame.games),
+          selectionVisible: Boolean(
+            frameDocument().querySelector("[data-action='start-selected-scenario']"),
+          ),
+        };
+        reports.push({ label: "새 게임 초기화", ...newGameReport });
+        if (
+          newGameReport.activeScenarioId !== "" ||
+          !newGameReport.previousScenarioRemoved ||
+          !newGameReport.selectionVisible
+        ) {
+          failures.push(`새 게임 초기화 실패: ${JSON.stringify(newGameReport)}`);
+        }
+
+        storage.setItem("tragedy-looper-mastermind:debug", "delete-me");
+        storage.setItem("tragedy-looper-ko:tracker:v1", "keep-ko-data");
+        details = frameDocument().querySelector(".site-footer-details");
+        details.open = true;
+        details.querySelector("[data-action='delete-all-storage']").click();
+        await pause();
+        const remainingAppKeys = [];
+        for (let index = 0; index < storage.length; index += 1) {
+          const key = storage.key(index);
+          if (key?.startsWith("tragedy-looper-mastermind:")) {
+            remainingAppKeys.push(key);
+          }
+        }
+        const deletionReport = {
+          remainingAppKeys,
+          koreanSiteData: storage.getItem("tragedy-looper-ko:tracker:v1"),
+          selectionVisible: Boolean(
+            frameDocument().querySelector("[data-action='start-selected-scenario']"),
+          ),
+        };
+        reports.push({ label: "저장 데이터 완전 삭제", ...deletionReport });
+        if (
+          deletionReport.remainingAppKeys.length > 0 ||
+          deletionReport.koreanSiteData !== "keep-ko-data" ||
+          !deletionReport.selectionVisible
+        ) {
+          failures.push(`저장 데이터 완전 삭제 실패: ${JSON.stringify(deletionReport)}`);
+        }
+      }
+
       async function inspectOpenCardPanel() {
         const document = frameDocument();
         const board = document.querySelector(".game-board");
@@ -281,10 +402,11 @@
         await moveCharacter("officeWorker", "Hospital");
         await moveCharacter("informer", "Hospital");
         recordBoardLayout("한 장소 4명", [4, 1, 1, 3]);
+        await inspectStorageActions();
         await inspectDockAndToast();
         await inspectOpenCardPanel();
 
-        await selectScenario("Neverending Happy & Sad Story");
+        await selectScenario("Was it Just the Wind?");
         const characters = [...frameDocument().querySelectorAll(
           ".character-chip[data-character]",
         )].map((chip) => chip.dataset.character);
@@ -296,6 +418,7 @@
           }
         }
         recordBoardLayout("한 장소 11명", [11, 0, 0, 0]);
+        await inspectResetFlows();
 
         restoreStorage();
         const report = {
