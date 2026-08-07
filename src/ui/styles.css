@@ -1701,11 +1701,42 @@ select {
   gap: 10px;
 }
 
+.resolution-receipt li {
+  padding: 10px 11px;
+  color: #f2e8d7;
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.resolution-receipt li b {
+  color: #f0c879;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.resolution-public li {
+  border-left-color: #74a8c7;
+  background: #24231e;
+}
+
 .resolution-private {
   border: 1px solid #78443c;
   border-radius: 8px;
   background: rgba(68, 30, 27, 0.45);
   padding: 8px;
+}
+
+.resolution-private h3 {
+  margin: 0 0 7px;
+  color: #f0b4a8;
+  font-size: 0.84rem;
+}
+
+.resolution-private li {
+  border-left-color: #b66b5d;
+  background: #321f1b;
+  color: #f2c8bf;
 }
 
 .hook-card,

@@ -7,6 +7,7 @@ import {
   collectResolutionChanges,
   collectResolutionReport,
   cardPanelShouldReopenAfterPlacement,
+  compactActionCardLabel,
   groupPlacementsByTarget,
   handCardIsPlaced,
   MASTERMIND_HAND,
@@ -31,6 +32,19 @@ function createState(): GameState {
 }
 
 describe("UI action-card hands", () => {
+  it.each([
+    ["moveVertical", "이동↑↓", "↕"],
+    ["moveHorizontal", "이동←→", "↔"],
+    ["moveDiagonal", "대각 이동", "⤢"],
+    ["forbidMove", "이동 금지", "이동 금지"],
+  ] as const)("uses compact label for %s without changing its full name", (
+    card,
+    fullName,
+    expected,
+  ) => {
+    expect(compactActionCardLabel(card, fullName)).toBe(expected);
+  });
+
   it("models the 10 mastermind cards and 8 protagonist cards", () => {
     expect(MASTERMIND_HAND).toHaveLength(10);
     expect(

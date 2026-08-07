@@ -57,6 +57,7 @@ import {
 import {
   collectResolutionReport,
   cardPanelShouldReopenAfterPlacement,
+  compactActionCardLabel,
   groupPlacementsByTarget,
   handCardIsPlaced,
   MASTERMIND_HAND,
@@ -482,18 +483,22 @@ function renderCardsOnTarget(state: GameState, target: Target): string {
   const matching = cards
     .map((placement, placementIndex) => ({ placement, placementIndex }))
     .filter(({ placement }) => sameTarget(placement.target, target))
-    .map(({ placement, placementIndex }) => ({
-      placement,
-      placementIndex,
-      showName: placedCardShowsName(
-        state.loop.phase,
-        placement.owner,
-        resolved,
-      ),
-      recallable: !resolved && selectedHandCard === undefined &&
-        placedCardCanBeRecalled(state.loop.phase, placement),
-      fullName: actionCardName(placement.card),
-    }));
+    .map(({ placement, placementIndex }) => {
+      const fullName = actionCardName(placement.card);
+      return {
+        placement,
+        placementIndex,
+        showName: placedCardShowsName(
+          state.loop.phase,
+          placement.owner,
+          resolved,
+        ),
+        recallable: !resolved && selectedHandCard === undefined &&
+          placedCardCanBeRecalled(state.loop.phase, placement),
+        fullName,
+        displayName: compactActionCardLabel(placement.card, fullName),
+      };
+    });
   if (matching.length === 0) return "";
   let recallablePlacementIndex: number | undefined;
   for (const item of matching) {
@@ -504,7 +509,13 @@ function renderCardsOnTarget(state: GameState, target: Target): string {
     <div class="placed-card-stack ${
       matching.every(({ showName }) => showName) ? "is-revealed" : "is-facedown"
     }">
-      ${matching.map(({ placement, placementIndex, showName, fullName }) => {
+      ${matching.map(({
+        placement,
+        placementIndex,
+        showName,
+        fullName,
+        displayName,
+      }) => {
         const recallable = placementIndex === recallablePlacementIndex;
         return `
         <button type="button"
@@ -520,7 +531,7 @@ function renderCardsOnTarget(state: GameState, target: Target): string {
           )}">
           <span>${escapeHtml(ownerLabel(placement.owner))}</span>
           ${showName
-            ? `<strong>${escapeHtml(fullName)}</strong>`
+            ? `<strong aria-hidden="true">${escapeHtml(displayName)}</strong>`
             : `<b aria-hidden="true">TL</b>`}
         </button>`;
       }).join("")}
@@ -930,14 +941,22 @@ function renderHand(
         const once = owner === "mastermind"
           ? MASTERMIND_ONCE_PER_LOOP.has(entry.card)
           : PROTAGONIST_ONCE_PER_LOOP.has(entry.card);
+        const fullName = actionCardName(entry.card);
+        const displayName = compactActionCardLabel(entry.card, fullName);
+        const status = [
+          once ? misc("Once per {type}").replace("{type}", misc("Loop")) : "",
+          spent ? misc("Spent", "Spent") : "",
+        ].filter(Boolean).join(" · ");
         return `
           <button type="button"
             class="hand-card owner-${owner} ${placed ? "is-placed" : ""} ${selected ? "is-selected" : ""} ${spent ? "is-spent" : ""}"
             data-action="select-hand-card" data-owner="${owner}"
             data-card="${entry.card}" data-card-key="${entry.key}"
             ${!enabled || placed ? "disabled" : ""}
+            title="${escapeHtml(fullName)}"
+            aria-label="${escapeHtml(`${fullName}${status ? ` · ${status}` : ""}`)}"
             aria-pressed="${selected}">
-            <span>${escapeHtml(actionCardName(entry.card))}</span>
+            <span aria-hidden="true">${escapeHtml(displayName)}</span>
             ${once ? `<small>${escapeHtml(misc("Once per {type}").replace("{type}", misc("Loop")))}</small>` : ""}
             ${spent ? `<b>${escapeHtml(misc("Spent", "Spent"))}</b>` : ""}
           </button>`;
@@ -1141,7 +1160,6 @@ function renderResolutionReceipt(state: GameState): string {
       </div>
       <div class="resolution-audiences">
         <section class="resolution-public">
-          <h3>주인공에게 전달 · 변동 사항만</h3>
           <ul>
             ${(publicItems.length > 0
               ? publicItems.map((item) => ({

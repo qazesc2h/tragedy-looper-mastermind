@@ -534,6 +534,87 @@
         });
       }
 
+      async function runCompactActionCardCases() {
+        const scenarioId = "basicTragedy:1";
+        await loadScenario(scenarioId, "compact-action-cards");
+        mutateStoredState(scenarioId, (state) => {
+          state.gamePhase = "ROUND";
+          state.loop.phase = "P2_MASTERMIND_ACTION";
+          state.loop.placed = [];
+        });
+        await reloadFrame("compact-mastermind-cards");
+        await openOperationSheet("각본가 이동 카드 축약");
+
+        const expected = [
+          ["moveVertical", "↕", "이동↑↓"],
+          ["moveHorizontal", "↔", "이동←→"],
+          ["moveDiagonal", "⤢", "대각 이동"],
+        ];
+        for (const [card, visible, fullName] of expected) {
+          const button = await waitFor(
+            () => frameDocument().querySelector(
+              `.is-mastermind-hand [data-card='${card}']`,
+            ),
+            `${fullName} 카드`,
+          );
+          const label = button.querySelector("span");
+          assert(label?.textContent?.trim() === visible, `${fullName} 표시: ${label?.textContent}`);
+          assert(button.title === fullName, `${fullName} 툴팁: ${button.title}`);
+          assert(
+            button.getAttribute("aria-label")?.startsWith(fullName),
+            `${fullName} 접근성 이름: ${button.getAttribute("aria-label")}`,
+          );
+          assert(
+            label && label.scrollWidth <= label.clientWidth,
+            `${fullName} 카드 글자 넘침: ${label?.scrollWidth}/${label?.clientWidth}`,
+          );
+        }
+
+        mutateStoredState(scenarioId, (state) => {
+          state.loop.phase = "P3_PROTAGONIST_ACTION";
+          state.loop.placed = [
+            {
+              owner: "mastermind",
+              card: "paranoiaPlus1",
+              target: { kind: "character", id: "patient" },
+            },
+            {
+              owner: "mastermind",
+              card: "paranoiaMinus1",
+              target: { kind: "character", id: "nurse" },
+            },
+            {
+              owner: "mastermind",
+              card: "intriguePlus1",
+              target: { kind: "location", at: "Shrine" },
+            },
+          ];
+        });
+        await reloadFrame("forbid-move-full-name");
+        await openOperationSheet("이동 금지 카드 전체 이름");
+        const forbidButton = await waitFor(
+          () => frameDocument().querySelector(
+            ".protagonist-hand.is-current [data-card='forbidMove']",
+          ),
+          "이동 금지 카드",
+        );
+        const forbidLabel = forbidButton.querySelector("span");
+        assert(
+          forbidLabel?.textContent?.trim() === "이동 금지",
+          `이동 금지 표시: ${forbidLabel?.textContent}`,
+        );
+        assert(
+          forbidLabel && forbidLabel.scrollWidth <= forbidLabel.clientWidth,
+          `이동 금지 글자 넘침: ${forbidLabel?.scrollWidth}/${forbidLabel?.clientWidth}`,
+        );
+        assert(forbidButton.title === "이동 금지", `이동 금지 툴팁: ${forbidButton.title}`);
+
+        reports.push({
+          compactActionCards: expected.map(([card, visible]) => [card, visible]),
+          forbidMove: "이동 금지 (overflow 없음)",
+        });
+      }
+
       function shrineIntrigue() {
         return frameDocument().querySelector(
           ".location-shrine [data-action='board-location'] strong",
@@ -620,6 +701,7 @@
         await runDraftInputCases();
         await runExtraLoopCases();
         await runGoodwillRefusalUiCases();
+        await runCompactActionCardCases();
         await runBlackCatCases();
         await runScientistChoice("paranoia", "우 0 불 1/2 음 0");
         await runScientistChoice("goodwill", "우 1 불 0/2 음 0");

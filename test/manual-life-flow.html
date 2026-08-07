@@ -80,6 +80,39 @@
         if (!condition) failures.push(message);
       }
 
+      function inspectResolutionReceipt() {
+        const receipt = frameDocument().querySelector(".resolution-receipt");
+        const item = receipt?.querySelector(".resolution-public li");
+        if (!receipt || !item) {
+          failures.push("행동 해결 결과 또는 공개 항목을 찾을 수 없음");
+          return;
+        }
+        const text = receipt.textContent ?? "";
+        const style = frameWindow().getComputedStyle(item);
+        const report = {
+          text,
+          fontSize: Number.parseFloat(style.fontSize),
+          color: style.color,
+        };
+        reports.push({ case: "resolution-readability", ...report });
+        assert(
+          !text.includes("주인공에게 전달 · 변동 사항만"),
+          `삭제 대상 안내 문구가 남음: ${text}`,
+        );
+        assert(
+          text.includes("[카운터]") || text.includes("[이동]"),
+          `행동 해결 구분 표기가 없음: ${text}`,
+        );
+        assert(
+          report.fontSize >= 14,
+          `행동 해결 결과 글자가 작음: ${report.fontSize}px`,
+        );
+        assert(
+          report.color === "rgb(242, 232, 215)",
+          `행동 해결 결과 대비 색상이 흐림: ${report.color}`,
+        );
+      }
+
       async function loadFreshApp(label) {
         clearStorage();
         const loaded = new Promise((resolve) => {
@@ -160,6 +193,7 @@
           "P4 해결 뒤 P6",
         );
         assert(!judgmentTitle(), "P4 해결 중 수동 사망으로 루프가 종료됨");
+        inspectResolutionReceipt();
 
         click(".dock-primary[data-action='advance']");
         await waitFor(

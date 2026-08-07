@@ -56,6 +56,20 @@ export interface PlacementGroup {
   placements: PlacedCard[];
 }
 
+const COMPACT_ACTION_CARD_LABELS: Partial<Record<ActionCard, string>> = {
+  moveVertical: "↕",
+  moveHorizontal: "↔",
+  moveDiagonal: "⤢",
+};
+
+/** 좁은 카드 면에만 쓰는 표기. 접근성 이름과 설명에는 전체 이름을 유지한다. */
+export function compactActionCardLabel(
+  card: ActionCard,
+  fullName: string,
+): string {
+  return COMPACT_ACTION_CARD_LABELS[card] ?? fullName;
+}
+
 /** 해결 선언 전에 같은 대상에 놓인 카드를 한 묶음으로 만든다. */
 export function groupPlacementsByTarget(
   placed: readonly PlacedCard[],
