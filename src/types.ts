@@ -298,6 +298,11 @@ export interface LoopState {
   /** 현재 정규 효과 묶음에서 새로 성립한 즉시 종료 조건 */
   pendingImmediateLossKeys?: string[];
 
+  /** 루프 시작 전에 각본가가 고른 캐릭터 특성의 카운터 종류 */
+  loopStartTraitCounterChoices?: Partial<
+    Record<CharacterId, IncidentCounter>
+  >;
+
   /** 특수 게이지 (기본편 미사용, 확장 대비) */
   specialGauge?: number;
 }

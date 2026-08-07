@@ -6,9 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test": "vitest run && npm run test:manual-life-flow && npm run test:mobile-layout",
+    "test": "vitest run && npm run test:manual-life-flow && npm run test:trait-flow && npm run test:mobile-layout",
     "test:unit": "vitest run",
     "test:manual-life-flow": "node scripts/test-manual-life-flow.mjs",
+    "test:trait-flow": "node scripts/test-trait-flow.mjs",
     "test:mobile-layout": "node scripts/test-mobile-layout.mjs",
     "typecheck": "tsc --noEmit"
   },

@@ -8,6 +8,7 @@ import {
 } from "../types";
 import { effectiveAbilityRoles, ROLE_IMPL } from "../impl/roles";
 import { PLOT_IMPL } from "../impl/plots";
+import { TRAIT_IMPL } from "../impl/traits";
 import { resolveActions } from "./resolve";
 import { resolveIncident } from "./incident";
 import { requestLoopEnd } from "./flow";
@@ -74,6 +75,9 @@ export function collectHooks(s: GameState, at: HookPoint): {
       for (const h of impl?.hooks ?? []) {
         if (h.phase === at) out.push({ self: c, hook: h });
       }
+    }
+    for (const h of TRAIT_IMPL[c]?.hooks ?? []) {
+      if (h.phase === at) out.push({ self: c, hook: h });
     }
   }
   for (const p of [s.scenario.mainPlot, ...s.scenario.subPlots]) {

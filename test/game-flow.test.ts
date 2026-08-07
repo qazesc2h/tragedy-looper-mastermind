@@ -7,7 +7,9 @@ import {
   continueAfterLoopJudgment,
   continueFromTimeGap,
   createGameState,
+  loopStartTraitChoicesComplete,
   settleGameFlow,
+  setLoopStartTraitCounterChoice,
   skipToFinalGuess,
   submitFinalGuess,
 } from "../src/engine/game";
@@ -80,6 +82,62 @@ describe("game setup and loop preparation", () => {
     expect(state.loop.charCounters.boyStudent.goodwill).toBe(0);
     expect(state.loop.charCounters.boyStudent.paranoia).toBe(2);
     expect(state.loop.leader).toBe(2);
+  });
+
+  it("applies blackCat's Shrine intrigue after reset in every loop", () => {
+    const state = createGameState(scenario({
+      mainPlot: "sealedItem",
+      cast: { blackCat: "person" },
+      loops: 2,
+      daysPerLoop: 1,
+    }));
+    startRound(state);
+    expect(state.loop.locIntrigue.Shrine).toBe(1);
+
+    state.loop.locIntrigue.Shrine = 2;
+    state.loop.phase = "P9_ROUND_END";
+    advanceGame(state);
+    expect(state.gamePhase).toBe("LOOP_JUDGMENT");
+
+    continueAfterLoopJudgment(state);
+    expect(state.loop.loop).toBe(2);
+    expect(state.loop.locIntrigue.Shrine).toBe(0);
+    continueFromTimeGap(state);
+
+    expect(state.loop.locIntrigue.Shrine).toBe(1);
+  });
+
+  it("keeps Shrine intrigue at zero without blackCat", () => {
+    const state = createGameState(scenario());
+    startRound(state);
+
+    expect(state.loop.locIntrigue.Shrine).toBe(0);
+  });
+
+  it.each([
+    "paranoia",
+    "goodwill",
+    "intrigue",
+  ] as const)("applies scientist's %s choice through loop setup", (counter) => {
+    const state = createGameState(scenario({
+      cast: { scientist: "keyPerson" },
+    }));
+    chooseInitialLeader(state, 0);
+    expect(loopStartTraitChoicesComplete(state)).toBe(false);
+    expect(() => continueFromTimeGap(state)).toThrow(
+      "scientist loop-start counter choice is required",
+    );
+
+    setLoopStartTraitCounterChoice(state, "scientist", counter);
+    expect(loopStartTraitChoicesComplete(state)).toBe(true);
+    continueFromTimeGap(state);
+
+    expect(state.loop.charCounters.scientist).toEqual({
+      goodwill: counter === "goodwill" ? 1 : 0,
+      paranoia: counter === "paranoia" ? 1 : 0,
+      intrigue: counter === "intrigue" ? 1 : 0,
+      protection: 0,
+    });
   });
 });
 

@@ -8,7 +8,9 @@ import {
   continueAfterLoopJudgment,
   continueFromTimeGap,
   createGameState,
+  loopStartTraitChoicesComplete,
   settleGameFlow,
+  setLoopStartTraitCounterChoice,
   skipToFinalGuess,
   submitFinalGuess,
 } from "../engine/game";
@@ -967,6 +969,10 @@ function counterLabel(counter: IncidentCounter): string {
     intrigue: misc("Intrigue"),
   };
   return labels[counter];
+}
+
+function isIncidentCounterValue(value: string): value is IncidentCounter {
+  return value === "goodwill" || value === "paranoia" || value === "intrigue";
 }
 
 function targetLabel(target: Target): string {
@@ -1983,6 +1989,9 @@ function renderTimeGap(state: GameState): string {
   const minutes = String(Math.floor(remaining / 60)).padStart(2, "0");
   const seconds = String(remaining % 60).padStart(2, "0");
   const running = Boolean(state.timeGapTimer?.endsAt);
+  const scientistAppears = "scientist" in state.scenario.cast;
+  const scientistCounter =
+    state.loop.loopStartTraitCounterChoices?.scientist;
   return `<main class="game-flow-screen">
     ${renderProgressSteps([
       "시간의 틈",
@@ -1995,12 +2004,24 @@ function renderTimeGap(state: GameState): string {
       <h1>시간의 틈</h1>
       <p>주인공 토론 시간입니다. 각본가는 시간만 관리합니다. 권장 시간은 10분입니다.</p>
       <div class="time-gap-timer" aria-live="polite">${minutes}:${seconds}</div>
+      ${scientistAppears
+        ? `<div class="final-guess-form loop-start-trait-choice">
+            <label><span>${escapeHtml(characterName("scientist"))} · 루프 시작 카운터</span>
+              <select data-action="loop-start-trait-counter" data-character="scientist">
+                <option value="">카운터 선택</option>
+                ${(["paranoia", "goodwill", "intrigue"] as const).map(
+                  (counter) => `<option value="${counter}" ${scientistCounter === counter ? "selected" : ""}>${escapeHtml(counterLabel(counter))}</option>`,
+                ).join("")}
+              </select>
+            </label>
+          </div>`
+        : ""}
       <div class="flow-actions">
         <button type="button" data-action="time-gap-${running ? "pause" : "start"}">${running ? "일시 정지" : "타이머 시작"}</button>
         <button type="button" data-action="time-gap-reset">10분으로 초기화</button>
       </div>
       <div class="flow-actions primary-actions">
-        <button type="button" class="next-phase" data-action="continue-loop-start">루프 준비 계속 →</button>
+        <button type="button" class="next-phase" data-action="continue-loop-start" ${loopStartTraitChoicesComplete(state) ? "" : "disabled"}>루프 준비 계속 →</button>
         <button type="button" class="danger-action" data-action="skip-final-guess">최후의 싸움으로 이동</button>
       </div>
       <p class="flow-warning">⚠ 남은 루프를 진행하지 않으므로 주인공 측이 더 불리해집니다.</p>
@@ -2797,6 +2818,24 @@ root.addEventListener("click", (event) => {
 root.addEventListener("change", (event) => {
   const control = event.target as HTMLInputElement | HTMLSelectElement;
   const action = control.dataset.action;
+  if (action === "loop-start-trait-counter") {
+    const character = control.dataset.character;
+    const counterValue = control.value;
+    if (!character) return;
+    if (counterValue !== "" && !isIncidentCounterValue(counterValue)) {
+      throw new Error(
+        `loop-start trait choice has invalid counter "${counterValue}"`,
+      );
+    }
+    commit("loop-start-trait-counter", (state) => {
+      setLoopStartTraitCounterChoice(
+        state,
+        character,
+        counterValue === "" ? undefined : counterValue,
+      );
+    });
+    return;
+  }
   if (action === "goodwill-subplot-declaration") {
     syncGoodwillSubplotRevealOptions(control as HTMLSelectElement);
     return;

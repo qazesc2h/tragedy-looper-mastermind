@@ -4,6 +4,7 @@ import {
   type FinalGuessAttempt,
   type GameState,
   type IncidentChoice,
+  type IncidentCounter,
   type IncidentFailureReason,
   type IncidentResult,
   type LoopOutcome,
@@ -23,6 +24,40 @@ const TIME_GAP_SECONDS = 10 * 60;
 
 function resetTimeGapTimer(state: GameState): void {
   state.timeGapTimer = { remainingSeconds: TIME_GAP_SECONDS };
+}
+
+/** 현재 루프 준비에 필요한 캐릭터 특성 선택을 모두 받았는지 확인한다. */
+export function loopStartTraitChoicesComplete(state: GameState): boolean {
+  return !("scientist" in state.scenario.cast) ||
+    state.loop.loopStartTraitCounterChoices?.scientist !== undefined;
+}
+
+/** 루프 시작 전에 각본가가 고르는 캐릭터 특성 카운터를 기록한다. */
+export function setLoopStartTraitCounterChoice(
+  state: GameState,
+  character: CharacterId,
+  counter: IncidentCounter | undefined,
+): void {
+  if (state.gamePhase !== "LOOP_TIME_GAP") {
+    throw new Error(
+      `loop-start trait choice cannot change during ${state.gamePhase}`,
+    );
+  }
+  if (character !== "scientist" || !(character in state.scenario.cast)) {
+    throw new Error(`character "${character}" has no loop-start counter choice`);
+  }
+
+  if (counter === undefined) {
+    if (!state.loop.loopStartTraitCounterChoices) return;
+    delete state.loop.loopStartTraitCounterChoices[character];
+    if (Object.keys(state.loop.loopStartTraitCounterChoices).length === 0) {
+      delete state.loop.loopStartTraitCounterChoices;
+    }
+    return;
+  }
+
+  const choices = state.loop.loopStartTraitCounterChoices ??= {};
+  choices[character] = counter;
 }
 
 /** 새 게임을 만들고 자동 게임 준비 단계를 진행해 리더 선택에서 멈춘다. */
@@ -67,14 +102,24 @@ export function continueFromTimeGap(state: GameState): void {
   if (state.gamePhase !== "LOOP_TIME_GAP") {
     throw new Error(`loop cannot start during ${state.gamePhase}`);
   }
+  if (!loopStartTraitChoicesComplete(state)) {
+    throw new Error("scientist loop-start counter choice is required");
+  }
 
   const loopNumber = state.loop.loop;
   const leader = state.loop.leader;
+  const loopStartTraitCounterChoices =
+    state.loop.loopStartTraitCounterChoices;
 
   state.gamePhase = "LOOP_CHARACTER_PLACEMENT";
   const prepared = initLoop(state.scenario);
   prepared.loop = loopNumber;
   prepared.leader = leader;
+  if (loopStartTraitCounterChoices !== undefined) {
+    prepared.loopStartTraitCounterChoices = {
+      ...loopStartTraitCounterChoices,
+    };
+  }
   state.loop = prepared;
 
   state.gamePhase = "LOOP_COUNTER_SETUP";

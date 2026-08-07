@@ -46,12 +46,18 @@ function validateSignWithMe(scenario: Scenario): string[] {
     );
 }
 
+function validateAiRole(scenario: Scenario): string[] {
+  if (scenario.cast.ai !== "person") return [];
+  return ["AI: AI 캐릭터에는 엑스트라 역할을 배정할 수 없습니다."];
+}
+
 /** 시나리오 작성 시 적용되는 제약을 런타임 시작 전에 한 번 검증한다. */
 export function validateScenario(
   scenario: Scenario,
 ): ScenarioValidationResult {
   const errors = [
     ...validateSignWithMe(scenario),
+    ...validateAiRole(scenario),
   ];
   return { ok: errors.length === 0, errors };
 }

@@ -46,6 +46,25 @@ describe("validateScenario", () => {
 
     expect(validateScenario(scenario)).toEqual({ ok: true, errors: [] });
   });
+
+  it("rejects AI assigned the person role", () => {
+    const scenario = structuredClone(scenarios[0]);
+    scenario.cast.ai = "person";
+
+    expect(validateScenario(scenario)).toEqual({
+      ok: false,
+      errors: [
+        "AI: AI 캐릭터에는 엑스트라 역할을 배정할 수 없습니다.",
+      ],
+    });
+  });
+
+  it("accepts AI assigned a non-person role", () => {
+    const scenario = structuredClone(scenarios[0]);
+    scenario.cast.ai = "brain";
+
+    expect(validateScenario(scenario)).toEqual({ ok: true, errors: [] });
+  });
 });
 
 describe("signWithMe scriptBuild source hook", () => {
