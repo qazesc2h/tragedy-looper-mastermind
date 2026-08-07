@@ -64,6 +64,7 @@ function state(): GameState {
     loop: initLoop(scenario),
     history: [],
     loopOutcomes: [],
+    extraLoopsPlayed: 0,
   };
 }
 
@@ -251,7 +252,11 @@ describe("UI localStorage snapshots", () => {
       abilitiesUsedThisLoop: _abilitiesUsedThisLoop,
       ...savedLoop
     } = current.loop;
-    const { loopOutcomes: _loopOutcomes, ...savedState } = current;
+    const {
+      loopOutcomes: _loopOutcomes,
+      extraLoopsPlayed: _extraLoopsPlayed,
+      ...savedState
+    } = current;
     storage.setItem(TRACKER_STORAGE_KEY, JSON.stringify({
       activeScenarioId: "basicTragedy:1",
       games: {
@@ -275,6 +280,7 @@ describe("UI localStorage snapshots", () => {
     expect(restored.games["basicTragedy:1"].state.loop.abilitiesUsedThisLoop)
       .toEqual([]);
     expect(restored.games["basicTragedy:1"].state.loopOutcomes).toEqual([]);
+    expect(restored.games["basicTragedy:1"].state.extraLoopsPlayed).toBe(0);
   });
 
 });

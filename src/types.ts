@@ -385,6 +385,8 @@ export interface GameState {
   history: LoopState[];
   /** 이미 판정이 끝난 루프의 결과. 게임 종료 뒤에도 회고용으로 보존한다. */
   loopOutcomes: LoopOutcome[];
+  /** 최종 루프 뒤 시작한 공개 하우스 룰 추가 루프 횟수 */
+  extraLoopsPlayed?: number;
   /** 효과 해결 중 발생한 종료 신호. 동시 해결이 끝날 때까지 적용을 미룬다. */
   pendingLoopEnd?: LoopEndRequest;
   finalGuess?: FinalGuessState;

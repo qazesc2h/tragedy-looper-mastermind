@@ -100,6 +100,7 @@ export function createGameState(scenario: Scenario): GameState {
     loop: initLoop(scenario),
     history: [],
     loopOutcomes: [],
+    extraLoopsPlayed: 0,
   };
   advanceAutomaticGameSetup(state);
   return state;
@@ -374,8 +375,7 @@ export function advanceGame(
   return result;
 }
 
-/** 패배한 루프의 결과 화면에서 다음 루프 또는 최후의 싸움으로 이동한다. */
-export function continueAfterLoopJudgment(state: GameState): void {
+function requireCurrentLoopLoss(state: GameState): void {
   if (state.gamePhase !== "LOOP_JUDGMENT") {
     throw new Error(`loop judgment cannot continue during ${state.gamePhase}`);
   }
@@ -386,18 +386,42 @@ export function continueAfterLoopJudgment(state: GameState): void {
   if (outcome.result !== "protagonistsLost") {
     throw new Error("a protagonist victory cannot continue to another loop");
   }
+}
 
-  if (state.loop.loop >= state.scenario.loops) {
-    prepareFinalGuess(state, "finalLoopLoss");
-    return;
-  }
-
+function prepareNextLoop(state: GameState): void {
   const leader = state.loop.leader;
   const nextLoop = initLoop(state.scenario, state.loop.loop + 1);
   nextLoop.leader = leader;
   state.loop = nextLoop;
   state.gamePhase = "LOOP_TIME_GAP";
   resetTimeGapTimer(state);
+}
+
+/** 패배한 루프의 결과 화면에서 다음 루프 또는 최후의 싸움으로 이동한다. */
+export function continueAfterLoopJudgment(state: GameState): void {
+  requireCurrentLoopLoss(state);
+
+  if (state.loop.loop >= state.scenario.loops) {
+    prepareFinalGuess(state, "finalLoopLoss");
+    return;
+  }
+
+  prepareNextLoop(state);
+}
+
+/**
+ * 최종 루프 패배 뒤 공개 하우스 룰로 추가 루프를 시작한다.
+ * BakaFire 공식 FAQ Ru07: 모든 참가자에게 알린 특수 규칙은 특정 각본에
+ * 적용할 수 있다. 공식 각본의 loops 값은 바꾸지 않고 실제 진행만 연장한다.
+ */
+export function startHouseRuleExtraLoop(state: GameState): void {
+  requireCurrentLoopLoss(state);
+  if (state.loop.loop < state.scenario.loops) {
+    throw new Error("an extra loop can start only after the final loop");
+  }
+
+  state.extraLoopsPlayed = (state.extraLoopsPlayed ?? 0) + 1;
+  prepareNextLoop(state);
 }
 
 /** 최후의 싸움 판정 전에 보드·카운터를 반드시 초기 상태로 되돌린다. */

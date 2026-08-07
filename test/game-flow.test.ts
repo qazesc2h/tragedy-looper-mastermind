@@ -13,6 +13,7 @@ import {
   setLoopStartTraitCounterChoice,
   setLoopStartTraitLocationChoice,
   skipToFinalGuess,
+  startHouseRuleExtraLoop,
   submitFinalGuess,
 } from "../src/engine/game";
 import { setOptionalLossActivation } from "../src/engine/loss";
@@ -92,6 +93,7 @@ describe("game setup and loop preparation", () => {
     expect(state.gamePhase).toBe("LOOP_TIME_GAP");
     expect(state.loop.loop).toBe(2);
     expect(state.loop.leader).toBe(2);
+    expect(state.timeGapTimer).toEqual({ remainingSeconds: 600 });
 
     continueFromTimeGap(state);
     expect(state.loop.charCounters.boyStudent.goodwill).toBe(0);
@@ -238,6 +240,29 @@ describe("game setup and loop preparation", () => {
     expect(boardIsAlive(state.loop, "godlyBeing")).toBe(true);
   });
 
+  it("keeps godlyBeing present after its entry in an extra loop", () => {
+    const state = createGameState(scenario({
+      mainPlot: "sealedItem",
+      cast: { godlyBeing: "person" },
+      loops: 3,
+      daysPerLoop: 1,
+      scriptSpecified: { "enters on loop:godlyBeing": 3 },
+    }));
+    chooseInitialLeader(state, 0);
+    state.loop.loop = 3;
+    continueFromTimeGap(state);
+    expect(boardIsAlive(state.loop, "godlyBeing")).toBe(true);
+
+    state.loop.locIntrigue.Shrine = 2;
+    state.loop.phase = "P9_ROUND_END";
+    advanceGame(state);
+    startHouseRuleExtraLoop(state);
+    continueFromTimeGap(state);
+
+    expect(state.loop.loop).toBe(4);
+    expect(boardIsAlive(state.loop, "godlyBeing")).toBe(true);
+  });
+
   it("makes transferStudent enter on the same scripted day every loop", () => {
     const state = createGameState(scenario({
       mainPlot: "sealedItem",
@@ -267,6 +292,32 @@ describe("game setup and loop preparation", () => {
     advanceGame(state);
     expect(state.loop.day).toBe(2);
     expect(boardIsAlive(state.loop, "transferStudent")).toBe(true);
+  });
+
+  it("rewinds transferStudent before its scripted day in an extra loop", () => {
+    const state = createGameState(scenario({
+      mainPlot: "sealedItem",
+      cast: { transferStudent: "person" },
+      loops: 1,
+      daysPerLoop: 2,
+      scriptSpecified: { "enters on day:transferStudent": 2 },
+    }));
+    startRound(state);
+    expect(isCharacterPresent(state.loop.board.transferStudent)).toBe(false);
+
+    state.loop.phase = "P9_ROUND_END";
+    advanceGame(state);
+    expect(boardIsAlive(state.loop, "transferStudent")).toBe(true);
+
+    state.loop.locIntrigue.Shrine = 2;
+    state.loop.phase = "P9_ROUND_END";
+    advanceGame(state);
+    startHouseRuleExtraLoop(state);
+    continueFromTimeGap(state);
+
+    expect(state.loop.loop).toBe(2);
+    expect(state.loop.day).toBe(1);
+    expect(isCharacterPresent(state.loop.board.transferStudent)).toBe(false);
   });
 
   it("blocks goodwill use by and targeting an absent character", () => {
@@ -683,6 +734,72 @@ describe("last-day outcomes", () => {
       reason: "finalLoopLoss",
       attempts: [],
     });
+  });
+
+  it("starts repeatable house-rule extra loops after the final loop", () => {
+    const state = createGameState(scenario({
+      mainPlot: "sealedItem",
+      loops: 1,
+      daysPerLoop: 1,
+    }));
+    startRound(state, 2);
+    state.loop.locIntrigue.Shrine = 2;
+    state.loop.phase = "P9_ROUND_END";
+    advanceGame(state);
+
+    startHouseRuleExtraLoop(state);
+    expect(state.gamePhase).toBe("LOOP_TIME_GAP");
+    expect(state.loop.loop).toBe(2);
+    expect(state.loop.leader).toBe(2);
+    expect(state.extraLoopsPlayed).toBe(1);
+    expect(state.timeGapTimer).toEqual({ remainingSeconds: 600 });
+    expect(state.history.map(({ loop }) => loop)).toEqual([1]);
+
+    continueFromTimeGap(state);
+    state.loop.locIntrigue.Shrine = 2;
+    state.loop.phase = "P9_ROUND_END";
+    advanceGame(state);
+    startHouseRuleExtraLoop(state);
+
+    expect(state.loop.loop).toBe(3);
+    expect(state.extraLoopsPlayed).toBe(2);
+    expect(state.history.map(({ loop }) => loop)).toEqual([1, 2]);
+  });
+
+  it("rejects a house-rule extra loop before the scripted final loop", () => {
+    const state = createGameState(scenario({
+      mainPlot: "sealedItem",
+      loops: 2,
+      daysPerLoop: 1,
+    }));
+    startRound(state);
+    state.loop.locIntrigue.Shrine = 2;
+    state.loop.phase = "P9_ROUND_END";
+    advanceGame(state);
+
+    expect(() => startHouseRuleExtraLoop(state)).toThrow(
+      "an extra loop can start only after the final loop",
+    );
+  });
+
+  it("applies threadsFate history normally in a house-rule extra loop", () => {
+    const state = createGameState(scenario({
+      mainPlot: "sealedItem",
+      subPlots: ["threadsFate"],
+      loops: 1,
+      daysPerLoop: 1,
+    }));
+    startRound(state);
+    state.loop.charCounters.boyStudent.goodwill = 1;
+    state.loop.locIntrigue.Shrine = 2;
+    state.loop.phase = "P9_ROUND_END";
+    advanceGame(state);
+
+    startHouseRuleExtraLoop(state);
+    continueFromTimeGap(state);
+
+    expect(state.loop.loop).toBe(2);
+    expect(state.loop.charCounters.boyStudent.paranoia).toBe(2);
   });
 });
 

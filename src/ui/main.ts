@@ -13,6 +13,7 @@ import {
   setLoopStartTraitCounterChoice,
   setLoopStartTraitLocationChoice,
   skipToFinalGuess,
+  startHouseRuleExtraLoop,
   submitFinalGuess,
 } from "../engine/game";
 import {
@@ -2140,7 +2141,7 @@ function renderLoopOutcomes(state: GameState): string {
   return `<div class="loop-outcome-list">${state.loopOutcomes.map((outcome) => `
     <article class="loop-outcome ${outcome.result === "protagonistsLost" ? "is-loss" : "is-win"}">
       <div>
-        <strong>${outcome.loop}루프 · ${outcome.day}일</strong>
+        <strong>${outcome.loop}루프 · ${outcome.day}일${outcome.loop > state.scenario.loops ? " · 추가 루프 (하우스 룰)" : ""}</strong>
         <span>${outcome.result === "protagonistsLost" ? "주인공 패배" : "주인공 승리"}</span>
       </div>
       <p>${outcome.losses.length > 0
@@ -2187,7 +2188,7 @@ function renderTimeGap(state: GameState): string {
       "카드 분배",
     ], 0, 0)}
     <section class="flow-card time-gap-card">
-      <span class="eyebrow">${state.loop.loop}루프 시작</span>
+      <span class="eyebrow">${state.loop.loop > state.scenario.loops ? "추가 루프 (하우스 룰) · " : ""}${state.loop.loop}루프 시작</span>
       <h1>시간의 틈</h1>
       <p>주인공 토론 시간입니다. 각본가는 시간만 관리합니다. 권장 시간은 10분입니다.</p>
       <div class="time-gap-timer" aria-live="polite">${timerText(remaining)}</div>
@@ -2285,9 +2286,16 @@ function renderLoopJudgment(state: GameState): string {
       <p>승패 판정을 완료했고 루프 종료 스냅샷을 기록했습니다.</p>
       ${renderLoopOutcomes(state)}
       <div class="flow-actions primary-actions">
-        <button type="button" class="next-phase" data-action="continue-after-judgment">
-          ${finalLoop ? "최후의 싸움 →" : "다음 루프 준비 →"}
-        </button>
+        ${finalLoop
+          ? `<button type="button" class="next-phase" data-action="continue-after-judgment">
+              최후의 싸움 →
+            </button>
+            <button type="button" data-action="start-extra-loop">
+              추가 루프 (하우스 룰)
+            </button>`
+          : `<button type="button" class="next-phase" data-action="continue-after-judgment">
+              다음 루프 준비 →
+            </button>`}
       </div>
     </section>
   </main>`;
@@ -2300,6 +2308,9 @@ function renderGameOver(state: GameState): string {
       <span class="eyebrow">${escapeHtml(misc("Game Over"))}</span>
       <h1>${protagonistsWon ? "주인공 승리" : "각본가 승리"}</h1>
       ${state.finalGuess ? renderFinalGuessAttempts(state) : ""}
+      ${(state.extraLoopsPlayed ?? 0) > 0
+        ? `<p class="flow-warning">추가 루프 (하우스 룰) · ${state.extraLoopsPlayed ?? 0}회 진행</p>`
+        : ""}
       <div class="outcome-summary">
         <h2>루프별 결과</h2>
         ${renderLoopOutcomes(state)}
@@ -2477,7 +2488,10 @@ function render(): void {
           </label>
           <div class="round-status">
             <span>${escapeHtml(tragedySet)}</span>
-            <strong>${escapeHtml(misc("Loop"))} ${state.loop.loop}/${state.scenario.loops}</strong>
+            <strong>${state.loop.loop}루프 / ${state.scenario.loops}루프 시나리오</strong>
+            ${state.loop.loop > state.scenario.loops
+              ? `<small>추가 루프 (하우스 룰)</small>`
+              : ""}
             <strong>${escapeHtml(misc("Day"))} ${state.loop.day}/${state.scenario.daysPerLoop}</strong>
             <small>${escapeHtml(misc("Snapshots", "Snapshots"))} ${observationCount()}</small>
           </div>
@@ -2936,6 +2950,13 @@ root.addEventListener("click", (event) => {
   if (action === "continue-after-judgment") {
     commit("loop-judgment-continue", (state) => {
       continueAfterLoopJudgment(state);
+    });
+    return;
+  }
+
+  if (action === "start-extra-loop") {
+    commit("house-rule-extra-loop", (state) => {
+      startHouseRuleExtraLoop(state);
     });
     return;
   }

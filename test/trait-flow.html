@@ -317,6 +317,76 @@
         });
       }
 
+      async function runExtraLoopCases() {
+        const scenarioId = "basicTragedy:1";
+        await loadScenario(scenarioId, "extra-loop-house-rule");
+        let scriptedLoops;
+        mutateStoredState(scenarioId, (state) => {
+          scriptedLoops = state.scenario.loops;
+          state.loop.loop = scriptedLoops;
+          state.gamePhase = "LOOP_JUDGMENT";
+          state.loopOutcomes = [{
+            loop: scriptedLoops,
+            day: state.loop.day,
+            reason: "lastDay",
+            result: "protagonistsLost",
+            losses: [],
+          }];
+          state.extraLoopsPlayed = 0;
+        });
+        await reloadFrame("extra-loop-house-rule-ready");
+
+        const extraLoopButton = await waitFor(
+          () => frameDocument().querySelector("[data-action='start-extra-loop']"),
+          "추가 루프 하우스 룰 버튼",
+        );
+        assert(
+          extraLoopButton.textContent?.includes("추가 루프 (하우스 룰)"),
+          `추가 루프 버튼 표기: ${extraLoopButton.textContent}`,
+        );
+        click("[data-action='start-extra-loop']");
+        await waitFor(
+          () => frameDocument().querySelector(".time-gap-card"),
+          "추가 루프 시간의 틈",
+        );
+
+        const expectedLoop = scriptedLoops + 1;
+        const roundStatus = frameDocument().querySelector(
+          ".round-status",
+        )?.textContent?.replace(/\s+/g, " ").trim();
+        const timeGapEyebrow = frameDocument().querySelector(
+          ".time-gap-card .eyebrow",
+        )?.textContent?.trim();
+        assert(
+          roundStatus?.includes(`${expectedLoop}루프 / ${scriptedLoops}루프 시나리오`),
+          `추가 루프 카운터: ${roundStatus}`,
+        );
+        assert(
+          timeGapEyebrow?.includes("추가 루프 (하우스 룰)"),
+          `추가 루프 시간의 틈 표기: ${timeGapEyebrow}`,
+        );
+
+        mutateStoredState(scenarioId, (state) => {
+          state.gamePhase = "GAME_OVER";
+          state.result = { winner: "protagonists", reason: "loopVictory" };
+        });
+        await reloadFrame("extra-loop-house-rule-summary");
+        const summary = await waitFor(
+          () => frameDocument().querySelector(".game-over-card .flow-warning"),
+          "추가 루프 종료 요약",
+        );
+        assert(
+          summary.textContent?.includes("추가 루프 (하우스 룰) · 1회 진행"),
+          `추가 루프 종료 요약: ${summary.textContent}`,
+        );
+
+        reports.push({
+          extraLoopCounter: roundStatus,
+          extraLoopLabel: timeGapEyebrow,
+          extraLoopSummary: summary.textContent?.trim(),
+        });
+      }
+
       function shrineIntrigue() {
         return frameDocument().querySelector(
           ".location-shrine [data-action='board-location'] strong",
@@ -401,6 +471,7 @@
       async function run() {
         await runTimeGapTimerCases();
         await runDraftInputCases();
+        await runExtraLoopCases();
         await runBlackCatCases();
         await runScientistChoice("paranoia", "우 0 불 1/2 음 0");
         await runScientistChoice("goodwill", "우 1 불 0/2 음 0");
