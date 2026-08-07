@@ -17,6 +17,17 @@ function placeEnteringCharacter(
   };
 }
 
+function placeHenchmanAtSelectedStart(
+  state: GameState,
+  character: CharacterId,
+): void {
+  const at = state.loop.loopStartTraitLocationChoices?.[character];
+  if (at === undefined) {
+    throw new Error("henchman loop-start location choice is required");
+  }
+  state.loop.board[character] = { status: "alive", at };
+}
+
 /** 한국어판 캐릭터 특성 — 구현 여부를 한곳에서 추적한다. */
 export const TRAIT_IMPL: Record<CharacterId, {
   ko: string;
@@ -77,9 +88,10 @@ export const TRAIT_IMPL: Record<CharacterId, {
         timing: "Loop Start",
         description: `Mastermind chooses start location each loop`,
       },
-      // TODO(구현): 고정 시나리오 값이 아니라 루프별 시작 장소 선택을 받는다.
-      when: () => false,
-      effect: () => {},
+      when: (state: GameState, self: CharacterId) =>
+        state.loop.loopStartTraitLocationChoices?.[self] !== undefined &&
+        !isCharacterPresent(state.loop.board[self]),
+      effect: placeHenchmanAtSelectedStart,
     }],
   },
   transferStudent: {

@@ -6,11 +6,7 @@ import { validateScenario } from "../src/engine/validate";
 import { PLOT_IMPL } from "../src/impl/plots";
 import type { Scenario } from "../src/types";
 
-const scenarios = loadBasicTragedyScenarios({
-  scriptSpecified: {
-    "startLocation:henchman": "Hospital",
-  },
-});
+const scenarios = loadBasicTragedyScenarios();
 
 describe("validateScenario", () => {
   it("accepts all 22 bundled basic tragedy scripts", () => {

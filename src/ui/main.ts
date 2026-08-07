@@ -11,6 +11,7 @@ import {
   loopStartTraitChoicesComplete,
   settleGameFlow,
   setLoopStartTraitCounterChoice,
+  setLoopStartTraitLocationChoice,
   skipToFinalGuess,
   submitFinalGuess,
 } from "../engine/game";
@@ -987,6 +988,10 @@ function isIncidentCounterValue(value: string): value is IncidentCounter {
   return value === "goodwill" || value === "paranoia" || value === "intrigue";
 }
 
+function isLocationValue(value: string): value is Location {
+  return LOCATIONS.some((location) => location === value);
+}
+
 function targetLabel(target: Target): string {
   return target.kind === "character"
     ? characterName(target.id)
@@ -1783,6 +1788,21 @@ function renderOngoingGoodwillEffects(state: GameState): string {
   </section>`;
 }
 
+function renderLoopStartInformation(state: GameState): string {
+  const henchmanStart = state.loop.loopStartTraitLocationChoices?.henchman;
+  if (!("henchman" in state.scenario.cast) || henchmanStart === undefined) {
+    return "";
+  }
+
+  return `<section class="loop-start-information">
+    <div class="overlay-heading">
+      <span class="eyebrow">${state.loop.loop}루프</span>
+      <h2>하수인 시작 장소</h2>
+    </div>
+    <strong>${escapeHtml(locationName(henchmanStart))}</strong>
+  </section>`;
+}
+
 function renderScenarioInformation(state: GameState): string {
   const plots = [
     { label: "룰 Y", id: state.scenario.mainPlot },
@@ -1888,6 +1908,7 @@ function renderMastermindOverlay(state: GameState): string {
   if (!tracker.mastermindOverlay) return "";
   return `
     <aside class="mastermind-overlay" aria-label="각본가 정보">
+      ${renderLoopStartInformation(state)}
       <details class="info-accordion today-information" open>
         <summary>
           <span><small>오늘</small><strong>사건·범인·판정 상태</strong></span>
@@ -2011,6 +2032,9 @@ function renderTimeGap(state: GameState): string {
   const scientistAppears = "scientist" in state.scenario.cast;
   const scientistCounter =
     state.loop.loopStartTraitCounterChoices?.scientist;
+  const henchmanAppears = "henchman" in state.scenario.cast;
+  const henchmanLocation =
+    state.loop.loopStartTraitLocationChoices?.henchman;
   return `<main class="game-flow-screen">
     ${renderProgressSteps([
       "시간의 틈",
@@ -2030,6 +2054,18 @@ function renderTimeGap(state: GameState): string {
                 <option value="">카운터 선택</option>
                 ${(["paranoia", "goodwill", "intrigue"] as const).map(
                   (counter) => `<option value="${counter}" ${scientistCounter === counter ? "selected" : ""}>${escapeHtml(counterLabel(counter))}</option>`,
+                ).join("")}
+              </select>
+            </label>
+          </div>`
+        : ""}
+      ${henchmanAppears
+        ? `<div class="final-guess-form loop-start-trait-choice">
+            <label><span>${escapeHtml(characterName("henchman"))} · 이번 루프 시작 장소</span>
+              <select data-action="loop-start-trait-location" data-character="henchman">
+                <option value="">장소 선택</option>
+                ${LOCATIONS.map(
+                  (location) => `<option value="${location}" ${henchmanLocation === location ? "selected" : ""}>${escapeHtml(locationName(location))}</option>`,
                 ).join("")}
               </select>
             </label>
@@ -2856,6 +2892,24 @@ root.addEventListener("change", (event) => {
         state,
         character,
         counterValue === "" ? undefined : counterValue,
+      );
+    });
+    return;
+  }
+  if (action === "loop-start-trait-location") {
+    const character = control.dataset.character;
+    const locationValue = control.value;
+    if (!character) return;
+    if (locationValue !== "" && !isLocationValue(locationValue)) {
+      throw new Error(
+        `loop-start trait choice has invalid location "${locationValue}"`,
+      );
+    }
+    commit("loop-start-trait-location", (state) => {
+      setLoopStartTraitLocationChoice(
+        state,
+        character,
+        locationValue === "" ? undefined : locationValue,
       );
     });
     return;

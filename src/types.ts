@@ -368,6 +368,11 @@ export interface LoopState {
     Record<CharacterId, IncidentCounter>
   >;
 
+  /** 하수인처럼 루프마다 각본가가 고르는 캐릭터 시작 장소 */
+  loopStartTraitLocationChoices?: Partial<
+    Record<CharacterId, Location>
+  >;
+
   /** 특수 게이지 (기본편 미사용, 확장 대비) */
   specialGauge?: number;
 }
@@ -465,6 +470,9 @@ export function resolvePlaceX(s: GameState): Location | undefined {
       (c) => effectiveRole(s, c) === want,
     );
     if (!holder) continue;
+    if (holder === "henchman") {
+      return s.loop.loopStartTraitLocationChoices?.henchman;
+    }
     return startLocationOf(holder, s.scenario);
   }
   return undefined;

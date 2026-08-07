@@ -34,7 +34,7 @@ export interface GoodwillAbilityData {
 export interface ScenarioAdapterOptions {
   /** difficultySets에서 사용할 항목. 원본에 적힌 첫 항목이 기본값이다. */
   difficultyIndex?: number;
-  /** 루프 시작마다 각본가가 지정해야 하는 값. */
+  /** 원본 각본 메타데이터를 테스트·도구에서 덮어쓸 때 사용한다. */
   scriptSpecified?: Readonly<Record<string, unknown>>;
 }
 

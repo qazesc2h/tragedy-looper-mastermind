@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import { resolveIncident } from "../src/engine/incident";
 import { resolveGoodwillAbility } from "../src/engine/goodwill";
-import { settleGameFlow } from "../src/engine/game";
+import {
+  chooseInitialLeader,
+  continueFromTimeGap,
+  createGameState,
+  settleGameFlow,
+  setLoopStartTraitLocationChoice,
+} from "../src/engine/game";
 import { evaluateLoss } from "../src/engine/loss";
 import { advance } from "../src/engine/phases";
 import { initLoop } from "../src/engine/setup";
@@ -66,17 +72,23 @@ function createIncidentState(
     incidents: [{ day: 1, incident, culprit }],
     loops: 1,
     daysPerLoop: 3,
-    scriptSpecified: characters.includes("henchman")
-      ? { "startLocation:henchman": "City" }
-      : undefined,
   };
-  const loop = initLoop(scenario);
+  const state: GameState = characters.includes("henchman")
+    ? createGameState(scenario)
+    : { scenario, gamePhase: "ROUND", loop: initLoop(scenario), history: [], loopOutcomes: [] };
+  if (characters.includes("henchman")) {
+    chooseInitialLeader(state, 0);
+    setLoopStartTraitLocationChoice(state, "henchman", "City");
+    continueFromTimeGap(state);
+  }
+  const loop = state.loop;
   for (const character of characters) {
     setBoardLocation(loop, character, "City");
   }
   loop.charCounters[culprit].paranoia = 10;
   loop.phase = "P7_INCIDENT";
-  return { scenario, gamePhase: "ROUND", loop, history: [], loopOutcomes: [] };
+  state.gamePhase = "ROUND";
+  return state;
 }
 
 function activateHenchmanSuppression(state: GameState): void {

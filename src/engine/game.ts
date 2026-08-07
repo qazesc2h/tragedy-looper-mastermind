@@ -7,6 +7,7 @@ import {
   type IncidentCounter,
   type IncidentFailureReason,
   type IncidentResult,
+  type Location,
   type LoopOutcome,
   type Phase,
   type PhaseLogEntry,
@@ -28,8 +29,11 @@ function resetTimeGapTimer(state: GameState): void {
 
 /** 현재 루프 준비에 필요한 캐릭터 특성 선택을 모두 받았는지 확인한다. */
 export function loopStartTraitChoicesComplete(state: GameState): boolean {
-  return !("scientist" in state.scenario.cast) ||
+  const scientistComplete = !("scientist" in state.scenario.cast) ||
     state.loop.loopStartTraitCounterChoices?.scientist !== undefined;
+  const henchmanComplete = !("henchman" in state.scenario.cast) ||
+    state.loop.loopStartTraitLocationChoices?.henchman !== undefined;
+  return scientistComplete && henchmanComplete;
 }
 
 /** 루프 시작 전에 각본가가 고르는 캐릭터 특성 카운터를 기록한다. */
@@ -58,6 +62,34 @@ export function setLoopStartTraitCounterChoice(
 
   const choices = state.loop.loopStartTraitCounterChoices ??= {};
   choices[character] = counter;
+}
+
+/** 루프 시작 전에 각본가가 고르는 캐릭터 시작 장소를 기록한다. */
+export function setLoopStartTraitLocationChoice(
+  state: GameState,
+  character: CharacterId,
+  location: Location | undefined,
+): void {
+  if (state.gamePhase !== "LOOP_TIME_GAP") {
+    throw new Error(
+      `loop-start trait choice cannot change during ${state.gamePhase}`,
+    );
+  }
+  if (character !== "henchman" || !(character in state.scenario.cast)) {
+    throw new Error(`character "${character}" has no loop-start location choice`);
+  }
+
+  if (location === undefined) {
+    if (!state.loop.loopStartTraitLocationChoices) return;
+    delete state.loop.loopStartTraitLocationChoices[character];
+    if (Object.keys(state.loop.loopStartTraitLocationChoices).length === 0) {
+      delete state.loop.loopStartTraitLocationChoices;
+    }
+    return;
+  }
+
+  const choices = state.loop.loopStartTraitLocationChoices ??= {};
+  choices[character] = location;
 }
 
 /** 새 게임을 만들고 자동 게임 준비 단계를 진행해 리더 선택에서 멈춘다. */
@@ -103,6 +135,12 @@ export function continueFromTimeGap(state: GameState): void {
     throw new Error(`loop cannot start during ${state.gamePhase}`);
   }
   if (!loopStartTraitChoicesComplete(state)) {
+    if (
+      "henchman" in state.scenario.cast &&
+      state.loop.loopStartTraitLocationChoices?.henchman === undefined
+    ) {
+      throw new Error("henchman loop-start location choice is required");
+    }
     throw new Error("scientist loop-start counter choice is required");
   }
 
@@ -110,6 +148,8 @@ export function continueFromTimeGap(state: GameState): void {
   const leader = state.loop.leader;
   const loopStartTraitCounterChoices =
     state.loop.loopStartTraitCounterChoices;
+  const loopStartTraitLocationChoices =
+    state.loop.loopStartTraitLocationChoices;
 
   state.gamePhase = "LOOP_CHARACTER_PLACEMENT";
   const prepared = initLoop(state.scenario, loopNumber);
@@ -117,6 +157,11 @@ export function continueFromTimeGap(state: GameState): void {
   if (loopStartTraitCounterChoices !== undefined) {
     prepared.loopStartTraitCounterChoices = {
       ...loopStartTraitCounterChoices,
+    };
+  }
+  if (loopStartTraitLocationChoices !== undefined) {
+    prepared.loopStartTraitLocationChoices = {
+      ...loopStartTraitLocationChoices,
     };
   }
   state.loop = prepared;

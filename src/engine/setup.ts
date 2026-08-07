@@ -17,8 +17,10 @@ export function initLoop(scenario: Scenario, loopNumber = 1): LoopState {
 
   for (const character of Object.keys(scenario.cast)) {
     const entry = characterEntryTiming(scenario, character);
-    const waitsForEntry = characterDataOf(character).comesInLater && !(
-      entry?.kind === "loop" && loopNumber > entry.value
+    const waitsForEntry = character === "henchman" || (
+      characterDataOf(character).comesInLater && !(
+        entry?.kind === "loop" && loopNumber > entry.value
+      )
     );
     board[character] = waitsForEntry
       ? { status: "absent" }

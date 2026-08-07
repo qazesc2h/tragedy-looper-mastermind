@@ -10,6 +10,7 @@ import {
   chooseInitialLeader,
   continueFromTimeGap,
   createGameState,
+  setLoopStartTraitLocationChoice,
 } from "../src/engine/game";
 import { advance } from "../src/engine/phases";
 import { resolveActions } from "../src/engine/resolve";
@@ -108,9 +109,6 @@ function createInformationState(
     loops: 3,
     daysPerLoop: 6,
     scriptSpecified: {
-      ...(characters.includes("henchman")
-        ? { "startLocation:henchman": "City" }
-        : {}),
       ...(characters.includes("godlyBeing")
         ? { "enters on loop:godlyBeing": 1 }
         : {}),
@@ -118,6 +116,9 @@ function createInformationState(
   };
   const state = createGameState(scenario);
   chooseInitialLeader(state, 0);
+  if (characters.includes("henchman")) {
+    setLoopStartTraitLocationChoice(state, "henchman", "City");
+  }
   continueFromTimeGap(state);
   state.loop.phase = "P6_GOODWILL";
   return state;

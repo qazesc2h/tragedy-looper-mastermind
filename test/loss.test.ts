@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import { resolveIncident } from "../src/engine/incident";
 import { resolveGoodwillAbility } from "../src/engine/goodwill";
-import { advanceGame } from "../src/engine/game";
+import {
+  advanceGame,
+  chooseInitialLeader,
+  continueFromTimeGap,
+  createGameState,
+  setLoopStartTraitLocationChoice,
+} from "../src/engine/game";
 import {
   distanceToLoss,
   evaluateLoss,
@@ -48,6 +54,23 @@ function activateSoldierProtection(state: GameState): void {
     rank: 5,
     abilityIndex: 1,
   }, "resolve");
+}
+
+function createHenchmanWitchState(location: "Hospital" | "Shrine"): GameState {
+  const scenario: Scenario = {
+    tragedySet: "basicTragedy",
+    mainPlot: "giantTimeBomb",
+    subPlots: [],
+    cast: { henchman: "witch" },
+    incidents: [],
+    loops: 2,
+    daysPerLoop: 3,
+  };
+  const state = createGameState(scenario);
+  chooseInitialLeader(state, 0);
+  setLoopStartTraitLocationChoice(state, "henchman", location);
+  continueFromTimeGap(state);
+  return state;
 }
 
 describe("plot loss distance", () => {
@@ -100,11 +123,7 @@ describe("plot loss distance", () => {
   });
 
   it("uses resolvePlaceX for giantTimeBomb", () => {
-    const state = createState({
-      mainPlot: "giantTimeBomb",
-      cast: { henchman: "witch" },
-      scriptSpecified: { "startLocation:henchman": "Hospital" },
-    });
+    const state = createHenchmanWitchState("Hospital");
     setBoardLocation(state.loop, "henchman", "School");
     state.loop.locIntrigue.Hospital = 1;
 
@@ -117,11 +136,7 @@ describe("plot loss distance", () => {
   });
 
   it("returns giantTimeBomb when Place X reaches 2 intrigue", () => {
-    const state = createState({
-      mainPlot: "giantTimeBomb",
-      cast: { henchman: "witch" },
-      scriptSpecified: { "startLocation:henchman": "Hospital" },
-    });
+    const state = createHenchmanWitchState("Hospital");
     state.loop.locIntrigue.Hospital = 2;
     state.loop.day = state.scenario.daysPerLoop;
     state.loop.phase = "P9_ROUND_END";

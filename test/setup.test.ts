@@ -8,12 +8,7 @@ import { initLoop } from "../src/engine/setup";
 import { isCharacterPresent } from "../src/types";
 import { boardIsAlive, boardLocation } from "./helpers";
 
-const scenarios = loadBasicTragedyScenarios({
-  // 복수 시작 장소는 테스트 호출자도 반드시 명시한다. initLoop가 고르지 않는다.
-  scriptSpecified: {
-    "startLocation:henchman": "Hospital",
-  },
-});
+const scenarios = loadBasicTragedyScenarios();
 
 describe("basic tragedy setup", () => {
   it("loads all 22 scripts", () => {
@@ -48,7 +43,7 @@ describe("basic tragedy setup", () => {
 
       for (const character of Object.keys(scenario.cast)) {
         const characterData = characterDataOf(character);
-        if (characterData.comesInLater) {
+        if (characterData.comesInLater || character === "henchman") {
           expect(isCharacterPresent(loop.board[character])).toBe(false);
         } else {
           expect(boardIsAlive(loop, character)).toBe(true);
@@ -66,14 +61,14 @@ describe("basic tragedy setup", () => {
     });
   }
 
-  it("requires a script-specified start location when choices exist", () => {
+  it("initializes henchman without a static scenario location", () => {
     const scenario = loadBasicTragedyScenarios().find(
       (candidate) => "henchman" in candidate.cast,
     );
     expect(scenario).toBeDefined();
 
-    expect(() => initLoop(scenario!)).toThrow(
-      'scenario.scriptSpecified["startLocation:henchman"]',
-    );
+    const loop = initLoop(scenario!);
+    expect(loop.board.henchman).toEqual({ status: "absent" });
+    expect(loop.loopStartTraitLocationChoices).toBeUndefined();
   });
 });

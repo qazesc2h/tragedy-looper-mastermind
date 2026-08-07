@@ -11,6 +11,7 @@ import {
   loopStartTraitChoicesComplete,
   settleGameFlow,
   setLoopStartTraitCounterChoice,
+  setLoopStartTraitLocationChoice,
   skipToFinalGuess,
   submitFinalGuess,
 } from "../src/engine/game";
@@ -19,10 +20,16 @@ import { validatePlacement } from "../src/engine/legal";
 import {
   effectiveRole,
   isCharacterPresent,
+  resolvePlaceX,
   type GameState,
   type Scenario,
 } from "../src/types";
-import { boardIsAlive, setBoardLife } from "./helpers";
+import {
+  boardIsAlive,
+  boardLocation,
+  setBoardLife,
+  setBoardLocation,
+} from "./helpers";
 
 function scenario(overrides: Partial<Scenario> = {}): Scenario {
   return {
@@ -118,17 +125,87 @@ describe("game setup and loop preparation", () => {
   it("places a henchman before its revealed friend loop-start ability", () => {
     const state = createGameState(scenario({
       cast: { henchman: "friend" },
-      scriptSpecified: { "startLocation:henchman": "Hospital" },
     }));
     state.history.push({
       ...structuredClone(state.loop),
       revealedRoleCharacters: ["henchman"],
     });
 
-    startRound(state);
+    chooseInitialLeader(state, 0);
+    setLoopStartTraitLocationChoice(state, "henchman", "Hospital");
+    continueFromTimeGap(state);
 
     expect(boardIsAlive(state.loop, "henchman")).toBe(true);
     expect(state.loop.charCounters.henchman.goodwill).toBe(1);
+  });
+
+  it("blocks loop setup until the mastermind chooses henchman's location", () => {
+    const state = createGameState(scenario({
+      cast: { henchman: "person" },
+    }));
+    chooseInitialLeader(state, 0);
+
+    expect(loopStartTraitChoicesComplete(state)).toBe(false);
+    expect(() => continueFromTimeGap(state)).toThrow(
+      "henchman loop-start location choice is required",
+    );
+
+    setLoopStartTraitLocationChoice(state, "henchman", "City");
+    expect(loopStartTraitChoicesComplete(state)).toBe(true);
+    continueFromTimeGap(state);
+    expect(boardLocation(state.loop, "henchman")).toBe("City");
+  });
+
+  it("uses a fresh henchman start-location choice in every loop", () => {
+    const state = createGameState(scenario({
+      mainPlot: "sealedItem",
+      cast: { henchman: "person" },
+      loops: 2,
+      daysPerLoop: 1,
+    }));
+    chooseInitialLeader(state, 0);
+    setLoopStartTraitLocationChoice(state, "henchman", "Hospital");
+    continueFromTimeGap(state);
+    expect(boardLocation(state.loop, "henchman")).toBe("Hospital");
+
+    state.loop.locIntrigue.Shrine = 2;
+    state.loop.phase = "P9_ROUND_END";
+    advanceGame(state);
+    continueAfterLoopJudgment(state);
+    expect(state.loop.loopStartTraitLocationChoices).toBeUndefined();
+
+    setLoopStartTraitLocationChoice(state, "henchman", "School");
+    continueFromTimeGap(state);
+    expect(boardLocation(state.loop, "henchman")).toBe("School");
+    expect(state.history[0].loopStartTraitLocationChoices?.henchman)
+      .toBe("Hospital");
+  });
+
+  it("keeps giantTimeBomb Place X at each loop's chosen henchman start", () => {
+    const state = createGameState(scenario({
+      mainPlot: "giantTimeBomb",
+      cast: { henchman: "witch" },
+      loops: 2,
+      daysPerLoop: 1,
+    }));
+    chooseInitialLeader(state, 0);
+    setLoopStartTraitLocationChoice(state, "henchman", "Hospital");
+    continueFromTimeGap(state);
+    expect(resolvePlaceX(state)).toBe("Hospital");
+
+    setBoardLocation(state.loop, "henchman", "School");
+    expect(boardLocation(state.loop, "henchman")).toBe("School");
+    expect(resolvePlaceX(state)).toBe("Hospital");
+
+    state.loop.locIntrigue.Hospital = 2;
+    state.loop.phase = "P9_ROUND_END";
+    advanceGame(state);
+    continueAfterLoopJudgment(state);
+    setLoopStartTraitLocationChoice(state, "henchman", "Shrine");
+    continueFromTimeGap(state);
+
+    expect(boardLocation(state.loop, "henchman")).toBe("Shrine");
+    expect(resolvePlaceX(state)).toBe("Shrine");
   });
 
   it("keeps godlyBeing absent until its scripted loop placement", () => {

@@ -162,11 +162,45 @@
         reports.push({ scientistChoice: counter, counters });
       }
 
+      async function runHenchmanLocationChoice() {
+        await loadScenario("basicTragedy:4", "henchman-location");
+        click("[data-action='choose-leader']");
+        const continueButton = await waitFor(
+          () => frameDocument().querySelector("[data-action='continue-loop-start']"),
+          "하수인 시간의 틈",
+        );
+        assert(continueButton.disabled, "하수인 장소 미선택인데 진행 버튼 활성");
+
+        changeSelect("[data-action='loop-start-trait-location']", "Hospital");
+        await waitFor(
+          () => {
+            const button = frameDocument().querySelector(
+              "[data-action='continue-loop-start']",
+            );
+            return button && !button.disabled ? button : undefined;
+          },
+          "하수인 장소 선택 반영",
+        );
+        click("[data-action='continue-loop-start']");
+        await waitFor(
+          () => frameDocument().querySelector(
+            ".location-hospital [data-character='henchman']",
+          ),
+          "하수인 병원 배치",
+        );
+        const remembered = frameDocument().querySelector(
+          ".loop-start-information strong",
+        )?.textContent?.trim();
+        assert(remembered === "병원", `하수인 시작 장소 표시: ${remembered}`);
+        reports.push({ henchmanLocation: "Hospital", remembered });
+      }
+
       async function run() {
         await runBlackCatCases();
         await runScientistChoice("paranoia", "우 0 불 1/2 음 0");
         await runScientistChoice("goodwill", "우 1 불 0/2 음 0");
         await runScientistChoice("intrigue", "우 0 불 0/2 음 1");
+        await runHenchmanLocationChoice();
         restoreStorage();
         const passed = failures.length === 0;
         const report = { reports, failures };

@@ -17,15 +17,16 @@ function createState(): GameState {
     incidents: [],
     loops: 2,
     daysPerLoop: 4,
-    scriptSpecified: { "startLocation:henchman": "Shrine" },
   };
-  return {
+  const state: GameState = {
     scenario,
     gamePhase: "ROUND",
     loop: initLoop(scenario),
     history: [],
     loopOutcomes: [],
   };
+  state.loop.loopStartTraitLocationChoices = { henchman: "Shrine" };
+  return state;
 }
 
 describe("character location information", () => {

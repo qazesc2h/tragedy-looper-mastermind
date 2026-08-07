@@ -18,6 +18,9 @@ function selectedStartLocation(
   state: GameState,
   character: CharacterId,
 ): Location | undefined {
+  if (character === "henchman") {
+    return state.loop.loopStartTraitLocationChoices?.henchman;
+  }
   const selected = state.scenario.scriptSpecified?.[
     `startLocation:${character}`
   ];
