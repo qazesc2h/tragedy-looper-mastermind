@@ -24,7 +24,7 @@ export const TRAIT_IMPL: Record<CharacterId, {
   godlyBeing: {
     ko: "신",
     hooks: [{
-      phase: "LOOP_START",
+      phase: "LOOP_CHARACTER_PLACEMENT",
       kind: "mandatory",
       source: {
         timing: "Loop Start",
@@ -52,7 +52,7 @@ export const TRAIT_IMPL: Record<CharacterId, {
   henchman: {
     ko: "하수인",
     hooks: [{
-      phase: "LOOP_START",
+      phase: "LOOP_CHARACTER_PLACEMENT",
       kind: "mandatory",
       source: {
         timing: "Loop Start",
@@ -66,7 +66,7 @@ export const TRAIT_IMPL: Record<CharacterId, {
   transferStudent: {
     ko: "전학생",
     hooks: [{
-      phase: "P1_ROUND_START",
+      phase: "P1_CHARACTER_ENTRY",
       kind: "mandatory",
       source: {
         timing: "Day Start",

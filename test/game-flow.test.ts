@@ -108,6 +108,22 @@ describe("game setup and loop preparation", () => {
     expect(state.loop.locIntrigue.Shrine).toBe(1);
   });
 
+  it("places a henchman before its revealed friend loop-start ability", () => {
+    const state = createGameState(scenario({
+      cast: { henchman: "friend" },
+      scriptSpecified: { "startLocation:henchman": "Hospital" },
+    }));
+    state.history.push({
+      ...structuredClone(state.loop),
+      revealedRoleCharacters: ["henchman"],
+    });
+
+    startRound(state);
+
+    expect(boardIsAlive(state.loop, "henchman")).toBe(true);
+    expect(state.loop.charCounters.henchman.goodwill).toBe(1);
+  });
+
   it("keeps Shrine intrigue at zero without blackCat", () => {
     const state = createGameState(scenario());
     startRound(state);

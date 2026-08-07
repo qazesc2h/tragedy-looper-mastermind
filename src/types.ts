@@ -106,7 +106,8 @@ export interface GameResult {
 /** 9단계 바깥에서 걸리는 훅 지점 */
 export type HookPoint =
   | Phase
-  | "ALWAYS" | "LOOP_START" | "LOOP_END" | "LAST_DAY"
+  | "ALWAYS" | "LOOP_CHARACTER_PLACEMENT" | "LOOP_START"
+  | "P1_CHARACTER_ENTRY" | "LOOP_END" | "LAST_DAY"
   | "ON_DEATH" | "ON_REVEAL" | "FINAL_GUESS" | "SCRIPT_BUILD"
   | "UNKNOWN";
 

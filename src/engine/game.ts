@@ -121,6 +121,7 @@ export function continueFromTimeGap(state: GameState): void {
     };
   }
   state.loop = prepared;
+  resolveHooks(state, "LOOP_CHARACTER_PLACEMENT");
 
   state.gamePhase = "LOOP_COUNTER_SETUP";
   resolveHooks(state, "LOOP_START");

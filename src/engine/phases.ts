@@ -2,6 +2,7 @@
 // 근거: 주인공 설명서 21p(4-1~4-9), 45p(라운드 진행 요약).
 
 import {
+  isCharacterPresent,
   type GameState, type Hook, type HookPoint, type IncidentChoice,
   type HookContext, type IncidentResult, type Phase,
   PHASE_ORDER,
@@ -70,12 +71,16 @@ export function collectHooks(s: GameState, at: HookPoint): {
   const out: { self: string; hook: Hook }[] = [];
 
   for (const c of Object.keys(s.scenario.cast)) {
-    for (const abilityRole of effectiveAbilityRoles(s, c)) {
-      const impl = ROLE_IMPL[abilityRole];
-      for (const h of impl?.hooks ?? []) {
-        if (h.phase === at) out.push({ self: c, hook: h });
+    const position = s.loop.board[c];
+    if (position && isCharacterPresent(position)) {
+      for (const abilityRole of effectiveAbilityRoles(s, c)) {
+        const impl = ROLE_IMPL[abilityRole];
+        for (const h of impl?.hooks ?? []) {
+          if (h.phase === at) out.push({ self: c, hook: h });
+        }
       }
     }
+    // 등장 특성은 absent 상태에서도 자신을 배치할 수 있어야 한다.
     for (const h of TRAIT_IMPL[c]?.hooks ?? []) {
       if (h.phase === at) out.push({ self: c, hook: h });
     }
@@ -133,6 +138,7 @@ export function advance(
   let incidentResult: IncidentResult | undefined;
   switch (s.loop.phase) {
     case "P1_ROUND_START":
+      resolveHooks(s, "P1_CHARACTER_ENTRY");
       resolveHooks(s, "P1_ROUND_START");
       break;
 
