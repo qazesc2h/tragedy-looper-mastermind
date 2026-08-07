@@ -42,7 +42,8 @@ export const TRAIT_IMPL: Record<CharacterId, {
         timing: "Script Build",
         description: `Always has a role not associated with current plot.`,
       },
-      // TODO(구현): 현재 룰에 속하지 않는 역할인지 시나리오 검증에서 확인한다.
+      // IMPLEMENTED_ELSEWHERE: src/engine/validate.ts validateScenario()
+      // SCRIPT_BUILD는 런타임 훅이 아니므로 원문 보존만 한다.
       when: () => false,
       effect: () => {},
     }],

@@ -8,7 +8,7 @@ import { initLoop } from "../src/engine/setup";
 import { isCharacterPresent } from "../src/types";
 import { boardIsAlive, boardLocation } from "./helpers";
 
-const scenarios = loadBasicTragedyScenarios();
+const scenarios = loadBasicTragedyScenarios({ skipValidation: true });
 
 describe("basic tragedy setup", () => {
   it("loads all 22 scripts", () => {
@@ -62,7 +62,7 @@ describe("basic tragedy setup", () => {
   }
 
   it("initializes henchman without a static scenario location", () => {
-    const scenario = loadBasicTragedyScenarios().find(
+    const scenario = loadBasicTragedyScenarios({ skipValidation: true }).find(
       (candidate) => "henchman" in candidate.cast,
     );
     expect(scenario).toBeDefined();

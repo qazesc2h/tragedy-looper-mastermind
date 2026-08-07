@@ -28,6 +28,10 @@ import { distanceToLoss, setOptionalLossActivation } from "../engine/loss";
 import { intrigueForbidActive } from "../engine/movement";
 import { collectHooks } from "../engine/phases";
 import {
+  validateScenario,
+  type ScenarioValidationResult,
+} from "../engine/validate";
+import {
   MASTERMIND_ONCE_PER_LOOP,
   PROTAGONIST_ONCE_PER_LOOP,
 } from "../engine/resolve";
@@ -122,6 +126,7 @@ interface ScenarioEntry {
   id: string;
   title: string;
   scenario: Scenario;
+  validation: ScenarioValidationResult;
 }
 
 interface SelectedHandCard extends HandCard {
@@ -191,16 +196,21 @@ const INCIDENT_CHOICE_FIELDS: Record<string, readonly string[]> = {
   spreading: ["target", "otherTarget"],
 };
 
+const MYSTERY_BOY_PLOT_LESS_ROLE_TEXT =
+  "항상 현재 어느 룰로도 정해지지 않은 역할을 맡습니다.";
+
 const scenarioEntries: ScenarioEntry[] = (scriptsJson as unknown[]).map(
   (raw, index) => {
     const rawTitle = (raw as RawScript).title;
     const title = typeof rawTitle === "string"
       ? gameText(rawTitle)
       : `Script ${index + 1}`;
+    const scenario = adaptBasicTragedyScript(raw, { skipValidation: true });
     return {
       id: `basicTragedy:${index + 1}`,
       title,
-      scenario: adaptBasicTragedyScript(raw),
+      scenario,
+      validation: validateScenario(scenario),
     };
   },
 );
@@ -347,6 +357,11 @@ function resetTransientUi(): void {
 }
 
 function startFreshScenario(entry: ScenarioEntry): void {
+  if (!entry.validation.ok) {
+    notice = entry.validation.errors.join(" ");
+    render();
+    return;
+  }
   delete tracker.games[entry.id];
   tracker.activeScenarioId = entry.id;
   resetTransientUi();
@@ -419,6 +434,15 @@ function commit(reason: string, mutate: (state: GameState) => void): void {
 function characterName(character: CharacterId): string {
   const data = characterDataOf(character);
   return term("characters", character, data.en);
+}
+
+function plotLessRoleTraitText(
+  character: CharacterId,
+): string | undefined {
+  if (character !== "mysteryBoy") return undefined;
+  return characterDataOf(character).plotLessRole
+    ? MYSTERY_BOY_PLOT_LESS_ROLE_TEXT
+    : undefined;
 }
 
 function locationName(location: Location): string {
@@ -566,6 +590,7 @@ function renderCharacter(state: GameState, character: CharacterId): string {
   const counters = state.loop.charCounters[character];
   const data = characterDataOf(character);
   const role = effectiveRole(state, character);
+  const traitText = plotLessRoleTraitText(character);
   const alive = isCharacterAlive(position);
   const aliveLabel = alive
     ? misc("Alive", "생존")
@@ -583,7 +608,10 @@ function renderCharacter(state: GameState, character: CharacterId): string {
     <article class="character-chip-wrap ${alive ? "is-alive" : "is-dead"}">
       <button type="button" class="character-chip" data-action="board-character"
         data-character="${escapeHtml(character)}"
-        aria-label="${escapeHtml(`${characterName(character)} — ${roleName(role)} — ${aliveLabel}`)}">
+        aria-label="${escapeHtml(
+          `${characterName(character)} — ${roleName(role)} — ${aliveLabel}` +
+          (traitText ? ` — 특성: ${traitText}` : ""),
+        )}">
         <span class="character-chip-heading">
           <strong>${escapeHtml(characterName(character))}</strong>
           <span class="life-state" aria-label="${escapeHtml(aliveLabel)}"
@@ -593,6 +621,9 @@ function renderCharacter(state: GameState, character: CharacterId): string {
         </span>
         <span class="character-chip-meta">
           <span class="character-chip-role">${escapeHtml(roleName(role))}</span>
+          ${traitText
+            ? `<span class="character-trait-badge" title="${escapeHtml(traitText)}">특성</span>`
+            : ""}
           ${culpritBadges}
         </span>
         <span class="character-chip-counters">
@@ -603,6 +634,15 @@ function renderCharacter(state: GameState, character: CharacterId): string {
       </button>
       ${renderCardsOnTarget(state, { kind: "character", id: character })}
     </article>`;
+}
+
+function renderCharacterTraitInformation(character: CharacterId): string {
+  const traitText = plotLessRoleTraitText(character);
+  if (!traitText) return "";
+  return `<section class="character-trait-information">
+    <h3>특성</h3>
+    <p>${escapeHtml(traitText)}</p>
+  </section>`;
 }
 
 function renderLocation(state: GameState, location: Location): string {
@@ -745,6 +785,7 @@ function renderCharacterModal(state: GameState): string {
           )}
           ${renderCounter(character, "intrigue", counters.intrigue)}
         </div>
+        ${renderCharacterTraitInformation(character)}
         ${renderCharacterLocationInformation(state, character)}
         ${renderCharacterIncidentInformation(state, character)}
         <label class="location-select">
@@ -2026,12 +2067,16 @@ function renderScenarioInformation(state: GameState): string {
     <ul class="scenario-cast-list">
       ${Object.keys(state.scenario.cast).map((character) => {
         const culpritDays = incidentDaysForCharacter(state, character);
+        const traitText = plotLessRoleTraitText(character);
         return `<li>
           <span>${escapeHtml(characterName(character))}</span>
           <b>${escapeHtml(roleName(effectiveRole(state, character)))}</b>
           ${culpritDays.length === 0
             ? ""
             : `<em>범인 · ${culpritDays.map((day) => `${day}일`).join(" · ")}</em>`}
+          ${traitText
+            ? `<small class="scenario-cast-trait"><strong>특성</strong> · ${escapeHtml(traitText)}</small>`
+            : ""}
         </li>`;
       }).join("")}
     </ul>
@@ -2463,6 +2508,13 @@ function renderScenarioSelection(): void {
   const scenarioDraftKey = "new-game:scenario";
   const selectedScenario = draftValue(scenarioDraftKey) ||
     scenarioEntries[0]?.id || "";
+  const selectedEntry = scenarioEntries.find(
+    ({ id }) => id === selectedScenario,
+  );
+  const mysteryBoyRole = selectedEntry?.scenario.cast.mysteryBoy;
+  const invalidEntries = scenarioEntries.filter(
+    ({ validation }) => !validation.ok,
+  );
   root.innerHTML = `
     <div class="app-shell">
       <header class="topbar">
@@ -2481,9 +2533,25 @@ function renderScenarioSelection(): void {
             <select data-new-game-scenario
               data-ui-draft-key="${scenarioDraftKey}">
               ${scenarioEntries.map((entry) => `
-                <option value="${entry.id}" ${selectedScenario === entry.id ? "selected" : ""}>${escapeHtml(entry.title)}</option>`).join("")}
+                <option value="${entry.id}" ${selectedScenario === entry.id ? "selected" : ""}
+                  ${entry.validation.ok ? "" : "disabled"}>${escapeHtml(entry.title)}${entry.validation.ok ? "" : " · 데이터 오류"}</option>`).join("")}
             </select>
           </label>
+          ${mysteryBoyRole === undefined
+            ? ""
+            : `<aside class="scenario-trait-notice">
+                <span class="eyebrow">캐릭터 특성</span>
+                <strong>${escapeHtml(characterName("mysteryBoy"))} · ${escapeHtml(roleName(mysteryBoyRole))}</strong>
+                <p>${escapeHtml(MYSTERY_BOY_PLOT_LESS_ROLE_TEXT)}</p>
+              </aside>`}
+          ${invalidEntries.length === 0
+            ? ""
+            : `<aside class="scenario-trait-notice scenario-data-error">
+                <span class="eyebrow">원본 데이터 오류</span>
+                ${invalidEntries.map((entry) => `
+                  <strong>${escapeHtml(entry.title)}</strong>
+                  <p>${escapeHtml(entry.validation.errors.join(" "))}</p>`).join("")}
+              </aside>`}
           <div class="flow-actions primary-actions">
             <button type="button" class="next-phase" data-action="start-selected-scenario">게임 시작</button>
           </div>
@@ -2546,8 +2614,9 @@ function render(): void {
             <span>${escapeHtml(misc("Script"))}</span>
             <select data-action="scenario">
               ${scenarioEntries.map((candidate) => `
-                <option value="${candidate.id}" ${candidate.id === entry.id ? "selected" : ""}>
-                  ${escapeHtml(candidate.title)}
+                <option value="${candidate.id}" ${candidate.id === entry.id ? "selected" : ""}
+                  ${candidate.validation.ok ? "" : "disabled"}>
+                  ${escapeHtml(candidate.title)}${candidate.validation.ok ? "" : " · 데이터 오류"}
                 </option>`).join("")}
             </select>
           </label>
@@ -3177,6 +3246,10 @@ root.addEventListener("change", (event) => {
   const draftKey = control.dataset.uiDraftKey;
   if (draftKey !== undefined) {
     uiInputDrafts.set(draftKey, control.value);
+    if (draftKey === "new-game:scenario") {
+      render();
+      return;
+    }
     if (action === "goodwill-subplot-declaration") {
       syncGoodwillSubplotRevealOptions(control as HTMLSelectElement);
     }

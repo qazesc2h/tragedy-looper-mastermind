@@ -1,19 +1,109 @@
 import { describe, expect, it } from "vitest";
 
-import { loadBasicTragedyScenarios } from "../src/data";
+import {
+  characterDataOf,
+  loadBasicTragedyScenarios,
+} from "../src/data";
 import { initLoop } from "../src/engine/setup";
 import { validateScenario } from "../src/engine/validate";
 import { PLOT_IMPL } from "../src/impl/plots";
+import { TRAIT_IMPL } from "../src/impl/traits";
 import type { Scenario } from "../src/types";
 
-const scenarios = loadBasicTragedyScenarios();
+const scenarios = loadBasicTragedyScenarios({ skipValidation: true });
 
 describe("validateScenario", () => {
-  it("accepts all 22 bundled basic tragedy scripts", () => {
+  it("loads all 22 bundled basic tragedy scripts for validation", () => {
     expect(scenarios).toHaveLength(22);
-    for (const scenario of scenarios) {
-      expect(validateScenario(scenario)).toEqual({ ok: true, errors: [] });
+  });
+
+  it("keeps plotLessRole in runtime character data", () => {
+    expect(characterDataOf("mysteryBoy").plotLessRole).toBe(true);
+    expect(characterDataOf("boyStudent").plotLessRole).toBe(false);
+  });
+
+  it("rejects a role from an active plot for mysteryBoy", () => {
+    const source = scenarios.find(({ cast }) => "mysteryBoy" in cast);
+    if (source === undefined) throw new Error("missing mysteryBoy scenario");
+    const scenario = structuredClone(source);
+    scenario.mainPlot = "murderPlan";
+    scenario.subPlots = ["loveAffair", "unsettlingRumor"];
+    scenario.cast.mysteryBoy = "keyPerson";
+
+    expect(validateScenario(scenario)).toEqual({
+      ok: false,
+      errors: [
+        "아웃사이더: 현재 시나리오의 룰에서 추가되는 역할을 배정할 수 없습니다. " +
+        "참극 세트의 역할 중 현재 룰에서 추가되지 않는 역할을 배정해야 합니다.",
+      ],
+    });
+  });
+
+  it("accepts a role not associated with any active plot for mysteryBoy", () => {
+    const source = scenarios.find(({ cast }) => "mysteryBoy" in cast);
+    if (source === undefined) throw new Error("missing mysteryBoy scenario");
+    const scenario = structuredClone(source);
+    scenario.mainPlot = "murderPlan";
+    scenario.subPlots = ["loveAffair", "unsettlingRumor"];
+    scenario.cast.mysteryBoy = "witch";
+
+    expect(validateScenario(scenario)).toEqual({ ok: true, errors: [] });
+  });
+
+  it("rejects person for mysteryBoy with a distinct error", () => {
+    const scenario = scenarios.find(
+      ({ cast }) => cast.mysteryBoy === "person",
+    );
+    if (scenario === undefined) {
+      throw new Error("missing bundled mysteryBoy person scenario");
     }
+
+    expect(validateScenario(scenario)).toEqual({
+      ok: false,
+      errors: [
+        "아웃사이더: 엑스트라 역할을 배정할 수 없습니다. " +
+        "참극 세트의 역할 중 현재 룰에서 추가되지 않는 역할을 배정해야 합니다.",
+      ],
+    });
+  });
+
+  it("rejects a role outside the basic tragedy set for mysteryBoy", () => {
+    const source = scenarios.find(({ cast }) => "mysteryBoy" in cast);
+    if (source === undefined) throw new Error("missing mysteryBoy scenario");
+    const scenario = structuredClone(source);
+    scenario.cast.mysteryBoy = "notABasicRole";
+
+    expect(validateScenario(scenario)).toEqual({
+      ok: false,
+      errors: [
+        "아웃사이더: 기본편 참극 세트에 없는 역할을 배정할 수 없습니다. " +
+        "기본편 역할 중 현재 룰에서 추가되지 않는 역할을 배정해야 합니다.",
+      ],
+    });
+  });
+
+  it("identifies script 18 as the only invalid bundled mysteryBoy assignment", () => {
+    const mysteryBoyScenarios = scenarios.filter(
+      ({ cast }) => "mysteryBoy" in cast,
+    );
+    expect(mysteryBoyScenarios).toHaveLength(7);
+    const results = mysteryBoyScenarios.map((scenario) =>
+      validateScenario(scenario)
+    );
+    expect(results.filter(({ ok }) => ok)).toHaveLength(6);
+    expect(results.filter(({ ok }) => !ok)).toEqual([{
+      ok: false,
+      errors: [
+        "아웃사이더: 엑스트라 역할을 배정할 수 없습니다. " +
+        "참극 세트의 역할 중 현재 룰에서 추가되지 않는 역할을 배정해야 합니다.",
+      ],
+    }]);
+  });
+
+  it("keeps strict loading from accepting the invalid bundled assignment", () => {
+    expect(() => loadBasicTragedyScenarios()).toThrow(
+      "아웃사이더: 엑스트라 역할을 배정할 수 없습니다.",
+    );
   });
 
   it("rejects a non-girl keyPerson when signWithMe is active", () => {
@@ -140,6 +230,27 @@ describe("signWithMe scriptBuild source hook", () => {
 
     expect(sourceHook.when(state, "")).toBe(false);
     expect(() => sourceHook.effect(state, "")).not.toThrow();
+    expect(state).toEqual(before);
+  });
+});
+
+describe("mysteryBoy scriptBuild source hook", () => {
+  const sourceHook = TRAIT_IMPL.mysteryBoy.hooks[0];
+
+  it("stays disabled at runtime and is safe if called", () => {
+    const scenario = scenarios.find(({ cast }) => "mysteryBoy" in cast);
+    if (scenario === undefined) throw new Error("missing mysteryBoy scenario");
+    const state = {
+      scenario,
+      gamePhase: "ROUND" as const,
+      loop: initLoop(scenario),
+      history: [],
+      loopOutcomes: [],
+    };
+    const before = structuredClone(state);
+
+    expect(sourceHook.when(state, "mysteryBoy")).toBe(false);
+    expect(() => sourceHook.effect(state, "mysteryBoy")).not.toThrow();
     expect(state).toEqual(before);
   });
 });

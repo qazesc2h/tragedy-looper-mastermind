@@ -6,6 +6,11 @@
 
 ## 해결됨
 
+### 아웃사이더 — 엑스트라 배정 불가
+- source: "Always has a role not associated with current plot."
+- 확정: 아웃사이더는 엑스트라를 맡을 수 없다. 반드시 참극 세트의 역할 중 현재 시나리오의 룰에 쓰이지 않은 역할을 맡는다.
+- 데이터 확인: 기본편 18번 `Trouble in Paradise`의 `mysteryBoy: person`은 확정 규칙과 충돌하는 파생 데이터 결함이다. 올바른 대체 역할은 임의로 정하지 않는다.
+
 ### Q2. 캐릭터 우호 능력·특성의 정발 한국어 문구
 - 원인: 번역은 각 세트의 `data/*/translation.ko.jsonc`가 아니라 포크 저장소 루트의 `translations/ko.jsonc`에 있었다. 전자는 빈 스켈레톤이고, 후자가 영문 원문을 키로 하는 실제 한국어 번역 사전이다.
 - 판정: 원본 영문 `description`을 키로 조회해 우호 능력 32건과 캐릭터 특성 21건을 채웠다.

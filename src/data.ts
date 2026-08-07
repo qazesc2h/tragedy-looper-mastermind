@@ -18,6 +18,7 @@ export interface CharacterData {
   startLocation: readonly Location[];
   forbiddenLocation: readonly Location[];
   tags: readonly string[];
+  plotLessRole: boolean;
   comesInLater: boolean;
   goodwillAbilities: readonly GoodwillAbilityData[];
 }
@@ -36,6 +37,8 @@ export interface ScenarioAdapterOptions {
   difficultyIndex?: number;
   /** 원본 각본 메타데이터를 테스트·도구에서 덮어쓸 때 사용한다. */
   scriptSpecified?: Readonly<Record<string, unknown>>;
+  /** 원본 데이터 결함을 진단할 때만 시나리오 검증을 건너뛴다. */
+  skipValidation?: boolean;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -150,6 +153,9 @@ function parseCharacterData(id: CharacterId, value: unknown): CharacterData {
   if (typeof raw.comesInLater !== "boolean") {
     throw new Error(`character "${id}".comesInLater must be a boolean`);
   }
+  if (typeof raw.plotLessRole !== "boolean") {
+    throw new Error(`character "${id}".plotLessRole must be a boolean`);
+  }
   const tags = requireStringArray(raw.tags, `character "${id}".tags`);
   const goodwillAbilities = requireArray(
     raw.goodwillAbilities,
@@ -193,6 +199,7 @@ function parseCharacterData(id: CharacterId, value: unknown): CharacterData {
     startLocation,
     forbiddenLocation,
     tags,
+    plotLessRole: raw.plotLessRole,
     comesInLater: raw.comesInLater,
     goodwillAbilities,
   };
@@ -331,9 +338,11 @@ export function adaptBasicTragedyScript(
     scriptSpecified:
       Object.keys(scriptSpecified).length > 0 ? scriptSpecified : undefined,
   };
-  const validation = validateScenario(scenario);
-  if (!validation.ok) {
-    throw new Error(validation.errors.join("\n"));
+  if (options.skipValidation !== true) {
+    const validation = validateScenario(scenario);
+    if (!validation.ok) {
+      throw new Error(validation.errors.join("\n"));
+    }
   }
   return scenario;
 }

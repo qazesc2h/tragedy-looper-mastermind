@@ -1,4 +1,5 @@
 import charactersJson from "../../data/characters.json";
+import { PLOT_IMPL } from "../impl/plots";
 
 import type { CharacterId, Scenario } from "../types";
 
@@ -51,6 +52,51 @@ function validateAiRole(scenario: Scenario): string[] {
   return ["AI: AI 캐릭터에는 엑스트라 역할을 배정할 수 없습니다."];
 }
 
+function rolesAssociatedWithActivePlots(scenario: Scenario): Set<string> {
+  const roles = new Set<string>();
+  for (const plot of activePlots(scenario)) {
+    for (const role of Object.keys(PLOT_IMPL[plot]?.addsRoles ?? {})) {
+      roles.add(role);
+    }
+  }
+  return roles;
+}
+
+function rolesInBasicTragedy(): Set<string> {
+  const roles = new Set<string>();
+  for (const plot of Object.values(PLOT_IMPL)) {
+    for (const role of Object.keys(plot.addsRoles ?? {})) {
+      roles.add(role);
+    }
+  }
+  return roles;
+}
+
+function validateMysteryBoyRole(scenario: Scenario): string[] {
+  if (!("mysteryBoy" in scenario.cast)) return [];
+  if (scenario.cast.mysteryBoy === "person") {
+    return [
+      "아웃사이더: 엑스트라 역할을 배정할 수 없습니다. " +
+      "참극 세트의 역할 중 현재 룰에서 추가되지 않는 역할을 배정해야 합니다.",
+    ];
+  }
+  if (!rolesInBasicTragedy().has(scenario.cast.mysteryBoy)) {
+    return [
+      "아웃사이더: 기본편 참극 세트에 없는 역할을 배정할 수 없습니다. " +
+      "기본편 역할 중 현재 룰에서 추가되지 않는 역할을 배정해야 합니다.",
+    ];
+  }
+  if (!rolesAssociatedWithActivePlots(scenario).has(
+    scenario.cast.mysteryBoy,
+  )) {
+    return [];
+  }
+  return [
+    "아웃사이더: 현재 시나리오의 룰에서 추가되는 역할을 배정할 수 없습니다. " +
+    "참극 세트의 역할 중 현재 룰에서 추가되지 않는 역할을 배정해야 합니다.",
+  ];
+}
+
 function metadataValueLabel(value: unknown): string {
   return value === undefined ? "없음" : JSON.stringify(value);
 }
@@ -88,6 +134,7 @@ export function validateScenario(
   const errors = [
     ...validateSignWithMe(scenario),
     ...validateAiRole(scenario),
+    ...validateMysteryBoyRole(scenario),
     ...validateEntryTiming(
       scenario,
       "godlyBeing",

@@ -16,6 +16,7 @@ import {
 import { advance } from "../src/engine/phases";
 import { resolveActions } from "../src/engine/resolve";
 import { initLoop } from "../src/engine/setup";
+import { effectiveRole } from "../src/types";
 import type {
   CharacterId,
   Counters,
@@ -448,6 +449,7 @@ describe("goodwill availability and refusal", () => {
     expect(result.response).toBe("resolve");
     expect(result.effectApplied).toBe(true);
     expect(state.loop.revealedRoleCharacters).toEqual(["mysteryBoy"]);
+    expect(effectiveRole(state, "mysteryBoy")).toBe("witch");
   });
 
   it("rejects mysteryBoy's protected ability during loop 1", () => {

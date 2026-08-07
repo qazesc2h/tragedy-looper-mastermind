@@ -804,6 +804,24 @@ describe("last-day outcomes", () => {
 });
 
 describe("final guess", () => {
+  it("judges mysteryBoy by the plot-less role actually assigned", () => {
+    const state = createGameState(scenario({
+      cast: { mysteryBoy: "witch" },
+    }));
+    chooseInitialLeader(state, 0);
+    skipToFinalGuess(state);
+
+    const attempt = submitFinalGuess(state, "mysteryBoy", "witch");
+
+    expect(attempt).toMatchObject({
+      character: "mysteryBoy",
+      guessedRole: "witch",
+      actualRole: "witch",
+      correct: true,
+    });
+    expect(state.gamePhase).toBe("GAME_OVER");
+  });
+
   it("requires every scenario character, including a person", () => {
     const state = createGameState(scenario({
       cast: {

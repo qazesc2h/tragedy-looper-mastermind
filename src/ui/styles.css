@@ -593,12 +593,21 @@ select {
 }
 
 .character-chip-role,
+.character-trait-badge,
 .culprit-badge {
   overflow: hidden;
   font-size: 0.68rem;
   line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.character-trait-badge {
+  flex: 0 0 auto;
+  border: 1px solid rgba(234, 208, 154, 0.36);
+  border-radius: 999px;
+  padding: 1px 4px;
+  color: #ead09a;
 }
 
 .character-chip-role {
@@ -957,6 +966,54 @@ select {
   padding: 3px 6px;
   font-size: 0.67rem;
   font-style: normal;
+}
+
+.scenario-cast-trait {
+  grid-column: 1 / -1;
+  color: #cdbd9f;
+  font-size: 0.68rem;
+  line-height: 1.4;
+}
+
+.scenario-cast-trait strong {
+  color: #ead09a;
+}
+
+.scenario-trait-notice,
+.character-trait-information {
+  border: 1px solid #5a4527;
+  border-radius: 10px;
+  background: #211c15;
+  padding: 10px 12px;
+}
+
+.scenario-trait-notice {
+  display: grid;
+  gap: 5px;
+  margin-top: 12px;
+}
+
+.scenario-trait-notice p,
+.character-trait-information p {
+  margin: 0;
+  color: #d8c9ad;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.scenario-data-error {
+  border-color: #8a5047;
+  background: #2c1d19;
+}
+
+.scenario-data-error .eyebrow {
+  color: #efaaa0;
+}
+
+.character-trait-information h3 {
+  margin: 0 0 6px;
+  color: #ead09a;
+  font-size: 0.78rem;
 }
 
 .scenario-cast-list b {

@@ -534,6 +534,117 @@
         });
       }
 
+      async function runMysteryBoyCases() {
+        const scenarioId = "basicTragedy:7";
+        clearStorage();
+        await reloadFrame("아웃사이더 시나리오 선택");
+        await waitFor(
+          () => frameDocument().querySelector("[data-action='start-selected-scenario']"),
+          "아웃사이더 시나리오 선택 화면",
+        );
+        changeSelect("[data-new-game-scenario]", scenarioId);
+        const selectionTrait = frameDocument().querySelector(
+          ".scenario-trait-notice:not(.scenario-data-error)",
+        )?.textContent;
+        assert(
+          selectionTrait?.includes("아웃사이더") &&
+            selectionTrait.includes("항상 현재 어느 룰로도 정해지지 않은 역할"),
+          `시나리오 선택 아웃사이더 특성: ${selectionTrait}`,
+        );
+        click("[data-action='start-selected-scenario']");
+        await waitFor(
+          () => frameDocument().querySelector("[data-action='choose-leader']"),
+          "아웃사이더 시나리오 시작",
+        );
+
+        mutateStoredState(scenarioId, (state) => {
+          state.gamePhase = "ROUND";
+          state.loop.phase = "P6_GOODWILL";
+          state.loop.loop = 2;
+          state.loop.charCounters.mysteryBoy.goodwill = 3;
+          state.loop.revealedRoleCharacters = [];
+        });
+        await reloadFrame("아웃사이더 플레이 중 특성");
+        const castRow = [...frameDocument().querySelectorAll(
+          ".scenario-cast-list li",
+        )].find((row) => row.textContent?.includes("아웃사이더"));
+        const assignedRoleLabel = castRow?.querySelector("b")?.textContent?.trim();
+        assert(
+          castRow?.textContent?.includes(
+            "항상 현재 어느 룰로도 정해지지 않은 역할",
+          ),
+          `각본가 역할 목록 아웃사이더 특성: ${castRow?.textContent}`,
+        );
+
+        click(".character-chip[data-character='mysteryBoy']");
+        const modalTrait = await waitFor(
+          () => frameDocument().querySelector(".character-trait-information"),
+          "아웃사이더 상세 특성",
+        );
+        assert(
+          modalTrait.textContent?.includes(
+            "항상 현재 어느 룰로도 정해지지 않은 역할",
+          ),
+          `아웃사이더 상세 특성: ${modalTrait.textContent}`,
+        );
+        click("[data-action='close-character-modal']");
+
+        await openOperationSheet("아웃사이더 우호3 조작 패널");
+        const revealButton = await waitFor(
+          () => frameDocument().querySelector(
+            "[data-action='goodwill'][data-character='mysteryBoy'][data-response='resolve']",
+          ),
+          "아웃사이더 우호3 해결",
+        );
+        assert(!revealButton.disabled, "아웃사이더[우호3] 해결 버튼이 비활성임");
+        revealButton.click();
+        const publicRole = await waitFor(
+          () => frameDocument().querySelector(".public-information"),
+          "아웃사이더 역할 공개 결과",
+        );
+        assert(
+          assignedRoleLabel &&
+            publicRole.textContent?.includes("아웃사이더의 역할") &&
+            publicRole.textContent.includes(assignedRoleLabel),
+          `아웃사이더 역할 공개: ${publicRole.textContent} / 배정=${assignedRoleLabel}`,
+        );
+
+        await loadScenario(scenarioId, "아웃사이더 최후의 싸움");
+        click("[data-action='choose-leader']");
+        await waitFor(
+          () => frameDocument().querySelector("[data-action='skip-final-guess']"),
+          "아웃사이더 최후의 싸움 이동",
+        );
+        click("[data-action='skip-final-guess']");
+        const roleSelect = await waitFor(
+          () => frameDocument().querySelector("[data-final-field='role']"),
+          "아웃사이더 최후의 싸움 역할 선택",
+        );
+        const roleValues = [...roleSelect.options].map((option) => option.value);
+        assert(
+          roleValues.includes("lover"),
+          `최후의 싸움 아웃사이더 역할 선택지: ${roleValues.join(",")}`,
+        );
+        changeSelect("[data-final-field='character']", "mysteryBoy");
+        changeSelect("[data-final-field='role']", "lover");
+        click("[data-action='submit-final-guess']");
+        const finalRow = await waitFor(
+          () => frameDocument().querySelector(".final-guess-table tbody tr"),
+          "아웃사이더 최후의 싸움 판정",
+        );
+        assert(
+          finalRow.textContent?.includes("아웃사이더") &&
+            finalRow.textContent.includes("✓ 정답"),
+          `아웃사이더 최후의 싸움 판정: ${finalRow.textContent}`,
+        );
+
+        reports.push({
+          mysteryBoyTrait: "selection/overlay/modal",
+          mysteryBoyReveal: assignedRoleLabel,
+          mysteryBoyFinalGuess: "lover/correct",
+        });
+      }
+
       async function runCompactActionCardCases() {
         const scenarioId = "basicTragedy:1";
         await loadScenario(scenarioId, "compact-action-cards");
@@ -701,6 +812,7 @@
         await runDraftInputCases();
         await runExtraLoopCases();
         await runGoodwillRefusalUiCases();
+        await runMysteryBoyCases();
         await runCompactActionCardCases();
         await runBlackCatCases();
         await runScientistChoice("paranoia", "우 0 불 1/2 음 0");
