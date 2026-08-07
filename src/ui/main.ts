@@ -135,6 +135,17 @@ interface OptionalHookSelection {
   target?: string;
 }
 
+type GoodwillDraftField =
+  | "target"
+  | "delta"
+  | "card"
+  | "choice"
+  | "reveal"
+  | "incident-target"
+  | "incident-other-target"
+  | "incident-location"
+  | "incident-counter";
+
 const PHASE_TERM: Record<Phase, () => string> = {
   P1_ROUND_START: () => misc("Day Start"),
   P2_MASTERMIND_ACTION: () =>
@@ -203,8 +214,39 @@ let openCharacterModal: CharacterId | undefined;
 let openLocationModal: Location | undefined;
 let operationSheetOpen = false;
 const optionalHookSelections = new Map<string, OptionalHookSelection>();
+const uiInputDrafts = new Map<string, string>();
+let uiInputDraftScope = "";
 let noticeDismissTimer: number | undefined;
 const NOTICE_DURATION_MS = 5_000;
+
+function goodwillDraftKey(key: string, field: GoodwillDraftField): string {
+  return `goodwill:${key}:${field}`;
+}
+
+function incidentDraftKey(field: string): string {
+  return `incident:${field}`;
+}
+
+function draftValue(key: string): string {
+  return uiInputDrafts.get(key) ?? "";
+}
+
+function selectedDraftOption(key: string, value: string): string {
+  return draftValue(key) === value ? "selected" : "";
+}
+
+function ensureUiInputDraftScope(scope: string): void {
+  if (uiInputDraftScope === scope) return;
+  uiInputDrafts.clear();
+  uiInputDraftScope = scope;
+}
+
+function clearGoodwillDraft(key: string): void {
+  const prefix = `goodwill:${key}:`;
+  for (const draftKey of uiInputDrafts.keys()) {
+    if (draftKey.startsWith(prefix)) uiInputDrafts.delete(draftKey);
+  }
+}
 
 function defaultStoredGame(scenarioId: string): StoredGame | undefined {
   const entry = scenarioEntries.find(({ id }) => id === scenarioId);
@@ -248,7 +290,7 @@ function scheduleNoticeDismiss(): void {
     noticeDismissTimer = undefined;
     if (notice !== scheduledNotice) return;
     notice = "";
-    render();
+    root.querySelector(".notice-toast")?.remove();
   }, NOTICE_DURATION_MS);
 }
 
@@ -294,6 +336,8 @@ function resetTransientUi(): void {
   openLocationModal = undefined;
   operationSheetOpen = false;
   optionalHookSelections.clear();
+  uiInputDrafts.clear();
+  uiInputDraftScope = "";
 }
 
 function startFreshScenario(entry: ScenarioEntry): void {
@@ -1243,13 +1287,16 @@ function renderGoodwillTarget(
   disabled: boolean,
 ): string {
   if (!view.targetRequired || view.targets.length === 0) return "";
+  const draftKey = goodwillDraftKey(view.key, "target");
   return `
     <select data-goodwill-target="${escapeHtml(view.key)}"
+      data-ui-draft-key="${escapeHtml(draftKey)}"
       aria-label="${escapeHtml(misc("Select a target", "Select a target"))}"
       ${disabled ? "disabled" : ""}>
       <option value="">${escapeHtml(misc("Select a target", "Select a target"))}</option>
       ${view.targets.map((target) => `
-        <option value="${escapeHtml(encodeTarget(target))}">${escapeHtml(
+        <option value="${escapeHtml(encodeTarget(target))}"
+          ${selectedDraftOption(draftKey, encodeTarget(target))}>${escapeHtml(
           target.kind === "character"
             ? characterName(target.id)
             : locationName(target.at),
@@ -1268,37 +1315,50 @@ function renderAiIncidentChoiceFields(
   const characters = Object.entries(state.loop.board)
     .filter(([, position]) => isCharacterAlive(position))
     .map(([character]) => character);
-  const characterOptions = characters.map((character) => `
-    <option value="${escapeHtml(character)}">${escapeHtml(characterName(character))}</option>`
-  ).join("");
-  const selectCharacter = (field: "target" | "otherTarget", label: string) => `
+  const selectCharacter = (
+    field: "target" | "otherTarget",
+    label: string,
+  ) => {
+    const draftField = field === "target"
+      ? "incident-target"
+      : "incident-other-target";
+    const draftKey = goodwillDraftKey(view.key, draftField);
+    return `
     <label class="goodwill-choice-field">
       <span>${escapeHtml(label)}</span>
       <select data-goodwill-incident-${field === "target" ? "target" : "other-target"}="${escapeHtml(view.key)}"
+        data-ui-draft-key="${escapeHtml(draftKey)}"
         ${disabled ? "disabled" : ""}>
         <option value="">${escapeHtml(misc("Select", "Select"))}</option>
-        ${characterOptions}
+        ${characters.map((character) => `
+          <option value="${escapeHtml(character)}"
+            ${selectedDraftOption(draftKey, character)}>${escapeHtml(characterName(character))}</option>`).join("")}
       </select>
     </label>`;
+  };
+  const locationDraftKey = goodwillDraftKey(view.key, "incident-location");
+  const counterDraftKey = goodwillDraftKey(view.key, "incident-counter");
   return `
     ${selectCharacter("target", misc("Target", "Target"))}
     ${selectCharacter("otherTarget", misc("Other target", "Other target"))}
     <label class="goodwill-choice-field">
       <span>${escapeHtml(misc("Location", "Location"))}</span>
       <select data-goodwill-incident-location="${escapeHtml(view.key)}"
+        data-ui-draft-key="${escapeHtml(locationDraftKey)}"
         ${disabled ? "disabled" : ""}>
         <option value="">${escapeHtml(misc("Select", "Select"))}</option>
         ${LOCATIONS.map((location) => `
-          <option value="${location}">${escapeHtml(locationName(location))}</option>`).join("")}
+          <option value="${location}" ${selectedDraftOption(locationDraftKey, location)}>${escapeHtml(locationName(location))}</option>`).join("")}
       </select>
     </label>
     <label class="goodwill-choice-field">
       <span>${escapeHtml(misc("Counter", "Counter"))}</span>
       <select data-goodwill-incident-counter="${escapeHtml(view.key)}"
+        data-ui-draft-key="${escapeHtml(counterDraftKey)}"
         ${disabled ? "disabled" : ""}>
         <option value="">${escapeHtml(misc("Select", "Select"))}</option>
         ${(["goodwill", "paranoia", "intrigue"] as const).map((counter) => `
-          <option value="${counter}">${escapeHtml(misc(
+          <option value="${counter}" ${selectedDraftOption(counterDraftKey, counter)}>${escapeHtml(misc(
             counter === "goodwill"
               ? "Goodwill"
               : counter === "paranoia"
@@ -1318,66 +1378,87 @@ function renderGoodwillChoice(
   switch (choice.kind) {
     case "none":
       return "";
-    case "paranoiaDelta":
+    case "paranoiaDelta": {
+      const draftKey = goodwillDraftKey(key, "delta");
       return `
         <select data-goodwill-delta="${escapeHtml(key)}"
+          data-ui-draft-key="${escapeHtml(draftKey)}"
           aria-label="${escapeHtml(misc("Paranoia"))}"
           ${disabled ? "disabled" : ""}>
           <option value="">${escapeHtml(misc("Select", "Select"))}</option>
           ${choice.options.map((delta) => `
-            <option value="${delta}">${escapeHtml(misc("Paranoia"))} ${delta > 0 ? "+" : ""}${delta}</option>`).join("")}
+            <option value="${delta}" ${selectedDraftOption(draftKey, String(delta))}>${escapeHtml(misc("Paranoia"))} ${delta > 0 ? "+" : ""}${delta}</option>`).join("")}
         </select>`;
-    case "spentCard":
+      }
+    case "spentCard": {
+      const draftKey = goodwillDraftKey(key, "card");
       return `
         <select data-goodwill-card="${escapeHtml(key)}"
+          data-ui-draft-key="${escapeHtml(draftKey)}"
           ${disabled ? "disabled" : ""}>
           <option value="">${escapeHtml(misc("Select a card", "Select a card"))}</option>
           ${choice.options.map((card) => `
-            <option value="${card}">${escapeHtml(actionCardName(card))}</option>`).join("")}
+            <option value="${card}" ${selectedDraftOption(draftKey, card)}>${escapeHtml(actionCardName(card))}</option>`).join("")}
         </select>`;
+      }
     case "incident":
-    case "pastIncident":
+    case "pastIncident": {
+      const draftKey = goodwillDraftKey(key, "choice");
       return `
         <select data-goodwill-choice="${escapeHtml(key)}"
+          data-ui-draft-key="${escapeHtml(draftKey)}"
           ${disabled ? "disabled" : ""}>
           <option value="">${escapeHtml(misc("Select", "Select"))}</option>
           ${choice.options.map((selection) => `
-            <option value="${escapeHtml(encodeIncidentSelection(selection))}">
+            <option value="${escapeHtml(encodeIncidentSelection(selection))}"
+              ${selectedDraftOption(draftKey, encodeIncidentSelection(selection))}>
               ${escapeHtml(`${misc("Day")} ${selection.day} · ${incidentName(selection.incident)}`)}
             </option>`).join("")}
         </select>
         ${choice.kind === "incident"
           ? renderAiIncidentChoiceFields(state, view, disabled)
           : ""}`;
-    case "subplot":
+    }
+    case "subplot": {
+      const choiceDraftKey = goodwillDraftKey(key, "choice");
+      const revealDraftKey = goodwillDraftKey(key, "reveal");
+      const declaredSubplot = choice.options.find(
+        (plot) => plot === draftValue(choiceDraftKey),
+      );
+      const revealOptions = subplotRevealOptions(choice, declaredSubplot);
       return `
         <label class="goodwill-choice-field">
           <span>리더 선언</span>
           <select data-action="goodwill-subplot-declaration"
             data-goodwill-key="${escapeHtml(key)}"
             data-goodwill-choice="${escapeHtml(key)}"
+            data-ui-draft-key="${escapeHtml(choiceDraftKey)}"
             ${disabled ? "disabled" : ""}>
             <option value="">${escapeHtml(misc("Select", "Select"))}</option>
             ${choice.options.map((plot) => `
-              <option value="${escapeHtml(plot)}">${escapeHtml(plotName(plot))}</option>`).join("")}
+              <option value="${escapeHtml(plot)}" ${selectedDraftOption(choiceDraftKey, plot)}>${escapeHtml(plotName(plot))}</option>`).join("")}
           </select>
         </label>
         <label class="goodwill-choice-field">
           <span>각본가 공개</span>
           <select data-goodwill-reveal="${escapeHtml(key)}"
+            data-ui-draft-key="${escapeHtml(revealDraftKey)}"
             ${disabled ? "disabled" : ""}>
             <option value="">${escapeHtml(misc("Select", "Select"))}</option>
-            ${subplotRevealOptions(choice, undefined).map((plot) => `
-              <option value="${escapeHtml(plot)}">${escapeHtml(plotName(plot))}</option>`).join("")}
+            ${revealOptions.map((plot) => `
+              <option value="${escapeHtml(plot)}" ${selectedDraftOption(revealDraftKey, plot)}>${escapeHtml(plotName(plot))}</option>`).join("")}
           </select>
         </label>`;
-    case "counter":
+    }
+    case "counter": {
+      const draftKey = goodwillDraftKey(key, "choice");
       return `
         <select data-goodwill-choice="${escapeHtml(key)}"
+          data-ui-draft-key="${escapeHtml(draftKey)}"
           ${disabled ? "disabled" : ""}>
           <option value="">${escapeHtml(misc("Select", "Select"))}</option>
           ${choice.options.map((counter) => `
-            <option value="${escapeHtml(counter)}">${escapeHtml(
+            <option value="${escapeHtml(counter)}" ${selectedDraftOption(draftKey, counter)}>${escapeHtml(
               counter === "goodwill"
                 ? misc("Goodwill")
                 : counter === "paranoia"
@@ -1387,6 +1468,7 @@ function renderGoodwillChoice(
                 : counter,
             )}</option>`).join("")}
         </select>`;
+    }
   }
 }
 
@@ -1416,13 +1498,15 @@ function syncGoodwillSubplotRevealOptions(
   if (declaredValue !== "" && declaredSubplot === undefined) {
     throw new Error(`unknown declared subplot: ${declaredValue}`);
   }
-  const previous = revealControl.value;
+  const revealDraftKey = goodwillDraftKey(key, "reveal");
+  const previous = draftValue(revealDraftKey);
   const allowed = subplotRevealOptions(view.choice, declaredSubplot);
   revealControl.innerHTML = `
     <option value="">${escapeHtml(misc("Select", "Select"))}</option>
     ${allowed.map((plot) => `
       <option value="${escapeHtml(plot)}">${escapeHtml(plotName(plot))}</option>`).join("")}`;
   revealControl.value = allowed.includes(previous) ? previous : "";
+  uiInputDrafts.set(revealDraftKey, revealControl.value);
 }
 
 function renderGoodwillAbilities(state: GameState): string {
@@ -1671,15 +1755,22 @@ function renderIncidentChoice(
   const living = Object.entries(state.loop.board)
     .filter(([, position]) => isCharacterAlive(position))
     .map(([character]) => character);
-  const characterSelect = (field: string, label: string) => `
+  const characterSelect = (field: string, label: string) => {
+    const draftKey = incidentDraftKey(field);
+    return `
     <label>
       <span>${escapeHtml(label)}</span>
-      <select data-incident-field="${field}">
+      <select data-incident-field="${field}"
+        data-ui-draft-key="${escapeHtml(draftKey)}">
         <option value="">${escapeHtml(misc("Select", "Select"))}</option>
         ${living.map((character) => `
-          <option value="${escapeHtml(character)}">${escapeHtml(characterName(character))}</option>`).join("")}
+          <option value="${escapeHtml(character)}"
+            ${selectedDraftOption(draftKey, character)}>${escapeHtml(characterName(character))}</option>`).join("")}
       </select>
     </label>`;
+  };
+  const locationDraftKey = incidentDraftKey("location");
+  const counterDraftKey = incidentDraftKey("counter");
 
   return `
     <div class="incident-choice">
@@ -1691,18 +1782,20 @@ function renderIncidentChoice(
         : ""}
       ${fields.includes("location")
         ? `<label><span>${escapeHtml(misc("Location", "Location"))}</span>
-            <select data-incident-field="location">
+            <select data-incident-field="location"
+              data-ui-draft-key="${escapeHtml(locationDraftKey)}">
               <option value="">${escapeHtml(misc("Select", "Select"))}</option>
-              ${LOCATIONS.map((location) => `<option value="${location}">${escapeHtml(locationName(location))}</option>`).join("")}
+              ${LOCATIONS.map((location) => `<option value="${location}" ${selectedDraftOption(locationDraftKey, location)}>${escapeHtml(locationName(location))}</option>`).join("")}
             </select></label>`
         : ""}
       ${fields.includes("counter")
         ? `<label><span>${escapeHtml(misc("Counter", "Counter"))}</span>
-            <select data-incident-field="counter">
+            <select data-incident-field="counter"
+              data-ui-draft-key="${escapeHtml(counterDraftKey)}">
               <option value="">${escapeHtml(misc("Select", "Select"))}</option>
-              <option value="goodwill">${escapeHtml(misc("Goodwill"))}</option>
-              <option value="paranoia">${escapeHtml(misc("Paranoia"))}</option>
-              <option value="intrigue">${escapeHtml(misc("Intrigue"))}</option>
+              <option value="goodwill" ${selectedDraftOption(counterDraftKey, "goodwill")}>${escapeHtml(misc("Goodwill"))}</option>
+              <option value="paranoia" ${selectedDraftOption(counterDraftKey, "paranoia")}>${escapeHtml(misc("Paranoia"))}</option>
+              <option value="intrigue" ${selectedDraftOption(counterDraftKey, "intrigue")}>${escapeHtml(misc("Intrigue"))}</option>
             </select></label>`
         : ""}
     </div>`;
@@ -2065,10 +2158,20 @@ function timeGapRemaining(state: GameState): number {
   ));
 }
 
-function renderTimeGap(state: GameState): string {
-  const remaining = timeGapRemaining(state);
+function timerText(remaining: number): string {
   const minutes = String(Math.floor(remaining / 60)).padStart(2, "0");
   const seconds = String(remaining % 60).padStart(2, "0");
+  return `${minutes}:${seconds}`;
+}
+
+function updateTimeGapTimerText(state: GameState): void {
+  const timer = root.querySelector<HTMLElement>(".time-gap-timer");
+  if (timer === null) return;
+  timer.textContent = timerText(timeGapRemaining(state));
+}
+
+function renderTimeGap(state: GameState): string {
+  const remaining = timeGapRemaining(state);
   const running = Boolean(state.timeGapTimer?.endsAt);
   const scientistAppears = "scientist" in state.scenario.cast;
   const scientistCounter =
@@ -2087,7 +2190,7 @@ function renderTimeGap(state: GameState): string {
       <span class="eyebrow">${state.loop.loop}루프 시작</span>
       <h1>시간의 틈</h1>
       <p>주인공 토론 시간입니다. 각본가는 시간만 관리합니다. 권장 시간은 10분입니다.</p>
-      <div class="time-gap-timer" aria-live="polite">${minutes}:${seconds}</div>
+      <div class="time-gap-timer" aria-live="polite">${timerText(remaining)}</div>
       ${scientistAppears
         ? `<div class="final-guess-form loop-start-trait-choice">
             <label><span>${escapeHtml(characterName("scientist"))} · 루프 시작 카운터</span>
@@ -2146,19 +2249,23 @@ function renderFinalGuess(state: GameState): string {
   const remaining = Object.keys(state.scenario.cast).filter(
     (character) => !guessed.has(character),
   );
+  const characterDraftKey = "final-guess:character";
+  const roleDraftKey = "final-guess:role";
   return `<main class="game-flow-screen">
     <section class="flow-card">
       <span class="eyebrow">${escapeHtml(misc("Final Guess"))}</span>
       <h1>최후의 싸움</h1>
       <p>시작 장소·생존 상태·카운터가 초기화되었습니다. 시나리오의 모든 캐릭터는 엑스트라까지 맞혀야 합니다.</p>
       <div class="final-guess-form">
-        <label><span>캐릭터</span><select data-final-field="character">
+        <label><span>캐릭터</span><select data-final-field="character"
+          data-ui-draft-key="${characterDraftKey}">
           <option value="">선택</option>
-          ${remaining.map((character) => `<option value="${escapeHtml(character)}">${escapeHtml(characterName(character))}</option>`).join("")}
+          ${remaining.map((character) => `<option value="${escapeHtml(character)}" ${selectedDraftOption(characterDraftKey, character)}>${escapeHtml(characterName(character))}</option>`).join("")}
         </select></label>
-        <label><span>주인공이 선언한 역할</span><select data-final-field="role">
+        <label><span>주인공이 선언한 역할</span><select data-final-field="role"
+          data-ui-draft-key="${roleDraftKey}">
           <option value="">선택</option>
-          ${Object.keys(ROLE_IMPL).map((role) => `<option value="${escapeHtml(role)}">${escapeHtml(roleName(role))}</option>`).join("")}
+          ${Object.keys(ROLE_IMPL).map((role) => `<option value="${escapeHtml(role)}" ${selectedDraftOption(roleDraftKey, role)}>${escapeHtml(roleName(role))}</option>`).join("")}
         </select></label>
         <button type="button" class="next-phase" data-action="submit-final-guess" ${remaining.length === 0 ? "disabled" : ""}>정오 판정</button>
       </div>
@@ -2276,6 +2383,10 @@ function renderSiteFooter(): string {
 }
 
 function renderScenarioSelection(): void {
+  ensureUiInputDraftScope("scenario-selection");
+  const scenarioDraftKey = "new-game:scenario";
+  const selectedScenario = draftValue(scenarioDraftKey) ||
+    scenarioEntries[0]?.id || "";
   root.innerHTML = `
     <div class="app-shell">
       <header class="topbar">
@@ -2291,9 +2402,10 @@ function renderScenarioSelection(): void {
           <p>새로 시작할 시나리오를 선택하세요.</p>
           <label class="new-game-scenario-picker">
             <span>${escapeHtml(misc("Script"))}</span>
-            <select data-new-game-scenario>
+            <select data-new-game-scenario
+              data-ui-draft-key="${scenarioDraftKey}">
               ${scenarioEntries.map((entry) => `
-                <option value="${entry.id}">${escapeHtml(entry.title)}</option>`).join("")}
+                <option value="${entry.id}" ${selectedScenario === entry.id ? "selected" : ""}>${escapeHtml(entry.title)}</option>`).join("")}
             </select>
           </label>
           <div class="flow-actions primary-actions">
@@ -2319,6 +2431,9 @@ function render(): void {
   }
   const entry = activeScenarioEntry();
   const state = currentState();
+  ensureUiInputDraftScope(
+    `${entry.id}:${state.gamePhase}:${state.loop.loop}:${state.loop.day}:${state.loop.phase}`,
+  );
   const tragedySet = term(
     "tragedySets",
     state.scenario.tragedySet,
@@ -2390,13 +2505,9 @@ function render(): void {
   scheduleNoticeDismiss();
 }
 
-function incidentChoiceFromUi(): IncidentChoice | undefined {
-  const field = (name: string): string | undefined => {
-    const select = root.querySelector<HTMLSelectElement>(
-      `[data-incident-field="${name}"]`,
-    );
-    return select?.value || undefined;
-  };
+function incidentChoiceFromDraft(): IncidentChoice | undefined {
+  const field = (name: string): string | undefined =>
+    draftValue(incidentDraftKey(name)) || undefined;
   const target = field("target");
   const otherTarget = field("otherTarget");
   const location = field("location");
@@ -2548,21 +2659,13 @@ function resolveGoodwillFromButton(button: HTMLButtonElement): void {
     (response !== "resolve" && response !== "refuse")
   ) return;
 
-  const target = decodeTarget(
-    root.querySelector<HTMLSelectElement>(`[data-goodwill-target="${CSS.escape(key)}"]`)?.value,
-  );
-  const deltaValue = root.querySelector<HTMLSelectElement>(
-    `[data-goodwill-delta="${CSS.escape(key)}"]`,
-  )?.value;
-  const cardValue = root.querySelector<HTMLSelectElement>(
-    `[data-goodwill-card="${CSS.escape(key)}"]`,
-  )?.value;
-  const choiceValue = root.querySelector<HTMLSelectElement>(
-    `[data-goodwill-choice="${CSS.escape(key)}"]`,
-  )?.value;
-  const revealValue = root.querySelector<HTMLSelectElement>(
-    `[data-goodwill-reveal="${CSS.escape(key)}"]`,
-  )?.value;
+  const goodwillInput = (field: GoodwillDraftField): string | undefined =>
+    draftValue(goodwillDraftKey(key, field)) || undefined;
+  const target = decodeTarget(goodwillInput("target"));
+  const deltaValue = goodwillInput("delta");
+  const cardValue = goodwillInput("card");
+  const choiceValue = goodwillInput("choice");
+  const revealValue = goodwillInput("reveal");
 
   try {
     const view = goodwillAbilityViews(game.state).find(
@@ -2590,14 +2693,10 @@ function resolveGoodwillFromButton(button: HTMLButtonElement): void {
     const revealedSubplot = view.choice.kind === "subplot"
       ? revealValue || undefined
       : undefined;
-    const incidentField = (field: string): string | undefined =>
-      root.querySelector<HTMLSelectElement>(
-        `[data-goodwill-incident-${field}="${CSS.escape(key)}"]`,
-      )?.value || undefined;
-    const incidentTarget = incidentField("target");
-    const incidentOtherTarget = incidentField("other-target");
-    const incidentLocation = incidentField("location");
-    const incidentCounter = incidentField("counter");
+    const incidentTarget = goodwillInput("incident-target");
+    const incidentOtherTarget = goodwillInput("incident-other-target");
+    const incidentLocation = goodwillInput("incident-location");
+    const incidentCounter = goodwillInput("incident-counter");
     if (
       incidentLocation !== undefined &&
       !LOCATIONS.includes(incidentLocation as Location)
@@ -2639,6 +2738,7 @@ function resolveGoodwillFromButton(button: HTMLButtonElement): void {
     settleGameFlow(game.state);
     notice = "";
     saveState(entry.id, game.state, `goodwill-${response}`);
+    clearGoodwillDraft(key);
   } catch (error) {
     game.state = before;
     notice = errorMessage(error);
@@ -2672,7 +2772,7 @@ function advanceCurrentPhase(): void {
     }
     applySelectedOptionalHooks(state);
     if (state.gamePhase === "ROUND") {
-      advanceGame(state, incidentChoiceFromUi());
+      advanceGame(state, incidentChoiceFromDraft());
     }
     selectedHandCard = undefined;
     operationSheetOpen = false;
@@ -2718,9 +2818,8 @@ root.addEventListener("click", (event) => {
   }
 
   if (action === "start-selected-scenario") {
-    const scenarioId = root.querySelector<HTMLSelectElement>(
-      "[data-new-game-scenario]",
-    )?.value;
+    const scenarioId = draftValue("new-game:scenario") ||
+      scenarioEntries[0]?.id;
     const entry = scenarioEntries.find(({ id }) => id === scenarioId);
     if (entry !== undefined) startFreshScenario(entry);
     return;
@@ -2842,17 +2941,15 @@ root.addEventListener("click", (event) => {
   }
 
   if (action === "submit-final-guess") {
-    const character = root.querySelector<HTMLSelectElement>(
-      '[data-final-field="character"]',
-    )?.value;
-    const guessedRole = root.querySelector<HTMLSelectElement>(
-      '[data-final-field="role"]',
-    )?.value;
+    const character = draftValue("final-guess:character");
+    const guessedRole = draftValue("final-guess:role");
     if (!character || !guessedRole) {
       notice = "캐릭터와 역할을 모두 선택해 주세요.";
       render();
       return;
     }
+    uiInputDrafts.delete("final-guess:character");
+    uiInputDrafts.delete("final-guess:role");
     commit("final-guess-attempt", (state) => {
       submitFinalGuess(state, character, guessedRole);
     });
@@ -2991,6 +3088,14 @@ root.addEventListener("click", (event) => {
 root.addEventListener("change", (event) => {
   const control = event.target as HTMLInputElement | HTMLSelectElement;
   const action = control.dataset.action;
+  const draftKey = control.dataset.uiDraftKey;
+  if (draftKey !== undefined) {
+    uiInputDrafts.set(draftKey, control.value);
+    if (action === "goodwill-subplot-declaration") {
+      syncGoodwillSubplotRevealOptions(control as HTMLSelectElement);
+    }
+    return;
+  }
   if (action === "loop-start-trait-counter") {
     const character = control.dataset.character;
     const counterValue = control.value;
@@ -3025,10 +3130,6 @@ root.addEventListener("change", (event) => {
         locationValue === "" ? undefined : locationValue,
       );
     });
-    return;
-  }
-  if (action === "goodwill-subplot-declaration") {
-    syncGoodwillSubplotRevealOptions(control as HTMLSelectElement);
     return;
   }
   if (action === "optional-hook") {
@@ -3121,6 +3222,6 @@ window.setInterval(() => {
   if (tracker.activeScenarioId === "") return;
   const state = currentState();
   if (state.gamePhase === "LOOP_TIME_GAP" && state.timeGapTimer?.endsAt) {
-    render();
+    updateTimeGapTimerText(state);
   }
 }, 1000);

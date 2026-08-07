@@ -100,6 +100,39 @@
         );
       }
 
+      async function reloadFrame(label) {
+        const loaded = new Promise((resolve) => {
+          frame.addEventListener("load", resolve, { once: true });
+        });
+        frame.src = `/?trait-flow-case=${encodeURIComponent(label)}`;
+        await loaded;
+      }
+
+      function mutateStoredState(scenarioId, mutate) {
+        const storageKey = "tragedy-looper-mastermind:tracker";
+        const raw = window.localStorage.getItem(storageKey);
+        if (raw === null) throw new Error("검사용 저장 상태가 없습니다.");
+        const tracker = JSON.parse(raw);
+        mutate(tracker.games[scenarioId].state);
+        window.localStorage.setItem(storageKey, JSON.stringify(tracker));
+      }
+
+      async function openOperationSheet(label) {
+        click("[data-action='toggle-operation-sheet']");
+        await waitFor(
+          () => frameDocument().querySelector(".operation-sheet"),
+          label,
+        );
+      }
+
+      async function copyStateAndWaitForRender(label) {
+        click("[data-action='copy-state']");
+        await waitFor(
+          () => frameDocument().querySelector(".notice-toast"),
+          label,
+        );
+      }
+
       async function enterRound() {
         click("[data-action='choose-leader']");
         await waitFor(
@@ -111,6 +144,177 @@
           () => frameDocument().querySelector(".game-board"),
           "라운드 게임판",
         );
+      }
+
+      async function runTimeGapTimerCases() {
+        await loadScenario("basicTragedy:4", "time-gap-timer");
+        click("[data-action='choose-leader']");
+        await waitFor(
+          () => frameDocument().querySelector("[data-action='continue-loop-start']"),
+          "첫 루프 시간의 틈",
+        );
+
+        const firstLoopTitle = frameDocument().querySelector(
+          ".time-gap-card h1",
+        )?.textContent?.trim();
+        assert(firstLoopTitle === "시간의 틈", `첫 루프 제목: ${firstLoopTitle}`);
+        assert(
+          frameDocument().querySelector(".time-gap-timer") !== null,
+          "첫 루프에 시간의 틈 타이머가 표시되지 않음",
+        );
+        assert(
+          frameDocument().querySelector("[data-action='time-gap-start']") !== null,
+          "첫 루프에 타이머 조작이 표시되지 않음",
+        );
+
+        click("[data-action='time-gap-start']");
+        await waitFor(
+          () => frameDocument().querySelector("[data-action='time-gap-pause']"),
+          "첫 루프 타이머 시작",
+        );
+
+        const locationSelect = await waitFor(
+          () => frameDocument().querySelector(
+            "[data-action='loop-start-trait-location']",
+          ),
+          "첫 루프 하수인 장소 선택",
+        );
+        const timer = await waitFor(
+          () => frameDocument().querySelector(".time-gap-timer"),
+          "첫 루프 타이머",
+        );
+        const initialTimerText = timer.textContent;
+        await waitFor(
+          () => timer.textContent !== initialTimerText,
+          "타이머 텍스트 직접 갱신",
+          3_000,
+        );
+        assert(
+          frameDocument().querySelector("[data-action='loop-start-trait-location']") === locationSelect,
+          "타이머 갱신 중 하수인 장소 선택 요소가 교체됨",
+        );
+        reports.push({
+          firstLoopTitle,
+          firstLoopTimer: "shown",
+          firstLoopSelectPreserved: true,
+        });
+      }
+
+      async function runDraftInputCases() {
+        const goodwillScenario = "basicTragedy:1";
+        await loadScenario(goodwillScenario, "goodwill-draft");
+        mutateStoredState(goodwillScenario, (state) => {
+          state.gamePhase = "ROUND";
+          state.loop.phase = "P6_GOODWILL";
+          state.loop.board.boyStudent = { status: "alive", at: "School" };
+          state.loop.board.girlStudent = { status: "alive", at: "School" };
+          state.loop.charCounters.boyStudent.goodwill = 2;
+        });
+        await reloadFrame("goodwill-draft-ready");
+        await openOperationSheet("우호 능력 조작 패널");
+        const goodwillSelector =
+          '[data-goodwill-target="boyStudent:goodwill:0"]';
+        await waitFor(
+          () => frameDocument().querySelector(goodwillSelector),
+          "우호 능력 대상 선택",
+        );
+        changeSelect(goodwillSelector, "character:girlStudent");
+        await copyStateAndWaitForRender("우호 선택 뒤 상태 복사");
+        const goodwillAfterCopy = frameDocument().querySelector(
+          goodwillSelector,
+        )?.value;
+        assert(
+          goodwillAfterCopy === "character:girlStudent",
+          `상태 복사 뒤 우호 대상: ${goodwillAfterCopy}`,
+        );
+
+        const incidentScenario = "basicTragedy:5";
+        await loadScenario(incidentScenario, "incident-draft");
+        mutateStoredState(incidentScenario, (state) => {
+          state.gamePhase = "ROUND";
+          state.loop.phase = "P7_INCIDENT";
+          state.loop.day = 1;
+          state.loop.charCounters.richStudent.paranoia = 99;
+        });
+        await reloadFrame("incident-draft-ready");
+        await openOperationSheet("사건 조작 패널");
+        await waitFor(
+          () => frameDocument().querySelector('[data-incident-field="target"]'),
+          "사건 대상 선택",
+        );
+        changeSelect('[data-incident-field="target"]', "shrineMaiden");
+        changeSelect('[data-incident-field="counter"]', "goodwill");
+        await copyStateAndWaitForRender("사건 선택 뒤 상태 복사");
+        const incidentTargetAfterCopy = frameDocument().querySelector(
+          '[data-incident-field="target"]',
+        )?.value;
+        const incidentCounterAfterCopy = frameDocument().querySelector(
+          '[data-incident-field="counter"]',
+        )?.value;
+        assert(
+          incidentTargetAfterCopy === "shrineMaiden",
+          `상태 복사 뒤 사건 대상: ${incidentTargetAfterCopy}`,
+        );
+        assert(
+          incidentCounterAfterCopy === "goodwill",
+          `상태 복사 뒤 사건 카운터: ${incidentCounterAfterCopy}`,
+        );
+
+        await loadScenario("basicTragedy:1", "final-guess-draft");
+        click("[data-action='choose-leader']");
+        await waitFor(
+          () => frameDocument().querySelector("[data-action='skip-final-guess']"),
+          "최후의 싸움 이동",
+        );
+        click("[data-action='skip-final-guess']");
+        await waitFor(
+          () => frameDocument().querySelector('[data-final-field="character"]'),
+          "최후의 싸움 입력",
+        );
+        changeSelect('[data-final-field="character"]', "boyStudent");
+        changeSelect('[data-final-field="role"]', "person");
+        await copyStateAndWaitForRender("최후의 싸움 선택 뒤 상태 복사");
+        const finalCharacterAfterCopy = frameDocument().querySelector(
+          '[data-final-field="character"]',
+        )?.value;
+        const finalRoleAfterCopy = frameDocument().querySelector(
+          '[data-final-field="role"]',
+        )?.value;
+        assert(
+          finalCharacterAfterCopy === "boyStudent",
+          `상태 복사 뒤 최후의 싸움 캐릭터: ${finalCharacterAfterCopy}`,
+        );
+        assert(
+          finalRoleAfterCopy === "person",
+          `상태 복사 뒤 최후의 싸움 역할: ${finalRoleAfterCopy}`,
+        );
+
+        clearStorage();
+        window.localStorage.setItem(
+          "tragedy-looper-mastermind:tracker",
+          "invalid-json",
+        );
+        await reloadFrame("new-game-scenario-draft");
+        await waitFor(
+          () => frameDocument().querySelector("[data-new-game-scenario]"),
+          "새 게임 시나리오 선택",
+        );
+        changeSelect("[data-new-game-scenario]", "basicTragedy:4");
+        click("[data-action='dismiss-notice']");
+        const scenarioAfterRender = frameDocument().querySelector(
+          "[data-new-game-scenario]",
+        )?.value;
+        assert(
+          scenarioAfterRender === "basicTragedy:4",
+          `전체 렌더 뒤 새 게임 시나리오: ${scenarioAfterRender}`,
+        );
+
+        reports.push({
+          goodwillDraft: goodwillAfterCopy,
+          incidentDraft: [incidentTargetAfterCopy, incidentCounterAfterCopy],
+          finalGuessDraft: [finalCharacterAfterCopy, finalRoleAfterCopy],
+          newGameScenarioDraft: scenarioAfterRender,
+        });
       }
 
       function shrineIntrigue() {
@@ -195,6 +399,8 @@
       }
 
       async function run() {
+        await runTimeGapTimerCases();
+        await runDraftInputCases();
         await runBlackCatCases();
         await runScientistChoice("paranoia", "우 0 불 1/2 음 0");
         await runScientistChoice("goodwill", "우 1 불 0/2 음 0");
