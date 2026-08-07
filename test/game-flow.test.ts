@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { killCharacter, withDeathBatch } from "../src/engine/death";
+import { resolveGoodwillAbility } from "../src/engine/goodwill";
 import {
   advanceGame,
   chooseInitialLeader,
@@ -14,7 +15,13 @@ import {
   submitFinalGuess,
 } from "../src/engine/game";
 import { setOptionalLossActivation } from "../src/engine/loss";
-import { effectiveRole, type GameState, type Scenario } from "../src/types";
+import { validatePlacement } from "../src/engine/legal";
+import {
+  effectiveRole,
+  isCharacterPresent,
+  type GameState,
+  type Scenario,
+} from "../src/types";
 import { boardIsAlive, setBoardLife } from "./helpers";
 
 function scenario(overrides: Partial<Scenario> = {}): Scenario {
@@ -122,6 +129,95 @@ describe("game setup and loop preparation", () => {
 
     expect(boardIsAlive(state.loop, "henchman")).toBe(true);
     expect(state.loop.charCounters.henchman.goodwill).toBe(1);
+  });
+
+  it("keeps godlyBeing absent until its scripted loop placement", () => {
+    const state = createGameState(scenario({
+      mainPlot: "sealedItem",
+      cast: { godlyBeing: "person" },
+      loops: 2,
+      daysPerLoop: 1,
+      scriptSpecified: { "enters on loop:godlyBeing": 2 },
+    }));
+    startRound(state);
+
+    expect(isCharacterPresent(state.loop.board.godlyBeing)).toBe(false);
+    expect(validatePlacement(state, {
+      owner: "mastermind",
+      card: "paranoiaPlus1",
+      target: { kind: "character", id: "godlyBeing" },
+    })).toEqual({
+      ok: false,
+      reason: "게임판에 없는 캐릭터에게는 행동 카드를 놓을 수 없습니다.",
+    });
+
+    state.loop.locIntrigue.Shrine = 2;
+    state.loop.phase = "P9_ROUND_END";
+    advanceGame(state);
+    continueAfterLoopJudgment(state);
+    continueFromTimeGap(state);
+
+    expect(state.loop.loop).toBe(2);
+    expect(boardIsAlive(state.loop, "godlyBeing")).toBe(true);
+  });
+
+  it("makes transferStudent enter on the same scripted day every loop", () => {
+    const state = createGameState(scenario({
+      mainPlot: "sealedItem",
+      cast: { transferStudent: "person" },
+      loops: 2,
+      daysPerLoop: 2,
+      scriptSpecified: { "enters on day:transferStudent": 2 },
+    }));
+    startRound(state);
+    expect(isCharacterPresent(state.loop.board.transferStudent)).toBe(false);
+
+    state.loop.phase = "P9_ROUND_END";
+    advanceGame(state);
+    expect(state.loop.day).toBe(2);
+    expect(boardIsAlive(state.loop, "transferStudent")).toBe(true);
+
+    state.loop.locIntrigue.Shrine = 2;
+    state.loop.phase = "P9_ROUND_END";
+    advanceGame(state);
+    continueAfterLoopJudgment(state);
+    continueFromTimeGap(state);
+    expect(state.loop.loop).toBe(2);
+    expect(state.loop.day).toBe(1);
+    expect(isCharacterPresent(state.loop.board.transferStudent)).toBe(false);
+
+    state.loop.phase = "P9_ROUND_END";
+    advanceGame(state);
+    expect(state.loop.day).toBe(2);
+    expect(boardIsAlive(state.loop, "transferStudent")).toBe(true);
+  });
+
+  it("blocks goodwill use by and targeting an absent character", () => {
+    const state = createGameState(scenario({
+      cast: { transferStudent: "person", nurse: "person" },
+      scriptSpecified: { "enters on day:transferStudent": 2 },
+    }));
+    startRound(state);
+    state.loop.phase = "P6_GOODWILL";
+    state.loop.charCounters.transferStudent.goodwill = 2;
+    state.loop.charCounters.nurse.goodwill = 2;
+
+    expect(() => resolveGoodwillAbility(state, {
+      user: "transferStudent",
+      rank: 2,
+      abilityIndex: 1,
+      target: "nurse",
+    }, "resolve")).toThrow(
+      'character "transferStudent" is absent and cannot use goodwill abilities',
+    );
+    expect(() => resolveGoodwillAbility(state, {
+      user: "nurse",
+      rank: 2,
+      abilityIndex: 0,
+      target: "transferStudent",
+    }, "resolve")).toThrow(
+      "goodwill ability cannot target an absent character",
+    );
   });
 
   it("keeps Shrine intrigue at zero without blackCat", () => {
@@ -251,6 +347,40 @@ describe("automatic empty round phases", () => {
       fired: false,
       effectApplied: false,
       failureReasons: ["insufficientParanoia"],
+    });
+  });
+
+  it("records an absent culprit as the reason an incident did not fire", () => {
+    const state = createGameState(scenario({
+      cast: { transferStudent: "person" },
+      incidents: [{
+        day: 1,
+        incident: "foulEvil",
+        culprit: "transferStudent",
+      }],
+      scriptSpecified: { "enters on day:transferStudent": 2 },
+    }));
+    startRound(state);
+    state.loop.phase = "P6_GOODWILL";
+
+    advanceGame(state);
+    expect(state.loop.phase).toBe("P7_INCIDENT");
+    expect(advanceGame(state)).toEqual({
+      incident: "foulEvil",
+      culprit: "transferStudent",
+      fired: false,
+      effectApplied: false,
+    });
+    expect(state.loop.phaseLog).toContainEqual({
+      loop: 1,
+      day: 1,
+      phase: "P7_INCIDENT",
+      kind: "incidentJudged",
+      incident: "foulEvil",
+      culprit: "transferStudent",
+      fired: false,
+      effectApplied: false,
+      failureReasons: ["culpritAbsent"],
     });
   });
 });

@@ -5,6 +5,7 @@ import {
   effectiveRole,
   isCharacterAlive,
   isCharacterDead,
+  isCharacterPresent,
   type ActionCard,
   type CharacterId,
   type GameState,
@@ -106,6 +107,11 @@ function assertAbilityAvailable(
     throw new Error("goodwill abilities can only be used during P6_GOODWILL");
   }
   if (!isCharacterAlive(position)) {
+    if (!isCharacterPresent(position)) {
+      throw new Error(
+        `character "${declaration.user}" is absent and cannot use goodwill abilities`,
+      );
+    }
     throw new Error(
       `character "${declaration.user}" is dead and cannot use goodwill abilities`,
     );
@@ -183,6 +189,9 @@ function requireCharacterTarget(
   const target = normalizeTarget(declaration.target);
   if (target?.kind !== "character" || !state.loop.board[target.id]) {
     throw new Error("goodwill ability requires a character target");
+  }
+  if (!isCharacterPresent(state.loop.board[target.id])) {
+    throw new Error("goodwill ability cannot target an absent character");
   }
   return target.id;
 }

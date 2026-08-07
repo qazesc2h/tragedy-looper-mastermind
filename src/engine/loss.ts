@@ -6,6 +6,7 @@ import {
   effectiveRole,
   isCharacterAlive,
   isCharacterDead,
+  isCharacterPresent,
   resolvePlaceX,
   type CharacterId,
   type GameState,
@@ -529,6 +530,7 @@ export function distanceToLoss(state: GameState): LossDistance[] {
 
   const seenRoleConditions = new Set<string>();
   for (const character of Object.keys(state.scenario.cast)) {
+    if (!isCharacterPresent(state.loop.board[character])) continue;
     for (const role of effectiveAbilityRoles(state, character)) {
       const key = `${character}:${role}`;
       if (seenRoleConditions.has(key)) continue;

@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { resolveGoodwillAbility } from "../src/engine/goodwill";
-import { advanceGame } from "../src/engine/game";
+import {
+  advanceGame,
+  chooseInitialLeader,
+  continueFromTimeGap,
+  createGameState,
+} from "../src/engine/game";
 import { validatePlacement } from "../src/engine/legal";
 import { initLoop } from "../src/engine/setup";
 import {
@@ -27,14 +32,23 @@ function createState(characters: readonly CharacterId[]): GameState {
     incidents: [],
     loops: 3,
     daysPerLoop: 4,
+    scriptSpecified: characters.includes("godlyBeing")
+      ? { "enters on loop:godlyBeing": 1 }
+      : undefined,
   };
-  const state: GameState = {
-    scenario,
-    gamePhase: "ROUND",
-    loop: initLoop(scenario),
-    history: [],
-    loopOutcomes: [],
-  };
+  const state: GameState = characters.includes("godlyBeing")
+    ? createGameState(scenario)
+    : {
+      scenario,
+      gamePhase: "ROUND",
+      loop: initLoop(scenario),
+      history: [],
+      loopOutcomes: [],
+    };
+  if (characters.includes("godlyBeing")) {
+    chooseInitialLeader(state, 0);
+    continueFromTimeGap(state);
+  }
   state.loop.phase = "P6_GOODWILL";
   return state;
 }
@@ -91,6 +105,18 @@ function resolveLeaderCardThroughP4(
 }
 
 describe("structured goodwill ability UI", () => {
+  it("hides an absent user's abilities and excludes it from targets", () => {
+    const state = createState(["transferStudent", "nurse"]);
+    unlock(state, "transferStudent", 2);
+    unlock(state, "nurse", 2);
+
+    const views = goodwillAbilityViews(state);
+    expect(views.some(({ character }) => character === "transferStudent"))
+      .toBe(false);
+    expect(views.find(({ character }) => character === "nurse")?.targets)
+      .not.toContainEqual({ kind: "character", id: "transferStudent" });
+  });
+
   it("disables dead officeWorker and boyStudent abilities as dead", () => {
     const state = createState([
       "officeWorker",

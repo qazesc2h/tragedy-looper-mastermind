@@ -5,6 +5,7 @@ import {
   characterLocation,
   isCharacterAlive,
   isCharacterDead,
+  isCharacterPresent,
   LOCATIONS,
   type ActionCard,
   type CharacterId,
@@ -175,6 +176,7 @@ function characterTargets(
   const predicates = ability.target.predicates ?? [];
 
   return Object.keys(state.loop.board).flatMap((character) => {
+    if (!isCharacterPresent(state.loop.board[character])) return [];
     if (ability.target.excludeSelf && character === user) return [];
     if (
       ability.target.scope === "sameLocation" &&
@@ -398,8 +400,9 @@ function disabledDiagnosticFor(
 
 /** P6에 표시할 능력을 구조화 데이터의 제약과 현재 상태로 계산한다. */
 export function goodwillAbilityViews(state: GameState): GoodwillAbilityView[] {
-  return Object.keys(state.loop.board).flatMap((character) =>
-    (GOODWILL_ABILITIES[character] ?? []).flatMap((schema) => {
+  return Object.keys(state.loop.board).flatMap((character) => {
+    if (!isCharacterPresent(state.loop.board[character])) return [];
+    return (GOODWILL_ABILITIES[character] ?? []).flatMap((schema) => {
       if (state.loop.charCounters[character].goodwill < schema.rank) return [];
       const targets = targetsFor(state, character, schema);
       const choice = choiceFor(state, schema.choices);
@@ -431,6 +434,6 @@ export function goodwillAbilityViews(state: GameState): GoodwillAbilityView[] {
             disabledReason,
           ),
       }];
-    })
-  );
+    });
+  });
 }

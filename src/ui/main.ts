@@ -350,6 +350,7 @@ function phaseName(phase: Phase): string {
 }
 
 function incidentFailureLabel(reason: string): string {
+  if (reason === "culpritAbsent") return "범인 미등장";
   if (reason === "culpritDead") return "범인 사망";
   if (reason === "insufficientParanoia") return "불안 미달";
   if (reason === "culpritSuppressed") return "사건 발생 억제";
@@ -605,6 +606,7 @@ function renderCharacterModal(state: GameState): string {
   const character = openCharacterModal;
   if (!character || state.loop.board[character] === undefined) return "";
   const position = state.loop.board[character];
+  if (!isCharacterPresent(position)) return "";
   const counters = state.loop.charCounters[character];
   const data = characterDataOf(character);
   const alive = isCharacterAlive(position);
@@ -1868,7 +1870,11 @@ function renderIncidentSchedule(state: GameState): string {
             return `<tr class="is-${row.timing}">
               <td><strong>${row.day}일</strong><span>${timingLabel}</span></td>
               <td>${escapeHtml(incidentName(row.incident))}</td>
-              <td>${escapeHtml(characterName(row.culprit))}</td>
+              <td>${escapeHtml(characterName(row.culprit))}${
+                row.culpritEntryLabel
+                  ? `<span>${escapeHtml(row.culpritEntryLabel)}</span>`
+                  : ""
+              }</td>
               <td>${row.timing === "past"
                 ? ""
                 : `<strong>불안 ${row.paranoia}/${row.paranoiaLimit}</strong>`}<span>${escapeHtml(status)}</span></td>

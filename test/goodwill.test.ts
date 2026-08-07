@@ -6,6 +6,11 @@ import {
 } from "../src/engine/goodwill";
 import type { GoodwillUse } from "../src/engine/goodwill";
 import { resolveIncident } from "../src/engine/incident";
+import {
+  chooseInitialLeader,
+  continueFromTimeGap,
+  createGameState,
+} from "../src/engine/game";
 import { advance } from "../src/engine/phases";
 import { resolveActions } from "../src/engine/resolve";
 import { initLoop } from "../src/engine/setup";
@@ -102,17 +107,18 @@ function createInformationState(
     incidents,
     loops: 3,
     daysPerLoop: 6,
-    scriptSpecified: characters.includes("henchman")
-      ? { "startLocation:henchman": "City" }
-      : undefined,
+    scriptSpecified: {
+      ...(characters.includes("henchman")
+        ? { "startLocation:henchman": "City" }
+        : {}),
+      ...(characters.includes("godlyBeing")
+        ? { "enters on loop:godlyBeing": 1 }
+        : {}),
+    },
   };
-  const state: GameState = {
-    scenario,
-    gamePhase: "ROUND",
-    loop: initLoop(scenario),
-    history: [],
-    loopOutcomes: [],
-  };
+  const state = createGameState(scenario);
+  chooseInitialLeader(state, 0);
+  continueFromTimeGap(state);
   state.loop.phase = "P6_GOODWILL";
   return state;
 }

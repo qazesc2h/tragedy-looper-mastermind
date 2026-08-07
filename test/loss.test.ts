@@ -51,6 +51,19 @@ function activateSoldierProtection(state: GameState): void {
 }
 
 describe("plot loss distance", () => {
+  it("does not count an absent protected character as dead", () => {
+    const state = createState({
+      cast: { transferStudent: "keyPerson" },
+      scriptSpecified: { "enters on day:transferStudent": 2 },
+    });
+
+    expect(distanceToLoss(state).some(
+      ({ source, character }) =>
+        source === "role" && character === "transferStudent",
+    )).toBe(false);
+    expect(evaluateLoss(state)).toEqual([]);
+  });
+
   it("reports the sealedItem distance in a human-readable form", () => {
     const state = createState({ mainPlot: "sealedItem" });
     state.loop.locIntrigue.Shrine = 1;

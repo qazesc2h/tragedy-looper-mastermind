@@ -5,6 +5,7 @@ import {
   loadBasicTragedyScenarios,
 } from "../src/data";
 import { initLoop } from "../src/engine/setup";
+import { isCharacterPresent } from "../src/types";
 import { boardIsAlive, boardLocation } from "./helpers";
 
 const scenarios = loadBasicTragedyScenarios({
@@ -46,10 +47,15 @@ describe("basic tragedy setup", () => {
       expect(loop.placed).toEqual([]);
 
       for (const character of Object.keys(scenario.cast)) {
-        expect(boardIsAlive(loop, character)).toBe(true);
-        expect(characterDataOf(character).startLocation).toContain(
-          boardLocation(loop, character),
-        );
+        const characterData = characterDataOf(character);
+        if (characterData.comesInLater) {
+          expect(isCharacterPresent(loop.board[character])).toBe(false);
+        } else {
+          expect(boardIsAlive(loop, character)).toBe(true);
+          expect(characterData.startLocation).toContain(
+            boardLocation(loop, character),
+          );
+        }
         expect(loop.charCounters[character]).toEqual({
           goodwill: 0,
           paranoia: 0,

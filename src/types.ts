@@ -246,6 +246,7 @@ export interface IncidentResult {
 }
 
 export type IncidentFailureReason =
+  | "culpritAbsent"
   | "culpritDead"
   | "insufficientParanoia"
   | "culpritSuppressed";
@@ -496,4 +497,26 @@ export function startLocationOf(
     );
   }
   return location;
+}
+
+export type CharacterEntryTiming =
+  | { kind: "loop"; value: number }
+  | { kind: "day"; value: number };
+
+/** 각본에 지정된 신·전학생의 비공개 등장 시점을 반환한다. */
+export function characterEntryTiming(
+  scenario: Scenario,
+  character: CharacterId,
+): CharacterEntryTiming | undefined {
+  const kind = character === "godlyBeing"
+    ? "loop"
+    : character === "transferStudent"
+    ? "day"
+    : undefined;
+  if (kind === undefined) return undefined;
+
+  const value = scenario.scriptSpecified?.[
+    `enters on ${kind}:${character}`
+  ];
+  return typeof value === "number" ? { kind, value } : undefined;
 }

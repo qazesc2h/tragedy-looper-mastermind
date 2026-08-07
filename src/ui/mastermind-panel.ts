@@ -1,6 +1,7 @@
 import { characterDataOf } from "../data";
 import { incidentFailureReasons, incidentFires } from "../engine/incident";
 import { distanceToLoss } from "../engine/loss";
+import { characterEntryTiming } from "../types";
 import type {
   CharacterId,
   GameState,
@@ -24,6 +25,8 @@ export interface IncidentScheduleRow extends ScheduledIncident {
   outcomeReasons: IncidentFailureReason[];
   /** false면 이전 저장 데이터라 정확한 미발생 사유가 남아 있지 않다. */
   judgmentRecorded: boolean;
+  /** FAQ Q5의 비공개 등장 정보를 각본가에게만 보여 주는 표기. */
+  culpritEntryLabel?: string;
 }
 
 function occurrenceFired(
@@ -60,6 +63,7 @@ export function incidentScheduleRows(
         state,
         scheduled.culprit,
       );
+      const entry = characterEntryTiming(state.scenario, scheduled.culprit);
       const judgment = state.loop.phaseLog?.find((entry) =>
         entry.kind === "incidentJudged" &&
         entry.day === scheduled.day &&
@@ -93,6 +97,9 @@ export function incidentScheduleRows(
         effectApplied,
         outcomeReasons,
         judgmentRecorded: judgment?.kind === "incidentJudged",
+        culpritEntryLabel: entry === undefined
+          ? undefined
+          : `${entry.value}${entry.kind === "day" ? "일" : "루프"} 등장`,
       };
     });
 }

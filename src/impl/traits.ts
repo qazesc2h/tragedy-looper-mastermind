@@ -1,6 +1,21 @@
 // 캐릭터 특성 훅. source.description은 data/character-traits.json의 영문 원문이다.
 
+import {
+  characterEntryTiming,
+  isCharacterPresent,
+  startLocationOf,
+} from "../types";
 import type { CharacterId, GameState, Hook } from "../types";
+
+function placeEnteringCharacter(
+  state: GameState,
+  character: CharacterId,
+): void {
+  state.loop.board[character] = {
+    status: "alive",
+    at: startLocationOf(character, state.scenario),
+  };
+}
 
 /** 한국어판 캐릭터 특성 — 구현 여부를 한곳에서 추적한다. */
 export const TRAIT_IMPL: Record<CharacterId, {
@@ -30,9 +45,13 @@ export const TRAIT_IMPL: Record<CharacterId, {
         timing: "Loop Start",
         description: `Enters game on predefined loop`,
       },
-      // TODO(구현): 지정 루프 전까지 보드에서 제외하고 지정 루프에 등장시킨다.
-      when: () => false,
-      effect: () => {},
+      when: (state: GameState, self: CharacterId) => {
+        const entry = characterEntryTiming(state.scenario, self);
+        return entry?.kind === "loop" &&
+          state.loop.loop === entry.value &&
+          !isCharacterPresent(state.loop.board[self]);
+      },
+      effect: placeEnteringCharacter,
     }],
   },
   boss: {
@@ -72,9 +91,13 @@ export const TRAIT_IMPL: Record<CharacterId, {
         timing: "Day Start",
         description: `This character does not appear on the board until the start of the day specified by the script.`,
       },
-      // TODO(구현): 지정 날짜 전까지 보드에서 제외하고 지정 날짜에 등장시킨다.
-      when: () => false,
-      effect: () => {},
+      when: (state: GameState, self: CharacterId) => {
+        const entry = characterEntryTiming(state.scenario, self);
+        return entry?.kind === "day" &&
+          state.loop.day === entry.value &&
+          !isCharacterPresent(state.loop.board[self]);
+      },
+      effect: placeEnteringCharacter,
     }],
   },
   blackCat: {

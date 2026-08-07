@@ -112,8 +112,7 @@ export function continueFromTimeGap(state: GameState): void {
     state.loop.loopStartTraitCounterChoices;
 
   state.gamePhase = "LOOP_CHARACTER_PLACEMENT";
-  const prepared = initLoop(state.scenario);
-  prepared.loop = loopNumber;
+  const prepared = initLoop(state.scenario, loopNumber);
   prepared.leader = leader;
   if (loopStartTraitCounterChoices !== undefined) {
     prepared.loopStartTraitCounterChoices = {
@@ -349,8 +348,7 @@ export function continueAfterLoopJudgment(state: GameState): void {
   }
 
   const leader = state.loop.leader;
-  const nextLoop = initLoop(state.scenario);
-  nextLoop.loop = state.loop.loop + 1;
+  const nextLoop = initLoop(state.scenario, state.loop.loop + 1);
   nextLoop.leader = leader;
   state.loop = nextLoop;
   state.gamePhase = "LOOP_TIME_GAP";
@@ -371,8 +369,7 @@ export function prepareFinalGuess(
 
   const loopNumber = state.loop.loop;
   const leader = state.loop.leader;
-  const reset = initLoop(state.scenario);
-  reset.loop = loopNumber;
+  const reset = initLoop(state.scenario, loopNumber);
   reset.leader = leader;
   state.loop = reset;
 

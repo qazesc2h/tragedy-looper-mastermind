@@ -1,4 +1,6 @@
+import { characterDataOf } from "../data";
 import {
+  characterEntryTiming,
   startLocationOf,
   type CharacterId,
   type Counters,
@@ -6,7 +8,7 @@ import {
   type Scenario,
 } from "../types";
 
-export function initLoop(scenario: Scenario): LoopState {
+export function initLoop(scenario: Scenario, loopNumber = 1): LoopState {
   const board: LoopState["board"] = {};
   const charCounters: Record<
     CharacterId,
@@ -14,12 +16,16 @@ export function initLoop(scenario: Scenario): LoopState {
   > = {};
 
   for (const character of Object.keys(scenario.cast)) {
-    // TODO: comesInLater 캐릭터는 지정된 루프/날짜 전까지 board에서 제외해야 한다.
-    // 현재 단계에서는 요구사항에 따라 다른 캐릭터와 동일하게 배치한다.
-    board[character] = {
-      status: "alive",
-      at: startLocationOf(character, scenario),
-    };
+    const entry = characterEntryTiming(scenario, character);
+    const waitsForEntry = characterDataOf(character).comesInLater && !(
+      entry?.kind === "loop" && loopNumber > entry.value
+    );
+    board[character] = waitsForEntry
+      ? { status: "absent" }
+      : {
+        status: "alive",
+        at: startLocationOf(character, scenario),
+      };
     charCounters[character] = {
       goodwill: 0,
       paranoia: 0,
@@ -29,7 +35,7 @@ export function initLoop(scenario: Scenario): LoopState {
   }
 
   return {
-    loop: 1,
+    loop: loopNumber,
     day: 1,
     phase: "P1_ROUND_START",
     leader: 0,

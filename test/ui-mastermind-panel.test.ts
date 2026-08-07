@@ -123,6 +123,34 @@ describe("mastermind incident schedule", () => {
       ]);
   });
 
+  it("shows a delayed culprit's entry timing in the mastermind schedule", () => {
+    const state = createState();
+    state.scenario.cast.transferStudent = "person";
+    state.scenario.scriptSpecified = {
+      "enters on day:transferStudent": 4,
+    };
+    state.scenario.incidents = [{
+      day: 5,
+      incident: "murder",
+      culprit: "transferStudent",
+    }];
+    state.loop.board.transferStudent = { status: "absent" };
+    state.loop.charCounters.transferStudent = {
+      goodwill: 0,
+      paranoia: 0,
+      intrigue: 0,
+      protection: 0,
+    };
+
+    expect(incidentScheduleRows(state)).toMatchObject([{
+      day: 5,
+      incident: "murder",
+      culprit: "transferStudent",
+      culpritEntryLabel: "4일 등장",
+      currentFailureReasons: ["culpritAbsent"],
+    }]);
+  });
+
   it("summarizes collapsed incident, loss, and spent-card panels", () => {
     const state = createState();
     expect(incidentScheduleSummary(state)).toBe("오늘 1건");
