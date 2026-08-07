@@ -10,6 +10,7 @@ import {
 } from "../src/engine/loss";
 import { initLoop } from "../src/engine/setup";
 import type { GameState, Scenario } from "../src/types";
+import { setBoardLife, setBoardLocation } from "./helpers";
 
 interface StateOptions {
   mainPlot?: string;
@@ -91,7 +92,7 @@ describe("plot loss distance", () => {
       cast: { henchman: "witch" },
       scriptSpecified: { "startLocation:henchman": "Hospital" },
     });
-    state.loop.board.henchman.at = "School";
+    setBoardLocation(state.loop, "henchman", "School");
     state.loop.locIntrigue.Hospital = 1;
 
     expect(distanceToLoss(state)).toContainEqual(expect.objectContaining({
@@ -203,7 +204,7 @@ describe("plot loss distance", () => {
 describe("role loss conditions", () => {
   it("returns keyPerson death immediately", () => {
     const state = createState({ cast: { boyStudent: "keyPerson" } });
-    state.loop.board.boyStudent.alive = false;
+    setBoardLife(state.loop, "boyStudent", false);
 
     expect(evaluateLoss(state)).toContainEqual(expect.objectContaining({
       category: "protectedCharacter",
@@ -231,7 +232,7 @@ describe("role loss conditions", () => {
 
   it("waits until loop end to return a dead friend", () => {
     const state = createState({ cast: { boss: "friend" } });
-    state.loop.board.boss.alive = false;
+    setBoardLife(state.loop, "boss", false);
 
     expect(evaluateLoss(state)).toEqual([]);
 
@@ -263,8 +264,8 @@ describe("role loss conditions", () => {
     const state = createState({
       cast: { boss: "friend", girlStudent: "friend" },
     });
-    state.loop.board.boss.alive = false;
-    state.loop.board.girlStudent.alive = false;
+    setBoardLife(state.loop, "boss", false);
+    setBoardLife(state.loop, "girlStudent", false);
     state.loop.day = state.scenario.daysPerLoop;
     state.loop.phase = "P9_ROUND_END";
 
@@ -479,7 +480,7 @@ describe("incident loss conditions", () => {
       }],
     });
     state.loop.phase = "P7_INCIDENT";
-    state.loop.board.boyStudent.alive = false;
+    setBoardLife(state.loop, "boyStudent", false);
     state.loop.charCounters.boyStudent.paranoia = 2;
     state.loop.locIntrigue.Hospital = 2;
 
@@ -551,8 +552,8 @@ describe("soldier rank 5 / protagonist death prevention", () => {
     state.loop.phase = "P7_INCIDENT";
     state.loop.charCounters.boyStudent.paranoia = 2;
     state.loop.locIntrigue.Hospital = 2;
-    for (const position of Object.values(state.loop.board)) {
-      position.at = "City";
+    for (const character of Object.keys(state.loop.board)) {
+      setBoardLocation(state.loop, character, "City");
     }
 
     expect(resolveIncident(state)).toEqual({
@@ -602,7 +603,7 @@ describe("soldier rank 5 / protagonist death prevention", () => {
       cast: { soldier: "person", boyStudent: "keyPerson" },
     });
     activateSoldierProtection(keyPersonState);
-    keyPersonState.loop.board.boyStudent.alive = false;
+    setBoardLife(keyPersonState.loop, "boyStudent", false);
 
     expect(evaluateLoss(keyPersonState)).toContainEqual(
       expect.objectContaining({
@@ -616,7 +617,7 @@ describe("soldier rank 5 / protagonist death prevention", () => {
       cast: { soldier: "person", boss: "friend" },
     });
     activateSoldierProtection(friendState);
-    friendState.loop.board.boss.alive = false;
+    setBoardLife(friendState.loop, "boss", false);
     friendState.loop.day = friendState.scenario.daysPerLoop;
     friendState.loop.phase = "P9_ROUND_END";
 

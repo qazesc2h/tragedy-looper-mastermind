@@ -29,8 +29,11 @@ import {
 import { INCIDENT_IMPL } from "../impl/incidents";
 import { ROLE_IMPL } from "../impl/roles";
 import {
+  characterLocation,
   effectiveRole,
   isActionCard,
+  isCharacterAlive,
+  isCharacterPresent,
   LOCATIONS,
   PHASE_ORDER,
   type ActionCard,
@@ -43,6 +46,8 @@ import {
   type PlacedCard,
   type Scenario,
   type Target,
+  withCharacterLife,
+  withCharacterLocation,
 } from "../types";
 import {
   collectResolutionReport,
@@ -458,7 +463,8 @@ function renderCharacter(state: GameState, character: CharacterId): string {
   const counters = state.loop.charCounters[character];
   const data = characterDataOf(character);
   const role = effectiveRole(state, character);
-  const aliveLabel = position.alive
+  const alive = isCharacterAlive(position);
+  const aliveLabel = alive
     ? misc("Alive", "생존")
     : misc("Dead", "사망");
   const culpritDayLabels = incidentDayLabelsForCharacter(state, character);
@@ -471,7 +477,7 @@ function renderCharacter(state: GameState, character: CharacterId): string {
       </span>`;
 
   return `
-    <article class="character-chip-wrap ${position.alive ? "is-alive" : "is-dead"}">
+    <article class="character-chip-wrap ${alive ? "is-alive" : "is-dead"}">
       <button type="button" class="character-chip" data-action="board-character"
         data-character="${escapeHtml(character)}"
         aria-label="${escapeHtml(`${characterName(character)} — ${roleName(role)} — ${aliveLabel}`)}">
@@ -498,7 +504,10 @@ function renderCharacter(state: GameState, character: CharacterId): string {
 
 function renderLocation(state: GameState, location: Location): string {
   const characters = Object.keys(state.loop.board).filter(
-    (character) => state.loop.board[character].at === location,
+    (character) => {
+      const position = state.loop.board[character];
+      return isCharacterPresent(position) && position.at === location;
+    },
   );
   return `
     <section class="board-location location-${location.toLowerCase()}">
@@ -598,7 +607,8 @@ function renderCharacterModal(state: GameState): string {
   const position = state.loop.board[character];
   const counters = state.loop.charCounters[character];
   const data = characterDataOf(character);
-  const aliveLabel = position.alive
+  const alive = isCharacterAlive(position);
+  const aliveLabel = alive
     ? misc("Alive", "생존")
     : misc("Dead", "사망");
 
@@ -616,10 +626,10 @@ function renderCharacterModal(state: GameState): string {
           <button type="button" class="icon-button" data-action="close-character-modal"
             aria-label="상세 닫기">×</button>
         </header>
-        <button type="button" class="life-toggle ${position.alive ? "is-alive" : "is-dead"}"
+        <button type="button" class="life-toggle ${alive ? "is-alive" : "is-dead"}"
           data-action="toggle-character-life" data-character="${escapeHtml(character)}">
           <span>${escapeHtml(aliveLabel)}</span>
-          <strong>${position.alive ? "탭하여 사망 처리" : "탭하여 생존 처리"}</strong>
+          <strong>${alive ? "탭하여 사망 처리" : "탭하여 생존 처리"}</strong>
         </button>
         <div class="detail-counter-list">
           ${renderCounter(character, "goodwill", counters.goodwill)}
@@ -637,7 +647,7 @@ function renderCharacterModal(state: GameState): string {
           <span>${escapeHtml(misc("Location", "Location"))}</span>
           <select data-action="move-character" data-character="${escapeHtml(character)}">
             ${LOCATIONS.map((location) => `
-              <option value="${location}" ${position.at === location ? "selected" : ""}>
+              <option value="${location}" ${characterLocation(position, character) === location ? "selected" : ""}>
                 ${escapeHtml(locationName(location))}
               </option>`).join("")}
           </select>
@@ -1068,13 +1078,16 @@ function hookTargetOptions(state: GameState, self: CharacterId, text: string): T
   }
   if (!self || !text.includes("this location")) return [];
 
-  const location = state.loop.board[self].at;
+  const location = characterLocation(state.loop.board[self], self);
   const targets: Target[] = [];
   if (text.includes("this location or")) {
     targets.push({ kind: "location", at: location });
   }
   for (const [character, position] of Object.entries(state.loop.board)) {
-    if (position.alive && position.at === location) {
+    if (
+      isCharacterAlive(position) &&
+      characterLocation(position, character) === location
+    ) {
       targets.push({ kind: "character", id: character });
     }
   }
@@ -1205,7 +1218,7 @@ function renderAiIncidentChoiceFields(
     return "";
   }
   const characters = Object.entries(state.loop.board)
-    .filter(([, position]) => position.alive)
+    .filter(([, position]) => isCharacterAlive(position))
     .map(([character]) => character);
   const characterOptions = characters.map((character) => `
     <option value="${escapeHtml(character)}">${escapeHtml(characterName(character))}</option>`
@@ -1608,7 +1621,7 @@ function renderIncidentChoice(
   }
 
   const living = Object.entries(state.loop.board)
-    .filter(([, position]) => position.alive)
+    .filter(([, position]) => isCharacterAlive(position))
     .map(([character]) => character);
   const characterSelect = (field: string, label: string) => `
     <label>
@@ -1662,7 +1675,7 @@ function renderTodayIncidents(
     const fires = incidentFires(state, culprit);
     const failureReasons = incidentFailureReasons(state, culprit);
     const effectSuppressed = culprit === "blackCat";
-    const alive = state.loop.board[culprit].alive;
+    const alive = isCharacterAlive(state.loop.board[culprit]);
     const paranoia = state.loop.charCounters[culprit].paranoia;
     const limit = characterDataOf(culprit).paranoiaLimit;
     const culpritSuppressed = state.loop.incidentCulpritSuppressedFor
@@ -2586,7 +2599,12 @@ root.addEventListener("click", (event) => {
     const character = button.dataset.character;
     if (!character) return;
     commit("character-life", (state) => {
-      state.loop.board[character].alive = !state.loop.board[character].alive;
+      const position = state.loop.board[character];
+      state.loop.board[character] = withCharacterLife(
+        position,
+        !isCharacterAlive(position),
+        character,
+      );
     });
     return;
   }
@@ -2915,7 +2933,11 @@ root.addEventListener("change", (event) => {
     const location = control.value as Location;
     if (!character || !LOCATIONS.includes(location)) return;
     commit("character-location", (state) => {
-      state.loop.board[character].at = location;
+      state.loop.board[character] = withCharacterLocation(
+        state.loop.board[character],
+        location,
+        character,
+      );
     });
   }
 });

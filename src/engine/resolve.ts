@@ -1,5 +1,8 @@
 import { characterDataOf } from "../data";
 import {
+  characterLocation,
+  isCharacterAlive,
+  withCharacterLocation,
   type ActionCard,
   type CharacterId,
   type GameState,
@@ -68,7 +71,7 @@ function resolveMovement(
 
     const result = resolveMove({
       character,
-      from: position.at,
+      from: characterLocation(position, character),
       cards,
       forbidden: forbiddenCharacters.has(character),
       forbiddenLocations:
@@ -76,7 +79,11 @@ function resolveMovement(
           ? []
           : [...characterDataOf(character).forbiddenLocation],
     });
-    position.at = result.to;
+    state.loop.board[character] = withCharacterLocation(
+      position,
+      result.to,
+      character,
+    );
   }
 }
 
@@ -106,11 +113,14 @@ function cultistIgnoredIntrigueTargets(state: GameState): Set<string> {
   for (
     const cultist of state.loop.cultistsIgnoringForbidIntrigue ?? []
   ) {
-    const location = state.loop.board[cultist].at;
+    const location = characterLocation(state.loop.board[cultist], cultist);
     ignored.add(targetKey({ kind: "location", at: location }));
 
     for (const [character, position] of Object.entries(state.loop.board)) {
-      if (position.alive && position.at === location) {
+      if (
+        isCharacterAlive(position) &&
+        characterLocation(position, character) === location
+      ) {
         ignored.add(targetKey({ kind: "character", id: character }));
       }
     }

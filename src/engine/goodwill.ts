@@ -1,7 +1,10 @@
 import { characterDataOf, type GoodwillAbilityData } from "../data";
 import { ROLE_IMPL } from "../impl/roles";
 import {
+  characterLocation,
   effectiveRole,
+  isCharacterAlive,
+  isCharacterDead,
   type ActionCard,
   type CharacterId,
   type GameState,
@@ -102,7 +105,7 @@ function assertAbilityAvailable(
   if (state.loop.phase !== "P6_GOODWILL") {
     throw new Error("goodwill abilities can only be used during P6_GOODWILL");
   }
-  if (!position.alive) {
+  if (!isCharacterAlive(position)) {
     throw new Error(
       `character "${declaration.user}" is dead and cannot use goodwill abilities`,
     );
@@ -124,11 +127,16 @@ function assertAbilityAvailable(
   }
   if (
     selected.ability.restrictedToLocation !== null &&
-    !selected.ability.restrictedToLocation.includes(position.at)
+    !selected.ability.restrictedToLocation.includes(
+      characterLocation(position, declaration.user),
+    )
   ) {
     throw new Error(
       `rank ${declaration.rank} goodwill ability for ` +
-      `"${declaration.user}" cannot be used at ${position.at}`,
+      `"${declaration.user}" cannot be used at ${characterLocation(
+        position,
+        declaration.user,
+      )}`,
     );
   }
 
@@ -186,7 +194,12 @@ function requireLivingCharacterInSameLocation(
   const target = requireCharacterTarget(state, declaration);
   const userPosition = state.loop.board[declaration.user];
   const targetPosition = state.loop.board[target];
-  if (!targetPosition.alive || targetPosition.at !== userPosition.at) {
+  if (
+    !isCharacterAlive(targetPosition) ||
+    !isCharacterAlive(userPosition) ||
+    characterLocation(targetPosition, target) !==
+      characterLocation(userPosition, declaration.user)
+  ) {
     throw new Error(
       "goodwill ability target must be a living character in the same location",
     );
@@ -446,7 +459,12 @@ function applySimpleBaseAbility(
       const target = requireCharacterTarget(state, declaration);
       const userPosition = state.loop.board[declaration.user];
       const targetPosition = state.loop.board[target];
-      if (targetPosition.alive || targetPosition.at !== userPosition.at) {
+      if (
+        !isCharacterDead(targetPosition) ||
+        !isCharacterAlive(userPosition) ||
+        characterLocation(targetPosition, target) !==
+          characterLocation(userPosition, declaration.user)
+      ) {
         throw new Error(
           "alien rank 5 goodwill ability requires a corpse in the same location",
         );
@@ -463,7 +481,10 @@ function applySimpleBaseAbility(
 
     case "godlyBeing:2": {
       const target = normalizeTarget(declaration.target);
-      const userLocation = state.loop.board[declaration.user].at;
+      const userLocation = characterLocation(
+        state.loop.board[declaration.user],
+        declaration.user,
+      );
       if (target?.kind === "location") {
         if (target.at !== userLocation) {
           throw new Error("goodwill ability location target must be this location");
@@ -519,7 +540,10 @@ function applySimpleBaseAbility(
 
     case "journalist:1": {
       const target = normalizeTarget(declaration.target);
-      const location = state.loop.board[declaration.user].at;
+      const location = characterLocation(
+        state.loop.board[declaration.user],
+        declaration.user,
+      );
       if (target?.kind === "location") {
         if (target.at !== location) {
           throw new Error("journalist target must be this location");
@@ -600,7 +624,7 @@ function applySimpleBaseAbility(
 
     case "forensicSpecialist:1": {
       const target = requireCharacterTarget(state, declaration);
-      if (state.loop.board[target].alive) {
+      if (!isCharacterDead(state.loop.board[target])) {
         throw new Error("forensicSpecialist rank 5 target must be a corpse");
       }
       return revealRole(state, target);

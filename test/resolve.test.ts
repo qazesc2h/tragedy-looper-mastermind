@@ -14,7 +14,12 @@ import type {
   PlacedCard,
   Scenario,
 } from "../src/types";
-import { loadManualExamples } from "./helpers";
+import {
+  boardLocation,
+  loadManualExamples,
+  setBoardLife,
+  setBoardLocation,
+} from "./helpers";
 
 const EXECUTABLE_CASE_IDS = new Set([
   "resolve-basic",
@@ -93,7 +98,7 @@ function createFixtureState(testCase: ManualCase): GameState {
   };
   const loop = initLoop(scenario);
   for (const [character, location] of Object.entries(setup.board)) {
-    loop.board[character].at = location;
+    setBoardLocation(loop, character, location);
   }
   loop.placed = structuredClone(testCase.placed);
 
@@ -105,7 +110,7 @@ function expectFixtureResult(
   expected: ResolveExpectation,
 ): void {
   for (const [character, location] of Object.entries(expected.board ?? {})) {
-    expect(state.loop.board[character].at).toBe(location);
+    expect(boardLocation(state.loop, character)).toBe(location);
   }
   for (const [character, counters] of Object.entries(
     expected.counters ?? {},
@@ -230,7 +235,11 @@ describe("manual resolution examples", () => {
         history: [],
         loopOutcomes: [],
       };
-      state.loop.board[triggerCase.culprit].alive = triggerCase.alive;
+      setBoardLife(
+        state.loop,
+        triggerCase.culprit,
+        triggerCase.alive,
+      );
       state.loop.charCounters[triggerCase.culprit].paranoia =
         triggerCase.paranoia;
 

@@ -6,6 +6,9 @@ import {
   type MoveCard,
 } from "../engine/movement";
 import {
+  characterLocation,
+  isCharacterAlive,
+  isCharacterPresent,
   type ActionCard,
   type GameState,
   type IncidentCounter,
@@ -222,7 +225,11 @@ export function collectResolutionChanges(
   for (const character of Object.keys(before.loop.board)) {
     const beforePosition = before.loop.board[character];
     const afterPosition = after.loop.board[character];
-    if (beforePosition.at !== afterPosition.at) {
+    if (
+      isCharacterPresent(beforePosition) &&
+      isCharacterPresent(afterPosition) &&
+      beforePosition.at !== afterPosition.at
+    ) {
       movements.push({
         kind: "movement",
         character,
@@ -281,13 +288,17 @@ function forbidOnTarget(
 
 function intrigueIsIgnored(state: GameState, target: Target): boolean {
   for (const cultist of state.loop.cultistsIgnoringForbidIntrigue ?? []) {
-    const location = state.loop.board[cultist]?.at;
-    if (location === undefined) continue;
+    const cultistPosition = state.loop.board[cultist];
+    if (cultistPosition === undefined || !isCharacterPresent(cultistPosition)) {
+      continue;
+    }
+    const location = cultistPosition.at;
     if (target.kind === "location" && target.at === location) return true;
     if (
       target.kind === "character" &&
-      state.loop.board[target.id]?.alive &&
-      state.loop.board[target.id].at === location
+      state.loop.board[target.id] !== undefined &&
+      isCharacterAlive(state.loop.board[target.id]) &&
+      characterLocation(state.loop.board[target.id], target.id) === location
     ) {
       return true;
     }
@@ -380,7 +391,7 @@ export function collectNoEffectCards(
     const position = before.loop.board[character];
     const result = resolveMove({
       character,
-      from: position.at,
+      from: characterLocation(position, character),
       cards: movements.map(({ card }) => card as MoveCard),
       forbidden: false,
       forbiddenLocations:

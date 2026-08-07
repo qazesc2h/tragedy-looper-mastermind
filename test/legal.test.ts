@@ -7,6 +7,7 @@ import type {
   PlacedCard,
   Scenario,
 } from "../src/types";
+import { setBoardLife } from "./helpers";
 
 function createState(): GameState {
   const scenario: Scenario = {
@@ -132,7 +133,7 @@ describe("protagonist target duplication", () => {
 describe("dead character targets", () => {
   it("rejects a card placed on a dead character", () => {
     const state = createState();
-    state.loop.board.boyStudent.alive = false;
+    setBoardLife(state.loop, "boyStudent", false);
 
     expect(validatePlacement(
       state,

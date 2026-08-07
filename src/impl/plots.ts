@@ -2,6 +2,7 @@
 //    재생성해도 when/effect 는 덮어쓰지 않도록 주의할 것.
 //    source 는 원본 영문 텍스트(수정 금지). ko 는 정발 용어.
 
+import { isCharacterAlive } from "../types";
 import type { GameState, CharacterId, Hook, Target } from "../types";
 
 const UNSETTLING_RUMOR_USE_KEY = "unsettlingRumor:plot:0";
@@ -20,7 +21,8 @@ function charactersWithGoodwillLastLoop(
 
   return Object.entries(previousLoop.charCounters)
     .filter(([character, counters]) =>
-      previousLoop.board[character]?.alive === true &&
+      previousLoop.board[character] !== undefined &&
+      isCharacterAlive(previousLoop.board[character]) &&
       counters.goodwill >= 1
     )
     .map(([character]) => character);

@@ -13,6 +13,11 @@ import type {
   RoleId,
   Scenario,
 } from "../src/types";
+import {
+  boardIsAlive,
+  boardLocation,
+  setBoardLocation,
+} from "./helpers";
 
 const CULPRIT = "boyStudent";
 const TARGET = "girlStudent";
@@ -38,7 +43,7 @@ function createState(
   };
   const loop = initLoop(scenario);
   for (const character of Object.keys(loop.board)) {
-    loop.board[character].at = "City";
+    setBoardLocation(loop, character, "City");
   }
   loop.charCounters[CULPRIT].paranoia = 2;
   loop.phase = "P7_INCIDENT";
@@ -67,7 +72,7 @@ function createIncidentState(
   };
   const loop = initLoop(scenario);
   for (const character of characters) {
-    loop.board[character].at = "City";
+    setBoardLocation(loop, character, "City");
   }
   loop.charCounters[culprit].paranoia = 10;
   loop.phase = "P7_INCIDENT";
@@ -105,7 +110,7 @@ describe("incident resolution", () => {
       fired: true,
       effectApplied: false,
     });
-    expect(state.loop.board[CULPRIT].alive).toBe(true);
+    expect(boardIsAlive(state.loop, CULPRIT)).toBe(true);
     expect(state.loop.incidentsFiredThisLoop).toEqual(["suicide"]);
     expect(state.loop.incidentOccurrencesFiredThisLoop).toEqual([{
       day: 1,
@@ -142,7 +147,7 @@ describe("incident resolution", () => {
 
     expect(() => advance(state)).toThrow("requires a location target");
     expect(state.loop.phase).toBe("P7_INCIDENT");
-    expect(state.loop.board[CULPRIT].at).toBe("City");
+    expect(boardLocation(state.loop, CULPRIT)).toBe("City");
     expect(state.loop.incidentsFiredThisLoop).toBeUndefined();
   });
 });
@@ -163,7 +168,7 @@ describe("butterflyEffect", () => {
 
   it("rejects a character outside the culprit's location", () => {
     const state = createState("butterflyEffect");
-    state.loop.board[TARGET].at = "School";
+    setBoardLocation(state.loop, TARGET, "School");
 
     expect(() => targetHook.effect(state, CULPRIT, {
       target: TARGET,
@@ -182,7 +187,7 @@ describe("farawayMurder", () => {
 
     expect(targetHook.when(state, CULPRIT)).toBe(true);
     expect(targetHook.effect(state, CULPRIT, { target: TARGET })).toBe(true);
-    expect(state.loop.board[TARGET].alive).toBe(false);
+    expect(boardIsAlive(state.loop, TARGET)).toBe(false);
   });
 
   it("does nothing when no character has 2 intrigue", () => {
@@ -190,7 +195,7 @@ describe("farawayMurder", () => {
     state.loop.charCounters[TARGET].intrigue = 1;
 
     expect(targetHook.effect(state, CULPRIT)).toBe(false);
-    expect(state.loop.board[TARGET].alive).toBe(true);
+    expect(boardIsAlive(state.loop, TARGET)).toBe(true);
   });
 });
 
@@ -222,22 +227,22 @@ describe("hospitalIncident", () => {
   it("kills everyone in the Hospital at 1 Hospital intrigue", () => {
     const state = createState("hospitalIncident");
     state.loop.locIntrigue.Hospital = 1;
-    state.loop.board[TARGET].at = "Hospital";
-    state.loop.board[OTHER].at = "Hospital";
+    setBoardLocation(state.loop, TARGET, "Hospital");
+    setBoardLocation(state.loop, OTHER, "Hospital");
 
     expect(deathHook.when(state, CULPRIT)).toBe(true);
     expect(deathHook.effect(state, CULPRIT)).toBe(true);
-    expect(state.loop.board[TARGET].alive).toBe(false);
-    expect(state.loop.board[OTHER].alive).toBe(false);
-    expect(state.loop.board[CULPRIT].alive).toBe(true);
+    expect(boardIsAlive(state.loop, TARGET)).toBe(false);
+    expect(boardIsAlive(state.loop, OTHER)).toBe(false);
+    expect(boardIsAlive(state.loop, CULPRIT)).toBe(true);
   });
 
   it("does not kill anyone without Hospital intrigue", () => {
     const state = createState("hospitalIncident");
-    state.loop.board[TARGET].at = "Hospital";
+    setBoardLocation(state.loop, TARGET, "Hospital");
 
     expect(deathHook.when(state, CULPRIT)).toBe(false);
-    expect(state.loop.board[TARGET].alive).toBe(true);
+    expect(boardIsAlive(state.loop, TARGET)).toBe(true);
   });
 
   it("applies the protagonists-death condition at 2 Hospital intrigue", () => {
@@ -262,13 +267,13 @@ describe("hospitalIncident", () => {
       [OTHER]: "lovedOne",
     });
     state.loop.locIntrigue.Hospital = 1;
-    state.loop.board[TARGET].at = "Hospital";
-    state.loop.board[OTHER].at = "Hospital";
+    setBoardLocation(state.loop, TARGET, "Hospital");
+    setBoardLocation(state.loop, OTHER, "Hospital");
 
     resolveIncident(state);
 
-    expect(state.loop.board[TARGET].alive).toBe(false);
-    expect(state.loop.board[OTHER].alive).toBe(false);
+    expect(boardIsAlive(state.loop, TARGET)).toBe(false);
+    expect(boardIsAlive(state.loop, OTHER)).toBe(false);
     expect(state.loop.charCounters[TARGET].paranoia).toBe(0);
     expect(state.loop.charCounters[OTHER].paranoia).toBe(0);
   });
@@ -282,8 +287,8 @@ describe("hospitalIncident", () => {
       [lovedOne]: "lovedOne",
     });
     state.loop.locIntrigue.Hospital = 1;
-    state.loop.board[TARGET].at = "Hospital";
-    state.loop.board[OTHER].at = "Hospital";
+    setBoardLocation(state.loop, TARGET, "Hospital");
+    setBoardLocation(state.loop, OTHER, "Hospital");
 
     advance(state);
 
@@ -335,7 +340,7 @@ describe("missingPerson", () => {
 
     expect(targetHook.when(state, CULPRIT)).toBe(true);
     expect(targetHook.effect(state, CULPRIT, { location: "Shrine" })).toBe(true);
-    expect(state.loop.board[CULPRIT].at).toBe("Shrine");
+    expect(boardLocation(state.loop, CULPRIT)).toBe("Shrine");
     expect(state.loop.locIntrigue.Shrine).toBe(1);
   });
 
@@ -345,7 +350,7 @@ describe("missingPerson", () => {
     expect(() => targetHook.effect(state, CULPRIT)).toThrow(
       "requires a location target",
     );
-    expect(state.loop.board[CULPRIT].at).toBe("City");
+    expect(boardLocation(state.loop, CULPRIT)).toBe("City");
   });
 });
 
@@ -357,14 +362,14 @@ describe("murder", () => {
 
     expect(targetHook.when(state, CULPRIT)).toBe(true);
     expect(targetHook.effect(state, CULPRIT, { target: TARGET })).toBe(true);
-    expect(state.loop.board[TARGET].alive).toBe(false);
+    expect(boardIsAlive(state.loop, TARGET)).toBe(false);
   });
 
   it("does nothing when no other character is in that location", () => {
     const state = createState("murder", { [CULPRIT]: "person" });
 
     expect(targetHook.effect(state, CULPRIT)).toBe(false);
-    expect(state.loop.board[CULPRIT].alive).toBe(true);
+    expect(boardIsAlive(state.loop, CULPRIT)).toBe(true);
   });
 });
 
@@ -400,7 +405,7 @@ describe("suicide", () => {
 
     expect(targetHook.when(state, CULPRIT)).toBe(true);
     expect(targetHook.effect(state, CULPRIT)).toBe(true);
-    expect(state.loop.board[CULPRIT].alive).toBe(false);
+    expect(boardIsAlive(state.loop, CULPRIT)).toBe(false);
   });
 
   it("does nothing when the culprit is an immortal timeTraveler", () => {
@@ -410,7 +415,7 @@ describe("suicide", () => {
     });
 
     expect(targetHook.effect(state, CULPRIT)).toBe(false);
-    expect(state.loop.board[CULPRIT].alive).toBe(true);
+    expect(boardIsAlive(state.loop, CULPRIT)).toBe(true);
   });
 });
 

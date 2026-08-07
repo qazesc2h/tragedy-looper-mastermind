@@ -1,4 +1,5 @@
-import type { GameState, LoopState, Phase } from "../types";
+import { LOCATIONS } from "../types";
+import type { GameState, Location, LoopState, Phase } from "../types";
 
 export const TRACKER_STORAGE_KEY = "tragedy-looper-mastermind:tracker";
 export const RETIRED_TRACKER_STORAGE_KEYS = [
@@ -43,6 +44,80 @@ export function emptyTrackerStore(): TrackerStore {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isLocation(value: unknown): value is Location {
+  return typeof value === "string" && LOCATIONS.some(
+    (location) => location === value,
+  );
+}
+
+function validateBoard(value: unknown, path: string): void {
+  if (!isRecord(value)) throw new Error(`${path} must be an object`);
+  for (const [character, rawPosition] of Object.entries(value)) {
+    const positionPath = `${path}.${character}`;
+    if (!isRecord(rawPosition)) {
+      throw new Error(`${positionPath} must be an object`);
+    }
+    if ("alive" in rawPosition) {
+      throw new Error(`${positionPath} uses the retired board format`);
+    }
+    if (rawPosition.status === "absent") {
+      if ("at" in rawPosition) {
+        throw new Error(`${positionPath} absent state must not have a location`);
+      }
+      continue;
+    }
+    if (
+      rawPosition.status !== "alive" &&
+      rawPosition.status !== "dead"
+    ) {
+      throw new Error(`${positionPath}.status is invalid`);
+    }
+    if (!isLocation(rawPosition.at)) {
+      throw new Error(`${positionPath}.at is invalid`);
+    }
+  }
+}
+
+function validateLoopBoard(value: unknown, path: string): void {
+  if (!isRecord(value)) throw new Error(`${path} must be an object`);
+  validateBoard(value.board, `${path}.board`);
+}
+
+function validateStoredBoardShapes(saved: unknown, path: string): void {
+  if (!isRecord(saved)) throw new Error(`${path} must be an object`);
+  if (!isRecord(saved.state)) throw new Error(`${path}.state must be an object`);
+  validateLoopBoard(saved.state.loop, `${path}.state.loop`);
+
+  if (saved.state.history !== undefined) {
+    if (!Array.isArray(saved.state.history)) {
+      throw new Error(`${path}.state.history must be an array`);
+    }
+    saved.state.history.forEach((loop, index) =>
+      validateLoopBoard(loop, `${path}.state.history.${index}`)
+    );
+  }
+
+  if (saved.observationsByLoop === undefined) return;
+  if (!isRecord(saved.observationsByLoop)) {
+    throw new Error(`${path}.observationsByLoop must be an object`);
+  }
+  for (const [loop, observations] of Object.entries(
+    saved.observationsByLoop,
+  )) {
+    if (!Array.isArray(observations)) {
+      throw new Error(`${path}.observationsByLoop.${loop} must be an array`);
+    }
+    observations.forEach((observation, index) => {
+      const observationPath =
+        `${path}.observationsByLoop.${loop}.${index}`;
+      if (!isRecord(observation)) {
+        throw new Error(`${observationPath} must be an object`);
+      }
+      validateLoopBoard(observation.state, `${observationPath}.state`);
+    });
+  }
 }
 
 /** 기본 객체의 구조를 따라 누락 값을 채우고 알려진 필드의 타입 충돌을 거부한다. */
@@ -99,6 +174,7 @@ function restoreStoredGame(
   saved: unknown,
   path: string,
 ): StoredGame {
+  validateStoredBoardShapes(saved, path);
   const restored = mergeDefaults(defaults, saved, path);
   restored.state.history = restored.state.history.map((loop, index) =>
     mergeDefaults(defaults.state.loop, loop, `${path}.state.history.${index}`)

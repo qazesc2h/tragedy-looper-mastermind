@@ -12,6 +12,7 @@ import type {
   PlotId,
   Scenario,
 } from "../src/types";
+import { boardIsAlive, setBoardLife } from "./helpers";
 
 const BOY = "boyStudent";
 const GIRL = "girlStudent";
@@ -143,12 +144,12 @@ describe("threadsFate", () => {
     const state = createPlotState("threadsFate");
     state.loop.charCounters[BOY].goodwill = 1;
     state.loop.charCounters[GIRL].goodwill = 3;
-    state.loop.board[GIRL].alive = false;
+    setBoardLife(state.loop, GIRL, false);
 
     endLoop(state);
     expect(state.history).toHaveLength(1);
     expect(state.history[0].charCounters[BOY].goodwill).toBe(1);
-    expect(state.history[0].board[GIRL].alive).toBe(false);
+    expect(boardIsAlive(state.history[0], GIRL)).toBe(false);
 
     state.loop = initLoop(state.scenario);
     state.loop.loop = 2;

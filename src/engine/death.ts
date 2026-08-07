@@ -1,4 +1,9 @@
-import { effectiveRole } from "../types";
+import {
+  effectiveRole,
+  isCharacterAlive,
+  isCharacterDead,
+  withCharacterLife,
+} from "../types";
 import type { CharacterId, GameState } from "../types";
 import { requestLoopEnd } from "./flow";
 import {
@@ -92,7 +97,7 @@ export function killCharacter(
     if (effectiveRole(state, character) === "timeTraveler") {
       return false;
     }
-    if (!position.alive) {
+    if (!isCharacterAlive(position)) {
       return false;
     }
     if (counters.protection > 0) {
@@ -100,7 +105,11 @@ export function killCharacter(
       return false;
     }
 
-    position.alive = false;
+    state.loop.board[character] = withCharacterLife(
+      position,
+      false,
+      character,
+    );
     const batch = deathBatches.get(state);
     if (batch === undefined) {
       throw new Error("death batch is not active");
@@ -132,10 +141,10 @@ export function reviveCharacter(
   character: CharacterId,
 ): boolean {
   const { position } = characterState(state, character);
-  if (position.alive) {
+  if (!isCharacterDead(position)) {
     return false;
   }
 
-  position.alive = true;
+  state.loop.board[character] = withCharacterLife(position, true, character);
   return true;
 }

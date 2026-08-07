@@ -2,6 +2,9 @@ import basicScriptsJson from "../../data/basic-tragedy-scripts.json";
 import goodwillAbilitiesJson from "../../data/goodwill-abilities.json";
 import { characterDataOf } from "../data";
 import {
+  characterLocation,
+  isCharacterAlive,
+  isCharacterDead,
   LOCATIONS,
   type ActionCard,
   type CharacterId,
@@ -147,9 +150,9 @@ function characterPassesPredicates(
     switch (predicate) {
       case "alive":
       case "aliveIfCharacter":
-        return board.alive;
+        return isCharacterAlive(board);
       case "dead":
-        return !board.alive;
+        return isCharacterDead(board);
       case "isPatient":
         return character === "patient";
       case "panicked":
@@ -168,14 +171,14 @@ function characterTargets(
   ability: StructuredGoodwillAbility,
 ): Target[] {
   if (!targetKinds(ability).includes("character")) return [];
-  const userLocation = state.loop.board[user].at;
+  const userLocation = characterLocation(state.loop.board[user], user);
   const predicates = ability.target.predicates ?? [];
 
   return Object.keys(state.loop.board).flatMap((character) => {
     if (ability.target.excludeSelf && character === user) return [];
     if (
       ability.target.scope === "sameLocation" &&
-      state.loop.board[character].at !== userLocation
+      characterLocation(state.loop.board[character], character) !== userLocation
     ) return [];
     if (
       ability.target.tags.some((tag) =>
@@ -194,7 +197,7 @@ function locationTargets(
 ): Target[] {
   if (!targetKinds(ability).includes("location")) return [];
   const locations = ability.target.scope === "sameLocation"
-    ? [state.loop.board[user].at]
+    ? [characterLocation(state.loop.board[user], user)]
     : LOCATIONS;
   return locations.map((at) => ({ kind: "location" as const, at }));
 }
@@ -281,7 +284,7 @@ function disabledReasonFor(
   targets: readonly Target[],
   choice: GoodwillChoice,
 ): GoodwillDisabledReason | undefined {
-  if (!state.loop.board[character].alive) return "dead";
+  if (!isCharacterAlive(state.loop.board[character])) return "dead";
   if (ability.minLoop !== undefined && state.loop.loop < ability.minLoop) {
     return "minLoop";
   }
@@ -295,7 +298,9 @@ function disabledReasonFor(
   }
   if (
     ability.restrictedToLocation !== null &&
-    !ability.restrictedToLocation.includes(state.loop.board[character].at)
+    !ability.restrictedToLocation.includes(
+      characterLocation(state.loop.board[character], character),
+    )
   ) {
     return "restrictedLocation";
   }
@@ -339,7 +344,7 @@ function disabledDiagnosticFor(
 ): string {
   switch (reason) {
     case "dead":
-      return `alive=${state.loop.board[character].alive}`;
+      return `status=${state.loop.board[character].status}`;
     case "minLoop":
       return `loop=${state.loop.loop}, minLoop=${ability.minLoop}`;
     case "notImplemented":
@@ -352,7 +357,10 @@ function disabledDiagnosticFor(
       return `used=${used}, limit=${ability.timesPerLoop}`;
     }
     case "restrictedLocation":
-      return `at=${state.loop.board[character].at}, allowed=${
+      return `at=${characterLocation(
+        state.loop.board[character],
+        character,
+      )}, allowed=${
         JSON.stringify(ability.restrictedToLocation)
       }`;
     case "noTarget":

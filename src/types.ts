@@ -166,6 +166,69 @@ export interface ScheduledIncident extends IncidentSelection {
   culprit: CharacterId;
 }
 
+export type BoardCharacterState =
+  | { status: "absent"; at?: never }
+  | { status: "alive"; at: Location }
+  | { status: "dead"; at: Location };
+
+export type PresentBoardCharacterState = Exclude<
+  BoardCharacterState,
+  { status: "absent" }
+>;
+
+export function isCharacterPresent(
+  position: BoardCharacterState,
+): position is PresentBoardCharacterState {
+  return position.status !== "absent";
+}
+
+export function isCharacterAlive(
+  position: BoardCharacterState,
+): position is Extract<BoardCharacterState, { status: "alive" }> {
+  return position.status === "alive";
+}
+
+export function isCharacterDead(
+  position: BoardCharacterState,
+): position is Extract<BoardCharacterState, { status: "dead" }> {
+  return position.status === "dead";
+}
+
+export function characterLocation(
+  position: BoardCharacterState,
+  character?: CharacterId,
+): Location {
+  if (!isCharacterPresent(position)) {
+    const suffix = character === undefined ? "" : ` \"${character}\"`;
+    throw new Error(`absent character${suffix} has no location`);
+  }
+  return position.at;
+}
+
+export function withCharacterLocation(
+  position: BoardCharacterState,
+  at: Location,
+  character?: CharacterId,
+): PresentBoardCharacterState {
+  if (!isCharacterPresent(position)) {
+    const suffix = character === undefined ? "" : ` \"${character}\"`;
+    throw new Error(`cannot move absent character${suffix}`);
+  }
+  return { ...position, at };
+}
+
+export function withCharacterLife(
+  position: BoardCharacterState,
+  alive: boolean,
+  character?: CharacterId,
+): PresentBoardCharacterState {
+  if (!isCharacterPresent(position)) {
+    const suffix = character === undefined ? "" : ` \"${character}\"`;
+    throw new Error(`cannot change life state of absent character${suffix}`);
+  }
+  return { status: alive ? "alive" : "dead", at: position.at };
+}
+
 /** 임의 대상을 요구하는 사건 효과에 각본가가 제공하는 선택. */
 export interface IncidentChoice {
   target?: CharacterId;
@@ -244,7 +307,7 @@ export interface LoopState {
   phase: Phase;
   leader: 0 | 1 | 2;
 
-  board: Record<CharacterId, { at: Location; alive: boolean }>;
+  board: Record<CharacterId, BoardCharacterState>;
   charCounters: Record<CharacterId, Counters & { protection: number }>;
   locIntrigue: Record<Location, number>;
 

@@ -18,7 +18,13 @@ import type {
   RoleId,
   Scenario,
 } from "../src/types";
-import { loadManualExamples } from "./helpers";
+import {
+  boardIsAlive,
+  boardLocation,
+  loadManualExamples,
+  setBoardLife,
+  setBoardLocation,
+} from "./helpers";
 
 interface GoodwillFixture {
   id: string;
@@ -70,7 +76,7 @@ function createState(
   };
   const loop = initLoop(scenario);
   for (const [character, location] of Object.entries(setup.board)) {
-    loop.board[character].at = location;
+    setBoardLocation(loop, character, location);
   }
   for (const [character, counters] of Object.entries(
     testCase.preset.counters,
@@ -140,7 +146,7 @@ describe("goodwill-chain-and-refusal", () => {
   it("rejects the restricted ability outside School or City", () => {
     const state = createState("goodwill-chain-and-refusal");
     state.loop.phase = "P6_GOODWILL";
-    state.loop.board.richStudent.at = "Shrine";
+    setBoardLocation(state.loop, "richStudent", "Shrine");
 
     expect(() => resolveGoodwillAbility(state, {
       user: "richStudent",
@@ -162,7 +168,7 @@ describe("goodwill-comes-after-card-resolve", () => {
     advance(state);
     expect(state.loop.phase).toBe("P5_MASTERMIND_ABILITY");
     expect(state.loop.charCounters.doctor.goodwill).toBe(3);
-    expect(state.loop.board.patient.at).toBe("Hospital");
+    expect(boardLocation(state.loop, "patient")).toBe("Hospital");
 
     advance(state);
     expect(state.loop.phase).toBe("P6_GOODWILL");
@@ -174,7 +180,7 @@ describe("goodwill-comes-after-card-resolve", () => {
     advance(state);
 
     expect(state.loop.phase).toBe("P7_INCIDENT");
-    expect(state.loop.board.patient.at).toBe("Hospital");
+    expect(boardLocation(state.loop, "patient")).toBe("Hospital");
     expect(state.loop.locationRestrictionsRemoved).toEqual(["patient"]);
 
     state.loop.placed = [{
@@ -183,7 +189,7 @@ describe("goodwill-comes-after-card-resolve", () => {
       target: { kind: "character", id: "patient" },
     }];
     resolveActions(state);
-    expect(state.loop.board.patient.at).toBe("City");
+    expect(boardLocation(state.loop, "patient")).toBe("City");
   });
 });
 
@@ -211,13 +217,13 @@ describe("goodwill availability and refusal", () => {
     };
     state.loop.phase = "P6_GOODWILL";
     for (const character of Object.keys(state.loop.board)) {
-      state.loop.board[character].at = "City";
+      setBoardLocation(state.loop, character, "City");
     }
     state.loop.charCounters.officeWorker.goodwill = 3;
     state.loop.charCounters.boyStudent.goodwill = 2;
     state.loop.charCounters.girlStudent.paranoia = 1;
-    state.loop.board.officeWorker.alive = false;
-    state.loop.board.boyStudent.alive = false;
+    setBoardLife(state.loop, "officeWorker", false);
+    setBoardLife(state.loop, "boyStudent", false);
 
     expect(() => resolveGoodwillAbility(state, {
       user: "officeWorker",
@@ -258,7 +264,7 @@ describe("goodwill availability and refusal", () => {
     };
     state.loop.phase = "P6_GOODWILL";
     for (const character of Object.keys(state.loop.board)) {
-      state.loop.board[character].at = "City";
+      setBoardLocation(state.loop, character, "City");
     }
     state.loop.charCounters.alien.goodwill = 4;
 
@@ -269,7 +275,7 @@ describe("goodwill availability and refusal", () => {
       target: "girlStudent",
     }, "resolve");
 
-    expect(state.loop.board.girlStudent.alive).toBe(false);
+    expect(boardIsAlive(state.loop, "girlStudent")).toBe(false);
     expect(state.loop.charCounters.boyStudent.paranoia).toBe(6);
   });
 
@@ -449,7 +455,7 @@ describe("goodwill availability and refusal", () => {
     state.loop.phase = "P6_GOODWILL";
     state.loop.charCounters.nurse.goodwill = 2;
     state.loop.charCounters.girlStudent.paranoia = 3;
-    state.loop.board.girlStudent.at = "Hospital";
+    setBoardLocation(state.loop, "girlStudent", "Hospital");
 
     expect(() => resolveGoodwillAbility(state, {
       user: "nurse",
@@ -667,8 +673,8 @@ describe("ai rank 3 / resolve an incident effect as AI", () => {
       [{ day: 2, incident: "murder", culprit: "boyStudent" }],
     );
     state.loop.charCounters.ai.goodwill = 3;
-    state.loop.board.ai.at = "City";
-    state.loop.board.girlStudent.at = "City";
+    setBoardLocation(state.loop, "ai", "City");
+    setBoardLocation(state.loop, "girlStudent", "City");
 
     const result = resolveGoodwillAbility(state, {
       user: "ai",
@@ -679,7 +685,7 @@ describe("ai rank 3 / resolve an incident effect as AI", () => {
     }, "resolve");
 
     expect(result.effectApplied).toBe(true);
-    expect(state.loop.board.girlStudent.alive).toBe(false);
+    expect(boardIsAlive(state.loop, "girlStudent")).toBe(false);
     expect(state.loop.incidentsFiredThisLoop).toBeUndefined();
     expect(state.loop.incidentOccurrencesFiredThisLoop).toBeUndefined();
     expect(state.loop.publicInformationThisLoop).toEqual([{
@@ -707,9 +713,9 @@ describe("ai rank 3 / resolve an incident effect as AI", () => {
       incidentChoice: { location: "Shrine" },
     }, "resolve");
 
-    expect(state.loop.board.ai.at).toBe("Shrine");
+    expect(boardLocation(state.loop, "ai")).toBe("Shrine");
     expect(state.loop.locIntrigue.Shrine).toBe(1);
-    expect(state.loop.board.officeWorker.at).not.toBe("Shrine");
+    expect(boardLocation(state.loop, "officeWorker")).not.toBe("Shrine");
     expect(state.loop.incidentsFiredThisLoop).toBeUndefined();
   });
 
@@ -719,7 +725,7 @@ describe("ai rank 3 / resolve an incident effect as AI", () => {
       [{ day: 4, incident: "missingPerson", culprit: "officeWorker" }],
     );
     state.loop.charCounters.ai.goodwill = 3;
-    const before = state.loop.board.ai.at;
+    const before = boardLocation(state.loop, "ai");
 
     expect(() => resolveGoodwillAbility(state, {
       user: "ai",
@@ -727,7 +733,7 @@ describe("ai rank 3 / resolve an incident effect as AI", () => {
       abilityIndex: 2,
       incident: { day: 4, incident: "missingPerson" },
     }, "resolve")).toThrow("requires a location target");
-    expect(state.loop.board.ai.at).toBe(before);
+    expect(boardLocation(state.loop, "ai")).toBe(before);
     expect(state.loop.publicInformationThisLoop).toBeUndefined();
   });
 });

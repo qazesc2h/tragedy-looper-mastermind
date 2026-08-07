@@ -17,6 +17,7 @@ import {
   protagonistOrder,
 } from "../src/ui/action-cards";
 import type { GameState, PlacedCard } from "../src/types";
+import { boardLocation, setBoardLocation } from "./helpers";
 
 function createState(): GameState {
   const scenario = adaptBasicTragedyScript(scriptsJson[0]);
@@ -189,10 +190,10 @@ describe("UI card-resolution report", () => {
     const before = createState();
     const character = Object.keys(before.loop.board)[0];
     const after = structuredClone(before);
-    const destination = before.loop.board[character].at === "City"
+    const destination = boardLocation(before.loop, character) === "City"
       ? "School"
       : "City";
-    after.loop.board[character].at = destination;
+    setBoardLocation(after.loop, character, destination);
     after.loop.charCounters[character].goodwill = 1;
     after.loop.locIntrigue.Shrine = 2;
 
@@ -200,7 +201,7 @@ describe("UI card-resolution report", () => {
       {
         kind: "movement",
         character,
-        before: before.loop.board[character].at,
+        before: boardLocation(before.loop, character),
         after: destination,
       },
       {
@@ -269,8 +270,13 @@ describe("UI card-resolution report", () => {
     const [counterCharacter, movingCharacter] = Object.keys(before.loop.board);
     const after = structuredClone(before);
     after.loop.charCounters[counterCharacter].goodwill = 1;
-    after.loop.board[movingCharacter].at =
-      before.loop.board[movingCharacter].at === "City" ? "School" : "City";
+    setBoardLocation(
+      after.loop,
+      movingCharacter,
+      boardLocation(before.loop, movingCharacter) === "City"
+        ? "School"
+        : "City",
+    );
     const placed: PlacedCard[] = [
       {
         owner: "mastermind",

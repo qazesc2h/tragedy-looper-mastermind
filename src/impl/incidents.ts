@@ -3,6 +3,11 @@
 //    source 는 원본 영문 텍스트(수정 금지). ko 는 정발 용어.
 
 import {
+  characterLocation,
+  isCharacterAlive,
+  withCharacterLocation,
+} from "../types";
+import {
   attemptProtagonistDeath,
   killCharacter,
 } from "../engine/death";
@@ -17,7 +22,7 @@ import type {
 
 function livingCharacters(state: GameState): CharacterId[] {
   return Object.entries(state.loop.board)
-    .filter(([, position]) => position.alive)
+    .filter(([, position]) => isCharacterAlive(position))
     .map(([character]) => character);
 }
 
@@ -63,11 +68,11 @@ function killEffectApplied(
   character: CharacterId,
 ): boolean {
   const before = {
-    alive: state.loop.board[character].alive,
+    alive: isCharacterAlive(state.loop.board[character]),
     protection: state.loop.charCounters[character].protection,
   };
   killCharacter(state, character);
-  return state.loop.board[character].alive !== before.alive ||
+  return isCharacterAlive(state.loop.board[character]) !== before.alive ||
     state.loop.charCounters[character].protection !== before.protection;
 }
 
@@ -99,10 +104,12 @@ export const INCIDENT_IMPL: Record<string, {
           culprit: CharacterId,
           choice?: IncidentChoice,
         ) => {
-          const location = s.loop.board[culprit].at;
+          const location = characterLocation(s.loop.board[culprit], culprit);
           const target = selectedCharacter(
             livingCharacters(s).filter(
-              (character) => s.loop.board[character].at === location,
+              (character) =>
+                characterLocation(s.loop.board[character], character) ===
+                  location,
             ),
             choice?.target,
             "butterflyEffect",
@@ -176,7 +183,10 @@ export const INCIDENT_IMPL: Record<string, {
         effect: (s: GameState, _self: CharacterId) => {
           let applied = false;
           for (const character of livingCharacters(s)) {
-            if (s.loop.board[character].at === "Hospital") {
+            if (
+              characterLocation(s.loop.board[character], character) ===
+                "Hospital"
+            ) {
               applied = killEffectApplied(s, character) || applied;
             }
           }
@@ -250,7 +260,11 @@ export const INCIDENT_IMPL: Record<string, {
           choice?: IncidentChoice,
         ) => {
           const location = selectedLocation(choice?.location, "missingPerson");
-          s.loop.board[culprit].at = location;
+          s.loop.board[culprit] = withCharacterLocation(
+            s.loop.board[culprit],
+            location,
+            culprit,
+          );
           s.loop.locIntrigue[location] += 1;
           return true;
         },
@@ -274,12 +288,13 @@ export const INCIDENT_IMPL: Record<string, {
           culprit: CharacterId,
           choice?: IncidentChoice,
         ) => {
-          const location = s.loop.board[culprit].at;
+          const location = characterLocation(s.loop.board[culprit], culprit);
           const target = selectedCharacter(
             livingCharacters(s).filter(
               (character) =>
                 character !== culprit &&
-                s.loop.board[character].at === location,
+                characterLocation(s.loop.board[character], character) ===
+                  location,
             ),
             choice?.target,
             "murder",

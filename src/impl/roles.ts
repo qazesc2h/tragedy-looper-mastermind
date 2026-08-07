@@ -2,7 +2,12 @@
 //    재생성해도 when/effect 는 덮어쓰지 않도록 주의할 것.
 //    source 는 원본 영문 텍스트(수정 금지). ko 는 정발 용어.
 
-import { effectiveRole } from "../types";
+import {
+  characterLocation,
+  effectiveRole,
+  isCharacterAlive,
+  isCharacterDead,
+} from "../types";
 import type {
   GameState,
   CharacterId,
@@ -44,7 +49,7 @@ function placeBrainIntrigue(
     throw new Error("brain intrigue placement requires a target");
   }
 
-  const location = state.loop.board[self].at;
+  const location = characterLocation(state.loop.board[self], self);
   if (target.kind === "location") {
     if (target.at !== location) {
       throw new Error("brain intrigue target must be this location");
@@ -56,8 +61,8 @@ function placeBrainIntrigue(
   const targetPosition = state.loop.board[target.id];
   if (
     !targetPosition ||
-    !targetPosition.alive ||
-    targetPosition.at !== location
+    !isCharacterAlive(targetPosition) ||
+    characterLocation(targetPosition, target.id) !== location
   ) {
     throw new Error(
       "brain intrigue target must be a living character in this location",
@@ -102,8 +107,9 @@ function placeConspiracyTheoristParanoia(
   const targetPosition = state.loop.board[target.id];
   if (
     !targetPosition ||
-    !targetPosition.alive ||
-    targetPosition.at !== state.loop.board[self].at
+    !isCharacterAlive(targetPosition) ||
+    characterLocation(targetPosition, target.id) !==
+      characterLocation(state.loop.board[self], self)
   ) {
     throw new Error(
       "conspiracy theorist target must be a living character in this location",
@@ -116,10 +122,12 @@ function otherLivingCharactersInThisLocation(
   state: GameState,
   self: CharacterId,
 ): CharacterId[] {
-  const location = state.loop.board[self].at;
+  const location = characterLocation(state.loop.board[self], self);
   return Object.entries(state.loop.board)
     .filter(([character, position]) =>
-      character !== self && position.alive && position.at === location
+      character !== self &&
+      isCharacterAlive(position) &&
+      characterLocation(position, character) === location
     )
     .map(([character]) => character);
 }
@@ -182,7 +190,7 @@ export const ROLE_IMPL: Record<string, {
         // IMPLEMENTED_ELSEWHERE: src/engine/loss.ts evaluateLoss()
         // 일반 ALWAYS 디스패처가 아니라 즉시 패배 조건 조회로 처리한다.
         when: (s: GameState, self: CharacterId) =>
-          !s.loop.board[self].alive,
+          isCharacterDead(s.loop.board[self]),
         effect: (s: GameState, _self: CharacterId) => {
           requestLoopEnd(s, "effect");
         },
@@ -206,9 +214,10 @@ export const ROLE_IMPL: Record<string, {
           const keyPerson = characterWithRole(s, "keyPerson");
           return (
             keyPerson !== undefined &&
-            s.loop.board[keyPerson].alive &&
+            isCharacterAlive(s.loop.board[keyPerson]) &&
             s.loop.charCounters[keyPerson].intrigue >= 2 &&
-            s.loop.board[keyPerson].at === s.loop.board[self].at
+            characterLocation(s.loop.board[keyPerson], keyPerson) ===
+              characterLocation(s.loop.board[self], self)
           );
         },
         effect: (s: GameState, _self: CharacterId) => {
@@ -328,7 +337,7 @@ export const ROLE_IMPL: Record<string, {
           description: `Reveal its role.`,
         },
         when: (s: GameState, self: CharacterId) =>
-          !s.loop.board[self].alive,
+          isCharacterDead(s.loop.board[self]),
         effect: (s: GameState, self: CharacterId) => {
           revealRole(s, self);
         },
@@ -390,7 +399,7 @@ export const ROLE_IMPL: Record<string, {
           context?: HookContext,
         ) => counterpartDied(s, "lovedOne", context),
         effect: (s: GameState, self: CharacterId) => {
-          if (s.loop.board[self].alive) {
+          if (isCharacterAlive(s.loop.board[self])) {
             s.loop.charCounters[self].paranoia += 6;
           }
         },
@@ -415,7 +424,7 @@ export const ROLE_IMPL: Record<string, {
           context?: HookContext,
         ) => counterpartDied(s, "lover", context),
         effect: (s: GameState, self: CharacterId) => {
-          if (s.loop.board[self].alive) {
+          if (isCharacterAlive(s.loop.board[self])) {
             s.loop.charCounters[self].paranoia += 6;
           }
         },

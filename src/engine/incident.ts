@@ -1,5 +1,6 @@
 import { characterDataOf } from "../data";
 import { INCIDENT_IMPL } from "../impl/incidents";
+import { isCharacterAlive } from "../types";
 import type {
   CharacterId,
   GameState,
@@ -21,7 +22,7 @@ export function incidentFailureReasons(
   }
 
   const reasons: IncidentFailureReason[] = [];
-  if (!position.alive) reasons.push("culpritDead");
+  if (!isCharacterAlive(position)) reasons.push("culpritDead");
   if (counters.paranoia < characterDataOf(culprit).paranoiaLimit) {
     reasons.push("insufficientParanoia");
   }

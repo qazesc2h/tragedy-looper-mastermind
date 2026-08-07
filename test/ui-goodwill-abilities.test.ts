@@ -16,6 +16,7 @@ import type {
   PlacedCard,
   Scenario,
 } from "../src/types";
+import { setBoardLife, setBoardLocation } from "./helpers";
 
 function createState(characters: readonly CharacterId[]): GameState {
   const scenario: Scenario = {
@@ -98,21 +99,21 @@ describe("structured goodwill ability UI", () => {
     ]);
     unlock(state, "officeWorker", 3);
     unlock(state, "boyStudent", 2);
-    state.loop.board.officeWorker.alive = false;
-    state.loop.board.boyStudent.alive = false;
+    setBoardLife(state.loop, "officeWorker", false);
+    setBoardLife(state.loop, "boyStudent", false);
 
     const views = goodwillAbilityViews(state);
 
     expect(views.find(({ character }) => character === "officeWorker"))
       .toMatchObject({
         disabledReason: "dead",
-        disabledDiagnostic: "alive=false",
+        disabledDiagnostic: "status=dead",
         targetRequired: false,
       });
     expect(views.find(({ character }) => character === "boyStudent"))
       .toMatchObject({
         disabledReason: "dead",
-        disabledDiagnostic: "alive=false",
+        disabledDiagnostic: "status=dead",
         targetRequired: true,
       });
   });
@@ -135,7 +136,7 @@ describe("structured goodwill ability UI", () => {
       { kind: "character", id: "boyStudent" },
     ]);
 
-    state.loop.board.girlStudent.at = "City";
+    setBoardLocation(state.loop, "girlStudent", "City");
     const unavailableBoy = goodwillAbilityViews(state).find(
       ({ character }) => character === "boyStudent",
     );
@@ -166,7 +167,7 @@ describe("structured goodwill ability UI", () => {
       id: "doctor",
     });
 
-    state.loop.board.patient.alive = false;
+    setBoardLife(state.loop, "patient", false);
     expect(
       goodwillAbilityViews(state).find(
         ({ character, schema }) => character === "doctor" && schema.rank === 2,
@@ -176,7 +177,7 @@ describe("structured goodwill ability UI", () => {
 
   it("lets richStudent target self but excludes popIdol from her own rank-4 targets", () => {
     const state = createState(["richStudent", "popIdol"]);
-    state.loop.board.popIdol.at = "School";
+    setBoardLocation(state.loop, "popIdol", "School");
     unlock(state, "richStudent", 3);
     unlock(state, "popIdol", 4);
 
@@ -198,7 +199,7 @@ describe("structured goodwill ability UI", () => {
       { kind: "character", id: "richStudent" },
     ]);
 
-    state.loop.board.richStudent.at = "Shrine";
+    setBoardLocation(state.loop, "richStudent", "Shrine");
     expect(
       goodwillAbilityViews(state).find(
         ({ character }) => character === "richStudent",
@@ -265,7 +266,7 @@ describe("structured goodwill ability UI", () => {
       "girlStudent",
     ]);
     for (const character of Object.keys(state.loop.board)) {
-      state.loop.board[character].at = "City";
+      setBoardLocation(state.loop, character, "City");
     }
     unlock(state, "boss", 5);
     unlock(state, "forensicSpecialist", 2);
@@ -299,7 +300,7 @@ describe("structured goodwill ability UI", () => {
       schema: { rank: 3 },
     });
 
-    state.loop.board.shrineMaiden.at = "City";
+    setBoardLocation(state.loop, "shrineMaiden", "City");
     expect(goodwillAbilityViews(state)[0]).toMatchObject({
       disabledReason: "restrictedLocation",
       disabledDiagnostic: 'at=City, allowed=["Shrine"]',

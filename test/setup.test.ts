@@ -5,6 +5,7 @@ import {
   loadBasicTragedyScenarios,
 } from "../src/data";
 import { initLoop } from "../src/engine/setup";
+import { boardIsAlive, boardLocation } from "./helpers";
 
 const scenarios = loadBasicTragedyScenarios({
   // 복수 시작 장소는 테스트 호출자도 반드시 명시한다. initLoop가 고르지 않는다.
@@ -45,9 +46,9 @@ describe("basic tragedy setup", () => {
       expect(loop.placed).toEqual([]);
 
       for (const character of Object.keys(scenario.cast)) {
-        expect(loop.board[character].alive).toBe(true);
+        expect(boardIsAlive(loop, character)).toBe(true);
         expect(characterDataOf(character).startLocation).toContain(
-          loop.board[character].at,
+          boardLocation(loop, character),
         );
         expect(loop.charCounters[character]).toEqual({
           goodwill: 0,

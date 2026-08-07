@@ -15,6 +15,7 @@ import {
 } from "../src/engine/game";
 import { setOptionalLossActivation } from "../src/engine/loss";
 import { effectiveRole, type GameState, type Scenario } from "../src/types";
+import { boardIsAlive, setBoardLife } from "./helpers";
 
 function scenario(overrides: Partial<Scenario> = {}): Scenario {
   return {
@@ -278,7 +279,7 @@ describe("immediate loop interruption and judgment", () => {
     startRound(state);
     expect(state.loop.phase).toBe("P2_MASTERMIND_ACTION");
 
-    state.loop.board.boyStudent.alive = false;
+    setBoardLife(state.loop, "boyStudent", false);
     expect(settleGameFlow(state)).toBeUndefined();
     expect(state.loop.pendingImmediateLossKeys).toBeUndefined();
     expect(state.gamePhase).toBe("ROUND");
@@ -306,9 +307,9 @@ describe("immediate loop interruption and judgment", () => {
     }));
     startRound(state);
 
-    state.loop.board.boyStudent.alive = false;
+    setBoardLife(state.loop, "boyStudent", false);
     expect(settleGameFlow(state)).toBeUndefined();
-    state.loop.board.boyStudent.alive = true;
+    setBoardLife(state.loop, "boyStudent", true);
     expect(settleGameFlow(state)).toBeUndefined();
     expect(state.loop.pendingImmediateLossKeys).toBeUndefined();
 
@@ -323,7 +324,7 @@ describe("immediate loop interruption and judgment", () => {
       cast: { boyStudent: "keyPerson", boss: "person" },
     }));
     startRound(state);
-    state.loop.board.boyStudent.alive = false;
+    setBoardLife(state.loop, "boyStudent", false);
 
     expect(killCharacter(state, "boss")).toBe(true);
     expect(state.loop.pendingImmediateLossKeys).toBeUndefined();
@@ -517,7 +518,7 @@ describe("final guess", () => {
 
     expect(state.gamePhase).toBe("FINAL_GUESS");
     expect(state.loop.charCounters.boyStudent.paranoia).toBe(0);
-    expect(state.loop.board.boyStudent.alive).toBe(true);
+    expect(boardIsAlive(state.loop, "boyStudent")).toBe(true);
     expect(effectiveRole(state, "boyStudent")).toBe("person");
     expect(submitFinalGuess(state, "boyStudent", "person").correct).toBe(true);
   });

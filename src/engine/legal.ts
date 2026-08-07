@@ -1,3 +1,4 @@
+import { isCharacterPresent } from "../types";
 import type { GameState, PlacedCard, Target } from "../types";
 
 export interface LegalResult {
@@ -65,7 +66,18 @@ export function validatePlacement(
 
   if (
     placement.target.kind === "character" &&
-    state.loop.board[placement.target.id]?.alive === false
+    state.loop.board[placement.target.id] !== undefined &&
+    !isCharacterPresent(state.loop.board[placement.target.id])
+  ) {
+    return {
+      ok: false,
+      reason: "게임판에 없는 캐릭터에게는 행동 카드를 놓을 수 없습니다.",
+    };
+  }
+
+  if (
+    placement.target.kind === "character" &&
+    state.loop.board[placement.target.id]?.status === "dead"
   ) {
     return {
       ok: false,

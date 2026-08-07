@@ -4,6 +4,8 @@ import { PLOT_IMPL } from "../impl/plots";
 import { effectiveAbilityRoles, ROLE_IMPL } from "../impl/roles";
 import {
   effectiveRole,
+  isCharacterAlive,
+  isCharacterDead,
   resolvePlaceX,
   type CharacterId,
   type GameState,
@@ -324,7 +326,7 @@ function roleLossDistance(
     }
 
     if (role === "keyPerson" && hookIndex === 0) {
-      const current = state.loop.board[character].alive ? 0 : 1;
+      const current = isCharacterDead(state.loop.board[character]) ? 1 : 0;
       out.push(distance({
         id: role,
         key: roleKey(role, character),
@@ -380,7 +382,7 @@ function roleLossDistance(
     }
 
     if (role === "friend" && hookIndex === 0) {
-      const current = state.loop.board[character].alive ? 0 : 1;
+      const current = isCharacterDead(state.loop.board[character]) ? 1 : 0;
       out.push(distance({
         id: role,
         key: roleKey(role, character),
@@ -477,7 +479,7 @@ function incidentLossDistance(
   const culpritPosition = state.loop.board[scheduled.culprit];
   const culpritCounters = state.loop.charCounters[scheduled.culprit];
   const paranoiaNeeded = characterDataOf(scheduled.culprit).paranoiaLimit;
-  const alive = culpritPosition.alive ? 1 : 0;
+  const alive = isCharacterAlive(culpritPosition) ? 1 : 0;
   const paranoia = culpritCounters.paranoia;
   const hospitalIntrigue = state.loop.locIntrigue.Hospital;
   const label = `${scheduled.day}일 ${impl.ko}: ` +

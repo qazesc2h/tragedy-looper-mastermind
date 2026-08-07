@@ -161,18 +161,25 @@ describe("UI localStorage snapshots", () => {
     expect(storage.getItem(TRACKER_STORAGE_KEY)).toBeNull();
   });
 
-  it("discards the whole save instead of partially restoring malformed data", () => {
+  it("discards the whole save when the board uses the retired alive format", () => {
     const storage = new MemoryStorage();
     const validDefaults = storedGameDefaults("basicTragedy:1");
     if (validDefaults === undefined) {
       throw new Error("missing test defaults");
     }
+    const legacyState = structuredClone(validDefaults.state);
+    const legacyLoop = {
+      ...legacyState.loop,
+      board: { boyStudent: { at: "School", alive: true } },
+    };
     storage.setItem(TRACKER_STORAGE_KEY, JSON.stringify({
       activeScenarioId: "basicTragedy:1",
       mastermindOverlay: true,
       games: {
-        "basicTragedy:1": validDefaults,
-        unknownScenario: { malformed: true },
+        "basicTragedy:1": {
+          ...validDefaults,
+          state: { ...legacyState, loop: legacyLoop },
+        },
       },
     }));
 

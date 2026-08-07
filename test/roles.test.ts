@@ -22,6 +22,12 @@ import type {
   Target,
 } from "../src/types";
 import { effectiveRole, resolvePlaceX } from "../src/types";
+import {
+  boardIsAlive,
+  boardLocation,
+  setBoardLife,
+  setBoardLocation,
+} from "./helpers";
 
 const KEY_PERSON = "boyStudent";
 const KILLER = "girlStudent";
@@ -50,10 +56,10 @@ function createState(): GameState {
     daysPerLoop: 3,
   };
   const loop = initLoop(scenario);
-  loop.board[KEY_PERSON].at = "City";
-  loop.board[KILLER].at = "City";
-  loop.board[BRAIN].at = "City";
-  loop.board[CULTIST].at = "City";
+  setBoardLocation(loop, KEY_PERSON, "City");
+  setBoardLocation(loop, KILLER, "City");
+  setBoardLocation(loop, BRAIN, "City");
+  setBoardLocation(loop, CULTIST, "City");
   return { scenario, gamePhase: "ROUND", loop, history: [], loopOutcomes: [] };
 }
 
@@ -69,7 +75,7 @@ function createRoleState(cast: Scenario["cast"]): GameState {
   };
   const loop = initLoop(scenario);
   for (const character of Object.keys(loop.board)) {
-    loop.board[character].at = "City";
+    setBoardLocation(loop, character, "City");
   }
   return { scenario, gamePhase: "ROUND", loop, history: [], loopOutcomes: [] };
 }
@@ -106,14 +112,14 @@ describe("keyPerson", () => {
 
   it("ends the loop when this character is dead", () => {
     const state = createState();
-    state.loop.board[KEY_PERSON].alive = false;
+    setBoardLife(state.loop, KEY_PERSON, false);
     state.loop.charCounters[KEY_PERSON].intrigue = 3;
 
     expect(targetHook.when(state, KEY_PERSON)).toBe(true);
     applyIfEligible(targetHook, state, KEY_PERSON);
 
     expect(state.history).toHaveLength(1);
-    expect(state.history[0].board[KEY_PERSON].alive).toBe(false);
+    expect(boardIsAlive(state.history[0], KEY_PERSON)).toBe(false);
     expect(state.loop.charCounters[KEY_PERSON].intrigue).toBe(3);
   });
 
@@ -138,7 +144,7 @@ describe("killer / kill keyPerson", () => {
     expect(targetHook.when(state, KILLER)).toBe(true);
     applyIfEligible(targetHook, state, KILLER);
 
-    expect(state.loop.board[KEY_PERSON].alive).toBe(false);
+    expect(boardIsAlive(state.loop, KEY_PERSON)).toBe(false);
     expect(state.loop.charCounters[KEY_PERSON]).toMatchObject({
       goodwill: 1,
       intrigue: 2,
@@ -152,24 +158,24 @@ describe("killer / kill keyPerson", () => {
     expect(targetHook.when(state, KILLER)).toBe(false);
     applyIfEligible(targetHook, state, KILLER);
 
-    expect(state.loop.board[KEY_PERSON].alive).toBe(true);
+    expect(boardIsAlive(state.loop, KEY_PERSON)).toBe(true);
   });
 
   it("does not kill a keyPerson in another location", () => {
     const state = createState();
     state.loop.charCounters[KEY_PERSON].intrigue = 2;
-    state.loop.board[KEY_PERSON].at = "School";
+    setBoardLocation(state.loop, KEY_PERSON, "School");
 
     expect(targetHook.when(state, KILLER)).toBe(false);
     applyIfEligible(targetHook, state, KILLER);
 
-    expect(state.loop.board[KEY_PERSON].alive).toBe(true);
+    expect(boardIsAlive(state.loop, KEY_PERSON)).toBe(true);
   });
 
   it("does not target a dead keyPerson", () => {
     const state = createState();
     state.loop.charCounters[KEY_PERSON].intrigue = 2;
-    state.loop.board[KEY_PERSON].alive = false;
+    setBoardLife(state.loop, KEY_PERSON, false);
 
     expect(targetHook.when(state, KILLER)).toBe(false);
   });
@@ -225,7 +231,7 @@ describe("brain", () => {
 
   it("does not allow a character in another location as the target", () => {
     const state = createState();
-    state.loop.board[KEY_PERSON].at = "School";
+    setBoardLocation(state.loop, KEY_PERSON, "School");
 
     expect(() => targetHook.effect(state, BRAIN, {
       kind: "character",
@@ -291,7 +297,7 @@ describe("cultist", () => {
 
   it("does not ignore forbid intrigue outside this location", () => {
     const state = createState();
-    state.loop.board[KEY_PERSON].at = "School";
+    setBoardLocation(state.loop, KEY_PERSON, "School");
     state.loop.placed = [
       {
         owner: 0,
@@ -380,7 +386,7 @@ describe("cultist", () => {
     targetHook.effect(state, CULTIST);
     resolveActions(state);
 
-    expect(state.loop.board[CULTIST].at).toBe("Hospital");
+    expect(boardLocation(state.loop, CULTIST)).toBe("Hospital");
     expect(state.loop.locIntrigue.Hospital).toBe(1);
     expect(state.loop.cultistsIgnoringForbidIntrigue).toBeUndefined();
   });
@@ -503,7 +509,7 @@ describe("conspiracyTheorist", () => {
       [CONSPIRACY_THEORIST]: "conspiracyTheorist",
       [KEY_PERSON]: "person",
     });
-    state.loop.board[KEY_PERSON].at = "School";
+    setBoardLocation(state.loop, KEY_PERSON, "School");
 
     expect(() => targetHook.effect(state, CONSPIRACY_THEORIST, {
       kind: "character",
@@ -533,13 +539,13 @@ describe("serialKiller", () => {
       [KEY_PERSON]: "person",
       [BRAIN]: "person",
     });
-    state.loop.board[BRAIN].alive = false;
+    setBoardLife(state.loop, BRAIN, false);
     state.loop.charCounters[KEY_PERSON].intrigue = 2;
 
     expect(targetHook.when(state, KILLER)).toBe(true);
     applyIfEligible(targetHook, state, KILLER);
 
-    expect(state.loop.board[KEY_PERSON].alive).toBe(false);
+    expect(boardIsAlive(state.loop, KEY_PERSON)).toBe(false);
     expect(state.loop.charCounters[KEY_PERSON].intrigue).toBe(2);
   });
 
@@ -553,8 +559,8 @@ describe("serialKiller", () => {
     expect(targetHook.when(state, KILLER)).toBe(false);
     resolveHooks(state, "P9_ROUND_END");
 
-    expect(state.loop.board[KEY_PERSON].alive).toBe(true);
-    expect(state.loop.board[BRAIN].alive).toBe(true);
+    expect(boardIsAlive(state.loop, KEY_PERSON)).toBe(true);
+    expect(boardIsAlive(state.loop, BRAIN)).toBe(true);
   });
 
   it("kills both serial killers after simultaneous target resolution", () => {
@@ -565,8 +571,8 @@ describe("serialKiller", () => {
 
     resolveHooks(state, "P9_ROUND_END");
 
-    expect(state.loop.board[KILLER].alive).toBe(false);
-    expect(state.loop.board[KEY_PERSON].alive).toBe(false);
+    expect(boardIsAlive(state.loop, KILLER)).toBe(false);
+    expect(boardIsAlive(state.loop, KEY_PERSON)).toBe(false);
   });
 
   it("cannot kill an immortal timeTraveler or remove its protection", () => {
@@ -578,7 +584,7 @@ describe("serialKiller", () => {
 
     resolveHooks(state, "P9_ROUND_END");
 
-    expect(state.loop.board[TIME_TRAVELER].alive).toBe(true);
+    expect(boardIsAlive(state.loop, TIME_TRAVELER)).toBe(true);
     expect(state.loop.charCounters[TIME_TRAVELER].protection).toBe(1);
   });
 });
@@ -589,7 +595,7 @@ describe("character death and revival", () => {
     state.loop.charCounters[KEY_PERSON].protection = 1;
 
     expect(killCharacter(state, KEY_PERSON)).toBe(false);
-    expect(state.loop.board[KEY_PERSON].alive).toBe(true);
+    expect(boardIsAlive(state.loop, KEY_PERSON)).toBe(true);
     expect(state.loop.charCounters[KEY_PERSON].protection).toBe(0);
   });
 
@@ -597,9 +603,9 @@ describe("character death and revival", () => {
     const state = createRoleState({ [KEY_PERSON]: "person" });
 
     expect(killCharacter(state, KEY_PERSON)).toBe(true);
-    expect(state.loop.board[KEY_PERSON].alive).toBe(false);
+    expect(boardIsAlive(state.loop, KEY_PERSON)).toBe(false);
     expect(reviveCharacter(state, KEY_PERSON)).toBe(true);
-    expect(state.loop.board[KEY_PERSON].alive).toBe(true);
+    expect(boardIsAlive(state.loop, KEY_PERSON)).toBe(true);
     expect(reviveCharacter(state, KEY_PERSON)).toBe(false);
   });
 });
@@ -633,13 +639,13 @@ describe("friend / reveal role", () => {
 
   it("reveals the role when this card is dead", () => {
     const state = createRoleState({ [FRIEND]: "friend" });
-    state.loop.board[FRIEND].alive = false;
+    setBoardLife(state.loop, FRIEND, false);
 
     expect(revealHook.when(state, FRIEND)).toBe(true);
     applyIfEligible(revealHook, state, FRIEND);
 
     expect(state.loop.revealedRoleCharacters).toEqual([FRIEND]);
-    expect(state.loop.board[FRIEND].alive).toBe(false);
+    expect(boardIsAlive(state.loop, FRIEND)).toBe(false);
   });
 
   it("does not reveal the role while this card is alive", () => {
@@ -657,7 +663,7 @@ describe("friend / revealed role bonus", () => {
 
   it("adds 1 goodwill in a later loop after the role was revealed", () => {
     const state = createRoleState({ [FRIEND]: "friend" });
-    state.loop.board[FRIEND].alive = false;
+    setBoardLife(state.loop, FRIEND, false);
 
     endLoop(state);
     state.loop = initLoop(state.scenario);
@@ -732,7 +738,7 @@ describe("lover / lovedOne death reactions", () => {
 
     expect(killCharacter(state, LOVED_ONE)).toBe(false);
 
-    expect(state.loop.board[LOVED_ONE].alive).toBe(true);
+    expect(boardIsAlive(state.loop, LOVED_ONE)).toBe(true);
     expect(state.loop.charCounters[LOVED_ONE].protection).toBe(0);
     expect(state.loop.charCounters[LOVER].paranoia).toBe(0);
   });
@@ -793,11 +799,11 @@ describe("lover / lovedOne death reactions", () => {
       [LOVER]: "lover",
       [LOVED_ONE]: "lovedOne",
     });
-    state.loop.board[LOVER].at = "School";
+    setBoardLocation(state.loop, LOVER, "School");
 
     resolveHooks(state, "P9_ROUND_END");
 
-    expect(state.loop.board[LOVED_ONE].alive).toBe(false);
+    expect(boardIsAlive(state.loop, LOVED_ONE)).toBe(false);
     expect(state.loop.charCounters[LOVER].paranoia).toBe(6);
   });
 });
@@ -876,7 +882,7 @@ describe("factor / gained abilities", () => {
     settleGameFlow(state);
 
     expect(state.history).toHaveLength(1);
-    expect(state.history[0].board[FACTOR].alive).toBe(false);
+    expect(boardIsAlive(state.history[0], FACTOR)).toBe(false);
   });
 
   it("does not gain the keyPerson ability at 1 City intrigue", () => {
