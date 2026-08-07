@@ -66,9 +66,16 @@ try {
     chrome,
     [
       "--headless=new",
+      "--disable-background-networking",
+      "--disable-component-update",
+      "--disable-default-apps",
+      "--disable-extensions",
       "--disable-gpu",
+      "--disable-sync",
+      "--metrics-recording-only",
       "--no-first-run",
       "--no-default-browser-check",
+      "--no-service-autorun",
       `--user-data-dir=${profile}`,
       "--window-size=1280,1000",
       "--virtual-time-budget=20000",
@@ -79,17 +86,26 @@ try {
   );
 
   const output = `${browser.stdout ?? ""}\n${browser.stderr ?? ""}`;
+  const layoutPassed = browser.stdout?.includes('data-layout-result="pass"') &&
+    browser.stdout.includes("PASS");
+  const timedOutAfterResult = browser.error &&
+    "code" in browser.error && browser.error.code === "ETIMEDOUT" &&
+    layoutPassed;
   if (
-    browser.error || browser.status !== 0 ||
-    !browser.stdout?.includes('data-layout-result="pass"') ||
-    !browser.stdout.includes("PASS")
+    !layoutPassed ||
+    (browser.error && !timedOutAfterResult) ||
+    (browser.status !== 0 && browser.status !== null)
   ) {
     throw new Error(
       `390px 모바일 레이아웃 검사가 실패했습니다.\n${output}`,
       browser.error ? { cause: browser.error } : undefined,
     );
   }
-  process.stdout.write("390px 실제 브라우저 레이아웃 검사 통과\n");
+  process.stdout.write(
+    timedOutAfterResult
+      ? "390px 실제 브라우저 레이아웃 검사 통과 (결과 출력 후 Chrome 강제 종료)\n"
+      : "390px 실제 브라우저 레이아웃 검사 통과\n",
+  );
 } finally {
   vite.kill("SIGTERM");
   rmSync(profile, { recursive: true, force: true });

@@ -2056,7 +2056,7 @@ function renderLoopJudgment(state: GameState): string {
   const finalLoop = state.loop.loop >= state.scenario.loops;
   return `<main class="game-flow-screen">
     <section class="flow-card">
-      <span class="eyebrow">Loop Judgment</span>
+      <span class="eyebrow">${escapeHtml(misc("Loop Judgment"))}</span>
       <h1>${state.loop.loop}루프 — 주인공 패배</h1>
       <p>승패 판정을 완료했고 루프 종료 스냅샷을 기록했습니다.</p>
       ${renderLoopOutcomes(state)}
@@ -2073,7 +2073,7 @@ function renderGameOver(state: GameState): string {
   const protagonistsWon = state.result?.winner === "protagonists";
   return `<main class="game-flow-screen">
     <section class="flow-card game-over-card ${protagonistsWon ? "is-protagonist-win" : "is-mastermind-win"}">
-      <span class="eyebrow">Game Over</span>
+      <span class="eyebrow">${escapeHtml(misc("Game Over"))}</span>
       <h1>${protagonistsWon ? "주인공 승리" : "각본가 승리"}</h1>
       ${state.finalGuess ? renderFinalGuessAttempts(state) : ""}
       <div class="outcome-summary">
@@ -2093,7 +2093,7 @@ function renderGameFlow(state: GameState): string {
       return `<main class="game-flow-screen">
         ${renderProgressSteps(["시나리오 준비", "시나리오 공개", "무대 구축", "리더 결정"], 3, 3)}
         <section class="flow-card">
-          <span class="eyebrow">Game Setup</span>
+          <span class="eyebrow">${escapeHtml(misc("Game Setup"))}</span>
           <h1>초기 리더 결정</h1>
           <p>리더는 게임 준비에서 한 번만 정하고 이후 루프에도 유지합니다.</p>
           <div class="leader-choice">${([0, 1, 2] as const).map((leader) => `

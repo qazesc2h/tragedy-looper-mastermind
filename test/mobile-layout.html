@@ -15,6 +15,7 @@
     <pre id="result">실제 브라우저 렌더 대기 중</pre>
     <script type="module">
       import { characterChipLayoutViolations } from "/src/ui/mobile-layout-check.ts";
+      import { misc } from "/src/ui/terms.ts";
 
       const WIDTH = 390;
       const HEIGHT = 844;
@@ -190,16 +191,33 @@
           () => frameDocument().querySelector(".notice-toast"),
           "상태 복사 토스트",
         );
+        const toastMessage = toast.querySelector("span");
+        if (!toastMessage) throw new Error("토스트 문구 영역을 찾을 수 없습니다.");
+        toastMessage.textContent = misc("It is not this player's turn");
+        await pause();
         const toastRect = toast.getBoundingClientRect();
         const liveDockRect = frameDocument().querySelector(".operation-dock-bar")
           .getBoundingClientRect();
         const toastReport = {
+          message: toastMessage.textContent,
           toast: { top: toastRect.top, bottom: toastRect.bottom },
           dock: { top: liveDockRect.top, bottom: liveDockRect.bottom },
+          horizontal: {
+            left: toastRect.left,
+            right: toastRect.right,
+            clientWidth: toast.clientWidth,
+            scrollWidth: toast.scrollWidth,
+          },
         };
         reports.push({ label: "토스트와 조작 독", ...toastReport });
         if (toastRect.bottom > liveDockRect.top + 0.5) {
           failures.push(`토스트가 조작 독을 가림: ${JSON.stringify(toastReport)}`);
+        }
+        if (
+          toastRect.left < -0.5 || toastRect.right > WIDTH + 0.5 ||
+          toast.scrollWidth > toast.clientWidth + 0.5
+        ) {
+          failures.push(`긴 토스트 문구 가로 넘침: ${JSON.stringify(toastReport)}`);
         }
         frameDocument().querySelector("[data-action='dismiss-notice']")?.click();
         await pause();

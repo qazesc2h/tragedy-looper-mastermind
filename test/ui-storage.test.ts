@@ -220,10 +220,10 @@ describe("UI localStorage snapshots", () => {
 });
 
 describe("UI terminology", () => {
-  it("uses ko-terms and leaves missing terms in English", () => {
+  it("uses ko-terms and the approved local UI fallback", () => {
     expect(term("characters", "boyStudent", "Boy Student")).toBe("남학생");
     expect(misc("Mastermind")).toBe("각본가");
-    expect(misc("Next phase", "Next phase")).toBe("Next phase");
+    expect(misc("Next phase", "Next phase")).toBe("다음 단계");
   });
 
   it("uses card translations and resolves preserved icon tokens", () => {
