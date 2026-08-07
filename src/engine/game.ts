@@ -129,6 +129,7 @@ export function finishLoop(state: GameState): LoopOutcome {
 
   delete state.loop.optionalLossActivations;
   delete state.loop.roundEndMandatoryResolved;
+  delete state.loop.pendingImmediateLossKeys;
   delete state.pendingLoopEnd;
   delete state.timeGapTimer;
 
@@ -156,14 +157,12 @@ export function finishLoop(state: GameState): LoopOutcome {
 export function settleGameFlow(state: GameState): LoopOutcome | undefined {
   if (state.gamePhase !== "ROUND") return undefined;
 
-  const immediate = evaluateLoss(state).filter(
-    (condition) => condition.timing === "immediate" && condition.activated,
-  );
-  if (immediate.length > 0) {
+  const immediateLossKeys = state.loop.pendingImmediateLossKeys ?? [];
+  if (immediateLossKeys.length > 0) {
     requestLoopEnd(
       state,
       "effect",
-      immediate.map(({ key }) => key),
+      immediateLossKeys,
     );
   }
 

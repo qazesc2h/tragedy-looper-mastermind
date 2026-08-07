@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { killCharacter, withDeathBatch } from "../src/engine/death";
 import {
   advanceGame,
   chooseInitialLeader,
@@ -189,8 +190,10 @@ describe("immediate loop interruption and judgment", () => {
     }));
     startRound(state);
     state.loop.phase = "P7_INCIDENT";
-    state.loop.board.boyStudent.alive = false;
-    state.loop.board.boss.alive = false;
+    withDeathBatch(state, () => {
+      expect(killCharacter(state, "boyStudent")).toBe(true);
+      expect(killCharacter(state, "boss")).toBe(true);
+    });
 
     settleGameFlow(state);
 
@@ -208,6 +211,81 @@ describe("immediate loop interruption and judgment", () => {
     settleGameFlow(state);
     expect(state.history).toHaveLength(1);
     expect(state.loopOutcomes).toHaveLength(1);
+  });
+
+  it("keeps a manual keyPerson death deferred through P2, P3, and P4 until P9", () => {
+    const state = createGameState(scenario({
+      cast: { boyStudent: "keyPerson" },
+    }));
+    startRound(state);
+    expect(state.loop.phase).toBe("P2_MASTERMIND_ACTION");
+
+    state.loop.board.boyStudent.alive = false;
+    expect(settleGameFlow(state)).toBeUndefined();
+    expect(state.loop.pendingImmediateLossKeys).toBeUndefined();
+    expect(state.gamePhase).toBe("ROUND");
+
+    advanceGame(state);
+    expect(state.loop.phase).toBe("P3_PROTAGONIST_ACTION");
+    expect(state.gamePhase).toBe("ROUND");
+    advanceGame(state);
+    expect(state.loop.phase).toBe("P4_RESOLVE");
+    expect(state.gamePhase).toBe("ROUND");
+    advanceGame(state);
+    expect(state.gamePhase).toBe("ROUND");
+
+    state.loop.phase = "P9_ROUND_END";
+    advanceGame(state);
+    expect(state.gamePhase).toBe("LOOP_JUDGMENT");
+    expect(state.loopOutcomes[0].losses).toContainEqual(
+      expect.objectContaining({ id: "keyPerson" }),
+    );
+  });
+
+  it("does not retain an immediate loss after a manual death is corrected", () => {
+    const state = createGameState(scenario({
+      cast: { boyStudent: "keyPerson" },
+    }));
+    startRound(state);
+
+    state.loop.board.boyStudent.alive = false;
+    expect(settleGameFlow(state)).toBeUndefined();
+    state.loop.board.boyStudent.alive = true;
+    expect(settleGameFlow(state)).toBeUndefined();
+    expect(state.loop.pendingImmediateLossKeys).toBeUndefined();
+
+    state.loop.phase = "P9_ROUND_END";
+    advanceGame(state);
+    expect(state.gamePhase).toBe("ROUND");
+    expect(state.loop.day).toBe(2);
+  });
+
+  it("does not promote a prior manual death when an unrelated character dies", () => {
+    const state = createGameState(scenario({
+      cast: { boyStudent: "keyPerson", boss: "person" },
+    }));
+    startRound(state);
+    state.loop.board.boyStudent.alive = false;
+
+    expect(killCharacter(state, "boss")).toBe(true);
+    expect(state.loop.pendingImmediateLossKeys).toBeUndefined();
+    expect(settleGameFlow(state)).toBeUndefined();
+    expect(state.gamePhase).toBe("ROUND");
+  });
+
+  it("still ends immediately when killCharacter kills a keyPerson", () => {
+    const state = createGameState(scenario({
+      cast: { boyStudent: "keyPerson" },
+    }));
+    startRound(state);
+
+    expect(killCharacter(state, "boyStudent")).toBe(true);
+    expect(state.loop.pendingImmediateLossKeys).toEqual([
+      "role:keyPerson:boyStudent",
+    ]);
+    settleGameFlow(state);
+
+    expect(state.gamePhase).toBe("LOOP_JUDGMENT");
   });
 
   it("does not end when protagonist death is blocked", () => {

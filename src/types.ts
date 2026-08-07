@@ -295,6 +295,9 @@ export interface LoopState {
   /** P9의 동시 [강제] 효과를 판정·적용한 뒤 [선택] 입력을 기다리는 상태 */
   roundEndMandatoryResolved?: boolean;
 
+  /** 현재 정규 효과 묶음에서 새로 성립한 즉시 종료 조건 */
+  pendingImmediateLossKeys?: string[];
+
   /** 특수 게이지 (기본편 미사용, 확장 대비) */
   specialGauge?: number;
 }

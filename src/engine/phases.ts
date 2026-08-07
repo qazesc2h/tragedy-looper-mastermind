@@ -30,6 +30,38 @@ function requestEndForActivatedLosses(s: GameState): void {
   );
 }
 
+/** 현재 상태에서 실제로 성립한 즉시 종료 조건의 키를 반환한다. */
+export function activatedImmediateLossKeys(s: GameState): string[] {
+  return evaluateLoss(s)
+    .filter((condition) =>
+      condition.timing === "immediate" && condition.activated
+    )
+    .map(({ key }) => key);
+}
+
+/**
+ * 정규 효과 묶음 전후를 비교해 이번 묶음에서 새로 성립한 즉시 조건만 남긴다.
+ * 묶음 시작 전부터 성립한 수동 교정 상태는 즉시 종료 기록에 추가하지 않는다.
+ */
+export function reconcilePendingImmediateLosses(
+  s: GameState,
+  beforeKeys: readonly string[],
+): void {
+  const before = new Set(beforeKeys);
+  const after = new Set(activatedImmediateLossKeys(s));
+  const pending = new Set(
+    (s.loop.pendingImmediateLossKeys ?? []).filter((key) => after.has(key)),
+  );
+  for (const key of after) {
+    if (!before.has(key)) pending.add(key);
+  }
+  if (pending.size === 0) {
+    delete s.loop.pendingImmediateLossKeys;
+    return;
+  }
+  s.loop.pendingImmediateLossKeys = [...pending];
+}
+
 /** 지금 이 시점에 걸리는 모든 훅을 모은다. */
 export function collectHooks(s: GameState, at: HookPoint): {
   self: string; hook: Hook;
@@ -90,8 +122,9 @@ export function advance(
   if (s.gamePhase !== "ROUND") {
     throw new Error(`round phase cannot advance during ${s.gamePhase}`);
   }
-  requestEndForActivatedLosses(s);
-  if (s.pendingLoopEnd) return undefined;
+  if (s.pendingLoopEnd || (s.loop.pendingImmediateLossKeys?.length ?? 0) > 0) {
+    return undefined;
+  }
 
   let incidentResult: IncidentResult | undefined;
   switch (s.loop.phase) {
@@ -166,8 +199,9 @@ export function advance(
       return undefined;
   }
 
-  requestEndForActivatedLosses(s);
-  if (s.pendingLoopEnd) return incidentResult;
+  if (s.pendingLoopEnd || (s.loop.pendingImmediateLossKeys?.length ?? 0) > 0) {
+    return incidentResult;
+  }
 
   const i = PHASE_ORDER.indexOf(s.loop.phase as Phase);
   s.loop.phase = PHASE_ORDER[i + 1];

@@ -288,7 +288,10 @@ describe("hospitalIncident", () => {
     advance(state);
 
     expect(state.loop.charCounters[lovedOne].paranoia).toBe(6);
-    expect(state.pendingLoopEnd).toBeDefined();
+    expect(state.pendingLoopEnd).toBeUndefined();
+    expect(state.loop.pendingImmediateLossKeys).toEqual([
+      `role:keyPerson:${OTHER}`,
+    ]);
 
     settleGameFlow(state);
 

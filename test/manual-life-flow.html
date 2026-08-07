@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <title>수동 생사 교정 UI 흐름 검사</title>
+  </head>
+  <body>
+    <iframe id="app-frame" title="수동 생사 교정 앱"></iframe>
+    <pre id="result">실제 UI 흐름 검사 대기 중</pre>
+    <script type="module">
+      const STORAGE_KEYS = [
+        "tragedy-looper-mastermind:tracker",
+        "tragedy-looper:tracker:v1",
+        "tragedy-looper-mastermind:tracker:v1",
+      ];
+      const frame = document.querySelector("#app-frame");
+      const result = document.querySelector("#result");
+      const originalStorage = new Map(
+        STORAGE_KEYS.map((key) => [key, window.localStorage.getItem(key)]),
+      );
+      const reports = [];
+      const failures = [];
+
+      function restoreStorage() {
+        for (const [key, value] of originalStorage) {
+          if (value === null) window.localStorage.removeItem(key);
+          else window.localStorage.setItem(key, value);
+        }
+      }
+
+      function clearStorage() {
+        for (const key of STORAGE_KEYS) window.localStorage.removeItem(key);
+      }
+
+      function pause(ms = 30) {
+        return new Promise((resolve) => window.setTimeout(resolve, ms));
+      }
+
+      async function waitFor(read, description, timeoutMs = 8_000) {
+        const startedAt = performance.now();
+        while (performance.now() - startedAt < timeoutMs) {
+          const value = read();
+          if (value) return value;
+          await pause();
+        }
+        throw new Error(`대기 시간 초과: ${description}`);
+      }
+
+      function frameDocument() {
+        const document = frame.contentDocument;
+        if (!document) throw new Error("iframe document를 읽을 수 없습니다.");
+        return document;
+      }
+
+      function frameWindow() {
+        const current = frame.contentWindow;
+        if (!current) throw new Error("iframe window를 읽을 수 없습니다.");
+        return current;
+      }
+
+      function click(selector) {
+        const element = frameDocument().querySelector(selector);
+        if (!(element instanceof frameWindow().HTMLElement)) {
+          throw new Error(`클릭 대상을 찾을 수 없습니다: ${selector}`);
+        }
+        element.click();
+      }
+
+      function currentPhase() {
+        return frameDocument().querySelector(".phase-step.is-current strong")
+          ?.textContent?.trim();
+      }
+
+      function judgmentTitle() {
+        return frameDocument().querySelector(".game-flow-screen h1")
+          ?.textContent?.trim();
+      }
+
+      function assert(condition, message) {
+        if (!condition) failures.push(message);
+      }
+
+      async function loadFreshApp(label) {
+        clearStorage();
+        const loaded = new Promise((resolve) => {
+          frame.addEventListener("load", resolve, { once: true });
+        });
+        frame.src = `/?manual-life-case=${encodeURIComponent(label)}`;
+        await loaded;
+        await waitFor(
+          () => frameDocument().querySelector("[data-action='choose-leader']"),
+          `${label} 리더 선택`,
+        );
+      }
+
+      async function enterRound() {
+        click("[data-action='choose-leader']");
+        await pause();
+        click("[data-action='continue-loop-start']");
+        await waitFor(
+          () => currentPhase() === "각본가 · 행동 단계",
+          "P2 각본가 행동 단계",
+        );
+      }
+
+      async function toggleShrineMaidenLife(expectedAction) {
+        click("[data-action='board-character'][data-character='shrineMaiden']");
+        await waitFor(
+          () => frameDocument().querySelector("[data-action='toggle-character-life']"),
+          `무녀 ${expectedAction} 토글`,
+        );
+        click("[data-action='toggle-character-life']");
+        await pause();
+      }
+
+      async function placeCards(targets) {
+        for (const target of targets) {
+          if (!frameDocument().querySelector(".operation-sheet")) {
+            click("[data-action='toggle-operation-sheet']");
+            await pause();
+          }
+          const card = await waitFor(
+            () => frameDocument().querySelector(
+              "[data-action='select-hand-card']:not([disabled])",
+            ),
+            "사용 가능한 행동 카드",
+          );
+          card.click();
+          await pause();
+          click(`[data-action='board-character'][data-character='${target}']`);
+          await pause();
+        }
+      }
+
+      async function advanceManualDeathToP9() {
+        await placeCards(["patient", "nurse", "policeOfficer"]);
+        click(".dock-primary[data-action='advance']");
+        await waitFor(
+          () => currentPhase() === "주인공 · 행동 단계",
+          "P3 주인공 행동 단계",
+        );
+        assert(!judgmentTitle(), "P3 전에 수동 사망으로 루프가 종료됨");
+
+        await placeCards(["boyStudent", "girlStudent", "classRep"]);
+        click(".dock-primary[data-action='advance']");
+        await waitFor(
+          () => currentPhase() === "행동 해결",
+          "P4 행동 해결",
+        );
+        assert(!judgmentTitle(), "P4 전에 수동 사망으로 루프가 종료됨");
+
+        click(".dock-primary[data-action='reveal-cards']");
+        await waitFor(
+          () => currentPhase() === "우호",
+          "P4 해결 뒤 P6",
+        );
+        assert(!judgmentTitle(), "P4 해결 중 수동 사망으로 루프가 종료됨");
+
+        click(".dock-primary[data-action='advance']");
+        await waitFor(
+          () => currentPhase() === "라운드 종료 단계",
+          "P9 라운드 종료 단계",
+        );
+        assert(!judgmentTitle(), "P9 판정 전에 수동 사망으로 루프가 종료됨");
+      }
+
+      async function runDeferredDeathCase() {
+        await loadFreshApp("deferred");
+        await enterRound();
+        await toggleShrineMaidenLife("사망");
+        assert(
+          currentPhase() === "각본가 · 행동 단계",
+          `수동 사망 직후 단계가 P2가 아님: ${currentPhase()}`,
+        );
+        assert(!judgmentTitle(), "수동 사망 직후 루프가 종료됨");
+        click("[data-action='close-character-modal']");
+        await pause();
+
+        await advanceManualDeathToP9();
+        click(".dock-primary[data-action='advance']");
+        await waitFor(
+          () => judgmentTitle(),
+          "P9 핵심 인물 패배 판정",
+        );
+        const title = judgmentTitle();
+        const lossText = frameDocument().querySelector(".loop-outcome")
+          ?.textContent ?? "";
+        assert(title === "1루프 — 주인공 패배", `P9 판정 제목: ${title}`);
+        assert(lossText.includes("핵심 인물"), `P9 패배 사유: ${lossText}`);
+        reports.push({ case: "manual-death", title, lossText: lossText.trim() });
+      }
+
+      async function runCorrectedLifeCase() {
+        await loadFreshApp("corrected");
+        await enterRound();
+        await toggleShrineMaidenLife("사망");
+        await toggleShrineMaidenLife("생존 복구");
+        assert(
+          currentPhase() === "각본가 · 행동 단계",
+          `생존 복구 직후 단계가 P2가 아님: ${currentPhase()}`,
+        );
+        click("[data-action='close-character-modal']");
+        await pause();
+
+        await advanceManualDeathToP9();
+        click(".dock-primary[data-action='advance']");
+        await waitFor(
+          () => currentPhase() === "각본가 · 행동 단계",
+          "생존 복구 뒤 다음 날 P2",
+        );
+        assert(!judgmentTitle(), "생존 복구 후 P9에서 패배 판정됨");
+        reports.push({
+          case: "manual-death-corrected",
+          phaseAfterP9: currentPhase(),
+        });
+      }
+
+      async function run() {
+        await runDeferredDeathCase();
+        await runCorrectedLifeCase();
+        restoreStorage();
+        const passed = failures.length === 0;
+        const report = { reports, failures };
+        window.manualLifeFlowReport = report;
+        document.documentElement.dataset.manualLifeResult = passed ? "pass" : "fail";
+        result.textContent = `${passed ? "PASS" : "FAIL"}\n${JSON.stringify(report, null, 2)}`;
+        if (!passed) {
+          throw new Error(`수동 생사 교정 UI 위반: ${JSON.stringify(failures)}`);
+        }
+      }
+
+      void run().catch((error) => {
+        restoreStorage();
+        document.documentElement.dataset.manualLifeResult = "fail";
+        failures.push(error instanceof Error ? error.message : String(error));
+        result.textContent = `FAIL\n${JSON.stringify({ reports, failures }, null, 2)}`;
+        console.error(error);
+      });
+    </script>
+  </body>
+</html>

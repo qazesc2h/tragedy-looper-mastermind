@@ -1,7 +1,11 @@
 import { effectiveRole } from "../types";
 import type { CharacterId, GameState } from "../types";
 import { requestLoopEnd } from "./flow";
-import { resolveHooks } from "./phases";
+import {
+  activatedImmediateLossKeys,
+  reconcilePendingImmediateLosses,
+  resolveHooks,
+} from "./phases";
 
 export interface ProtagonistDeathResult {
   died: boolean;
@@ -11,20 +15,22 @@ export interface ProtagonistDeathResult {
 interface DeathBatch {
   depth: number;
   deadCharacters: CharacterId[];
+  immediateLossKeysBefore: string[];
 }
 
 const deathBatches = new WeakMap<GameState, DeathBatch>();
 
 function closeDeathBatch(state: GameState, batch: DeathBatch): void {
   deathBatches.delete(state);
-  if (batch.deadCharacters.length === 0) return;
-
-  // 현재 배치를 먼저 닫아 ON_DEATH 효과가 새 사망을 만들면 별도 배치로
-  // 처리한다. 이미 죽은 캐릭터는 killCharacter가 거부하므로 재귀도 끝난다.
-  resolveHooks(state, "ON_DEATH", {
-    kind: "death",
-    deadCharacters: [...batch.deadCharacters],
-  });
+  if (batch.deadCharacters.length > 0) {
+    // 현재 배치를 먼저 닫아 ON_DEATH 효과가 새 사망을 만들면 별도 배치로
+    // 처리한다. 이미 죽은 캐릭터는 killCharacter가 거부하므로 재귀도 끝난다.
+    resolveHooks(state, "ON_DEATH", {
+      kind: "death",
+      deadCharacters: [...batch.deadCharacters],
+    });
+  }
+  reconcilePendingImmediateLosses(state, batch.immediateLossKeysBefore);
 }
 
 /**
@@ -39,7 +45,11 @@ export function withDeathBatch<T>(
 ): T {
   let batch = deathBatches.get(state);
   if (batch === undefined) {
-    batch = { depth: 0, deadCharacters: [] };
+    batch = {
+      depth: 0,
+      deadCharacters: [],
+      immediateLossKeysBefore: activatedImmediateLossKeys(state),
+    };
     deathBatches.set(state, batch);
   }
   batch.depth += 1;
