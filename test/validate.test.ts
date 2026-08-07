@@ -2,15 +2,19 @@ import { describe, expect, it } from "vitest";
 
 import {
   characterDataOf,
-  loadBasicTragedyScenarios,
 } from "../src/data";
 import { initLoop } from "../src/engine/setup";
 import { validateScenario } from "../src/engine/validate";
 import { PLOT_IMPL } from "../src/impl/plots";
 import { TRAIT_IMPL } from "../src/impl/traits";
+import {
+  assertOfficialScenariosValid,
+  loadBasicTragedyScenarioCatalog,
+} from "../src/scenario-catalog";
 import type { Scenario } from "../src/types";
 
-const scenarios = loadBasicTragedyScenarios({ skipValidation: true });
+const scenarioCatalog = loadBasicTragedyScenarioCatalog();
+const scenarios = scenarioCatalog.map(({ scenario }) => scenario);
 
 describe("validateScenario", () => {
   it("loads all 22 bundled basic tragedy scripts for validation", () => {
@@ -98,12 +102,6 @@ describe("validateScenario", () => {
         "참극 세트의 역할 중 현재 룰에서 추가되지 않는 역할을 배정해야 합니다.",
       ],
     }]);
-  });
-
-  it("keeps strict loading from accepting the invalid bundled assignment", () => {
-    expect(() => loadBasicTragedyScenarios()).toThrow(
-      "아웃사이더: 엑스트라 역할을 배정할 수 없습니다.",
-    );
   });
 
   it("rejects a non-girl keyPerson when signWithMe is active", () => {
@@ -208,6 +206,60 @@ describe("validateScenario", () => {
     };
 
     expect(validateScenario(scenario)).toEqual({ ok: true, errors: [] });
+  });
+});
+
+describe("bundled scenario source policy", () => {
+  it("classifies every bundled scenario exactly once", () => {
+    expect(scenarioCatalog).toHaveLength(22);
+    expect(new Set(scenarioCatalog.map(({ id }) => id)).size).toBe(22);
+    expect(scenarioCatalog.filter(({ source }) => source === "official"))
+      .toHaveLength(8);
+    expect(scenarioCatalog.filter(({ source }) => source === "community"))
+      .toHaveLength(5);
+    expect(scenarioCatalog.filter(({ source }) => source === "unknown"))
+      .toHaveLength(9);
+  });
+
+  it("passes validation for every bundled official scenario", () => {
+    expect(() => assertOfficialScenariosValid(scenarioCatalog)).not.toThrow();
+    for (const entry of scenarioCatalog.filter(
+      ({ source }) => source === "official",
+    )) {
+      expect(entry.validation, `${entry.id} ${entry.rawTitle}`).toEqual({
+        ok: true,
+        errors: [],
+      });
+    }
+  });
+
+  it("keeps the invalid fan scenario in the catalog but blocks its start", () => {
+    const trouble = scenarioCatalog.find(
+      ({ rawTitle }) => rawTitle === "Trouble in Paradise",
+    );
+    expect(trouble?.source).toBe("community");
+    expect(trouble?.validation).toEqual({
+      ok: false,
+      errors: [
+        "아웃사이더: 엑스트라 역할을 배정할 수 없습니다. " +
+        "참극 세트의 역할 중 현재 룰에서 추가되지 않는 역할을 배정해야 합니다.",
+      ],
+    });
+    expect(() => assertOfficialScenariosValid(scenarioCatalog)).not.toThrow();
+  });
+
+  it("fails the official gate if the same invalid scenario is marked official", () => {
+    const trouble = scenarioCatalog.find(
+      ({ rawTitle }) => rawTitle === "Trouble in Paradise",
+    );
+    if (trouble === undefined) throw new Error("missing Trouble in Paradise");
+
+    expect(() => assertOfficialScenariosValid([
+      { ...trouble, source: "official" },
+    ])).toThrow(
+      "basicTragedy:18 Trouble in Paradise: " +
+      "아웃사이더: 엑스트라 역할을 배정할 수 없습니다.",
+    );
   });
 });
 

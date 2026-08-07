@@ -1,0 +1,30 @@
+{
+  "official": [
+    "basicTragedy:1",
+    "basicTragedy:8",
+    "basicTragedy:9",
+    "basicTragedy:10",
+    "basicTragedy:11",
+    "basicTragedy:12",
+    "basicTragedy:13",
+    "basicTragedy:14"
+  ],
+  "community": [
+    "basicTragedy:18",
+    "basicTragedy:19",
+    "basicTragedy:20",
+    "basicTragedy:21",
+    "basicTragedy:22"
+  ],
+  "unknown": [
+    "basicTragedy:2",
+    "basicTragedy:3",
+    "basicTragedy:4",
+    "basicTragedy:5",
+    "basicTragedy:6",
+    "basicTragedy:7",
+    "basicTragedy:15",
+    "basicTragedy:16",
+    "basicTragedy:17"
+  ]
+}

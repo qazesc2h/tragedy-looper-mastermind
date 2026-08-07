@@ -1001,12 +1001,22 @@ select {
   line-height: 1.5;
 }
 
-.scenario-data-error {
+.scenario-source-summary {
+  margin: 7px 0 0;
+  color: #cfc4ae;
+  font-size: 0.78rem;
+}
+
+.scenario-source-summary strong {
+  color: #ead09a;
+}
+
+.scenario-validation-warning {
   border-color: #8a5047;
   background: #2c1d19;
 }
 
-.scenario-data-error .eyebrow {
+.scenario-validation-warning .eyebrow {
   color: #efaaa0;
 }
 

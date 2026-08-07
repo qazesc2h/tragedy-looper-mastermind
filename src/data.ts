@@ -37,7 +37,7 @@ export interface ScenarioAdapterOptions {
   difficultyIndex?: number;
   /** 원본 각본 메타데이터를 테스트·도구에서 덮어쓸 때 사용한다. */
   scriptSpecified?: Readonly<Record<string, unknown>>;
-  /** 원본 데이터 결함을 진단할 때만 시나리오 검증을 건너뛴다. */
+  /** 카탈로그에서 출처별 검증 결과를 별도로 보존할 때 검증 예외를 건너뛴다. */
   skipValidation?: boolean;
 }
 

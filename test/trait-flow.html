@@ -542,9 +542,32 @@
           () => frameDocument().querySelector("[data-action='start-selected-scenario']"),
           "아웃사이더 시나리오 선택 화면",
         );
+        changeSelect("[data-new-game-scenario]", "basicTragedy:18");
+        const invalidFanWarning = await waitFor(
+          () => frameDocument().querySelector(".scenario-validation-warning"),
+          "팬 제작 아웃사이더 규칙 위반 경고",
+        );
+        const invalidFanStart = frameDocument().querySelector(
+          "[data-action='start-selected-scenario']",
+        );
+        assert(
+          frameDocument().querySelector(".scenario-source-summary")
+            ?.textContent?.includes("팬 제작"),
+          "Trouble in Paradise 출처가 팬 제작으로 표시되지 않음",
+        );
+        assert(
+          invalidFanWarning.textContent?.includes("팬 제작 시나리오 규칙 위반") &&
+            invalidFanWarning.textContent.includes("엑스트라 역할을 배정할 수 없습니다"),
+          `팬 제작 규칙 위반 안내: ${invalidFanWarning.textContent}`,
+        );
+        assert(
+          invalidFanStart?.disabled,
+          "규칙 위반 팬 제작 시나리오의 게임 시작 버튼이 활성임",
+        );
+
         changeSelect("[data-new-game-scenario]", scenarioId);
         const selectionTrait = frameDocument().querySelector(
-          ".scenario-trait-notice:not(.scenario-data-error)",
+          ".scenario-trait-notice:not(.scenario-validation-warning)",
         )?.textContent;
         assert(
           selectionTrait?.includes("아웃사이더") &&

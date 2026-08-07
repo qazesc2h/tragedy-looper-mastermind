@@ -1,5 +1,4 @@
-import scriptsJson from "../../data/basic-tragedy-scripts.json";
-import { adaptBasicTragedyScript, characterDataOf } from "../data";
+import { characterDataOf } from "../data";
 import {
   goodwillResponseAvailability,
   resolveGoodwillAbility,
@@ -28,9 +27,11 @@ import { distanceToLoss, setOptionalLossActivation } from "../engine/loss";
 import { intrigueForbidActive } from "../engine/movement";
 import { collectHooks } from "../engine/phases";
 import {
-  validateScenario,
-  type ScenarioValidationResult,
-} from "../engine/validate";
+  loadBasicTragedyScenarioCatalog,
+  scenarioSourceLabel,
+  scenarioValidationHeading,
+  type ScenarioCatalogEntry,
+} from "../scenario-catalog";
 import {
   MASTERMIND_ONCE_PER_LOOP,
   PROTAGONIST_ONCE_PER_LOOP,
@@ -118,15 +119,8 @@ import {
 } from "./terms";
 import "./styles.css";
 
-interface RawScript {
-  title?: unknown;
-}
-
-interface ScenarioEntry {
-  id: string;
+interface ScenarioEntry extends Omit<ScenarioCatalogEntry, "rawTitle"> {
   title: string;
-  scenario: Scenario;
-  validation: ScenarioValidationResult;
 }
 
 interface SelectedHandCard extends HandCard {
@@ -199,20 +193,11 @@ const INCIDENT_CHOICE_FIELDS: Record<string, readonly string[]> = {
 const MYSTERY_BOY_PLOT_LESS_ROLE_TEXT =
   "항상 현재 어느 룰로도 정해지지 않은 역할을 맡습니다.";
 
-const scenarioEntries: ScenarioEntry[] = (scriptsJson as unknown[]).map(
-  (raw, index) => {
-    const rawTitle = (raw as RawScript).title;
-    const title = typeof rawTitle === "string"
-      ? gameText(rawTitle)
-      : `Script ${index + 1}`;
-    const scenario = adaptBasicTragedyScript(raw, { skipValidation: true });
-    return {
-      id: `basicTragedy:${index + 1}`,
-      title,
-      scenario,
-      validation: validateScenario(scenario),
-    };
-  },
+const scenarioEntries: ScenarioEntry[] = loadBasicTragedyScenarioCatalog().map(
+  ({ rawTitle, ...entry }) => ({
+    ...entry,
+    title: gameText(rawTitle),
+  }),
 );
 
 function requireUiRoot(): HTMLElement {
@@ -2512,9 +2497,6 @@ function renderScenarioSelection(): void {
     ({ id }) => id === selectedScenario,
   );
   const mysteryBoyRole = selectedEntry?.scenario.cast.mysteryBoy;
-  const invalidEntries = scenarioEntries.filter(
-    ({ validation }) => !validation.ok,
-  );
   root.innerHTML = `
     <div class="app-shell">
       <header class="topbar">
@@ -2533,10 +2515,14 @@ function renderScenarioSelection(): void {
             <select data-new-game-scenario
               data-ui-draft-key="${scenarioDraftKey}">
               ${scenarioEntries.map((entry) => `
-                <option value="${entry.id}" ${selectedScenario === entry.id ? "selected" : ""}
-                  ${entry.validation.ok ? "" : "disabled"}>${escapeHtml(entry.title)}${entry.validation.ok ? "" : " · 데이터 오류"}</option>`).join("")}
+                <option value="${entry.id}" ${selectedScenario === entry.id ? "selected" : ""}>${escapeHtml(entry.title)} · ${escapeHtml(scenarioSourceLabel(entry.source))}${entry.validation.ok ? "" : " · 시작 불가"}</option>`).join("")}
             </select>
           </label>
+          ${selectedEntry === undefined
+            ? ""
+            : `<p class="scenario-source-summary">
+                출처: <strong>${escapeHtml(scenarioSourceLabel(selectedEntry.source))}</strong>
+              </p>`}
           ${mysteryBoyRole === undefined
             ? ""
             : `<aside class="scenario-trait-notice">
@@ -2544,16 +2530,16 @@ function renderScenarioSelection(): void {
                 <strong>${escapeHtml(characterName("mysteryBoy"))} · ${escapeHtml(roleName(mysteryBoyRole))}</strong>
                 <p>${escapeHtml(MYSTERY_BOY_PLOT_LESS_ROLE_TEXT)}</p>
               </aside>`}
-          ${invalidEntries.length === 0
+          ${selectedEntry === undefined || selectedEntry.validation.ok
             ? ""
-            : `<aside class="scenario-trait-notice scenario-data-error">
-                <span class="eyebrow">원본 데이터 오류</span>
-                ${invalidEntries.map((entry) => `
-                  <strong>${escapeHtml(entry.title)}</strong>
-                  <p>${escapeHtml(entry.validation.errors.join(" "))}</p>`).join("")}
+            : `<aside class="scenario-trait-notice scenario-validation-warning">
+                <span class="eyebrow">${escapeHtml(scenarioValidationHeading(selectedEntry.source))}</span>
+                <strong>${escapeHtml(selectedEntry.title)} · 시작 불가</strong>
+                <p>${escapeHtml(selectedEntry.validation.errors.join(" "))}</p>
               </aside>`}
           <div class="flow-actions primary-actions">
-            <button type="button" class="next-phase" data-action="start-selected-scenario">게임 시작</button>
+            <button type="button" class="next-phase" data-action="start-selected-scenario"
+              ${selectedEntry?.validation.ok === true ? "" : "disabled"}>게임 시작</button>
           </div>
         </section>
       </main>
@@ -2616,7 +2602,7 @@ function render(): void {
               ${scenarioEntries.map((candidate) => `
                 <option value="${candidate.id}" ${candidate.id === entry.id ? "selected" : ""}
                   ${candidate.validation.ok ? "" : "disabled"}>
-                  ${escapeHtml(candidate.title)}${candidate.validation.ok ? "" : " · 데이터 오류"}
+                  ${escapeHtml(candidate.title)} · ${escapeHtml(scenarioSourceLabel(candidate.source))}${candidate.validation.ok ? "" : " · 시작 불가"}
                 </option>`).join("")}
             </select>
           </label>

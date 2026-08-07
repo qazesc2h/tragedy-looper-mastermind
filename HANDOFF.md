@@ -521,9 +521,21 @@ killer: {
 - 아웃사이더는 엑스트라를 맡을 수 없다. 반드시 참극 세트의 역할 중 현재 룰의
   `addsRoles`에 없는 역할을 맡는다. 검증기는 엑스트라 배정과 활성 룰 역할 배정을
   서로 다른 한국어 오류로 거부한다.
-- 파생 기본편 18번 각본 `Trouble in Paradise`는 아웃사이더를 엑스트라로
-  기록해 확정 규칙과 충돌한다. 역할을 임의로 고치지 않고 데이터 결함으로
-  표시하며, UI에서는 해당 각본 시작을 막는다.
+- 기본편 18번 각본 `Trouble in Paradise`와 번들 밖 `Vertinari Gambit` 모음의
+  한 각본은 팬 제작 시나리오이며, 아웃사이더를 엑스트라로 배정해 공식 규칙을
+  위반한다. 공식 시나리오의 위반은 0건이다. upstream 보고 대상이 아니며,
+  역할을 임의로 고치지 않고 UI에서 이유를 경고한 뒤 시작을 막는다.
+- `data/scenario-source.json`은 생성된 각본 JSON을 수정하지 않고 출처를 덧씌운다.
+  각본가 설명서에서 확인한 현재 번들의 공식 각본 8편, 팬 제작으로 확인한 5편,
+  실물 대조가 필요한 9편을 각각 `official` / `community` / `unknown`으로 분류한다.
+  각본가 설명서의 나머지 공식 2편은 First Steps 각본이라 현재 기본편 22편에 없다.
+- 출처 미확인 목록: `Magical Girls' Superiority`, `The Cat Box`,
+  `Crushed by the Hospital Building in Doronoki`, `Those with Antibodies (NT)`,
+  `The Assassin from the Future`, `Un Rerum`,
+  `The Illusion Under the Cherry Tree`, `A Little Friend`,
+  `Fall-Sakura Gathering`.
+- 공식 각본 검증 실패는 테스트 실패로 취급한다. 팬 제작 각본의 검증 실패는
+  카탈로그에 유지하되 선택 화면에서 출처·위반 이유와 시작 불가 상태를 표시한다.
 - 이 특성은 시나리오 선택 화면, 플레이 중 캐릭터 카드·상세 화면, 각본가의
   룰과 역할 목록에 표시한다. 최후의 싸움은 기존 전체 역할 목록과
   `effectiveRole()` 판정을 그대로 사용한다.
