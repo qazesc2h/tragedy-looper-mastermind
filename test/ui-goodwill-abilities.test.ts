@@ -12,6 +12,7 @@ import {
   decodeIncidentSelection,
   encodeIncidentSelection,
   goodwillAbilityViews,
+  goodwillRefusalHistory,
   subplotRevealOptions,
 } from "../src/ui/goodwill-abilities";
 import type {
@@ -105,6 +106,37 @@ function resolveLeaderCardThroughP4(
 }
 
 describe("structured goodwill ability UI", () => {
+  it("collects public refusal dates by character across loop snapshots", () => {
+    const state = createState(["officeWorker"]);
+    state.scenario.cast.officeWorker = "killer";
+    unlock(state, "officeWorker", 3);
+    state.loop.day = 2;
+    resolveGoodwillAbility(state, {
+      user: "officeWorker",
+      rank: 3,
+      abilityIndex: 0,
+    }, "refuse");
+    state.history.push(structuredClone(state.loop));
+
+    state.loop = initLoop(state.scenario, 2);
+    state.loop.phase = "P6_GOODWILL";
+    state.loop.day = 3;
+    unlock(state, "officeWorker", 3);
+    resolveGoodwillAbility(state, {
+      user: "officeWorker",
+      rank: 3,
+      abilityIndex: 0,
+    }, "refuse");
+
+    expect(goodwillRefusalHistory(state)).toEqual([{
+      character: "officeWorker",
+      occurrences: [
+        { loop: 1, day: 2 },
+        { loop: 2, day: 3 },
+      ],
+    }]);
+  });
+
   it("hides an absent user's abilities and excludes it from targets", () => {
     const state = createState(["transferStudent", "nurse"]);
     unlock(state, "transferStudent", 2);

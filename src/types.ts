@@ -282,6 +282,14 @@ export type PhaseLogEntry =
 /** 이번 루프에 각본가가 주인공에게 전달해야 하는 공개·해결 결과. */
 export type PublicInformation =
   | {
+    kind: "goodwillRefusal";
+    character: CharacterId;
+    rank: number;
+    abilityIndex: number;
+    loop: number;
+    day: number;
+  }
+  | {
     kind: "incidentCulprit";
     source: "godlyBeing" | "policeOfficer";
     day: number;

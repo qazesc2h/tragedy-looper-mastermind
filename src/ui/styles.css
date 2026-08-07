@@ -1070,6 +1070,50 @@ select {
   overflow-wrap: anywhere;
 }
 
+.goodwill-refusal-log {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 10px;
+  border: 1px solid #9b603d;
+  border-radius: 9px;
+  background: rgba(87, 44, 27, 0.42);
+  padding: 9px;
+}
+
+.goodwill-refusal-log > strong {
+  color: #f1d0a0;
+  font-size: 0.82rem;
+}
+
+.goodwill-refusal-log > strong small {
+  color: #c59c72;
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+.goodwill-refusal-log ul {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.goodwill-refusal-log li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 8px;
+  color: #e5d5bd;
+  font-size: 0.76rem;
+}
+
+.goodwill-refusal-disclosed {
+  color: #efb47d;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
 .condition-mark {
   display: inline-grid;
   width: 22px;

@@ -13,6 +13,7 @@ import {
   type IncidentSelection,
   type PlotId,
   type PublicInformation,
+  type RoleId,
   type ScheduledIncident,
   type Target,
 } from "../types";
@@ -20,6 +21,14 @@ import { killCharacter, reviveCharacter, withDeathBatch } from "./death";
 import { resolveIncidentEffect } from "./incident";
 
 export type GoodwillResponse = "resolve" | "refuse";
+export type GoodwillRefusalKind = "none" | "optional" | "mandatory";
+
+export interface GoodwillResponseAvailability {
+  role: RoleId;
+  refusalKind: GoodwillRefusalKind;
+  resolveAllowed: boolean;
+  refuseAllowed: boolean;
+}
 
 /** 리더가 선언하는 우호 능력과 그 효과에 필요한 선택. */
 export interface GoodwillDeclaration {
@@ -654,6 +663,27 @@ function abilityCannotBeRefused(ability: GoodwillAbilityData): boolean {
   return ability.immuneToGoodwillRefusel;
 }
 
+/** effectiveRole 기준으로 각본가가 이 능력을 해결하거나 거부할 수 있는지 계산한다. */
+export function goodwillResponseAvailability(
+  state: GameState,
+  character: CharacterId,
+  cannotBeRefused: boolean,
+): GoodwillResponseAvailability {
+  const role = effectiveRole(state, character);
+  const refusal = ROLE_IMPL[role]?.goodwillRefusal;
+  const refusalKind: GoodwillRefusalKind = refusal === "Optional"
+    ? "optional"
+    : refusal === "Mandatory"
+      ? "mandatory"
+      : "none";
+  return {
+    role,
+    refusalKind,
+    resolveAllowed: refusalKind !== "mandatory" || cannotBeRefused,
+    refuseAllowed: refusalKind !== "none" && !cannotBeRefused,
+  };
+}
+
 /** 선언 하나를 현재 상태에서 판정하고, 각본가의 응답에 따라 즉시 해결한다. */
 export function resolveGoodwillAbility(
   state: GameState,
@@ -664,21 +694,31 @@ export function resolveGoodwillAbility(
   assertAbilityAvailable(state, declaration, selected);
 
   const cannotBeRefused = abilityCannotBeRefused(selected.ability);
-  const role = effectiveRole(state, declaration.user);
-  const refusal = ROLE_IMPL[role]?.goodwillRefusal;
-  const mustRefuse = refusal === "Mandatory" && !cannotBeRefused;
+  const availability = goodwillResponseAvailability(
+    state,
+    declaration.user,
+    cannotBeRefused,
+  );
 
   if (mastermindResponse === "refuse" && cannotBeRefused) {
     throw new Error("this goodwill ability cannot be refused");
   }
-  if (mastermindResponse === "refuse" && refusal === undefined) {
+  if (mastermindResponse === "refuse" && !availability.refuseAllowed) {
     throw new Error(
-      `role "${role}" cannot refuse goodwill abilities`,
+      `role "${availability.role}" cannot refuse goodwill abilities`,
     );
   }
 
-  if (mustRefuse || mastermindResponse === "refuse") {
+  if (!availability.resolveAllowed || mastermindResponse === "refuse") {
     recordAbilityUse(state, declaration, selected);
+    recordPublicInformation(state, {
+      kind: "goodwillRefusal",
+      character: declaration.user,
+      rank: declaration.rank,
+      abilityIndex: selected.index,
+      loop: state.loop.loop,
+      day: state.loop.day,
+    });
     return {
       user: declaration.user,
       rank: declaration.rank,

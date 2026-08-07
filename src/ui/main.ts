@@ -1,6 +1,9 @@
 import scriptsJson from "../../data/basic-tragedy-scripts.json";
 import { adaptBasicTragedyScript, characterDataOf } from "../data";
-import { resolveGoodwillAbility } from "../engine/goodwill";
+import {
+  goodwillResponseAvailability,
+  resolveGoodwillAbility,
+} from "../engine/goodwill";
 import { withDeathBatch } from "../engine/death";
 import {
   advanceGame,
@@ -73,6 +76,7 @@ import {
   decodeIncidentSelection,
   encodeIncidentSelection,
   goodwillAbilityViews,
+  goodwillRefusalHistory,
   subplotRevealOptions,
   type GoodwillAbilityView,
   type GoodwillDisabledReason,
@@ -1512,10 +1516,29 @@ function syncGoodwillSubplotRevealOptions(
 
 function renderGoodwillAbilities(state: GameState): string {
   const abilities = goodwillAbilityViews(state);
+  const refusalHistory = goodwillRefusalHistory(state);
+  const historyByCharacter = new Map(
+    refusalHistory.map((entry) => [entry.character, entry.occurrences]),
+  );
+  const occurrenceText = (
+    occurrences: ReadonlyArray<{ loop: number; day: number }>,
+  ): string => occurrences.map(
+    ({ loop, day }) => `${loop}루프 ${day}일`,
+  ).join(", ");
+  const historyMarkup = refusalHistory.length === 0
+    ? ""
+    : `<section class="goodwill-refusal-log">
+        <strong>우호 무시 발동 이력 <small>공개 정보</small></strong>
+        <ul>${refusalHistory.map(({ character, occurrences }) => `
+          <li>
+            <b>${escapeHtml(characterName(character))}</b>
+            <span>거부됨 · ${escapeHtml(occurrenceText(occurrences))}</span>
+          </li>`).join("")}</ul>
+      </section>`;
   if (abilities.length === 0) {
-    return `<p class="empty-overlay">${escapeHtml(misc("No available ability", "No available ability"))}</p>`;
+    return `${historyMarkup}<p class="empty-overlay">${escapeHtml(misc("No available ability", "No available ability"))}</p>`;
   }
-  return `<div class="goodwill-list">${abilities.map((view) => {
+  return `${historyMarkup}<div class="goodwill-list">${abilities.map((view) => {
     const {
       character,
       abilityIndex,
@@ -1528,11 +1551,34 @@ function renderGoodwillAbilities(state: GameState): string {
     const reason = disabledReason === undefined
       ? ""
       : goodwillDisabledMessage(view, disabledReason);
+    const availability = goodwillResponseAvailability(
+      state,
+      character,
+      schema.immuneToGoodwillRefusel === true,
+    );
+    const refusalLabel = availability.refusalKind === "optional"
+      ? " · 우호 무시"
+      : availability.refusalKind === "mandatory"
+        ? " · 절대 우호 무시"
+        : "";
+    const roleDetail = `${roleName(availability.role)}${refusalLabel}`;
+    const disclosedOccurrences = historyByCharacter.get(character);
+    const resolveRuleTitle = !availability.resolveAllowed
+      ? "절대 우호 무시: 반드시 거부"
+      : "";
+    const refuseRuleTitle = schema.immuneToGoodwillRefusel
+      ? "이 능력은 거부 불가"
+      : !availability.refuseAllowed
+        ? "우호 무시가 없어 거부 불가"
+        : "";
     return `
     <article class="goodwill-card ${disabled ? "is-disabled" : ""}">
       <div class="goodwill-copy">
-        <span>${escapeHtml(characterName(character))} · ${escapeHtml(misc("Goodwill"))} ${schema.rank}</span>
+        <span>${escapeHtml(characterName(character))} (${escapeHtml(roleDetail)}) · ${escapeHtml(misc("Goodwill"))} ${schema.rank}</span>
         <strong>${escapeHtml(gameText(schema._source, schema.ko))}</strong>
+        ${disclosedOccurrences
+          ? `<small class="goodwill-refusal-disclosed">우호 무시 계열 노출 · ${escapeHtml(occurrenceText(disclosedOccurrences))}</small>`
+          : ""}
         ${reason ? `<small class="goodwill-disabled-reason">${escapeHtml(reason)}</small>` : ""}
         ${disabledDiagnostic
           ? `<small class="goodwill-disabled-diagnostic">(${escapeHtml(disabledDiagnostic)})</small>`
@@ -1546,14 +1592,15 @@ function renderGoodwillAbilities(state: GameState): string {
         <button type="button" data-action="goodwill" data-response="resolve"
           data-character="${escapeHtml(character)}" data-rank="${schema.rank}"
           data-ability-index="${abilityIndex}" data-goodwill-key="${escapeHtml(key)}"
-          ${disabled ? "disabled" : ""}>
+          ${disabled || !availability.resolveAllowed ? "disabled" : ""}
+          ${resolveRuleTitle ? `title="${escapeHtml(resolveRuleTitle)}"` : ""}>
           ${escapeHtml(misc("Resolve", "Resolve"))}
         </button>
         <button type="button" data-action="goodwill" data-response="refuse"
           data-character="${escapeHtml(character)}" data-rank="${schema.rank}"
           data-ability-index="${abilityIndex}" data-goodwill-key="${escapeHtml(key)}"
-          ${disabled || schema.immuneToGoodwillRefusel ? "disabled" : ""}
-          ${schema.immuneToGoodwillRefusel ? `title="${escapeHtml(misc("Cannot be refused", "Cannot be refused"))}"` : ""}>
+          ${disabled || !availability.refuseAllowed ? "disabled" : ""}
+          ${refuseRuleTitle ? `title="${escapeHtml(refuseRuleTitle)}"` : ""}>
           ${escapeHtml(misc("Refuse", "Refuse"))}
         </button>
       </div>

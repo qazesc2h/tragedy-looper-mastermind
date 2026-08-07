@@ -93,6 +93,11 @@ export interface GoodwillAbilityView {
   disabledDiagnostic?: string;
 }
 
+export interface GoodwillRefusalHistoryEntry {
+  character: CharacterId;
+  occurrences: Array<{ loop: number; day: number }>;
+}
+
 const GOODWILL_ABILITIES = goodwillAbilitiesJson as unknown as Readonly<
   Record<CharacterId, readonly StructuredGoodwillAbility[]>
 >;
@@ -436,4 +441,29 @@ export function goodwillAbilityViews(state: GameState): GoodwillAbilityView[] {
       }];
     });
   });
+}
+
+/** 현재 루프와 이전 루프 스냅샷에서 주인공에게 공개된 거부 날짜를 모은다. */
+export function goodwillRefusalHistory(
+  state: GameState,
+): GoodwillRefusalHistoryEntry[] {
+  const byCharacter = new Map<CharacterId, Array<{ loop: number; day: number }>>();
+  const seen = new Set<string>();
+  for (const loop of [...state.history, state.loop]) {
+    for (const information of loop.publicInformationThisLoop ?? []) {
+      if (information.kind !== "goodwillRefusal") continue;
+      const key = `${information.character}:${information.loop}:${information.day}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const occurrences = byCharacter.get(information.character) ?? [];
+      occurrences.push({ loop: information.loop, day: information.day });
+      byCharacter.set(information.character, occurrences);
+    }
+  }
+  return [...byCharacter.entries()].map(([character, occurrences]) => ({
+    character,
+    occurrences: occurrences.sort(
+      (left, right) => left.loop - right.loop || left.day - right.day,
+    ),
+  }));
 }

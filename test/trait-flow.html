@@ -387,6 +387,153 @@
         });
       }
 
+      async function runGoodwillRefusalUiCases() {
+        const scenarioId = "basicTragedy:1";
+        const prepareOfficeWorker = (role) => {
+          mutateStoredState(scenarioId, (state) => {
+            state.gamePhase = "ROUND";
+            state.loop.phase = "P6_GOODWILL";
+            state.loop.loop = 2;
+            state.loop.day = 3;
+            state.history = [];
+            state.loop.publicInformationThisLoop = [];
+            state.loop.abilitiesUsedThisLoop = [];
+            state.scenario.cast.officeWorker = role;
+            state.loop.charCounters.officeWorker.goodwill = 3;
+          });
+        };
+        const goodwillButton = (character, response) =>
+          frameDocument().querySelector(
+            `[data-action='goodwill'][data-character='${character}'][data-response='${response}']`,
+          );
+        const assertOfficeWorkerPolicy = async ({
+          role,
+          label,
+          resolveDisabled,
+          refuseDisabled,
+          expectedText,
+        }) => {
+          prepareOfficeWorker(role);
+          await reloadFrame(label);
+          await openOperationSheet(`${label} 조작 패널`);
+          const resolveButton = await waitFor(
+            () => goodwillButton("officeWorker", "resolve"),
+            `${label} 해결 버튼`,
+          );
+          const refuseButton = await waitFor(
+            () => goodwillButton("officeWorker", "refuse"),
+            `${label} 거부 버튼`,
+          );
+          const cardText = resolveButton.closest(".goodwill-card")
+            ?.querySelector(".goodwill-copy span")?.textContent?.trim();
+          assert(
+            resolveButton.disabled === resolveDisabled,
+            `${label} 해결 disabled=${resolveButton.disabled}`,
+          );
+          assert(
+            refuseButton.disabled === refuseDisabled,
+            `${label} 거부 disabled=${refuseButton.disabled}`,
+          );
+          assert(
+            cardText?.includes(expectedText),
+            `${label} 역할 표기: ${cardText}`,
+          );
+        };
+
+        await loadScenario(scenarioId, "goodwill-refusal-ui");
+        await assertOfficeWorkerPolicy({
+          role: "person",
+          label: "우호 무시 없음",
+          resolveDisabled: false,
+          refuseDisabled: true,
+          expectedText: "회사원 (엑스트라)",
+        });
+        await assertOfficeWorkerPolicy({
+          role: "killer",
+          label: "우호 무시",
+          resolveDisabled: false,
+          refuseDisabled: false,
+          expectedText: "회사원 (살인 청부업자 · 우호 무시)",
+        });
+        await assertOfficeWorkerPolicy({
+          role: "cultist",
+          label: "절대 우호 무시",
+          resolveDisabled: true,
+          refuseDisabled: false,
+          expectedText: "회사원 (광신도 · 절대 우호 무시)",
+        });
+
+        mutateStoredState(scenarioId, (state) => {
+          state.gamePhase = "ROUND";
+          state.loop.phase = "P6_GOODWILL";
+          state.loop.loop = 2;
+          state.loop.day = 3;
+          state.history = [];
+          state.loop.publicInformationThisLoop = [];
+          state.scenario.cast.nurse = "killer";
+          state.loop.charCounters.nurse.goodwill = 2;
+          state.loop.charCounters.girlStudent.paranoia = 3;
+          state.loop.board.girlStudent = { status: "alive", at: "Hospital" };
+        });
+        await reloadFrame("거부 불가 능력");
+        await openOperationSheet("거부 불가 능력 조작 패널");
+        const nurseResolve = await waitFor(
+          () => goodwillButton("nurse", "resolve"),
+          "간호사 해결 버튼",
+        );
+        const nurseRefuse = await waitFor(
+          () => goodwillButton("nurse", "refuse"),
+          "간호사 거부 버튼",
+        );
+        assert(!nurseResolve.disabled, "간호사[2] 해결 버튼이 비활성임");
+        assert(nurseRefuse.disabled, "간호사[2] 거부 버튼이 활성임");
+
+        prepareOfficeWorker("killer");
+        await reloadFrame("우호 무시 거부 이력");
+        await openOperationSheet("우호 무시 거부 이력 조작 패널");
+        click("[data-action='goodwill'][data-character='officeWorker'][data-response='refuse']");
+        const currentHistory = await waitFor(
+          () => frameDocument().querySelector(".goodwill-refusal-log"),
+          "현재 루프 거부 이력",
+        );
+        assert(
+          currentHistory.textContent?.includes("회사원") &&
+            currentHistory.textContent?.includes("2루프 3일"),
+          `현재 루프 거부 이력: ${currentHistory.textContent}`,
+        );
+        const disclosure = frameDocument().querySelector(
+          ".goodwill-refusal-disclosed",
+        )?.textContent;
+        assert(
+          disclosure?.includes("우호 무시 계열 노출"),
+          `캐릭터별 노출 표기: ${disclosure}`,
+        );
+
+        mutateStoredState(scenarioId, (state) => {
+          state.history = [structuredClone(state.loop)];
+          state.loop.loop = 3;
+          state.loop.day = 1;
+          state.loop.publicInformationThisLoop = [];
+          state.loop.charCounters.officeWorker.goodwill = 0;
+        });
+        await reloadFrame("이전 루프 거부 이력");
+        await openOperationSheet("이전 루프 거부 이력 조작 패널");
+        const pastHistory = await waitFor(
+          () => frameDocument().querySelector(".goodwill-refusal-log"),
+          "이전 루프 거부 이력",
+        );
+        assert(
+          pastHistory.textContent?.includes("회사원") &&
+            pastHistory.textContent?.includes("2루프 3일"),
+          `이전 루프 거부 이력: ${pastHistory.textContent}`,
+        );
+
+        reports.push({
+          goodwillRefusalButtons: "none/optional/mandatory/protected",
+          goodwillRefusalHistory: "2루프 3일",
+        });
+      }
+
       function shrineIntrigue() {
         return frameDocument().querySelector(
           ".location-shrine [data-action='board-location'] strong",
@@ -472,6 +619,7 @@
         await runTimeGapTimerCases();
         await runDraftInputCases();
         await runExtraLoopCases();
+        await runGoodwillRefusalUiCases();
         await runBlackCatCases();
         await runScientistChoice("paranoia", "우 0 불 1/2 음 0");
         await runScientistChoice("goodwill", "우 1 불 0/2 음 0");

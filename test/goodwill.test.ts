@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  goodwillResponseAvailability,
   resolveGoodwillAbility,
   resolveGoodwillPhase,
 } from "../src/engine/goodwill";
@@ -201,6 +202,55 @@ describe("goodwill-comes-after-card-resolve", () => {
 });
 
 describe("goodwill availability and refusal", () => {
+  it.each([
+    ["killer", "optional"],
+    ["brain", "optional"],
+    ["factor", "optional"],
+    ["cultist", "mandatory"],
+    ["witch", "mandatory"],
+  ] as const)("uses effective %s role's %s refusal rule", (role, refusalKind) => {
+    const state = createState("goodwill-chain-and-refusal", {
+      girlStudent: role,
+    });
+
+    expect(goodwillResponseAvailability(
+      state,
+      "girlStudent",
+      false,
+    )).toMatchObject({
+      role,
+      refusalKind,
+      resolveAllowed: refusalKind === "optional",
+      refuseAllowed: true,
+    });
+  });
+
+  it("allows only resolution without goodwill refusal and for protected abilities", () => {
+    const state = createState("goodwill-chain-and-refusal");
+    expect(goodwillResponseAvailability(
+      state,
+      "girlStudent",
+      false,
+    )).toMatchObject({
+      role: "person",
+      refusalKind: "none",
+      resolveAllowed: true,
+      refuseAllowed: false,
+    });
+
+    state.scenario.cast.girlStudent = "witch";
+    expect(goodwillResponseAvailability(
+      state,
+      "girlStudent",
+      true,
+    )).toMatchObject({
+      role: "witch",
+      refusalKind: "mandatory",
+      resolveAllowed: true,
+      refuseAllowed: false,
+    });
+  });
+
   it("rejects dead officeWorker and boyStudent as ability users", () => {
     const scenario: Scenario = {
       tragedySet: "basicTragedy",
@@ -328,6 +378,14 @@ describe("goodwill availability and refusal", () => {
     expect(state.loop.abilitiesUsedThisLoop).toEqual([
       "classRep:goodwill:0",
     ]);
+    expect(state.loop.publicInformationThisLoop).toEqual([{
+      kind: "goodwillRefusal",
+      character: "classRep",
+      rank: 2,
+      abilityIndex: 0,
+      loop: 1,
+      day: 1,
+    }]);
     expect(() => resolveGoodwillAbility(state, {
       user: "classRep",
       rank: 2,
@@ -350,6 +408,14 @@ describe("goodwill availability and refusal", () => {
     expect(result.response).toBe("refuse");
     expect(result.effectApplied).toBe(false);
     expect(state.loop.charCounters.boyStudent.paranoia).toBe(2);
+    expect(state.loop.publicInformationThisLoop).toEqual([{
+      kind: "goodwillRefusal",
+      character: "girlStudent",
+      rank: 2,
+      abilityIndex: 0,
+      loop: 1,
+      day: 1,
+    }]);
   });
 
   it("lets mysteryBoy's protected ability resolve through mandatory refusal", () => {
@@ -471,6 +537,7 @@ describe("goodwill availability and refusal", () => {
       target: "girlStudent",
     }, "refuse")).toThrow("this goodwill ability cannot be refused");
     expect(state.loop.charCounters.girlStudent.paranoia).toBe(3);
+    expect(state.loop.publicInformationThisLoop).toBeUndefined();
   });
 
   it("does not permit a role without refusal to refuse", () => {
@@ -484,6 +551,7 @@ describe("goodwill availability and refusal", () => {
       target: "boyStudent",
     }, "refuse")).toThrow("cannot refuse goodwill abilities");
     expect(state.loop.charCounters.boyStudent.paranoia).toBe(2);
+    expect(state.loop.publicInformationThisLoop).toBeUndefined();
   });
 });
 
