@@ -51,6 +51,36 @@ function validateAiRole(scenario: Scenario): string[] {
   return ["AI: AI 캐릭터에는 엑스트라 역할을 배정할 수 없습니다."];
 }
 
+function metadataValueLabel(value: unknown): string {
+  return value === undefined ? "없음" : JSON.stringify(value);
+}
+
+function validateEntryTiming(
+  scenario: Scenario,
+  character: "godlyBeing" | "transferStudent",
+  kind: "loop" | "day",
+  maximum: number,
+  characterName: string,
+): string[] {
+  if (!(character in scenario.cast)) return [];
+
+  const key = `enters on ${kind}:${character}`;
+  const value = scenario.scriptSpecified?.[key];
+  if (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= 1 &&
+    value <= maximum
+  ) {
+    return [];
+  }
+
+  return [
+    `${characterName}: "${key}"은 1 이상 ${maximum} 이하의 정수여야 ` +
+    `합니다. 현재 값: ${metadataValueLabel(value)}.`,
+  ];
+}
+
 /** 시나리오 작성 시 적용되는 제약을 런타임 시작 전에 한 번 검증한다. */
 export function validateScenario(
   scenario: Scenario,
@@ -58,6 +88,20 @@ export function validateScenario(
   const errors = [
     ...validateSignWithMe(scenario),
     ...validateAiRole(scenario),
+    ...validateEntryTiming(
+      scenario,
+      "godlyBeing",
+      "loop",
+      scenario.loops,
+      "신",
+    ),
+    ...validateEntryTiming(
+      scenario,
+      "transferStudent",
+      "day",
+      scenario.daysPerLoop,
+      "전학생",
+    ),
   ];
   return { ok: errors.length === 0, errors };
 }
