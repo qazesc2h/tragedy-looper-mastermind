@@ -225,6 +225,26 @@ function requireLivingCharacterInSameLocation(
   return target;
 }
 
+function requireLivingCharacterInTurf(
+  state: GameState,
+  declaration: GoodwillDeclaration,
+): CharacterId {
+  const target = requireCharacterTarget(state, declaration);
+  const targetPosition = state.loop.board[target];
+  const turf = state.loop.turfLocations[declaration.user];
+  if (
+    target === declaration.user ||
+    !isCharacterAlive(targetPosition) ||
+    turf === undefined ||
+    characterLocation(targetPosition, target) !== turf
+  ) {
+    throw new Error(
+      "boss rank 5 goodwill ability requires another living character in turf",
+    );
+  }
+  return target;
+}
+
 function changeParanoia(
   state: GameState,
   target: CharacterId,
@@ -456,6 +476,11 @@ function applySimpleBaseAbility(
     case "mysteryBoy:1":
     case "officeWorker:0":
       return revealRole(state, declaration.user);
+
+    case "boss:1": {
+      const target = requireLivingCharacterInTurf(state, declaration);
+      return revealRole(state, target);
+    }
 
     case "shrineMaiden:0": {
       const before = state.loop.locIntrigue.Shrine;

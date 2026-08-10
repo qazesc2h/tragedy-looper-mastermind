@@ -33,9 +33,12 @@ function createState(characters: readonly CharacterId[]): GameState {
     incidents: [],
     loops: 3,
     daysPerLoop: 4,
-    scriptSpecified: characters.includes("godlyBeing")
-      ? { "enters on loop:godlyBeing": 1 }
-      : undefined,
+    scriptSpecified: {
+      ...(characters.includes("godlyBeing")
+        ? { "enters on loop:godlyBeing": 1 }
+        : {}),
+      ...(characters.includes("boss") ? { "Turf:boss": "School" } : {}),
+    },
   };
   const state: GameState = characters.includes("godlyBeing")
     ? createGameState(scenario)
@@ -319,16 +322,17 @@ describe("structured goodwill ability UI", () => {
     ]);
   });
 
-  it("shows evidence for unsupported turf and multiple-target abilities", () => {
+  it("offers boss rank 5 targets in turf and diagnoses multiple-target abilities", () => {
     const state = createState([
       "boss",
       "forensicSpecialist",
       "boyStudent",
       "girlStudent",
     ]);
-    for (const character of Object.keys(state.loop.board)) {
-      setBoardLocation(state.loop, character, "City");
-    }
+    setBoardLocation(state.loop, "boss", "City");
+    setBoardLocation(state.loop, "forensicSpecialist", "City");
+    setBoardLocation(state.loop, "boyStudent", "School");
+    setBoardLocation(state.loop, "girlStudent", "Shrine");
     unlock(state, "boss", 5);
     unlock(state, "forensicSpecialist", 2);
 
@@ -336,8 +340,8 @@ describe("structured goodwill ability UI", () => {
     expect(views.find(
       ({ character, schema }) => character === "boss" && schema.rank === 5,
     )).toMatchObject({
-      disabledReason: "unsupportedTurf",
-      disabledDiagnostic: "predicate=inUserTurf, candidates=unsupported",
+      disabledReason: undefined,
+      targets: [{ kind: "character", id: "boyStudent" }],
     });
     expect(views.find(
       ({ character, schema }) =>
@@ -345,9 +349,7 @@ describe("structured goodwill ability UI", () => {
     )).toMatchObject({
       disabledReason: "multipleTargets",
       disabledDiagnostic:
-        'required=2, candidates=[{"kind":"character","id":"boss"},' +
-        '{"kind":"character","id":"boyStudent"},' +
-        '{"kind":"character","id":"girlStudent"}]',
+        'required=2, candidates=[{"kind":"character","id":"boss"}]',
     });
   });
 

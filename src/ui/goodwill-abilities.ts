@@ -2,6 +2,7 @@ import basicScriptsJson from "../../data/basic-tragedy-scripts.json";
 import goodwillAbilitiesJson from "../../data/goodwill-abilities.json";
 import { characterDataOf } from "../data";
 import {
+  abilityLocationsOf,
   characterLocation,
   isCharacterAlive,
   isCharacterDead,
@@ -65,7 +66,6 @@ export type GoodwillDisabledReason =
   | "noTarget"
   | "noSpentCard"
   | "noChoice"
-  | "unsupportedTurf"
   | "multipleTargets";
 
 export type GoodwillChoice =
@@ -147,6 +147,7 @@ function targetKinds(
 
 function characterPassesPredicates(
   state: GameState,
+  user: CharacterId,
   character: CharacterId,
   predicates: readonly GoodwillTargetPredicate[],
 ): boolean {
@@ -166,7 +167,8 @@ function characterPassesPredicates(
       case "hasIntrigue":
         return counters.intrigue >= 1;
       case "inUserTurf":
-        return true;
+        return state.loop.turfLocations[user] ===
+          characterLocation(board, character);
     }
   });
 }
@@ -177,7 +179,7 @@ function characterTargets(
   ability: StructuredGoodwillAbility,
 ): Target[] {
   if (!targetKinds(ability).includes("character")) return [];
-  const userLocation = characterLocation(state.loop.board[user], user);
+  const userLocations = abilityLocationsOf(state, user);
   const predicates = ability.target.predicates ?? [];
 
   return Object.keys(state.loop.board).flatMap((character) => {
@@ -185,14 +187,18 @@ function characterTargets(
     if (ability.target.excludeSelf && character === user) return [];
     if (
       ability.target.scope === "sameLocation" &&
-      characterLocation(state.loop.board[character], character) !== userLocation
+      !userLocations.includes(
+        characterLocation(state.loop.board[character], character),
+      )
     ) return [];
     if (
       ability.target.tags.some((tag) =>
         !characterDataOf(character).tags.includes(tag)
       )
     ) return [];
-    if (!characterPassesPredicates(state, character, predicates)) return [];
+    if (
+      !characterPassesPredicates(state, user, character, predicates)
+    ) return [];
     return [{ kind: "character" as const, id: character }];
   });
 }
@@ -311,9 +317,6 @@ function disabledReasonFor(
   ) {
     return "restrictedLocation";
   }
-  if (ability.target.predicates?.includes("inUserTurf")) {
-    return "unsupportedTurf";
-  }
   const targetCount = ability.target.count ?? 1;
   if (targetCount > 1) return "multipleTargets";
   if (
@@ -394,8 +397,6 @@ function disabledDiagnosticFor(
         return `choice=${choice.kind}, candidates=${JSON.stringify(choice.options)}`;
       }
       return `choice=${choice.kind}, candidates=[]`;
-    case "unsupportedTurf":
-      return "predicate=inUserTurf, candidates=unsupported";
     case "multipleTargets":
       return `required=${ability.target.count ?? 1}, candidates=${
         JSON.stringify(targets)

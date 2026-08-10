@@ -818,6 +818,70 @@ describe("ai rank 3 / resolve an incident effect as AI", () => {
   });
 });
 
+describe("boss rank 5 / reveal a role in turf", () => {
+  it("reveals a living character in the turf even when boss is elsewhere", () => {
+    const scenario: Scenario = {
+      tragedySet: "basicTragedy",
+      mainPlot: "",
+      subPlots: [],
+      cast: { boss: "person", boyStudent: "brain" },
+      incidents: [],
+      loops: 1,
+      daysPerLoop: 3,
+      scriptSpecified: { "Turf:boss": "School" },
+    };
+    const state: GameState = {
+      scenario,
+      gamePhase: "ROUND",
+      loop: initLoop(scenario),
+      history: [],
+      loopOutcomes: [],
+    };
+    state.loop.phase = "P6_GOODWILL";
+    state.loop.charCounters.boss.goodwill = 5;
+    setBoardLocation(state.loop, "boss", "City");
+    setBoardLocation(state.loop, "boyStudent", "School");
+
+    const result = resolveGoodwillAbility(state, {
+      user: "boss",
+      rank: 5,
+      target: "boyStudent",
+    }, "resolve");
+
+    expect(result.effectApplied).toBe(true);
+    expect(state.loop.revealedRoleCharacters).toEqual(["boyStudent"]);
+  });
+
+  it("rejects a character outside the turf", () => {
+    const scenario: Scenario = {
+      tragedySet: "basicTragedy",
+      mainPlot: "",
+      subPlots: [],
+      cast: { boss: "person", boyStudent: "brain" },
+      incidents: [],
+      loops: 1,
+      daysPerLoop: 3,
+      scriptSpecified: { "Turf:boss": "School" },
+    };
+    const state: GameState = {
+      scenario,
+      gamePhase: "ROUND",
+      loop: initLoop(scenario),
+      history: [],
+      loopOutcomes: [],
+    };
+    state.loop.phase = "P6_GOODWILL";
+    state.loop.charCounters.boss.goodwill = 5;
+    setBoardLocation(state.loop, "boyStudent", "City");
+
+    expect(() => resolveGoodwillAbility(state, {
+      user: "boss",
+      rank: 5,
+      target: "boyStudent",
+    }, "resolve")).toThrow("requires another living character in turf");
+  });
+});
+
 describe("loop-long goodwill effects", () => {
   it("records henchman's incident suppression by culprit", () => {
     const state = createInformationState(["henchman"], []);

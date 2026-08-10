@@ -1,7 +1,7 @@
 import charactersJson from "../../data/characters.json";
 import { PLOT_IMPL } from "../impl/plots";
 
-import type { CharacterId, Scenario } from "../types";
+import { LOCATIONS, type CharacterId, type Scenario } from "../types";
 
 interface ValidationCharacterData {
   en?: unknown;
@@ -127,6 +127,17 @@ function validateEntryTiming(
   ];
 }
 
+function validateBossTurf(scenario: Scenario): string[] {
+  if (!("boss" in scenario.cast)) return [];
+  const key = "Turf:boss";
+  const value = scenario.scriptSpecified?.[key];
+  if (LOCATIONS.some((location) => location === value)) return [];
+  return [
+    `거물: "${key}"은 ${LOCATIONS.join(", ")} 중 하나여야 합니다. ` +
+    `현재 값: ${metadataValueLabel(value)}.`,
+  ];
+}
+
 /** 시나리오 작성 시 적용되는 제약을 런타임 시작 전에 한 번 검증한다. */
 export function validateScenario(
   scenario: Scenario,
@@ -135,6 +146,7 @@ export function validateScenario(
     ...validateSignWithMe(scenario),
     ...validateAiRole(scenario),
     ...validateMysteryBoyRole(scenario),
+    ...validateBossTurf(scenario),
     ...validateEntryTiming(
       scenario,
       "godlyBeing",

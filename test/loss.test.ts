@@ -27,15 +27,21 @@ interface StateOptions {
 }
 
 function createState(options: StateOptions = {}): GameState {
+  const cast = options.cast ?? { boyStudent: "person" };
   const scenario: Scenario = {
     tragedySet: "basicTragedy",
     mainPlot: options.mainPlot ?? "",
     subPlots: options.subPlots ?? [],
-    cast: options.cast ?? { boyStudent: "person" },
+    cast,
     incidents: options.incidents ?? [],
     loops: 1,
     daysPerLoop: 3,
-    scriptSpecified: options.scriptSpecified,
+    scriptSpecified: {
+      ...options.scriptSpecified,
+      ...("boss" in cast && options.scriptSpecified?.["Turf:boss"] === undefined
+        ? { "Turf:boss": "School" }
+        : {}),
+    },
   };
   return {
     scenario,

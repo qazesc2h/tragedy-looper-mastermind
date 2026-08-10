@@ -6,6 +6,7 @@ import {
   type MoveCard,
 } from "../engine/movement";
 import {
+  abilityLocationsOf,
   characterLocation,
   effectiveRole,
   isCharacterAlive,
@@ -307,13 +308,18 @@ function intrigueIsIgnored(state: GameState, target: Target): boolean {
     if (cultistPosition === undefined || !isCharacterPresent(cultistPosition)) {
       continue;
     }
-    const location = cultistPosition.at;
-    if (target.kind === "location" && target.at === location) return true;
+    const locations = abilityLocationsOf(state, cultist);
+    if (
+      target.kind === "location" &&
+      locations.includes(target.at)
+    ) return true;
     if (
       target.kind === "character" &&
       state.loop.board[target.id] !== undefined &&
       isCharacterAlive(state.loop.board[target.id]) &&
-      characterLocation(state.loop.board[target.id], target.id) === location
+      locations.includes(
+        characterLocation(state.loop.board[target.id], target.id),
+      )
     ) {
       return true;
     }

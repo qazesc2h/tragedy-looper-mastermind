@@ -1,5 +1,6 @@
 import { characterDataOf } from "../data";
 import {
+  abilityLocationsOf,
   characterLocation,
   isCharacterAlive,
   withCharacterLocation,
@@ -113,13 +114,15 @@ function cultistIgnoredIntrigueTargets(state: GameState): Set<string> {
   for (
     const cultist of state.loop.cultistsIgnoringForbidIntrigue ?? []
   ) {
-    const location = characterLocation(state.loop.board[cultist], cultist);
-    ignored.add(targetKey({ kind: "location", at: location }));
+    const locations = abilityLocationsOf(state, cultist);
+    for (const location of locations) {
+      ignored.add(targetKey({ kind: "location", at: location }));
+    }
 
     for (const [character, position] of Object.entries(state.loop.board)) {
       if (
         isCharacterAlive(position) &&
-        characterLocation(position, character) === location
+        locations.includes(characterLocation(position, character))
       ) {
         ignored.add(targetKey({ kind: "character", id: character }));
       }

@@ -461,7 +461,20 @@ select {
 }
 
 .location-header {
+  display: grid;
+  gap: 4px;
   margin-bottom: 5px;
+}
+
+.turf-counter {
+  justify-self: start;
+  border: 1px solid #d7b35f;
+  border-radius: 999px;
+  background: #4b371b;
+  padding: 2px 7px;
+  color: #f4d68d;
+  font-size: 0.66rem;
+  font-weight: 800;
 }
 
 .location-target {
@@ -1024,6 +1037,16 @@ select {
   margin: 0 0 6px;
   color: #ead09a;
   font-size: 0.78rem;
+}
+
+.character-turf-location {
+  display: inline-block;
+  margin-top: 8px;
+  border: 1px solid #8b6e37;
+  border-radius: 999px;
+  padding: 3px 8px;
+  color: #f4d68d;
+  font-size: 0.72rem;
 }
 
 .scenario-cast-list b {

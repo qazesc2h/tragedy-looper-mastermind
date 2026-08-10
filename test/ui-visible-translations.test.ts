@@ -60,10 +60,6 @@ describe("explicit UI translation fallbacks", () => {
   });
 
   it.each([
-    [
-      "Turf target cannot be determined from the current state",
-      "세력권 상태 미구현",
-    ],
     ["This ability requires multiple targets", "복수 대상 미지원"],
   ])("uses the compact diagnostic for %s", (english, korean) => {
     expect(misc(english)).toBe(korean);

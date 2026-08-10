@@ -39,6 +39,7 @@ import {
 import { INCIDENT_IMPL } from "../impl/incidents";
 import { ROLE_IMPL } from "../impl/roles";
 import {
+  abilityLocationsOf,
   characterLocation,
   effectiveRole,
   isActionCard,
@@ -430,6 +431,19 @@ function plotLessRoleTraitText(
     : undefined;
 }
 
+const BOSS_TURF_TRAIT_TEXT =
+  "모든 능력에 대해(사건은 제외), 자신의 세력권에 있는 것으로 취급할 수 있습니다.";
+
+function characterTraitText(
+  state: GameState,
+  character: CharacterId,
+): string | undefined {
+  if (character === "boss" && state.loop.turfLocations.boss !== undefined) {
+    return BOSS_TURF_TRAIT_TEXT;
+  }
+  return plotLessRoleTraitText(character);
+}
+
 function locationName(location: Location): string {
   return misc(location, location);
 }
@@ -575,7 +589,7 @@ function renderCharacter(state: GameState, character: CharacterId): string {
   const counters = state.loop.charCounters[character];
   const data = characterDataOf(character);
   const role = effectiveRole(state, character);
-  const traitText = plotLessRoleTraitText(character);
+  const traitText = characterTraitText(state, character);
   const alive = isCharacterAlive(position);
   const aliveLabel = alive
     ? misc("Alive", "생존")
@@ -621,12 +635,19 @@ function renderCharacter(state: GameState, character: CharacterId): string {
     </article>`;
 }
 
-function renderCharacterTraitInformation(character: CharacterId): string {
-  const traitText = plotLessRoleTraitText(character);
+function renderCharacterTraitInformation(
+  state: GameState,
+  character: CharacterId,
+): string {
+  const traitText = characterTraitText(state, character);
   if (!traitText) return "";
+  const turf = state.loop.turfLocations[character];
   return `<section class="character-trait-information">
     <h3>특성</h3>
     <p>${escapeHtml(traitText)}</p>
+    ${turf === undefined
+      ? ""
+      : `<strong class="character-turf-location">세력권 · ${escapeHtml(locationName(turf))}</strong>`}
   </section>`;
 }
 
@@ -645,6 +666,9 @@ function renderLocation(state: GameState, location: Location): string {
           <span>${escapeHtml(locationName(location))}</span>
           <strong>${escapeHtml(misc("Intrigue"))} ${state.loop.locIntrigue[location]}</strong>
         </button>
+        ${state.loop.turfLocations.boss === location
+          ? `<span class="turf-counter" aria-label="거물 세력권">세력권 · 거물</span>`
+          : ""}
       </header>
       ${renderCardsOnTarget(state, { kind: "location", at: location })}
       <div class="character-grid">
@@ -770,7 +794,7 @@ function renderCharacterModal(state: GameState): string {
           )}
           ${renderCounter(character, "intrigue", counters.intrigue)}
         </div>
-        ${renderCharacterTraitInformation(character)}
+        ${renderCharacterTraitInformation(state, character)}
         ${renderCharacterLocationInformation(state, character)}
         ${renderCharacterIncidentInformation(state, character)}
         <label class="location-select">
@@ -1219,15 +1243,18 @@ function hookTargetOptions(state: GameState, self: CharacterId, text: string): T
   }
   if (!self || !text.includes("this location")) return [];
 
-  const location = characterLocation(state.loop.board[self], self);
+  const locations = abilityLocationsOf(state, self);
   const targets: Target[] = [];
   if (text.includes("this location or")) {
-    targets.push({ kind: "location", at: location });
+    targets.push(...locations.map((at) => ({
+      kind: "location" as const,
+      at,
+    })));
   }
   for (const [character, position] of Object.entries(state.loop.board)) {
     if (
       isCharacterAlive(position) &&
-      characterLocation(position, character) === location
+      locations.includes(characterLocation(position, character))
     ) {
       targets.push({ kind: "character", id: character });
     }
@@ -1318,11 +1345,6 @@ function goodwillDisabledMessage(
       return misc("No spent card to recover", "No spent card to recover");
     case "noChoice":
       return "선택 가능한 항목이 없습니다";
-    case "unsupportedTurf":
-      return misc(
-        "Turf target cannot be determined from the current state",
-        "Turf target cannot be determined from the current state",
-      );
     case "multipleTargets":
       return misc(
         "This ability requires multiple targets",
@@ -2057,7 +2079,7 @@ function renderScenarioInformation(state: GameState): string {
     <ul class="scenario-cast-list">
       ${Object.keys(state.scenario.cast).map((character) => {
         const culpritDays = incidentDaysForCharacter(state, character);
-        const traitText = plotLessRoleTraitText(character);
+        const traitText = characterTraitText(state, character);
         return `<li>
           <span>${escapeHtml(characterName(character))}</span>
           <b>${escapeHtml(roleName(effectiveRole(state, character)))}</b>

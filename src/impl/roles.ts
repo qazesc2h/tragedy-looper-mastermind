@@ -3,6 +3,7 @@
 //    source 는 원본 영문 텍스트(수정 금지). ko 는 정발 용어.
 
 import {
+  abilityLocationsOf,
   characterLocation,
   effectiveRole,
   isCharacterAlive,
@@ -49,9 +50,9 @@ function placeBrainIntrigue(
     throw new Error("brain intrigue placement requires a target");
   }
 
-  const location = characterLocation(state.loop.board[self], self);
+  const locations = abilityLocationsOf(state, self);
   if (target.kind === "location") {
-    if (target.at !== location) {
+    if (!locations.includes(target.at)) {
       throw new Error("brain intrigue target must be this location");
     }
     state.loop.locIntrigue[target.at] += 1;
@@ -62,7 +63,7 @@ function placeBrainIntrigue(
   if (
     !targetPosition ||
     !isCharacterAlive(targetPosition) ||
-    characterLocation(targetPosition, target.id) !== location
+    !locations.includes(characterLocation(targetPosition, target.id))
   ) {
     throw new Error(
       "brain intrigue target must be a living character in this location",
@@ -105,11 +106,11 @@ function placeConspiracyTheoristParanoia(
   }
 
   const targetPosition = state.loop.board[target.id];
+  const locations = abilityLocationsOf(state, self);
   if (
     !targetPosition ||
     !isCharacterAlive(targetPosition) ||
-    characterLocation(targetPosition, target.id) !==
-      characterLocation(state.loop.board[self], self)
+    !locations.includes(characterLocation(targetPosition, target.id))
   ) {
     throw new Error(
       "conspiracy theorist target must be a living character in this location",
@@ -216,8 +217,9 @@ export const ROLE_IMPL: Record<string, {
             keyPerson !== undefined &&
             isCharacterAlive(s.loop.board[keyPerson]) &&
             s.loop.charCounters[keyPerson].intrigue >= 2 &&
-            characterLocation(s.loop.board[keyPerson], keyPerson) ===
-              characterLocation(s.loop.board[self], self)
+            abilityLocationsOf(s, self).includes(
+              characterLocation(s.loop.board[keyPerson], keyPerson),
+            )
           );
         },
         effect: (s: GameState, _self: CharacterId) => {

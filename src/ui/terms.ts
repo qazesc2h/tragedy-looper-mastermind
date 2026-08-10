@@ -67,8 +67,6 @@ const MISC_KO_FALLBACKS: Readonly<Record<string, string>> = {
   "No eligible target": "가능한 대상 없음",
   "No loss condition": "패배 조건 없음",
   "No spent card to recover": "회수할 소진 카드 없음",
-  "Turf target cannot be determined from the current state":
-    "세력권 상태 미구현",
   "This ability requires multiple targets": "복수 대상 미지원",
 };
 

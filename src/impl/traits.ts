@@ -75,7 +75,8 @@ export const TRAIT_IMPL: Record<CharacterId, {
         timing: "Always",
         description: `May be regarded as in his turf.`,
       },
-      // TODO(구현): 사건 외 능력의 장소 판정에 세력권 선택을 반영한다.
+      // IMPLEMENTED_ELSEWHERE: src/types.ts abilityLocationsOf()
+      // ALWAYS 패시브이므로 사건 외 능력의 대상 판정에서만 장소 후보를 늘린다.
       when: () => false,
       effect: () => {},
     }],

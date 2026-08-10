@@ -1,6 +1,7 @@
 import { characterDataOf } from "../data";
 import {
   characterEntryTiming,
+  scenarioTurfLocation,
   startLocationOf,
   type CharacterId,
   type Counters,
@@ -14,6 +15,7 @@ export function initLoop(scenario: Scenario, loopNumber = 1): LoopState {
     CharacterId,
     Counters & { protection: number }
   > = {};
+  const turfLocations: LoopState["turfLocations"] = {};
 
   for (const character of Object.keys(scenario.cast)) {
     const entry = characterEntryTiming(scenario, character);
@@ -36,12 +38,16 @@ export function initLoop(scenario: Scenario, loopNumber = 1): LoopState {
     };
   }
 
+  const bossTurf = scenarioTurfLocation(scenario, "boss");
+  if (bossTurf !== undefined) turfLocations.boss = bossTurf;
+
   return {
     loop: loopNumber,
     day: 1,
     phase: "P1_ROUND_START",
     leader: 0,
     board,
+    turfLocations,
     charCounters,
     locIntrigue: {
       Hospital: 0,

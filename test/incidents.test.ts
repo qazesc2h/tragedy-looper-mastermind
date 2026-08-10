@@ -46,6 +46,9 @@ function createState(
     incidents: [{ day: 1, incident, culprit: CULPRIT }],
     loops: 1,
     daysPerLoop: 3,
+    scriptSpecified: "boss" in roles
+      ? { "Turf:boss": "School" }
+      : undefined,
   };
   const loop = initLoop(scenario);
   for (const character of Object.keys(loop.board)) {
@@ -382,6 +385,20 @@ describe("murder", () => {
 
     expect(targetHook.effect(state, CULPRIT)).toBe(false);
     expect(boardIsAlive(state.loop, CULPRIT)).toBe(true);
+  });
+
+  it("does not use boss turf for an incident location judgment", () => {
+    const state = createState("murder", {
+      [CULPRIT]: "person",
+      boss: "person",
+      [TARGET]: "person",
+    });
+    setBoardLocation(state.loop, "boss", "City");
+    setBoardLocation(state.loop, TARGET, "School");
+
+    expect(() => targetHook.effect(state, "boss", { target: TARGET }))
+      .toThrow("murder target is not eligible");
+    expect(boardIsAlive(state.loop, TARGET)).toBe(true);
   });
 });
 

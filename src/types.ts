@@ -318,6 +318,8 @@ export interface LoopState {
   leader: 0 | 1 | 2;
 
   board: Record<CharacterId, BoardCharacterState>;
+  /** 거물의 세력권 카운터가 놓인 장소. 실제 캐릭터 위치와 독립적이다. */
+  turfLocations: Partial<Record<CharacterId, Location>>;
   charCounters: Record<CharacterId, Counters & { protection: number }>;
   locIntrigue: Record<Location, number>;
 
@@ -463,6 +465,35 @@ export function effectiveRole(s: GameState, c: CharacterId): RoleId {
     return "serialKiller";
   }
   return base;
+}
+
+/** 각본이 지정한 캐릭터의 세력권 장소를 엄격하게 읽는다. */
+export function scenarioTurfLocation(
+  scenario: Scenario,
+  character: CharacterId,
+): Location | undefined {
+  if (!(character in scenario.cast)) return undefined;
+
+  const key = `Turf:${character}`;
+  const selected = scenario.scriptSpecified?.[key];
+  const location = LOCATIONS.find((candidate) => candidate === selected);
+  if (location === undefined) {
+    throw new Error(
+      `turf for "${character}" must be provided as ` +
+      `scenario.scriptSpecified["${key}"]; allowed: ${LOCATIONS.join(", ")}`,
+    );
+  }
+  return location;
+}
+
+/** 사건을 제외한 능력에서 이 캐릭터로 취급할 수 있는 장소들. */
+export function abilityLocationsOf(
+  state: GameState,
+  character: CharacterId,
+): Location[] {
+  const actual = characterLocation(state.loop.board[character], character);
+  const turf = state.loop.turfLocations[character];
+  return turf !== undefined && turf !== actual ? [actual, turf] : [actual];
 }
 
 /**

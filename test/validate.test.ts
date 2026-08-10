@@ -27,6 +27,34 @@ describe("validateScenario", () => {
     expect(characterDataOf("boyStudent").plotLessRole).toBe(false);
   });
 
+  it("loads the boss turf counter location into loop state", () => {
+    const scenario = scenarios.find(({ cast }) => "boss" in cast);
+    if (scenario === undefined) throw new Error("missing boss scenario");
+
+    expect(validateScenario(scenario)).toEqual({ ok: true, errors: [] });
+    expect(initLoop(scenario).turfLocations.boss).toBe(
+      scenario.scriptSpecified?.["Turf:boss"],
+    );
+  });
+
+  it("rejects a missing boss turf location", () => {
+    const source = scenarios.find(({ cast }) => "boss" in cast);
+    if (source === undefined) throw new Error("missing boss scenario");
+    const scenario = structuredClone(source);
+    delete scenario.scriptSpecified?.["Turf:boss"];
+
+    expect(validateScenario(scenario)).toEqual({
+      ok: false,
+      errors: [
+        '거물: "Turf:boss"은 Hospital, Shrine, City, School 중 하나여야 합니다. ' +
+        "현재 값: 없음.",
+      ],
+    });
+    expect(() => initLoop(scenario)).toThrow(
+      'scenario.scriptSpecified["Turf:boss"]',
+    );
+  });
+
   it("rejects a role from an active plot for mysteryBoy", () => {
     const source = scenarios.find(({ cast }) => "mysteryBoy" in cast);
     if (source === undefined) throw new Error("missing mysteryBoy scenario");

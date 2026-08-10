@@ -33,7 +33,7 @@ import {
 } from "./helpers";
 
 function scenario(overrides: Partial<Scenario> = {}): Scenario {
-  return {
+  const result: Scenario = {
     tragedySet: "basicTragedy",
     mainPlot: "",
     subPlots: [],
@@ -43,6 +43,16 @@ function scenario(overrides: Partial<Scenario> = {}): Scenario {
     daysPerLoop: 3,
     ...overrides,
   };
+  if (
+    "boss" in result.cast &&
+    result.scriptSpecified?.["Turf:boss"] === undefined
+  ) {
+    result.scriptSpecified = {
+      ...result.scriptSpecified,
+      "Turf:boss": "School",
+    };
+  }
+  return result;
 }
 
 function startRound(state: GameState, leader: 0 | 1 | 2 = 0): void {

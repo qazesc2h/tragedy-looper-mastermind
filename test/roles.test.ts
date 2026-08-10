@@ -72,6 +72,9 @@ function createRoleState(cast: Scenario["cast"]): GameState {
     incidents: [],
     loops: 1,
     daysPerLoop: 3,
+    scriptSpecified: "boss" in cast
+      ? { "Turf:boss": "School" }
+      : undefined,
   };
   const loop = initLoop(scenario);
   for (const character of Object.keys(loop.board)) {
@@ -238,6 +241,27 @@ describe("brain", () => {
       id: KEY_PERSON,
     })).toThrow("living character in this location");
     expect(state.loop.charCounters[KEY_PERSON].intrigue).toBe(0);
+  });
+
+  it("lets boss-as-brain target both the turf and actual location", () => {
+    const state = createRoleState({
+      boss: "brain",
+      boyStudent: "person",
+      girlStudent: "person",
+    });
+    setBoardLocation(state.loop, "boyStudent", "School");
+
+    targetHook.effect(state, "boss", {
+      kind: "character",
+      id: "boyStudent",
+    });
+    targetHook.effect(state, "boss", {
+      kind: "character",
+      id: "girlStudent",
+    });
+
+    expect(state.loop.charCounters.boyStudent.intrigue).toBe(1);
+    expect(state.loop.charCounters.girlStudent.intrigue).toBe(1);
   });
 
   it("does nothing when the optional effect is not selected", () => {
