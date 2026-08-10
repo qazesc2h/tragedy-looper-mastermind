@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import scenarioSourceJson from "../data/scenario-source.json";
 import {
   characterDataOf,
 } from "../src/data";
@@ -216,9 +217,14 @@ describe("bundled scenario source policy", () => {
     expect(scenarioCatalog.filter(({ source }) => source === "official"))
       .toHaveLength(8);
     expect(scenarioCatalog.filter(({ source }) => source === "community"))
-      .toHaveLength(5);
+      .toHaveLength(14);
     expect(scenarioCatalog.filter(({ source }) => source === "unknown"))
-      .toHaveLength(9);
+      .toHaveLength(0);
+    expect(scenarioSourceJson._basis).toEqual({
+      official: "각본가 설명서 수록 확인",
+      community: "공식 10편이 전부 식별되었으므로 소거법으로 판정. " +
+        "실물 설명서 최종 확인 전까지 이 분류를 사용한다.",
+    });
   });
 
   it("passes validation for every bundled official scenario", () => {
@@ -246,6 +252,15 @@ describe("bundled scenario source policy", () => {
       ],
     });
     expect(() => assertOfficialScenariosValid(scenarioCatalog)).not.toThrow();
+  });
+
+  it("keeps every other bundled community scenario startable", () => {
+    const communityFailures = scenarioCatalog.filter(
+      ({ source, validation }) => source === "community" && !validation.ok,
+    );
+    expect(communityFailures.map(({ rawTitle }) => rawTitle)).toEqual([
+      "Trouble in Paradise",
+    ]);
   });
 
   it("fails the official gate if the same invalid scenario is marked official", () => {

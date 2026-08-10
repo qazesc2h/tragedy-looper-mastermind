@@ -566,6 +566,22 @@
         );
 
         changeSelect("[data-new-game-scenario]", scenarioId);
+        const validFanStart = frameDocument().querySelector(
+          "[data-action='start-selected-scenario']",
+        );
+        assert(
+          frameDocument().querySelector(".scenario-source-summary")
+            ?.textContent?.includes("팬 제작"),
+          "Un Rerum 출처가 팬 제작으로 표시되지 않음",
+        );
+        assert(
+          frameDocument().querySelector(".scenario-validation-warning") === null,
+          "규칙을 준수하는 팬 제작 시나리오에 위반 경고가 표시됨",
+        );
+        assert(
+          validFanStart && !validFanStart.disabled,
+          "규칙을 준수하는 팬 제작 시나리오의 게임 시작 버튼이 비활성임",
+        );
         const selectionTrait = frameDocument().querySelector(
           ".scenario-trait-notice:not(.scenario-validation-warning)",
         )?.textContent;

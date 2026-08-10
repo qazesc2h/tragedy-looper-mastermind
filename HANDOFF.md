@@ -526,14 +526,11 @@ killer: {
   위반한다. 공식 시나리오의 위반은 0건이다. upstream 보고 대상이 아니며,
   역할을 임의로 고치지 않고 UI에서 이유를 경고한 뒤 시작을 막는다.
 - `data/scenario-source.json`은 생성된 각본 JSON을 수정하지 않고 출처를 덧씌운다.
-  각본가 설명서에서 확인한 현재 번들의 공식 각본 8편, 팬 제작으로 확인한 5편,
-  실물 대조가 필요한 9편을 각각 `official` / `community` / `unknown`으로 분류한다.
-  각본가 설명서의 나머지 공식 2편은 First Steps 각본이라 현재 기본편 22편에 없다.
-- 출처 미확인 목록: `Magical Girls' Superiority`, `The Cat Box`,
-  `Crushed by the Hospital Building in Doronoki`, `Those with Antibodies (NT)`,
-  `The Assassin from the Future`, `Un Rerum`,
-  `The Illusion Under the Cherry Tree`, `A Little Friend`,
-  `Fall-Sakura Gathering`.
+  각본가 설명서의 공식 10편은 First Steps 2편(`The First Script`,
+  `Prevailing Secrecy`)과 현재 번들의 Basic Tragedy 8편으로 전부 식별됐다.
+  따라서 현재 번들의 나머지 14편은 소거법으로 `community`로 분류하고,
+  `unknown`은 비워 둔다. 이 community 분류는 실물 설명서 최종 대조 전까지의
+  판정이며, 근거와 확신도를 오버레이의 `_basis`에 함께 기록한다.
 - 공식 각본 검증 실패는 테스트 실패로 취급한다. 팬 제작 각본의 검증 실패는
   카탈로그에 유지하되 선택 화면에서 출처·위반 이유와 시작 불가 상태를 표시한다.
 - 이 특성은 시나리오 선택 화면, 플레이 중 캐릭터 카드·상세 화면, 각본가의
@@ -565,6 +562,13 @@ killer: {
 - UI 이벤트 → 엔진 호출 경로에 자동 테스트가 없다. 현재는 수동 플레이로 검증한다.
 
 ## 다음 작업
+
+### 입문편(First Steps) 지원
+
+입문편(`firstSteps`)은 현재 미지원이다. 원본 데이터에는 `The First Script` 등
+시나리오가 존재하지만 `gen.py`가 `basicTragedy`만 추출한다. 입문편은 룰 Y 3종,
+룰 X 3종이고 최후의 싸움이 없으며 룰 X 1개만 사용한다. 지원하려면 참극 세트별
+분기가 필요하다. 이번 작업에서는 데이터나 런타임 지원을 추가하지 않는다.
 
 ### 개발용 진단 표기 분리
 
