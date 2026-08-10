@@ -1,0 +1,353 @@
+[
+  {
+    "title": "The First Script",
+    "creator": "BakaFire",
+    "set": [
+      {
+        "name": "Tragedy Looper",
+        "number": 1
+      }
+    ],
+    "tragedySet": "firstSteps",
+    "daysPerLoop": 4,
+    "difficultySets": [
+      {
+        "numberOfLoops": 3,
+        "difficulty": 1
+      }
+    ],
+    "mainPlot": [
+      "murderPlan"
+    ],
+    "subPlots": [
+      "shadowRipper"
+    ],
+    "cast": {
+      "boyStudent": "person",
+      "girlStudent": "keyPerson",
+      "shrineMaiden": "serialKiller",
+      "policeOfficer": "conspiracyTheorist",
+      "officeWorker": "killer",
+      "doctor": "brain"
+    },
+    "incidents": [
+      {
+        "day": 2,
+        "incident": "murder",
+        "culprit": "officeWorker"
+      },
+      {
+        "day": 3,
+        "incident": "suicide",
+        "culprit": "girlStudent"
+      }
+    ],
+    "victory-conditions": "See Tragedy Looper Mastermind Handbook",
+    "story": "See Tragedy Looper Mastermind Handbook",
+    "mastermindHints": "See Tragedy Looper Mastermind Handbook"
+  },
+  {
+    "title": "The First Script (NT)",
+    "creator": "BakaFire",
+    "set": [
+      {
+        "name": "New Tragedies",
+        "number": 1
+      }
+    ],
+    "difficultySets": [
+      {
+        "numberOfLoops": 3,
+        "difficulty": 1
+      }
+    ],
+    "tragedySet": "firstSteps",
+    "mainPlot": [
+      "murderPlan"
+    ],
+    "subPlots": [
+      "shadowRipper"
+    ],
+    "daysPerLoop": 3,
+    "cast": {
+      "girlStudent": "keyPerson",
+      "officeWorker": "killer",
+      "doctor": "brain",
+      "popIdol": "conspiracyTheorist",
+      "shrineMaiden": "serialKiller",
+      "boyStudent": "person"
+    },
+    "incidents": [
+      {
+        "day": 3,
+        "incident": "suicide",
+        "culprit": "girlStudent"
+      }
+    ],
+    "description": "This script is designed to be used directly after having explained the game, and everyone, both Mastermind and Protagonists, plays Tragedy Looper for the first time. So, you can play it fairly relaxed and focus on getting everything right. As it’s a practice script, it’s not very difficult. Don’t worry about winning or losing.",
+    "specialRules": [
+      ""
+    ],
+    "victory-conditions": "Killing the :keyPerson: (:girlStudent:) \n1. At any day end, have :shrineMaiden: and :girlStudent: alone in a location, triggering the :serialKiller:’s effect to kill the :girlStudent:, triggering the :keyPerson:’s loss condition immediately. \n2. At any day end, have 2 or more :intrigue: on the :girlStudent: in the same location as the :officeWorker:, triggering the :murder:er’s :keyPerson: kill effect, and thus the :keyPerson:’s loss condition immediately. \n3. At end of day 3, have 3 or more :paranoia: on the :girlStudent:, triggering her :suicide:, and thus triggering the :keyPerson:’s loss condition immediately. \n\nKilling the Protagonists \n• At any day end, have 4 or more :intrigue: on the Offce Worker, triggering the :murder:er’s Protagonist kill effect.",
+    "story": "Welcome to the First Script. We’ll start with a simple tragedy to try out what you have learned. \n\nA girl has learned a secret. And to silence her, some organization has sent out an assassin to silence her. Her best friend, a :popIdol:, isn’t much help, due to being a bit paranoid. To make matters worse, there’s also a serial killer in town. Do you think the heroes will be able to defend the :youngGirl:?",
+    "mastermindHints": "Aim to kill the :girlStudent:. The possible ways to kill her are listed in the “Victory Conditions” below. Just playing a card on the :girlStudent: will have people wonder what card it is, so play a card on her every single day. \n\nIn the first loop, the Protagonists have no idea of what’s happening. It’s recommended to just move the :girlStudent: to the :shrineMaiden: (:serialKiller:). \n\nFrom the second loop and on, the Protagonists will be wary of the :serialKiller:. Use that to get the :girlStudent: to commit suicide. Use the :conspiracyTheorist:’s ability to place :paranoia:, and the card :paranoia: +1, to get her to 3 :paranoia: by the third day. \n\nIn the third loop, you’ll have to aim for every possible way to kill her. You can place 2 :intrigue: on her to get the :officeWorker: to kill her or put 4 :intrigue: on the :officeWorker: to kill the Protagonists. (Remember, you can’t move the :officeWorker: to the School as he is not allowed there.) Finally, use the :brain:’s power when you can.\n\nHelping the Protagonists\n\nIf the Protagonists seem to struggle as to what to do, tell them this: “Winning the first loop is next to impossible. What you want to do is gather information. This is best done by playing :goodwill: +1 or :goodwill: +2 on some characters to use their abilities.” Also, to use the Reference sheet to figure out what occurred and possibly how it occurred.\n\nA PLAY GUIDE FOR “THE FIRST SCRIPT” \n\nAs this is the very first script, we give you suggestions on how to play out the script. Try it out the first time you play the script. \n\n(1) First loop, Day 1: Card playing step\nThe very first round, play the following cards: \n• :girlStudent:: Vertical Movement \n• :officeWorker:: :intrigue: +1 \n• :doctor:: :paranoia: +1 \nAfter the cards resolve, if the result is that the :girlStudent: is alone with the :shrineMaiden:, you’ve won, go to Bad Ending 1. If not, go to (2) \n\n(2) Day 1 to 3: Mastermind ability step\nIf the :popIdol: and the :girlStudent: are in the same location, place an :paranoia: token on the :girlStudent: (using the Idol’s :conspiracyTheorist: ability). If the :doctor: and the :officeWorker: or the :girlStudent: are in the same area, place one :intrigue: on the :officeWorker: or :girlStudent: (using the :doctor:’s :brain: ability) \n• Check the Bad Ending list; if any are fulfilled, you’ve won. But if it’s the third day, and nothing has happened, the Protagonists have won. Otherwise, go to (3).\n\n(3) Day 2 or 3: Card playing phase\nBelow you will find several tactics depending on the situation. They are in priority order. Also, if you can combine 2 tactics, do so. \n• Tactic 1: Kill the :girlStudent: with the :serialKiller: (if the :serialKiller: is divulged, the players will hamper this): Move the :shrineMaiden: and the :girlStudent: so that they end up together. You can use this tactic even if the :serialKiller: is divulged if you have a card play to spare or if it’s the only way out. \n• Tactic 2: :suicide: the :girlStudent: (she must have at least 1 :paranoia: if it’s day 2, and at least 2 if it’s day 3): Put an :paranoia: +1 on the :girlStudent:, move the :popIdol: to the :girlStudent:, and put Forbid :goodwill: on the :boyStudent:. \n• Tactic 3: Kill the Protagonists with the :murder:er (:officeWorker: must have at least 1 :intrigue:, hopefully 2, if it’s day 3): Put :intrigue: +1 or +2 on the :officeWorker: and move the :doctor: to where the :officeWorker: is. \n• Tactic 4: Kill the :girlStudent: with the :murder:er: Put :intrigue: +1, :intrigue: +2 on the :girlStudent:, or move her to the :officeWorker:. Move the :officeWorker: to where the :girlStudent: is (remember, he cannot go to the School!). Move the :doctor: to the :girlStudent:’s location. \nIf either tactic is fulfilled, no need to do anything in (2) and go to the Bad Ending in question. If neither is fulfilled, go to (2).  \n\n(4) Second loop, Day 1: Card playing phase\nIf the :serialKiller: hasn’t been divulged, go to (1). \nIf the :serialKiller: has been divulged, do the following: \n• Play :paranoia: +1 on the :girlStudent:, Horizontal Movement on the Idol, Vertical Movement on the :doctor:. Then go to (2). \n\n(5) Third loop, Day 1: Card playing phase \nTry to fight it out your way in loop 3. If you are at a loss as to what to do, check (3). \n\nBad Ending 1: Meeting at night. \nCondition: If the :shrineMaiden: and the :girlStudent: are alone in one location \nDon’t do anything during the Mastermind ability step. Then, when the day ends, the :girlStudent: dies (turn her sideways) and tell the Protagonists she’s dead, they’ve lost, and the loop ends. \n\nBad Ending 2: So, you were the ones snooping around! \nCondition: There are 4 :intrigue: counters on the :officeWorker: \nIf it’s already a sure thing, you don’t need to do anything during the Mastermind ability step. If you don’t have enough :intrigue:, but can use the :brain:’s ability, then do so. Then, at the end of the day, tell the Protagonists that they are dead, they’ve lost, and the loop ends. \n\nBad Ending 3: Who was the assassin? \nCondition: If the :girlStudent: has 2 :intrigue: on her and is in the same location as the :officeWorker: \nDon’t do anything during the Mastermind ability step if she already has enough :intrigue:, however, if she’s with the :doctor:, do place an :intrigue: on her to get the :officeWorker: to kill her at day end. Tell the Protagonists she’s dead, they’ve lost, and the loop ends. \n\nBad Ending 4: Couldn’t stand the strain. \nCondition: If the :girlStudent: has 3 or more :paranoia: on day 3 \nIf it’s already a sure thing, don’t use any Mastermind ability to put another :paranoia: on her. If you need the :conspiracyTheorist: to put the third :paranoia: on her, do so. Then, during the Incident step, she dies. Tell the Protagonists that she’s dead, they’ve lost, and the loop ends. \n\nAfter the ending, if this was the first loop, reset the board and go to (4). \nIf this was the second loop, reset the board and go to (5) \nIf this was the third loop, you’ve won!"
+  },
+  {
+    "title": "In the Godless Temple",
+    "creator": "Kaijin",
+    "set": [
+      {
+        "name": "New Tragedies",
+        "number": 2
+      }
+    ],
+    "difficultySets": [
+      {
+        "numberOfLoops": 3,
+        "difficulty": 1
+      }
+    ],
+    "tragedySet": "firstSteps",
+    "mainPlot": [
+      "lightAvenger"
+    ],
+    "subPlots": [
+      "hideousScript"
+    ],
+    "daysPerLoop": 4,
+    "cast": {
+      "alien": "brain",
+      "policeOfficer": "conspiracyTheorist",
+      "officeWorker": "curmudgeon",
+      "patient": "friend",
+      "shrineMaiden": "person",
+      "popIdol": "person"
+    },
+    "incidents": [
+      {
+        "day": 2,
+        "incident": "missingPerson",
+        "culprit": "officeWorker"
+      },
+      {
+        "day": 3,
+        "incident": "hospitalIncident",
+        "culprit": "shrineMaiden"
+      }
+    ],
+    "specialRules": [
+      ""
+    ],
+    "description": "In the Godless Temple is an advanced training script, to be played after the First Script. This is a perfect script to learn how to use :intrigue: counters. After The First Script and this, you’ll get the hang of most victory tactics for the Mastermind.",
+    "story": "A decrepit shrine at the outskirts of town. Whatever is hallowed there, it’s not a god. And it wants revenge. Revenge on the :shrineMaiden: that summoned it and consequently all humans. \n\nThis being confuses people and pushes the ill will of the broken :shrineMaiden: and less-than-good-tempered people onto the Protagonists. Will the heroes be able to stop this incarnation of darkness and evil from getting its revenge?",
+    "victory-conditions": "1. At loop end, have 2 :intrigue: on the Shrine, triggering the loss condition of :lightAvenger:.\n\n2. At end of day 3, have at least 1 :intrigue: on the Hospital and at least 2 :paranoia: on the shrineMaiden, triggering the :hospitalIncident:, killing the :patient:, and triggering the :friend:’s loss condition at loop end.\n\n3. At end of day 3, have at least 2 :intrigue: on the Hospital and at least 2 :paranoia: on the :shrineMaiden:, triggering the :hospitalIncident:, killing the Protagonists.",
+    "mastermindHints": "The basic way to win is to have 2 :intrigue: on the Shrine at the end of the loop. It’s good to also have 2 :intrigue: on the City, so that you can hide who the :brain: is. When you use the :brain:’s ability, see to it that the :officeWorker: and the :alien: are in the same area.\n\nAnother way to win is the :hospitalIncident:, while having 1 or more :intrigue: on the Hospital, killing the :patient: who is the :friend:, triggering a win condition for you.\n\nIn either case, you should get the :officeWorker: to trigger :missingPerson: to help place :intrigue:. Use the conspiracyTheorist: ability from Day 1. But if you think you can win with 2 :intrigue: on the Shrine, don’t aim for the :hospitalIncident:. It’s best to hide who the culprit is there, and to place a lot of :paranoia: on them once you need to.\n\nA PLAY GUIDE FOR “IN THE GODLESS TEMPLE”\n\nWe present a briefer play-through guide for this script.\n\nDay 1: Card playing phase\n\nOn loop 1, play these cards:\n\n• City: :intrigue: +2\n\n• Shrine: :intrigue: +1\n\n• Hospital: Any card (mainly to bluff)\n\nOn loop 2, play any of the below:\n\n• City or Shrine: :intrigue: +1, :intrigue: +2, or any other card\n\n• Hospital: :intrigue: +1 or any other card\n\n• :officeWorker: :paranoia: +1\n\n• :shrineMaiden: Vertical Movement\n\nDay 1-4: Mastermind ability step\n\n• If it’s day 1 or 2, and the :officeWorker: and :policeOfficer: are in the same area, place an :paranoia: token on the :officeWorker:.\n\n• If it’s day 1, 2 or 3, and the :shrineMaiden: and :policeOfficer: are in the same area, and you have 1 or more :intrigue: on the Hospital, put an :paranoia: on the :shrineMaiden:.\n\n• If the :alien: and :policeOfficer: are together at the City or Shrine, and you have 1 or less :intrigue: on that location, place one :intrigue: there.\n\n• If the :alien: is in the Shrine, and you really need to, place 1 :intrigue: there.\n\nDay 2-4: Card playing phase\n\nPlay cards or move, as needed:\n\n• City or Shrine: :intrigue: +1, :intrigue: +2 or any other card.\n\n• Hospital: :intrigue: +1 or any other card.\n\n• :shrineMaiden: :paranoia: +1, Forbid :goodwill:, or move her away from the Shrine.\n\n• :alien: Move it to Shrine or City.\n\n• :policeOfficer: Move to same location as :shrineMaiden: or :officeWorker:.\n\n• :officeWorker: :paranoia: +1 or move to same location as :alien:.\n\n• :popIdol: Forbid :goodwill: or move her so she can’t use her :goodwill: ability.\n\n• :patient: Don’t place anything on him."
+  },
+  {
+    "title": "Prevailing Secrecy",
+    "creator": "BakaFire",
+    "set": [
+      {
+        "name": "Tragedy Looper",
+        "number": 2
+      }
+    ],
+    "tragedySet": "firstSteps",
+    "daysPerLoop": 5,
+    "difficultySets": [
+      {
+        "numberOfLoops": 4,
+        "difficulty": 1
+      },
+      {
+        "numberOfLoops": 3,
+        "difficulty": 3
+      }
+    ],
+    "mainPlot": [
+      "placeProtect"
+    ],
+    "subPlots": [
+      "unsettlingRumor"
+    ],
+    "cast": {
+      "boyStudent": "cultist",
+      "girlStudent": "person",
+      "shrineMaiden": "conspiracyTheorist",
+      "officeWorker": "person",
+      "doctor": "keyPerson",
+      "patient": "person"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "incident": "increasingUnease",
+        "culprit": "shrineMaiden"
+      },
+      {
+        "day": 3,
+        "incident": "hospitalIncident",
+        "culprit": "boyStudent"
+      },
+      {
+        "day": 5,
+        "incident": "farawayMurder",
+        "culprit": "patient"
+      }
+    ],
+    "victory-conditions": "See Tragedy Looper Mastermind Handbook",
+    "story": "See Tragedy Looper Mastermind Handbook",
+    "mastermindHints": "See Tragedy Looper Mastermind Handbook"
+  },
+  {
+    "title": "Thunder in the City",
+    "creator": "Redless",
+    "difficultySets": [
+      {
+        "numberOfLoops": 5,
+        "difficulty": 0
+      }
+    ],
+    "tragedySet": "firstSteps",
+    "mainPlot": [
+      "lightAvenger"
+    ],
+    "subPlots": [
+      "unsettlingRumor"
+    ],
+    "daysPerLoop": 5,
+    "cast": {
+      "popIdol": "brain",
+      "girlStudent": "conspiracyTheorist",
+      "journalist": "person",
+      "patient": "person",
+      "shrineMaiden": "person",
+      "boyStudent": "person",
+      "richStudent": "person"
+    },
+    "incidents": [
+      {
+        "day": 3,
+        "incident": "hospitalIncident",
+        "culprit": "boyStudent"
+      },
+      {
+        "day": 4,
+        "incident": "murder",
+        "culprit": "richStudent"
+      },
+      {
+        "day": 5,
+        "incident": "missingPerson",
+        "culprit": "shrineMaiden"
+      }
+    ],
+    "specialRules": [
+      ""
+    ],
+    "victory-conditions": "",
+    "story": "",
+    "mastermindHints": "This script is in an awkward spot, since it requires a fair bit of skill to solve and because it's very long, yet it's a :firstSteps: script. the kind of people who would like this script would definitely be good at this game, and if that's the case, why play a :firststeps: script with them? maybe if some people haven't played it before and some have? anyways, this script is meant to introduce the players to deep bluffing and trickery, 'coverups' in other words. to do that, we have the :brain: and :increasingUnease: subplot to obfuscate who the :brain: is. loop 1, you should try to place an :intrigue: on the city, school, and hospital. I'd put the 2 on the city since it's most important and they're less likely to block it, and one on the hospital to make it easier to set the incident off (if you definitely don't want the incident, you can also do school). then, you want to set off the :hospitalIncident: by placing a :paranoia: AND using the contheorist's ability on the :boyStudent: on day 3, to surprise the protagonists, while placing :paranoia: on other people to bluff the culprits. alternately, if they blocked on hospital or something, try to get them to block there again for the free school :intrigue:, move the :journalist: or :popIdol: over (:journalist: probably better) and/or trigger :missingPerson: so that you can go for the :placeProtect: bluff. in future loops, try to confuse the protagonists about who and where the :brain: is, and who does the :hospitalIncident:. the presence of the :murder: incident makes it harder to bluff that RMD does the :hospitalIncident:, but makes it easier to bluff place to protect and ultimately a hideous script. slowly, more and more things will be revealed over the course of five loops. it's subtle, it's a marathon, and it requires GOOD play from the protagonists to have any chance at all, but I hope and think it does a suitable job introducing the more trickery focused side of looper."
+  },
+  {
+    "title": "A Cruel Shrine Maiden's Thesis",
+    "creator": "Redless",
+    "difficultySets": [
+      {
+        "numberOfLoops": 3,
+        "difficulty": 0
+      },
+      {
+        "numberOfLoops": 4,
+        "difficulty": 0
+      }
+    ],
+    "tragedySet": "firstSteps",
+    "mainPlot": [
+      "placeProtect"
+    ],
+    "subPlots": [
+      "shadowRipper"
+    ],
+    "daysPerLoop": 4,
+    "cast": {
+      "nurse": "keyPerson",
+      "popIdol": "cultist",
+      "girlStudent": "conspiracyTheorist",
+      "shrineMaiden": "serialKiller",
+      "classRep": "person",
+      "patient": "person",
+      "officeWorker": "person"
+    },
+    "incidents": [
+      {
+        "day": 1,
+        "incident": "increasingUnease",
+        "culprit": "officeWorker"
+      },
+      {
+        "day": 4,
+        "incident": "missingPerson",
+        "culprit": "nurse"
+      }
+    ],
+    "specialRules": [
+      ""
+    ],
+    "victory-conditions": "",
+    "story": "",
+    "mastermindHints": "This whole script revolves around :missingPerson:. It will let you drag the :nurse: into the maiden's path, and also let you stack some more :intrigue: on the school. It's your \"easy out\", everything else in the script lives in service of it. The first day you should aim to serial kill the nurse. LOL! Gotem. Another loop, drop :paranoia: on the OW, and move the :girlStudent: left. By doing this, you will be in a good spot to MP. If people don't die, stack the school and set to work adding :intrigue:. If people do die, try to position the :shrineMaiden: alone so that you can MP the nurse over. Another loop, try and stack people in the school and obfuscate who exactly the :cultist: is. Finally, try and win the final loop via :missingPerson: shenanigans, which is surprisingly hard to do. You might consider playing this instead of the first script, or in place of the second script if your players don't mind you crushing their spirits by doing the same BS strat that characterizes the first script, a second time in a row. I believe this is very balanced. But of course you have to contend with the repetition of :serialKiller: if you're playing this after the first script. "
+  },
+  {
+    "title": "Tofu Murder Case",
+    "creator": "じーちゃん",
+    "source": "https://web.archive.org/web/20171025123847/http://g-chan.dip.jp/square/archives/2015/12/rooper_x_02.html",
+    "difficultySets": [
+      {
+        "numberOfLoops": 4,
+        "difficulty": 0
+      }
+    ],
+    "tragedySet": "firstSteps",
+    "mainPlot": [
+      "murderPlan"
+    ],
+    "subPlots": [
+      "hideousScript"
+    ],
+    "daysPerLoop": 5,
+    "cast": {
+      "popIdol": "keyPerson",
+      "girlStudent": "killer",
+      "policeOfficer": "brain",
+      "richStudent": "conspiracyTheorist",
+      "patient": "curmudgeon",
+      "shrineMaiden": "friend",
+      "boyStudent": "person"
+    },
+    "incidents": [
+      {
+        "day": 2,
+        "incident": "suicide",
+        "culprit": "shrineMaiden"
+      },
+      {
+        "day": 3,
+        "incident": "murder",
+        "culprit": "richStudent"
+      },
+      {
+        "day": 5,
+        "incident": "increasingUnease",
+        "culprit": "patient"
+      }
+    ],
+    "description": "This :firstSteps: scenario was made for players who have never played Tragedy Looper before. However, it's not particularly easy in terms of difficulty. In fact, it's somewhat difficult. I think that even newcomers can enjoy it, but I would not recommend it to people who aren't good at logic puzzles, or if they're new to board games in general (well, in this case, they probably won't be playing Tragedy Looper right now to begin with). This scenario is intended to be played with table talk allowed, but you can forbid it if the players are experienced. Since a tofu-minded lady commits murders in this scenario, I titled it \"Tofu :murder: Case.\"\n\nThis scenario consists of four Loops, but the first three Loops will allow you to experienced the core element of Tragedy Looper—information gathering. The main focus of this is to learn how to deduce clues based on what's happening in the board, such as \\\"The board was like this when we died, so this must be the Plot.\\\"\n\nBefore entering the final Loop, the Mastermind will defeat the Protagonists while guiding them to reveal the Main Plot, Sub Plot, all Roles, and all Incident Culprits (Since :firstSteps: doesn't have a Final Guess, you won't lost just for revealing everything).\n\nThen, in the final Loop, the Protagonists will have a guessing game with the Mastermind based on the information that's been revealed. The aim is for the Protagonists to play in a way that avoids the Defeat Condition when they have all the information at hand.",
+    "specialRules": [
+      ""
+    ],
+    "victory-conditions": "1. Kill the :keyPerson: (:killer:, :murder:)\n2. Kill the :friend: (:suicide:, :murder:)\n3. Kill the Protagonists (:killer:)",
+    "story": "",
+    "mastermindHints": "First Loop\n\nThe goal is the won by putting 4 :intrigue: on the :killer:, which is the most difficult option. Since you can get 1 :intrigue: by triggering :increasingUnease: on the 5th Day, you only need to put 3 :intrigue: on the :girlStudent:.\n\nDay 1\n- Pop Idol: :intrigue:+1\n- Patient: :paranoia:+1\n- :girlStudent Student: :paranoia:+1 (this is a bluff, so you can use others if you want)\n\nPlace :paranoia:+1 on the :patient: every turn to trigger the :increasingUnease: Incident. The Protagonists have a total of 3 :paranoia:-1 cards, so you can reach the :paranoia: limit on the final Day if you put :paranoia:+1 out every turn. \n\nHowever, this time, there is a :popIdol:. Since there is a possibility of her removing :paranoia: via her mandatory, if she accumulates :goodwill: on her, you can counter it with repeated Forbid :goodwill:, preventing her from moving to the Hospital, or simply place a 4th :intrigue:. Additionally, placing it on :popIdol:, :girlStudent:, and :patient: is also a setup for the next Loop, so it's recommended to place it on these three Characters.\n\nDay 2\n- :girlStudent Student: :intrigue:+1\n- Patient: :paranoia:+1\n- Pop Idol: :paranoia:+1 (this is a bluff, so you can use others if you want)\n\nContinuing from the previous Day, place :paranoia: on the :patient:. Then place :intrigue:+1 on the :girlStudent:. This is the day when :suicide: occurs, but if the Mastermind does not place any :paranoia:, the :shrineMaiden: shouldn't hit her required limit.\n\nDay 3\n- :girlStudent Student: :intrigue:+2\n- Patient: :paranoia:+1\n- Pop Idol: Move to the same position as :richStudent:\n\nAt this point, it's important to place :intrigue:+2 while moving the :richStudent:. If :intrigue:+2 is blocked, your options for beating the Protagonists will be greatly narrowed (I think the only option then is to tput 2 :intrigue: on the :keyPerson: and kill him with the :killer:).\n\nAs insurance in case :intrigue:+2 is nullified, move :popIdol: (:keyPerson:) towards :richStudent: (:conspiracyTheorist:). By doing this, the Daughter, who is a :conspiracyTheorist:, will be abl to put a Paranoid counter on herself, trigger :murder:, kill the :keyPerson:, and defeat the Protagonists.\n\nIf :intrigue:+2 is successfully placed on the :girlStudent: (:killer:), don't use :conspiracyTheorist:'s mandatory ability and continue instead with \\\"No Incident occured.\\\"\n\nDay 4\n- :girlStudent Student: :intrigue:+1\n- Patient: :paranoia:+1\n- Pop Idol: :paranoia:+1 (this is a bluff, so you can use others if you want)\n\nWhen the :girlStudent: gets 4 :intrigue:, kill the Protagonists to end the Loop. However, the Protagonists will likely be wary of her since she has three :intrigue:, so they will likely place Forbid :intrigue:. It's a good idea to place :paranoia: so that the :popIdol: also reaches her Limit, so it makes it difficult to determine if the final Day's Culprit is the :popIdol: or the :patient:.\n\nDay 5\n- :girlStudent Student: :intrigue:+1\n- Patient: :paranoia:+1\n- Pop Idol: :paranoia:+1 (this is a bluff, so you can use others if you want)\n\nSame as Day 4. If everything goes according to plan, the :girlStudent: should have 3 :intrigue: on her. Now, trigger :increasingUnease: (which should be unstoppable) to put the 4th :intrigue: on the :killer:, and kill the Protagonists at the end of the turn to end the Loop.\n\n2nd Loop\n\nThe strategy for the 2nd Loop is to aim for a one-turn kill, or kill the :keyPerson: with the :killer: if you can't get a one-turn kill.\n\nDay 1\n- Pop Idol: :intrigue:+2\n- :girlStudent Student: Move to the City\n- Patient: :paranoia:+1\n\nLet's aim for a one-turn kill!\nSince you're placing cards on the same characters as in the previous Loop, and, according to the plot, the Protagonists lost the previous Loop due to the :killer:'s mandatory :intrigue: 4 ability, the Protagonists will probably place Forbid :intrigue: on the :girlStudent: (:killer:). Well, they may move the :popIdol: to avoid the risk of a one-turn kill, but if they, you can chase them down with the :killer: the next Day or later.\n\nDay 2 onward\n\nSo, did you get the one-turn kill? Well, you're reading this on Day 2, so probably not (lol). From hereon, use :policeOfficer: (:brain:)'s mandatory ability aggressively and aim to put :intrigue: on the :keyPerson: and :killer:.\n\nThere's no Final Guess in the First Step set, so there's no reason to be stingy with mandatory role abilities. It's also a good idea to aim to kill the :shrineMaiden: (:friend:), or :popIdol: (:keyPerson:) with the :richStudent: :murder: Incident on the 3rd Day.\n\n3rd Day\n\nFor the third Loop, try to kill the :shrineMaiden:.\n\nDay 1\n- Shrine Maiden: :paranoia:+1\n- :richStudent:: Move up or down\n- Pop Idol: :intrigue:+1\n\nIf the :richStudent: safely reaches the Shrine and is able to join the :shrineMaiden:, use her mandatory :conspiracyTheorist: ability to place :paranoia: on the :shrineMaiden:.\n\nDay 2\n- Shrine Maiden: :paranoia:+1\n- :boyStudent: Move left or right (avoid going to the Shrine)\n- Pop Idol: :intrigue:+1\n\nIf everything goes as planned up until now, the :shrineMaiden: (:friend:) will kill herself, so this Loop will end. If that doesn't work, try killing the :shrineMaiden: or :popIdol: on the third Day with :richStudent:'s :murder: Incident (if you miss this, too, you'll be in a lot of trouble lol).\n\n4th Loop\n\nIf you have been following the Hints, all Culprits and Roles should be revealed by now. Therefore, in the final 4th Loop, it'll be a battle of wits between the Mastermind and the Protagonists.\n\nGood luck!"
+  }
+]

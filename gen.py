@@ -268,9 +268,14 @@ json.dump({"characters": ko_char, "roles": ko_role, "incidents": ko_inc,
            "plots": ko_plot, "tragedySets": ko_trag, "misc": ko_misc},
           open(f"{OUT}/data/ko-terms.json", "w"), ensure_ascii=False, indent=2)
 
-# 기본편 시나리오 (테스트 픽스처)
-bt_scripts = [s for s in L(f"{DATA}/base-game/scripts.jsonc")["scripts"]
+# 참극 세트별 시나리오 (테스트 픽스처)
+base_game_scripts = L(f"{DATA}/base-game/scripts.jsonc")["scripts"]
+fs_scripts = [s for s in base_game_scripts
+              if s.get("tragedySet") == "firstSteps"]
+bt_scripts = [s for s in base_game_scripts
               if s.get("tragedySet") == "basicTragedy"]
+json.dump(fs_scripts, open(f"{OUT}/data/first-steps-scripts.json", "w"),
+          ensure_ascii=False, indent=2)
 json.dump(bt_scripts, open(f"{OUT}/data/basic-tragedy-scripts.json", "w"),
           ensure_ascii=False, indent=2)
 
@@ -280,6 +285,7 @@ report = {
     "plots": {"count": len(bt_plots), "hooks": p_n},
     "incidents": {"count": len(bt_incidents), "hooks": i_n},
     "scripts": len(bt_scripts),
+    "first_steps_scripts": len(fs_scripts),
     "characters_total": len(chars),
     "ko_missing_characters": sorted(i for i in chars if i not in ko_char),
     "xlsx_unmatched": {"characters": miss_char, "roles": miss_role,
