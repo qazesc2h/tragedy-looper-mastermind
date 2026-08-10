@@ -1138,9 +1138,9 @@ function signedDelta(before: number, after: number): string {
   return delta > 0 ? `+${delta}` : String(delta);
 }
 
-function publicResolutionLine(item: Extract<
+function resolutionChangeLine(item: Extract<
   ResolutionReportItem,
-  { audience: "protagonists" }
+  { category: "movement" | "counter" }
 >): string {
   const change = item.change;
   if (change.kind === "movement") {
@@ -1152,9 +1152,9 @@ function publicResolutionLine(item: Extract<
   return `${characterName(change.character)} ${counterLabel(change.counter)}${signedDelta(change.before, change.after)}`;
 }
 
-function privateResolutionLine(item: Extract<
+function noEffectResolutionLine(item: Extract<
   ResolutionReportItem,
-  { audience: "mastermind" }
+  { category: "noEffect" }
 >): string {
   const { placement, blockedBy, reason } = item.noEffect;
   const cause = blockedBy
@@ -1170,41 +1170,41 @@ function privateResolutionLine(item: Extract<
 function renderResolutionReceipt(state: GameState): string {
   const receipt = receiptFor(state);
   if (!receipt) return "";
-  const publicItems = receipt.items.filter(
-    (item): item is Extract<ResolutionReportItem, { audience: "protagonists" }> =>
-      item.audience === "protagonists",
-  );
-  const privateItems = receipt.items.filter(
-    (item): item is Extract<ResolutionReportItem, { audience: "mastermind" }> =>
-      item.audience === "mastermind",
-  );
+  const rows = receipt.items.map((item) => item.category === "noEffect"
+    ? {
+      category: "무효",
+      line: noEffectResolutionLine(item),
+      causeHidden: item.causeHidden,
+    }
+    : {
+      category: item.category === "movement" ? "이동" : "카운터",
+      line: resolutionChangeLine(item),
+      causeHidden: item.causeHidden,
+    });
   return `
     <section class="resolution-receipt" aria-live="polite">
       <div>
         <span class="eyebrow">${escapeHtml(misc("Resolving Cards"))}</span>
         <h2>${escapeHtml(misc("Result summary", "Result summary"))}</h2>
       </div>
-      <div class="resolution-audiences">
+      <div class="resolution-results">
         <section class="resolution-public">
           <ul>
-            ${(publicItems.length > 0
-              ? publicItems.map((item) => ({
-                category: item.category === "movement" ? "이동" : "카운터",
-                line: publicResolutionLine(item),
-              }))
-              : [{ category: "변동", line: misc("No effect", "No effect") }])
-              .map(({ category, line }) => `<li><b>[${escapeHtml(category)}]</b> ${escapeHtml(line)}</li>`)
+            ${(rows.length > 0
+              ? rows
+              : [{
+                category: "변동",
+                line: misc("No effect", "No effect"),
+                causeHidden: false,
+              }])
+              .map(({ category, line, causeHidden }) => `<li><b>[${escapeHtml(category)}]</b> ${escapeHtml(line)}${
+                causeHidden
+                  ? ` <em class="resolution-hidden-cause">원인 비공개</em>`
+                  : ""
+              }</li>`)
               .join("")}
           </ul>
         </section>
-        ${privateItems.length > 0
-          ? `<section class="resolution-private">
-              <h3>각본가 전용 · 전달 금지</h3>
-              <ul>${privateItems.map((item) =>
-                `<li><b>[무효]</b> ${escapeHtml(privateResolutionLine(item))}</li>`
-              ).join("")}</ul>
-            </section>`
-          : ""}
       </div>
     </section>`;
 }
@@ -1674,12 +1674,15 @@ function renderPhaseControls(state: GameState): string {
       return `<section class="operation-panel">
         <div class="resolve-control-copy">
           ${heading(4, phaseName(state.loop.phase))}
-          ${renderPlacementSummary(state)}
-          ${renderHookList(state, state.loop.phase, true)}
+          ${state.loop.actionResolutionComplete
+            ? `<p>카드 공개와 효과 해결이 완료되었습니다. 결과 요약을 확인한 뒤 진행하세요.</p>`
+            : `${renderPlacementSummary(state)}${renderHookList(state, state.loop.phase, true)}`}
         </div>
         <div class="operation-footer">
-          <span>6장 배치 확정</span>
-          ${renderAdvanceButton(misc("Resolving Cards"), state.loop.placed.length !== 6, "reveal-cards")}
+          <span>${state.loop.actionResolutionComplete ? "P4 해결 완료" : "6장 배치 확정"}</span>
+          ${state.loop.actionResolutionComplete
+            ? renderAdvanceButton()
+            : renderAdvanceButton("카드 공개·해결", state.loop.placed.length !== 6, "reveal-cards")}
         </div>
       </section>`;
     case "P5_MASTERMIND_ABILITY":
@@ -1750,11 +1753,13 @@ function dockPrimaryAction(state: GameState): DockPrimaryAction {
           nextProtagonist(state) !== undefined,
       };
     case "P4_RESOLVE":
-      return {
-        action: "reveal-cards",
-        label: "카드 공개",
-        disabled: state.loop.placed.length !== 6,
-      };
+      return state.loop.actionResolutionComplete
+        ? { action: "advance", label: "다음 단계", disabled: false }
+        : {
+          action: "reveal-cards",
+          label: "카드 공개·해결",
+          disabled: state.loop.placed.length !== 6,
+        };
     case "P7_INCIDENT":
       return { action: "advance", label: "사건 판정", disabled: false };
     case "P9_ROUND_END":
@@ -2747,7 +2752,11 @@ function revealActionCards(): void {
   const entry = activeScenarioEntry();
   const game = tracker.games[entry.id];
   const state = game.state;
-  if (state.loop.phase !== "P4_RESOLVE" || state.loop.placed.length !== 6) {
+  if (
+    state.loop.phase !== "P4_RESOLVE" ||
+    state.loop.actionResolutionComplete ||
+    state.loop.placed.length !== 6
+  ) {
     notice = misc("6 cards required", "6 cards required");
     render();
     return;

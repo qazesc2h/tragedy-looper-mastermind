@@ -7,6 +7,7 @@ import {
 } from "../engine/movement";
 import {
   characterLocation,
+  effectiveRole,
   isCharacterAlive,
   isCharacterPresent,
   type ActionCard,
@@ -220,14 +221,14 @@ export interface ResolutionNoEffect {
 
 export type ResolutionReportItem =
   | {
-    audience: "protagonists";
     category: "movement" | "counter";
     change: ResolutionChange;
+    causeHidden: boolean;
   }
   | {
-    audience: "mastermind";
     category: "noEffect";
     noEffect: ResolutionNoEffect;
+    causeHidden: false;
   };
 
 export function collectResolutionChanges(
@@ -322,7 +323,10 @@ function intrigueIsIgnored(state: GameState, target: Target): boolean {
 
 function goodwillIsIgnored(state: GameState, target: Target): boolean {
   return target.kind === "character" &&
-    state.loop.timeTravelersIgnoringForbidGoodwill?.includes(target.id) === true;
+    (
+      effectiveRole(state, target.id) === "timeTraveler" ||
+      state.loop.timeTravelersIgnoringForbidGoodwill?.includes(target.id) === true
+    );
 }
 
 function blockedBy(
@@ -423,7 +427,48 @@ export function collectNoEffectCards(
   return noEffects;
 }
 
-/** 주인공에게 전달할 변동을 먼저, 원인을 숨길 무효 항목을 나중에 둔다. */
+function hiddenCauseChangedCounter(
+  state: GameState,
+  placed: readonly PlacedCard[],
+  change: ResolutionChange,
+): boolean {
+  const target: Target | undefined = change.kind === "characterCounter"
+    ? { kind: "character", id: change.character }
+    : change.kind === "locationIntrigue"
+    ? { kind: "location", at: change.location }
+    : undefined;
+  if (!target) return false;
+
+  if (
+    change.kind === "characterCounter" &&
+    change.counter === "goodwill" &&
+    effectiveRole(state, change.character) === "timeTraveler" &&
+    forbidOnTarget(placed, { owner: 0, card: "goodwillPlus1", target }, "forbidGoodwill") &&
+    placed.some((placement) =>
+      sameTarget(placement.target, target) &&
+      (placement.card === "goodwillPlus1" || placement.card === "goodwillPlus2")
+    )
+  ) {
+    return true;
+  }
+
+  if (
+    (change.kind === "locationIntrigue" ||
+      (change.kind === "characterCounter" && change.counter === "intrigue")) &&
+    intrigueIsIgnored(state, target) &&
+    forbidOnTarget(placed, { owner: 0, card: "intriguePlus1", target }, "forbidIntrigue") &&
+    placed.some((placement) =>
+      sameTarget(placement.target, target) &&
+      (placement.card === "intriguePlus1" || placement.card === "intriguePlus2")
+    )
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+/** 공개할 변동을 먼저, 공개 카드의 무효 결과를 나중에 둔다. */
 export function collectResolutionReport(
   before: GameState,
   after: GameState,
@@ -433,18 +478,18 @@ export function collectResolutionReport(
     before,
     after,
   ).map((change) => ({
-    audience: "protagonists",
     category: change.kind === "movement" ? "movement" : "counter",
     change,
+    causeHidden: hiddenCauseChangedCounter(before, placed, change),
   }));
-  const privateItems: ResolutionReportItem[] = collectNoEffectCards(
+  const noEffectItems: ResolutionReportItem[] = collectNoEffectCards(
     before,
     after,
     placed,
   ).map((noEffect) => ({
-    audience: "mastermind",
     category: "noEffect",
     noEffect,
+    causeHidden: false,
   }));
-  return [...publicItems, ...privateItems];
+  return [...publicItems, ...noEffectItems];
 }

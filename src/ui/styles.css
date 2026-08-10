@@ -1714,7 +1714,7 @@ select {
 }
 
 .placement-groups,
-.resolution-audiences,
+.resolution-results,
 .hook-list,
 .goodwill-list,
 .round-end-grid {
@@ -1787,23 +1787,15 @@ select {
   background: #24231e;
 }
 
-.resolution-private {
-  border: 1px solid #78443c;
-  border-radius: 8px;
-  background: rgba(68, 30, 27, 0.45);
-  padding: 8px;
-}
-
-.resolution-private h3 {
-  margin: 0 0 7px;
-  color: #f0b4a8;
-  font-size: 0.84rem;
-}
-
-.resolution-private li {
-  border-left-color: #b66b5d;
-  background: #321f1b;
-  color: #f2c8bf;
+.resolution-hidden-cause {
+  display: inline-block;
+  border: 1px solid #88704b;
+  border-radius: 999px;
+  padding: 1px 6px;
+  color: #dbc28e;
+  font-size: 0.74rem;
+  font-style: normal;
+  font-weight: 800;
 }
 
 .hook-card,

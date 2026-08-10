@@ -152,10 +152,16 @@ export function advance(
       break;
 
     case "P4_RESOLVE":
+      if (s.loop.actionResolutionComplete) {
+        s.loop.actionResolutionComplete = false;
+        break;
+      }
       // 강제 훅과 이동→나머지 행동 해결은 서로 다른 사망 배치다.
       resolveHooks(s, "P4_RESOLVE");
       withDeathBatch(s, () => resolveActions(s));
-      break;
+      // 공개·효과 적용·결과 확인까지 P4다. 다음 입력에서 P5로 넘어간다.
+      s.loop.actionResolutionComplete = true;
+      return undefined;
 
     case "P5_MASTERMIND_ABILITY":
       resolveHooks(s, "P5_MASTERMIND_ABILITY");

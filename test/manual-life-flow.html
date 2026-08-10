@@ -5,7 +5,7 @@
     <title>수동 생사 교정 UI 흐름 검사</title>
   </head>
   <body>
-    <iframe id="app-frame" title="수동 생사 교정 앱"></iframe>
+    <iframe id="app-frame" title="수동 생사 교정 앱" width="390" height="844"></iframe>
     <pre id="result">실제 UI 흐름 검사 대기 중</pre>
     <script type="module">
       const STORAGE_KEYS = [
@@ -113,7 +113,7 @@
         );
       }
 
-      async function loadFreshApp(label) {
+      async function loadFreshApp(label, scenarioTitle) {
         clearStorage();
         const loaded = new Promise((resolve) => {
           frame.addEventListener("load", resolve, { once: true });
@@ -124,6 +124,16 @@
           () => frameDocument().querySelector("[data-action='start-selected-scenario']"),
           `${label} 시나리오 선택`,
         );
+        if (scenarioTitle) {
+          const select = frameDocument().querySelector("[data-new-game-scenario]");
+          const option = Array.from(select.options).find(
+            (candidate) => candidate.textContent?.includes(scenarioTitle),
+          );
+          if (!option) throw new Error(`시나리오를 찾을 수 없음: ${scenarioTitle}`);
+          select.value = option.value;
+          select.dispatchEvent(new (frameWindow().Event)("change", { bubbles: true }));
+          await pause();
+        }
         click("[data-action='start-selected-scenario']");
         await waitFor(
           () => frameDocument().querySelector("[data-action='choose-leader']"),
@@ -170,6 +180,23 @@
         }
       }
 
+      async function placeSpecificCard(card, target) {
+        if (!frameDocument().querySelector(".operation-sheet")) {
+          click("[data-action='toggle-operation-sheet']");
+          await pause();
+        }
+        const button = await waitFor(
+          () => frameDocument().querySelector(
+            `[data-action='select-hand-card'][data-card='${card}']:not([disabled])`,
+          ),
+          `${card} 행동 카드`,
+        );
+        button.click();
+        await pause();
+        click(`[data-action='board-character'][data-character='${target}']`);
+        await pause();
+      }
+
       async function advanceManualDeathToP9() {
         await placeCards(["patient", "nurse", "policeOfficer"]);
         click(".dock-primary[data-action='advance']");
@@ -189,12 +216,21 @@
 
         click(".dock-primary[data-action='reveal-cards']");
         await waitFor(
-          () => currentPhase() === "우호",
-          "P4 해결 뒤 P6",
+          () => currentPhase() === "행동 해결" &&
+            frameDocument().querySelector(".resolution-receipt") !== null &&
+            frameDocument().querySelector(
+              ".dock-primary[data-action='advance']",
+            )?.textContent?.includes("다음 단계"),
+          "P4 안에서 카드 공개·효과 해결·결과 표시",
         );
         assert(!judgmentTitle(), "P4 해결 중 수동 사망으로 루프가 종료됨");
         inspectResolutionReceipt();
 
+        click(".dock-primary[data-action='advance']");
+        await waitFor(
+          () => currentPhase() === "우호",
+          "P4 결과 확인 뒤 P6",
+        );
         click(".dock-primary[data-action='advance']");
         await waitFor(
           () => currentPhase() === "라운드 종료 단계",
@@ -254,9 +290,78 @@
         });
       }
 
+      async function runPublicNoEffectCase() {
+        await loadFreshApp("public-no-effect");
+        await enterRound();
+        await placeSpecificCard("forbidGoodwill", "patient");
+        await placeSpecificCard("paranoiaPlus1", "nurse");
+        await placeSpecificCard("paranoiaPlus1", "policeOfficer");
+        click(".dock-primary[data-action='advance']");
+        await waitFor(
+          () => currentPhase() === "주인공 · 행동 단계",
+          "공개 무효 검사의 P3",
+        );
+
+        await placeSpecificCard("goodwillPlus1", "patient");
+        await placeSpecificCard("paranoiaPlus1", "boyStudent");
+        await placeSpecificCard("paranoiaMinus1", "girlStudent");
+        click(".dock-primary[data-action='advance']");
+        await waitFor(
+          () => currentPhase() === "행동 해결",
+          "공개 무효 검사의 P4",
+        );
+        click(".dock-primary[data-action='reveal-cards']");
+        const receipt = await waitFor(
+          () => frameDocument().querySelector(".resolution-receipt"),
+          "공개 무효 결과",
+        );
+        const text = receipt.textContent ?? "";
+        assert(currentPhase() === "행동 해결", `무효 결과 표시 단계: ${currentPhase()}`);
+        assert(text.includes("[무효]"), `공개 무효 항목이 없음: ${text}`);
+        assert(
+          receipt.querySelector(".resolution-public")?.textContent?.includes("[무효]"),
+          `공개 결과 목록에 무효 항목이 없음: ${text}`,
+        );
+        reports.push({ case: "public-no-effect", phase: currentPhase(), text: text.trim() });
+      }
+
+      async function runHiddenCauseCase() {
+        await loadFreshApp("hidden-cause", "The Assassin from the Future");
+        await enterRound();
+        await placeSpecificCard("forbidGoodwill", "patient");
+        await placeSpecificCard("paranoiaPlus1", "doctor");
+        await placeSpecificCard("paranoiaPlus1", "journalist");
+        click(".dock-primary[data-action='advance']");
+        await waitFor(
+          () => currentPhase() === "주인공 · 행동 단계",
+          "원인 비공개 검사의 P3",
+        );
+
+        await placeSpecificCard("goodwillPlus2", "patient");
+        await placeSpecificCard("paranoiaMinus1", "girlStudent");
+        await placeSpecificCard("paranoiaPlus1", "classRep");
+        click(".dock-primary[data-action='advance']");
+        await waitFor(
+          () => currentPhase() === "행동 해결",
+          "원인 비공개 검사의 P4",
+        );
+        click(".dock-primary[data-action='reveal-cards']");
+        const receipt = await waitFor(
+          () => frameDocument().querySelector(".resolution-receipt"),
+          "원인 비공개 결과",
+        );
+        const text = receipt.textContent ?? "";
+        assert(text.includes("입원 환자 우호+2"), `공개 변동이 없음: ${text}`);
+        assert(text.includes("원인 비공개"), `숨긴 원인 표시가 없음: ${text}`);
+        assert(!text.includes("[무효]"), `시간 여행자 결과를 무효로 중복 표시함: ${text}`);
+        reports.push({ case: "hidden-cause", phase: currentPhase(), text: text.trim() });
+      }
+
       async function run() {
         await runDeferredDeathCase();
         await runCorrectedLifeCase();
+        await runPublicNoEffectCase();
+        await runHiddenCauseCase();
         restoreStorage();
         const passed = failures.length === 0;
         const report = { reports, failures };

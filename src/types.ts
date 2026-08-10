@@ -335,6 +335,9 @@ export interface LoopState {
   /** 이번 라운드에 놓인 카드 (P4에서 소비) */
   placed: PlacedCard[];
 
+  /** P4 안에서 카드 공개·효과 해결을 마치고 결과 확인을 기다리는 상태 */
+  actionResolutionComplete: boolean;
+
   /** 자동 통과·사건 판정·리더 교대 기록 */
   phaseLog?: PhaseLogEntry[];
 

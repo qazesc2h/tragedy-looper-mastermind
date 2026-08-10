@@ -279,7 +279,7 @@ describe("UI card-resolution report", () => {
     expect(collectNoEffectCards(before, after, placed)).toEqual([]);
   });
 
-  it("orders every movement before counters and keeps no-effects mastermind-only", () => {
+  it("orders changes before publicly reported no-effects", () => {
     const before = createState();
     const [counterCharacter, movingCharacter] = Object.keys(before.loop.board);
     const after = structuredClone(before);
@@ -306,11 +306,65 @@ describe("UI card-resolution report", () => {
 
     const report = collectResolutionReport(before, after, placed);
 
-    expect(report.map(({ audience, category }) => ({ audience, category })))
+    expect(report.map(({ category, causeHidden }) => ({ category, causeHidden })))
       .toEqual([
-        { audience: "protagonists", category: "movement" },
-        { audience: "protagonists", category: "counter" },
-        { audience: "mastermind", category: "noEffect" },
+        { category: "movement", causeHidden: false },
+        { category: "counter", causeHidden: false },
+        { category: "noEffect", causeHidden: false },
       ]);
+  });
+
+  it("marks a time traveler's visible counter result with a hidden cause", () => {
+    const before = createState();
+    const character = Object.keys(before.loop.board)[0];
+    before.scenario.cast[character] = "timeTraveler";
+    const after = structuredClone(before);
+    after.loop.charCounters[character].goodwill = 2;
+    const target = { kind: "character", id: character } as const;
+    const placed: PlacedCard[] = [
+      { owner: "mastermind", card: "forbidGoodwill", target },
+      { owner: 0, card: "goodwillPlus2", target },
+    ];
+
+    expect(collectResolutionReport(before, after, placed)).toEqual([
+      {
+        category: "counter",
+        change: {
+          kind: "characterCounter",
+          character,
+          counter: "goodwill",
+          before: 0,
+          after: 2,
+        },
+        causeHidden: true,
+      },
+    ]);
+  });
+
+  it("marks a cultist's chosen forbid ignore with a hidden cause", () => {
+    const before = createState();
+    const cultist = Object.keys(before.loop.board)[0];
+    const location = boardLocation(before.loop, cultist);
+    before.loop.cultistsIgnoringForbidIntrigue = [cultist];
+    const after = structuredClone(before);
+    after.loop.locIntrigue[location] = 2;
+    const target = { kind: "location", at: location } as const;
+    const placed: PlacedCard[] = [
+      { owner: "mastermind", card: "intriguePlus2", target },
+      { owner: 0, card: "forbidIntrigue", target },
+    ];
+
+    expect(collectResolutionReport(before, after, placed)).toEqual([
+      {
+        category: "counter",
+        change: {
+          kind: "locationIntrigue",
+          location,
+          before: 0,
+          after: 2,
+        },
+        causeHidden: true,
+      },
+    ]);
   });
 });

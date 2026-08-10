@@ -102,6 +102,9 @@ function resolveLeaderCardThroughP4(
   }
   state.loop.phase = "P4_RESOLVE";
   advanceGame(state);
+  expect(state.loop.phase).toBe("P4_RESOLVE");
+  expect(state.loop.actionResolutionComplete).toBe(true);
+  advanceGame(state);
   expect(state.loop.phase).toBe("P6_GOODWILL");
 }
 

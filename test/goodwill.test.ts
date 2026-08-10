@@ -175,6 +175,9 @@ describe("goodwill-comes-after-card-resolve", () => {
     state.loop.placed = structuredClone(testCase.placed);
 
     advance(state);
+    expect(state.loop.phase).toBe("P4_RESOLVE");
+    expect(state.loop.actionResolutionComplete).toBe(true);
+    advance(state);
     expect(state.loop.phase).toBe("P5_MASTERMIND_ABILITY");
     expect(state.loop.charCounters.doctor.goodwill).toBe(3);
     expect(boardLocation(state.loop, "patient")).toBe("Hospital");

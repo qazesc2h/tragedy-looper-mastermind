@@ -383,14 +383,23 @@ describe("game setup and loop preparation", () => {
 });
 
 describe("automatic empty round phases", () => {
-  it("skips an unavailable mastermind ability after resolving cards", () => {
+  it("keeps the resolved result in P4, then skips an unavailable P5", () => {
     const state = createGameState(scenario());
     startRound(state);
     state.loop.phase = "P4_RESOLVE";
 
     advanceGame(state);
 
+    expect(state.loop.phase).toBe("P4_RESOLVE");
+    expect(state.loop.actionResolutionComplete).toBe(true);
+    expect(state.loop.phaseLog).not.toContainEqual(
+      expect.objectContaining({ phase: "P5_MASTERMIND_ABILITY" }),
+    );
+
+    advanceGame(state);
+
     expect(state.loop.phase).toBe("P6_GOODWILL");
+    expect(state.loop.actionResolutionComplete).toBe(false);
     expect(state.loop.phaseLog).toContainEqual({
       loop: 1,
       day: 1,
@@ -408,7 +417,13 @@ describe("automatic empty round phases", () => {
 
     advanceGame(state);
 
+    expect(state.loop.phase).toBe("P4_RESOLVE");
+    expect(state.loop.actionResolutionComplete).toBe(true);
+
+    advanceGame(state);
+
     expect(state.loop.phase).toBe("P5_MASTERMIND_ABILITY");
+    expect(state.loop.actionResolutionComplete).toBe(false);
     expect(state.loop.phaseLog).not.toContainEqual(
       expect.objectContaining({ phase: "P5_MASTERMIND_ABILITY" }),
     );
