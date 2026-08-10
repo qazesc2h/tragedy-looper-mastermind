@@ -1,5 +1,10 @@
 import charactersJson from "../../data/characters.json";
 import { PLOT_IMPL } from "../impl/plots";
+import {
+  rolesForTragedySet,
+  TRAGEDY_SETS,
+  type TragedySetDefinition,
+} from "../tragedy-sets";
 
 import { LOCATIONS, type CharacterId, type Scenario } from "../types";
 
@@ -62,17 +67,10 @@ function rolesAssociatedWithActivePlots(scenario: Scenario): Set<string> {
   return roles;
 }
 
-function rolesInBasicTragedy(): Set<string> {
-  const roles = new Set<string>();
-  for (const plot of Object.values(PLOT_IMPL)) {
-    for (const role of Object.keys(plot.addsRoles ?? {})) {
-      roles.add(role);
-    }
-  }
-  return roles;
-}
-
-function validateMysteryBoyRole(scenario: Scenario): string[] {
+function validateMysteryBoyRole(
+  scenario: Scenario,
+  definition: TragedySetDefinition,
+): string[] {
   if (!("mysteryBoy" in scenario.cast)) return [];
   if (scenario.cast.mysteryBoy === "person") {
     return [
@@ -80,10 +78,13 @@ function validateMysteryBoyRole(scenario: Scenario): string[] {
       "참극 세트의 역할 중 현재 룰에서 추가되지 않는 역할을 배정해야 합니다.",
     ];
   }
-  if (!rolesInBasicTragedy().has(scenario.cast.mysteryBoy)) {
+  if (!rolesForTragedySet(definition.id).includes(
+    scenario.cast.mysteryBoy,
+  )) {
     return [
-      "아웃사이더: 기본편 참극 세트에 없는 역할을 배정할 수 없습니다. " +
-      "기본편 역할 중 현재 룰에서 추가되지 않는 역할을 배정해야 합니다.",
+      "아웃사이더: 현재 참극 세트에 없는 역할을 배정할 수 없습니다. " +
+      "현재 참극 세트의 역할 중 활성 룰에서 추가되지 않는 역할을 " +
+      "배정해야 합니다.",
     ];
   }
   if (!rolesAssociatedWithActivePlots(scenario).has(
@@ -95,6 +96,79 @@ function validateMysteryBoyRole(scenario: Scenario): string[] {
     "아웃사이더: 현재 시나리오의 룰에서 추가되는 역할을 배정할 수 없습니다. " +
     "참극 세트의 역할 중 현재 룰에서 추가되지 않는 역할을 배정해야 합니다.",
   ];
+}
+
+function validateTragedySetPlots(
+  scenario: Scenario,
+  definition: TragedySetDefinition,
+): string[] {
+  const errors: string[] = [];
+  if (definition.numberOfMainPlots !== 1) {
+    errors.push(
+      `참극 세트 ${definition.id}: 현재 엔진은 룰 Y 1개만 지원하지만 ` +
+      `정의에는 ${definition.numberOfMainPlots}개가 지정되어 있습니다.`,
+    );
+  }
+  if (!definition.mainPlots.includes(scenario.mainPlot)) {
+    errors.push(
+      `룰 Y: ${scenario.mainPlot}은(는) ${definition.id} 참극 세트에 없습니다.`,
+    );
+  }
+  if (scenario.subPlots.length !== definition.numberOfSubPlots) {
+    errors.push(
+      `룰 X: ${definition.id} 참극 세트는 ` +
+      `${definition.numberOfSubPlots}개를 사용해야 합니다. ` +
+      `현재 ${scenario.subPlots.length}개입니다.`,
+    );
+  }
+  for (const plot of scenario.subPlots) {
+    if (!definition.subPlots.includes(plot)) {
+      errors.push(
+        `룰 X: ${plot}은(는) ${definition.id} 참극 세트에 없습니다.`,
+      );
+    }
+  }
+  if (new Set(activePlots(scenario)).size !== activePlots(scenario).length) {
+    errors.push("룰 Y와 룰 X에는 같은 룰을 중복해서 사용할 수 없습니다.");
+  }
+  return errors;
+}
+
+function validateIncidentsInTragedySet(
+  scenario: Scenario,
+  definition: TragedySetDefinition,
+): string[] {
+  return scenario.incidents
+    .filter(({ incident }) => !definition.incidents.includes(incident))
+    .map(({ day, incident }) =>
+      `사건: ${day}일의 ${incident}은(는) ` +
+      `${definition.id} 참극 세트에 없습니다.`
+    );
+}
+
+function validateRolesInTragedySet(
+  scenario: Scenario,
+  definition: TragedySetDefinition,
+): string[] {
+  const rolePool = new Set(rolesForTragedySet(definition.id));
+  return Object.entries(scenario.cast)
+    .filter(([character, role]) =>
+      character !== "mysteryBoy" && !rolePool.has(role)
+    )
+    .map(([character, role]) =>
+      `역할: ${characterLabel(character)}에게 배정된 ${role}은(는) ` +
+      `${definition.id} 참극 세트에 없습니다.`
+    );
+}
+
+function validateHideousScript(scenario: Scenario): string[] {
+  if (!activePlots(scenario).includes("hideousScript")) return [];
+  const count = Object.values(scenario.cast).filter(
+    (role) => role === "curmudgeon",
+  ).length;
+  return count <= 2
+    ? []
+    : [`최악의 시나리오: 골칫거리는 0~2명이어야 합니다. 현재 ${count}명입니다.`];
 }
 
 function metadataValueLabel(value: unknown): string {
@@ -142,10 +216,21 @@ function validateBossTurf(scenario: Scenario): string[] {
 export function validateScenario(
   scenario: Scenario,
 ): ScenarioValidationResult {
+  const definition = TRAGEDY_SETS[scenario.tragedySet];
+  if (definition === undefined) {
+    return {
+      ok: false,
+      errors: [`알 수 없는 참극 세트: ${scenario.tragedySet}.`],
+    };
+  }
   const errors = [
+    ...validateTragedySetPlots(scenario, definition),
+    ...validateIncidentsInTragedySet(scenario, definition),
+    ...validateRolesInTragedySet(scenario, definition),
     ...validateSignWithMe(scenario),
     ...validateAiRole(scenario),
-    ...validateMysteryBoyRole(scenario),
+    ...validateMysteryBoyRole(scenario, definition),
+    ...validateHideousScript(scenario),
     ...validateBossTurf(scenario),
     ...validateEntryTiming(
       scenario,

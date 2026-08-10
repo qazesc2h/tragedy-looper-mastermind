@@ -1,6 +1,11 @@
-import scriptsJson from "../data/basic-tragedy-scripts.json";
+import basicTragedyScriptsJson from "../data/basic-tragedy-scripts.json";
+import firstStepsScriptsJson from "../data/first-steps-scripts.json";
 import scenarioSourceJson from "../data/scenario-source.json";
-import { adaptBasicTragedyScript } from "./data";
+import {
+  adaptTragedyScript,
+  scriptDifficulties,
+  type ScriptDifficulty,
+} from "./data";
 import {
   validateScenario,
   type ScenarioValidationResult,
@@ -9,10 +14,16 @@ import type { Scenario } from "./types";
 
 export type ScenarioSource = "official" | "community" | "unknown";
 
+export interface ScenarioDifficultyOption extends ScriptDifficulty {
+  scenario: Scenario;
+  validation: ScenarioValidationResult;
+}
+
 export interface ScenarioCatalogEntry {
   id: string;
   rawTitle: string;
   scenario: Scenario;
+  difficulties: readonly ScenarioDifficultyOption[];
   source: ScenarioSource;
   validation: ScenarioValidationResult;
 }
@@ -22,6 +33,11 @@ const SCENARIO_SOURCES: readonly ScenarioSource[] = [
   "community",
   "unknown",
 ];
+
+const BUNDLED_SCRIPTS: Readonly<Record<string, readonly unknown[]>> = {
+  firstSteps: firstStepsScriptsJson,
+  basicTragedy: basicTragedyScriptsJson,
+};
 
 function requireScenarioSourceIds(
   value: unknown,
@@ -64,22 +80,41 @@ function rawScriptTitle(value: unknown, index: number): string {
   return `Script ${index + 1}`;
 }
 
-export function loadBasicTragedyScenarioCatalog(): ScenarioCatalogEntry[] {
-  const entries = (scriptsJson as readonly unknown[]).map((raw, index) => {
-    const id = `basicTragedy:${index + 1}`;
-    const source = scenarioSourceById.get(id);
-    if (source === undefined) {
-      throw new Error(`scenario-source is missing "${id}"`);
-    }
-    const scenario = adaptBasicTragedyScript(raw, { skipValidation: true });
-    return {
-      id,
-      rawTitle: rawScriptTitle(raw, index),
-      scenario,
-      source,
-      validation: validateScenario(scenario),
-    };
-  });
+function buildScenarioCatalog(): ScenarioCatalogEntry[] {
+  const entries = Object.entries(BUNDLED_SCRIPTS).flatMap(
+    ([tragedySet, scripts]) => scripts.map((raw, index) => {
+      const id = `${tragedySet}:${index + 1}`;
+      const source = scenarioSourceById.get(id);
+      if (source === undefined) {
+        throw new Error(`scenario-source is missing "${id}"`);
+      }
+      const difficulties = scriptDifficulties(raw).map(
+        (difficulty): ScenarioDifficultyOption => {
+          const scenario = adaptTragedyScript(raw, {
+            difficultyIndex: difficulty.index,
+            skipValidation: true,
+          });
+          return {
+            ...difficulty,
+            scenario,
+            validation: validateScenario(scenario),
+          };
+        },
+      );
+      const defaultDifficulty = difficulties[0];
+      if (defaultDifficulty === undefined) {
+        throw new Error(`scenario "${id}" has no difficulty`);
+      }
+      return {
+        id,
+        rawTitle: rawScriptTitle(raw, index),
+        scenario: defaultDifficulty.scenario,
+        difficulties,
+        source,
+        validation: defaultDifficulty.validation,
+      };
+    }),
+  );
 
   const bundledIds = new Set(entries.map(({ id }) => id));
   const unusedIds = [...scenarioSourceById.keys()].filter(
@@ -94,16 +129,39 @@ export function loadBasicTragedyScenarioCatalog(): ScenarioCatalogEntry[] {
   return entries;
 }
 
+const scenarioCatalog = buildScenarioCatalog();
+
+export function loadScenarioCatalog(): ScenarioCatalogEntry[] {
+  return structuredClone(scenarioCatalog);
+}
+
+export function loadBasicTragedyScenarioCatalog(): ScenarioCatalogEntry[] {
+  return loadScenarioCatalog().filter(
+    ({ scenario }) => scenario.tragedySet === "basicTragedy",
+  );
+}
+
+export function loadFirstStepsScenarioCatalog(): ScenarioCatalogEntry[] {
+  return loadScenarioCatalog().filter(
+    ({ scenario }) => scenario.tragedySet === "firstSteps",
+  );
+}
+
 export function assertOfficialScenariosValid(
   entries: readonly ScenarioCatalogEntry[],
 ): void {
-  const failures = entries.filter(
-    ({ source, validation }) => source === "official" && !validation.ok,
+  const failures = entries.flatMap((entry) =>
+    entry.source !== "official"
+      ? []
+      : entry.difficulties
+        .filter(({ validation }) => !validation.ok)
+        .map(({ index, validation }) => ({ entry, index, validation }))
   );
   if (failures.length === 0) return;
 
-  throw new Error(failures.map(({ id, rawTitle, validation }) =>
-    `${id} ${rawTitle}: ${validation.errors.join(" ")}`
+  throw new Error(failures.map(({ entry, index, validation }) =>
+    `${entry.id} ${entry.rawTitle} 난이도 ${index + 1}: ` +
+    validation.errors.join(" ")
   ).join("\n"));
 }
 

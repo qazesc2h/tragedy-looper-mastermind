@@ -54,11 +54,14 @@ function plotHook(plot: PlotId): Hook {
 
 describe("source hooks implemented elsewhere", () => {
   const sourceHooks: [PlotId, number][] = [
+    ["lightAvenger", 0],
+    ["placeProtect", 0],
     ["sealedItem", 0],
     ["signWithMe", 1],
     ["changeOfFuture", 0],
     ["giantTimeBomb", 0],
     ["paranoiaVirus", 0],
+    ["hideousScript", 0],
   ];
 
   it.each(sourceHooks)(
@@ -73,6 +76,23 @@ describe("source hooks implemented elsewhere", () => {
       expect(state).toEqual(before);
     },
   );
+
+  it("keeps the firstSteps role additions and variable curmudgeon count", () => {
+    expect(PLOT_IMPL.lightAvenger.addsRoles).toEqual({ brain: 1 });
+    expect(PLOT_IMPL.placeProtect.addsRoles).toEqual({
+      keyPerson: 1,
+      cultist: 1,
+    });
+    expect(PLOT_IMPL.shadowRipper).toMatchObject({
+      addsRoles: { conspiracyTheorist: 1, serialKiller: 1 },
+      hooks: [],
+    });
+    expect(PLOT_IMPL.hideousScript.addsRoles).toEqual({
+      conspiracyTheorist: 1,
+      curmudgeon: [0, 2],
+      friend: 1,
+    });
+  });
 
   it("uses effectiveRole for the paranoiaVirus threshold", () => {
     const state = createPlotState("paranoiaVirus");

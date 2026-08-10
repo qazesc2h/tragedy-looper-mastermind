@@ -14,6 +14,7 @@ import {
   type RoleId,
   type Scenario,
 } from "../types";
+import { tragedySetDefinition } from "../tragedy-sets";
 import { requestLoopEnd } from "./flow";
 import { incidentFailureReasons } from "./incident";
 import { evaluateLoss, type LossCondition } from "./loss";
@@ -472,7 +473,12 @@ export function continueAfterLoopJudgment(state: GameState): void {
   requireCurrentLoopLoss(state);
 
   if (state.loop.loop >= state.scenario.loops) {
-    prepareFinalGuess(state, "finalLoopLoss");
+    if (tragedySetDefinition(state.scenario.tragedySet).hasFinalGuess) {
+      prepareFinalGuess(state, "finalLoopLoss");
+    } else {
+      state.result = { winner: "mastermind", reason: "allLoopsLost" };
+      state.gamePhase = "GAME_OVER";
+    }
     return;
   }
 
@@ -499,6 +505,11 @@ export function prepareFinalGuess(
   state: GameState,
   reason: "timeGap" | "finalLoopLoss",
 ): void {
+  if (!tragedySetDefinition(state.scenario.tragedySet).hasFinalGuess) {
+    throw new Error(
+      `tragedy set "${state.scenario.tragedySet}" has no final guess`,
+    );
+  }
   if (
     reason === "timeGap" && state.gamePhase !== "LOOP_TIME_GAP" ||
     reason === "finalLoopLoss" && state.gamePhase !== "LOOP_JUDGMENT"

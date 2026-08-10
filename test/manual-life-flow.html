@@ -113,7 +113,10 @@
         );
       }
 
-      async function loadFreshApp(label, scenarioTitle) {
+      async function loadFreshApp(
+        label,
+        scenarioTitle = "Young Women’s Battlefield",
+      ) {
         clearStorage();
         const loaded = new Promise((resolve) => {
           frame.addEventListener("load", resolve, { once: true });

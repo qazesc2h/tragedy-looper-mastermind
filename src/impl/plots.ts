@@ -28,13 +28,13 @@ function charactersWithGoodwillLastLoop(
     .map(([character]) => character);
 }
 
-/** 기본편 룰(플롯) — 총 12건 */
+/** 입문편·기본편 룰(플롯) — 총 16건 */
 export const PLOT_IMPL: Record<string, {
   ko: string;
   goodwillRefusal?: 'Optional' | 'Mandatory';
   max?: number;
   tags?: string[];
-  addsRoles?: Record<string, number>;
+  addsRoles?: Record<string, number | [number, number]>;
   hooks: Hook[];
 }> = {
   // ── 살인 계획 (Murder Plan)
@@ -42,6 +42,44 @@ export const PLOT_IMPL: Record<string, {
     ko: "살인 계획",
     addsRoles: {"keyPerson": 1, "killer": 1, "brain": 1},
     hooks: [], // 능력 없음
+  },
+  // ── 복수자의 등불 (Light of the Avenger)
+  lightAvenger: {
+    ko: "복수자의 등불",
+    addsRoles: {"brain": 1},
+    hooks: [
+      {
+        phase: "LOOP_END",
+        kind: "lossTragedy",
+        source: {
+          timing: "Loop End",
+          prerequisite: `2 :intrigue: on the :brain:’s starting location`,
+        },
+        // IMPLEMENTED_ELSEWHERE: src/engine/loss.ts evaluateLoss()
+        // 이 훅은 원문 보존용이다. 여기에 로직을 넣지 마라 — 이중 구현이 된다.
+        when: () => false,
+        effect: () => {},
+      },
+    ],
+  },
+  // ── 지켜야 할 장소 (A Place to Protect)
+  placeProtect: {
+    ko: "지켜야 할 장소",
+    addsRoles: {"keyPerson": 1, "cultist": 1},
+    hooks: [
+      {
+        phase: "LOOP_END",
+        kind: "lossTragedy",
+        source: {
+          timing: "Loop End",
+          prerequisite: `2 :intrigue: on the School.`,
+        },
+        // IMPLEMENTED_ELSEWHERE: src/engine/loss.ts evaluateLoss()
+        // 이 훅은 원문 보존용이다. 여기에 로직을 넣지 마라 — 이중 구현이 된다.
+        when: () => false,
+        effect: () => {},
+      },
+    ],
   },
   // ── 봉인된 것 (The Sealed Item)
   sealedItem: {
@@ -150,6 +188,12 @@ export const PLOT_IMPL: Record<string, {
     addsRoles: {"serialKiller": 1, "friend": 1},
     hooks: [], // 능력 없음
   },
+  // ── 칼부림 살인마의 그림자 (Shadow of the Ripper)
+  shadowRipper: {
+    ko: "칼부림 살인마의 그림자",
+    addsRoles: {"conspiracyTheorist": 1, "serialKiller": 1},
+    hooks: [], // 추가 규칙 없음
+  },
   // ── 불온한 소문 (An Unsettling Rumor)
   unsettlingRumor: {
     ko: "불온한 소문",
@@ -179,6 +223,29 @@ export const PLOT_IMPL: Record<string, {
           s.loop.locIntrigue[target.at] += 1;
           s.loop.abilitiesUsedThisLoop.push(UNSETTLING_RUMOR_USE_KEY);
         },
+      },
+    ],
+  },
+  // ── 최악의 시나리오 (A Hideous Script)
+  hideousScript: {
+    ko: "최악의 시나리오",
+    addsRoles: {
+      "conspiracyTheorist": 1,
+      "curmudgeon": [0, 2],
+      "friend": 1,
+    },
+    hooks: [
+      {
+        phase: "SCRIPT_BUILD",
+        kind: "scriptBuild",
+        source: {
+          timing: "Always",
+          description: `Script writer may choose 0 or 1 or 2 :curmudgeon:s.`,
+        },
+        // IMPLEMENTED_ELSEWHERE: src/engine/validate.ts validateScenario()
+        // SCRIPT_BUILD 훅은 런타임에 해결하지 않는다.
+        when: () => false,
+        effect: () => {},
       },
     ],
   },

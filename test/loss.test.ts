@@ -113,6 +113,56 @@ describe("plot loss distance", () => {
     }));
   });
 
+  it("uses the brain's starting location as lightAvenger Place X", () => {
+    const state = createState({
+      mainPlot: "lightAvenger",
+      cast: { boyStudent: "brain" },
+    });
+    setBoardLocation(state.loop, "boyStudent", "Hospital");
+    state.loop.locIntrigue.School = 1;
+
+    expect(distanceToLoss(state)).toContainEqual(expect.objectContaining({
+      id: "lightAvenger",
+      current: 1,
+      needed: 2,
+      met: false,
+      label: "장소 X(학교) 음모 1/2",
+    }));
+
+    state.loop.locIntrigue.School = 2;
+    state.loop.day = state.scenario.daysPerLoop;
+    state.loop.phase = "P9_ROUND_END";
+    expect(evaluateLoss(state)).toContainEqual(expect.objectContaining({
+      id: "lightAvenger",
+      met: true,
+      activated: true,
+      label: "장소 X(학교) 음모 2/2",
+    }));
+  });
+
+  it("uses exactly 2 School intrigue for placeProtect", () => {
+    const state = createState({ mainPlot: "placeProtect" });
+    state.loop.locIntrigue.School = 1;
+
+    expect(distanceToLoss(state)).toContainEqual(expect.objectContaining({
+      id: "placeProtect",
+      current: 1,
+      needed: 2,
+      met: false,
+      label: "학교 음모 1/2",
+    }));
+
+    state.loop.locIntrigue.School = 2;
+    state.loop.day = state.scenario.daysPerLoop;
+    state.loop.phase = "P9_ROUND_END";
+    expect(evaluateLoss(state)).toContainEqual(expect.objectContaining({
+      id: "placeProtect",
+      met: true,
+      activated: true,
+      label: "학교 음모 2/2",
+    }));
+  });
+
   it("only returns a met plot condition at loop end", () => {
     const state = createState({ mainPlot: "sealedItem" });
     state.loop.locIntrigue.Shrine = 2;

@@ -88,6 +88,15 @@
 
       async function enterRound() {
         const document = frameDocument();
+        const scenarioSelect = document.querySelector("[data-new-game-scenario]");
+        if (!(scenarioSelect instanceof frameWindow().HTMLSelectElement)) {
+          throw new Error("시나리오 선택기를 찾을 수 없습니다.");
+        }
+        scenarioSelect.value = "basicTragedy:1";
+        scenarioSelect.dispatchEvent(new (frameWindow().Event)("change", {
+          bubbles: true,
+        }));
+        await pause();
         document.querySelector("[data-action='start-selected-scenario']")?.click();
         await pause();
         document.querySelector("[data-action='choose-leader']")?.click();

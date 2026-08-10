@@ -210,6 +210,7 @@ describe("goodwill availability and refusal", () => {
     ["killer", "optional"],
     ["brain", "optional"],
     ["factor", "optional"],
+    ["curmudgeon", "optional"],
     ["cultist", "mandatory"],
     ["witch", "mandatory"],
   ] as const)("uses effective %s role's %s refusal rule", (role, refusalKind) => {

@@ -658,6 +658,14 @@ describe("witch", () => {
   });
 });
 
+describe("curmudgeon", () => {
+  it("has no maximum, may refuse goodwill, and has no ability hooks", () => {
+    expect(ROLE_IMPL.curmudgeon.max).toBeUndefined();
+    expect(ROLE_IMPL.curmudgeon.goodwillRefusal).toBe("Optional");
+    expect(ROLE_IMPL.curmudgeon.hooks).toEqual([]);
+  });
+});
+
 describe("friend / reveal role", () => {
   const revealHook = hook("friend");
 

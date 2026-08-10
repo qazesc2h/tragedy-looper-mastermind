@@ -189,6 +189,59 @@ function plotLossDistance(
   }
 
   switch (plot) {
+    case "lightAvenger": {
+      // SOURCE: src/impl/plots.ts lightAvenger 훅의 source 참조
+      const placeX = resolvePlaceX(state);
+      const current = placeX === undefined
+        ? 0
+        : state.loop.locIntrigue[placeX];
+      const placeLabel = placeX === undefined
+        ? "장소 X 미확정"
+        : `장소 X(${LOCATION_KO[placeX]})`;
+      return distance({
+        id: plot,
+        key: plotKey(plot),
+        source: "plot",
+        category: "plot",
+        timing: "loopEnd",
+        activation: "mandatory",
+        when: "루프 종료",
+        plot,
+        ko: impl.ko,
+        label: `${placeLabel} 음모 ${current}/2`,
+        requirements: [
+          requirement(
+            "placeXIntrigue",
+            `${placeLabel} 음모`,
+            current,
+            2,
+            `${placeLabel} 음모 ${current}/2`,
+          ),
+        ],
+      });
+    }
+
+    case "placeProtect": {
+      // SOURCE: src/impl/plots.ts placeProtect 훅의 source 참조
+      const current = state.loop.locIntrigue.School;
+      return distance({
+        id: plot,
+        key: plotKey(plot),
+        source: "plot",
+        category: "plot",
+        timing: "loopEnd",
+        activation: "mandatory",
+        when: "루프 종료",
+        plot,
+        ko: impl.ko,
+        label: `학교 음모 ${current}/2`,
+        requirements: [
+          requirement("schoolIntrigue", "학교 음모", current, 2,
+            `학교 음모 ${current}/2`),
+        ],
+      });
+    }
+
     case "sealedItem": {
       // SOURCE: src/impl/plots.ts sealedItem 훅의 source 참조
       const current = state.loop.locIntrigue.Shrine;

@@ -162,7 +162,7 @@ function counterpartDied(
   );
 }
 
-/** 기본편 역할 — 총 13건 */
+/** 입문편·기본편 역할 — 총 14건 */
 export const ROLE_IMPL: Record<string, {
   ko: string;
   goodwillRefusal?: 'Optional' | 'Mandatory';
@@ -175,6 +175,12 @@ export const ROLE_IMPL: Record<string, {
   person: {
     ko: "엑스트라",
     hooks: [], // 능력 없음
+  },
+  // ── 골칫거리 (Curmudgeon)
+  curmudgeon: {
+    ko: "골칫거리",
+    goodwillRefusal: "Optional",
+    hooks: [], // 추가 능력 없음
   },
   // ── 핵심 인물 (Key Person)
   keyPerson: {

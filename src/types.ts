@@ -100,7 +100,11 @@ export interface FinalGuessState {
 
 export interface GameResult {
   winner: "mastermind" | "protagonists";
-  reason: "loopVictory" | "finalGuessFailure" | "finalGuessSuccess";
+  reason:
+    | "loopVictory"
+    | "allLoopsLost"
+    | "finalGuessFailure"
+    | "finalGuessSuccess";
 }
 
 /** 9단계 바깥에서 걸리는 훅 지점 */
@@ -144,6 +148,9 @@ export interface Scenario {
   cast: Record<CharacterId, RoleId>;
   incidents: ScheduledIncident[];
   loops: number;
+  /** 원본 difficultySets에서 선택한 항목과 표시용 난이도 */
+  difficultyIndex?: number;
+  difficulty?: number;
   daysPerLoop: number;
   /** 하수인 시작 장소 등 각본가가 루프마다 지정하는 값 */
   scriptSpecified?: Record<string, unknown>;

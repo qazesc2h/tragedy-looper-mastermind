@@ -109,8 +109,9 @@ describe("validateScenario", () => {
     expect(validateScenario(scenario)).toEqual({
       ok: false,
       errors: [
-        "아웃사이더: 기본편 참극 세트에 없는 역할을 배정할 수 없습니다. " +
-        "기본편 역할 중 현재 룰에서 추가되지 않는 역할을 배정해야 합니다.",
+        "아웃사이더: 현재 참극 세트에 없는 역할을 배정할 수 없습니다. " +
+        "현재 참극 세트의 역할 중 활성 룰에서 추가되지 않는 역할을 " +
+        "배정해야 합니다.",
       ],
     });
   });
@@ -251,7 +252,8 @@ describe("bundled scenario source policy", () => {
     expect(scenarioSourceJson._basis).toEqual({
       official: "각본가 설명서 수록 확인",
       community: "공식 10편이 전부 식별되었으므로 소거법으로 판정. " +
-        "실물 설명서 최종 확인 전까지 이 분류를 사용한다.",
+        "입문편의 나머지 5편은 원본의 New Tragedies·작성자·외부 출처 " +
+        "메타데이터를 함께 대조했다.",
     });
   });
 
@@ -300,7 +302,7 @@ describe("bundled scenario source policy", () => {
     expect(() => assertOfficialScenariosValid([
       { ...trouble, source: "official" },
     ])).toThrow(
-      "basicTragedy:18 Trouble in Paradise: " +
+      "basicTragedy:18 Trouble in Paradise 난이도 1: " +
       "아웃사이더: 엑스트라 역할을 배정할 수 없습니다.",
     );
   });

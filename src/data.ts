@@ -1,5 +1,6 @@
 import basicTragedyScriptsJson from "../data/basic-tragedy-scripts.json";
 import charactersJson from "../data/characters.json";
+import firstStepsScriptsJson from "../data/first-steps-scripts.json";
 import goodwillAbilitiesJson from "../data/goodwill-abilities.json";
 import { validateScenario } from "./engine/validate";
 
@@ -39,6 +40,12 @@ export interface ScenarioAdapterOptions {
   scriptSpecified?: Readonly<Record<string, unknown>>;
   /** 카탈로그에서 출처별 검증 결과를 별도로 보존할 때 검증 예외를 건너뛴다. */
   skipValidation?: boolean;
+}
+
+export interface ScriptDifficulty {
+  index: number;
+  numberOfLoops: number;
+  difficulty: number;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -285,24 +292,46 @@ function parseIncidents(
   });
 }
 
-export function adaptBasicTragedyScript(
+export function scriptDifficulties(value: unknown): ScriptDifficulty[] {
+  const raw = requireRecord(value, "tragedy script");
+  const title = typeof raw.title === "string" ? raw.title : "(untitled)";
+  const context = `tragedy script "${title}"`;
+  return requireArray(raw.difficultySets, `${context}.difficultySets`).map(
+    (entry, index) => {
+      const difficulty = requireRecord(
+        entry,
+        `${context}.difficultySets[${index}]`,
+      );
+      return {
+        index,
+        numberOfLoops: requireNumber(
+          difficulty.numberOfLoops,
+          `${context}.difficultySets[${index}].numberOfLoops`,
+        ),
+        difficulty: requireNumber(
+          difficulty.difficulty,
+          `${context}.difficultySets[${index}].difficulty`,
+        ),
+      };
+    },
+  );
+}
+
+export function adaptTragedyScript(
   value: unknown,
   options: ScenarioAdapterOptions = {},
 ): Scenario {
-  const raw = requireRecord(value, "basic tragedy script");
+  const raw = requireRecord(value, "tragedy script");
   const title =
-    typeof raw.title === "string" ? raw.title : "(untitled basic tragedy)";
-  const context = `basic tragedy script "${title}"`;
+    typeof raw.title === "string" ? raw.title : "(untitled tragedy script)";
+  const context = `tragedy script "${title}"`;
 
   const mainPlots = requireStringArray(raw.mainPlot, `${context}.mainPlot`);
   if (mainPlots.length !== 1) {
     throw new Error(`${context}.mainPlot must contain exactly one plot`);
   }
 
-  const difficultySets = requireArray(
-    raw.difficultySets,
-    `${context}.difficultySets`,
-  );
+  const difficultySets = scriptDifficulties(raw);
   const difficultyIndex = options.difficultyIndex ?? 0;
   const selectedDifficulty = difficultySets[difficultyIndex];
   if (!selectedDifficulty) {
@@ -310,11 +339,6 @@ export function adaptBasicTragedyScript(
       `${context}.difficultySets has no entry at index ${difficultyIndex}`,
     );
   }
-  const difficulty = requireRecord(
-    selectedDifficulty,
-    `${context}.difficultySets[${difficultyIndex}]`,
-  );
-
   const { cast, scriptSpecified: castMetadata } = parseCast(
     raw.cast,
     `${context}.cast`,
@@ -330,10 +354,9 @@ export function adaptBasicTragedyScript(
     subPlots: requireStringArray(raw.subPlots, `${context}.subPlots`),
     cast,
     incidents: parseIncidents(raw.incidents, `${context}.incidents`),
-    loops: requireNumber(
-      difficulty.numberOfLoops,
-      `${context}.difficultySets[${difficultyIndex}].numberOfLoops`,
-    ),
+    loops: selectedDifficulty.numberOfLoops,
+    difficultyIndex,
+    difficulty: selectedDifficulty.difficulty,
     daysPerLoop: requireNumber(raw.daysPerLoop, `${context}.daysPerLoop`),
     scriptSpecified:
       Object.keys(scriptSpecified).length > 0 ? scriptSpecified : undefined,
@@ -347,12 +370,24 @@ export function adaptBasicTragedyScript(
   return scenario;
 }
 
+/** 이전 호출부 호환용. 새 코드는 참극 세트 공통 어댑터를 사용한다. */
+export const adaptBasicTragedyScript = adaptTragedyScript;
+
 const rawBasicTragedyScripts: readonly unknown[] = basicTragedyScriptsJson;
+const rawFirstStepsScripts: readonly unknown[] = firstStepsScriptsJson;
 
 export function loadBasicTragedyScenarios(
   options: ScenarioAdapterOptions = {},
 ): Scenario[] {
   return rawBasicTragedyScripts.map((script) =>
-    adaptBasicTragedyScript(script, options)
+    adaptTragedyScript(script, options)
+  );
+}
+
+export function loadFirstStepsScenarios(
+  options: ScenarioAdapterOptions = {},
+): Scenario[] {
+  return rawFirstStepsScripts.map((script) =>
+    adaptTragedyScript(script, options)
   );
 }

@@ -150,15 +150,25 @@ def hooks_of(obj, field):
             })
     return out
 
-# ─────────────────────────────────────────────────────────── 기본편 대상 선정
-bt = tragedys["basicTragedy"]
-bt_plots = list(dict.fromkeys(bt["mainPlots"] + bt["subPlots"]))
-bt_roles = ["person"]
-for p in bt_plots:
+# ─────────────────────────────────────────────────────────── 입문편 + 기본편 대상 선정
+SUPPORTED_TRAGEDY_SET_RULES = {
+    "firstSteps": {"hasFinalGuess": False},
+    "basicTragedy": {"hasFinalGuess": True},
+}
+supported_tragedys = [tragedys[i] for i in SUPPORTED_TRAGEDY_SET_RULES]
+supported_plots = list(dict.fromkeys(
+    p for tragedy in supported_tragedys
+    for p in tragedy["mainPlots"] + tragedy["subPlots"]
+))
+supported_roles = ["person"]
+for p in supported_plots:
     for r in plots[p].get("roles", {}):
-        if r not in bt_roles:
-            bt_roles.append(r)
-bt_incidents = list(bt["incidents"])
+        if r not in supported_roles:
+            supported_roles.append(r)
+supported_incidents = list(dict.fromkeys(
+    incident for tragedy in supported_tragedys
+    for incident in tragedy["incidents"]
+))
 
 def kname(d, i):
     return d.get(i, {}).get("ko") or f"({i})"
@@ -222,7 +232,7 @@ def gen_impl(title, ids, src, field, kind_word):
     lines.append("  goodwillRefusal?: 'Optional' | 'Mandatory';")
     lines.append("  max?: number;")
     lines.append("  tags?: string[];")
-    lines.append("  addsRoles?: Record<string, number>;")
+    lines.append("  addsRoles?: Record<string, number | [number, number]>;")
     lines.append("  hooks: Hook[];")
     lines.append("}> = {")
     lines += body
@@ -234,9 +244,9 @@ os.makedirs(f"{OUT}/src/impl", exist_ok=True)
 os.makedirs(f"{OUT}/src/engine", exist_ok=True)
 os.makedirs(f"{OUT}/data", exist_ok=True)
 
-r_src, r_n = gen_impl("기본편 역할", bt_roles, roles, "abilities", "roles")
-p_src, p_n = gen_impl("기본편 룰(플롯)", bt_plots, plots, "rules", "plots")
-i_src, i_n = gen_impl("기본편 사건", bt_incidents, incidents, "effect", "incidents")
+r_src, r_n = gen_impl("입문편·기본편 역할", supported_roles, roles, "abilities", "roles")
+p_src, p_n = gen_impl("입문편·기본편 룰(플롯)", supported_plots, plots, "rules", "plots")
+i_src, i_n = gen_impl("입문편·기본편 사건", supported_incidents, incidents, "effect", "incidents")
 open(f"{OUT}/src/impl/roles.ts", "w").write(r_src)
 open(f"{OUT}/src/impl/plots.ts", "w").write(p_src)
 open(f"{OUT}/src/impl/incidents.ts", "w").write(i_src)
@@ -267,6 +277,21 @@ json.dump(release, open(f"{OUT}/data/ko-release.json", "w"), ensure_ascii=False,
 json.dump({"characters": ko_char, "roles": ko_role, "incidents": ko_inc,
            "plots": ko_plot, "tragedySets": ko_trag, "misc": ko_misc},
           open(f"{OUT}/data/ko-terms.json", "w"), ensure_ascii=False, indent=2)
+runtime_tragedy_sets = {
+    tragedy["id"]: {
+        "id": tragedy["id"],
+        "name": tragedy["name"],
+        "numberOfMainPlots": tragedy["numberOfMainPlots"],
+        "numberOfSubPlots": tragedy["numberOfSubPlots"],
+        "mainPlots": tragedy["mainPlots"],
+        "subPlots": tragedy["subPlots"],
+        "incidents": tragedy["incidents"],
+        **SUPPORTED_TRAGEDY_SET_RULES[tragedy["id"]],
+    }
+    for tragedy in supported_tragedys
+}
+json.dump(runtime_tragedy_sets, open(f"{OUT}/data/tragedy-sets.json", "w"),
+          ensure_ascii=False, indent=2)
 
 # 참극 세트별 시나리오 (테스트 픽스처)
 base_game_scripts = L(f"{DATA}/base-game/scripts.jsonc")["scripts"]
@@ -281,9 +306,9 @@ json.dump(bt_scripts, open(f"{OUT}/data/basic-tragedy-scripts.json", "w"),
 
 # ─────────────────────────────────────────────────────────── 리포트
 report = {
-    "roles": {"count": len(bt_roles), "hooks": r_n},
-    "plots": {"count": len(bt_plots), "hooks": p_n},
-    "incidents": {"count": len(bt_incidents), "hooks": i_n},
+    "roles": {"count": len(supported_roles), "hooks": r_n},
+    "plots": {"count": len(supported_plots), "hooks": p_n},
+    "incidents": {"count": len(supported_incidents), "hooks": i_n},
     "scripts": len(bt_scripts),
     "first_steps_scripts": len(fs_scripts),
     "characters_total": len(chars),

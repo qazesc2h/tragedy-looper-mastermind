@@ -28,11 +28,15 @@ import { intrigueForbidActive } from "../engine/movement";
 import { collectHooks } from "../engine/phases";
 import { recordPhaseLog } from "../engine/phase-log";
 import {
-  loadBasicTragedyScenarioCatalog,
+  loadScenarioCatalog,
   scenarioSourceLabel,
   scenarioValidationHeading,
   type ScenarioCatalogEntry,
 } from "../scenario-catalog";
+import {
+  rolesForTragedySet,
+  tragedySetDefinition,
+} from "../tragedy-sets";
 import {
   MASTERMIND_ONCE_PER_LOOP,
   PROTAGONIST_ONCE_PER_LOOP,
@@ -199,7 +203,7 @@ const INCIDENT_CHOICE_FIELDS: Record<string, readonly string[]> = {
 const MYSTERY_BOY_PLOT_LESS_ROLE_TEXT =
   "항상 현재 어느 룰로도 정해지지 않은 역할을 맡습니다.";
 
-const scenarioEntries: ScenarioEntry[] = loadBasicTragedyScenarioCatalog().map(
+const scenarioEntries: ScenarioEntry[] = loadScenarioCatalog().map(
   ({ rawTitle, ...entry }) => ({
     ...entry,
     title: gameText(rawTitle),
@@ -306,8 +310,25 @@ function activeScenarioEntry(): ScenarioEntry {
     scenarioEntries[0];
 }
 
-function createGame(entry: ScenarioEntry): GameState {
-  const scenario = structuredClone(entry.scenario);
+function scenarioAtDifficulty(
+  entry: ScenarioEntry,
+  difficultyIndex = 0,
+): ScenarioCatalogEntry["difficulties"][number] {
+  const difficulty = entry.difficulties.find(
+    (candidate) => candidate.index === difficultyIndex,
+  );
+  if (difficulty === undefined) {
+    throw new Error(
+      `scenario "${entry.id}" has no difficulty at index ${difficultyIndex}`,
+    );
+  }
+  return difficulty;
+}
+
+function createGame(entry: ScenarioEntry, difficultyIndex = 0): GameState {
+  const scenario = structuredClone(
+    scenarioAtDifficulty(entry, difficultyIndex).scenario,
+  );
   return createGameState(scenario);
 }
 
@@ -347,9 +368,13 @@ function resetTransientUi(): void {
   uiInputDraftScope = "";
 }
 
-function startFreshScenario(entry: ScenarioEntry): void {
-  if (!entry.validation.ok) {
-    notice = entry.validation.errors.join(" ");
+function startFreshScenario(
+  entry: ScenarioEntry,
+  difficultyIndex: number,
+): void {
+  const difficulty = scenarioAtDifficulty(entry, difficultyIndex);
+  if (!difficulty.validation.ok) {
+    notice = difficulty.validation.errors.join(" ");
     render();
     return;
   }
@@ -357,7 +382,7 @@ function startFreshScenario(entry: ScenarioEntry): void {
   tracker.activeScenarioId = entry.id;
   resetTransientUi();
   notice = "";
-  saveState(entry.id, createGame(entry), "scenario-start");
+  saveState(entry.id, createGame(entry, difficultyIndex), "scenario-start");
   render();
 }
 
@@ -2386,6 +2411,9 @@ function renderTimeGap(state: GameState): string {
   const henchmanAppears = "henchman" in state.scenario.cast;
   const henchmanLocation =
     state.loop.loopStartTraitLocationChoices?.henchman;
+  const hasFinalGuess = tragedySetDefinition(
+    state.scenario.tragedySet,
+  ).hasFinalGuess;
   return `<main class="game-flow-screen">
     ${renderProgressSteps([
       "시간의 틈",
@@ -2428,9 +2456,13 @@ function renderTimeGap(state: GameState): string {
       </div>
       <div class="flow-actions primary-actions">
         <button type="button" class="next-phase" data-action="continue-loop-start" ${loopStartTraitChoicesComplete(state) ? "" : "disabled"}>루프 준비 계속 →</button>
-        <button type="button" class="danger-action" data-action="skip-final-guess">최후의 싸움으로 이동</button>
+        ${hasFinalGuess
+          ? `<button type="button" class="danger-action" data-action="skip-final-guess">최후의 싸움으로 이동</button>`
+          : ""}
       </div>
-      <p class="flow-warning">⚠ 남은 루프를 진행하지 않으므로 주인공 측이 더 불리해집니다.</p>
+      ${hasFinalGuess
+        ? `<p class="flow-warning">⚠ 남은 루프를 진행하지 않으므로 주인공 측이 더 불리해집니다.</p>`
+        : ""}
     </section>
   </main>`;
 }
@@ -2472,7 +2504,7 @@ function renderFinalGuess(state: GameState): string {
         <label><span>주인공이 선언한 역할</span><select data-final-field="role"
           data-ui-draft-key="${roleDraftKey}">
           <option value="">선택</option>
-          ${Object.keys(ROLE_IMPL).map((role) => `<option value="${escapeHtml(role)}" ${selectedDraftOption(roleDraftKey, role)}>${escapeHtml(roleName(role))}</option>`).join("")}
+          ${rolesForTragedySet(state.scenario.tragedySet).map((role) => `<option value="${escapeHtml(role)}" ${selectedDraftOption(roleDraftKey, role)}>${escapeHtml(roleName(role))}</option>`).join("")}
         </select></label>
         <button type="button" class="next-phase" data-action="submit-final-guess" ${remaining.length === 0 ? "disabled" : ""}>정오 판정</button>
       </div>
@@ -2485,6 +2517,9 @@ function renderLoopJudgment(state: GameState): string {
   const outcome = state.loopOutcomes.at(-1);
   if (!outcome) return "";
   const finalLoop = state.loop.loop >= state.scenario.loops;
+  const hasFinalGuess = tragedySetDefinition(
+    state.scenario.tragedySet,
+  ).hasFinalGuess;
   return `<main class="game-flow-screen">
     <section class="flow-card">
       <span class="eyebrow">${escapeHtml(misc("Loop Judgment"))}</span>
@@ -2492,9 +2527,16 @@ function renderLoopJudgment(state: GameState): string {
       <p>승패 판정을 완료했고 루프 종료 스냅샷을 기록했습니다.</p>
       ${renderLoopOutcomes(state)}
       <div class="flow-actions primary-actions">
-        ${finalLoop
+        ${finalLoop && hasFinalGuess
           ? `<button type="button" class="next-phase" data-action="continue-after-judgment">
               최후의 싸움 →
+            </button>
+            <button type="button" data-action="start-extra-loop">
+              추가 루프 (하우스 룰)
+            </button>`
+          : finalLoop
+          ? `<button type="button" class="next-phase" data-action="continue-after-judgment">
+              각본가 승리로 종료
             </button>
             <button type="button" data-action="start-extra-loop">
               추가 루프 (하우스 룰)
@@ -2602,12 +2644,19 @@ function renderSiteFooter(): string {
 function renderScenarioSelection(): void {
   ensureUiInputDraftScope("scenario-selection");
   const scenarioDraftKey = "new-game:scenario";
+  const difficultyDraftKey = "new-game:difficulty";
   const selectedScenario = draftValue(scenarioDraftKey) ||
     scenarioEntries[0]?.id || "";
   const selectedEntry = scenarioEntries.find(
     ({ id }) => id === selectedScenario,
   );
-  const mysteryBoyRole = selectedEntry?.scenario.cast.mysteryBoy;
+  const selectedDifficultyIndex = Number(
+    draftValue(difficultyDraftKey) || "0",
+  );
+  const selectedDifficulty = selectedEntry?.difficulties.find(
+    ({ index }) => index === selectedDifficultyIndex,
+  ) ?? selectedEntry?.difficulties[0];
+  const mysteryBoyRole = selectedDifficulty?.scenario.cast.mysteryBoy;
   root.innerHTML = `
     <div class="app-shell">
       <header class="topbar">
@@ -2629,10 +2678,25 @@ function renderScenarioSelection(): void {
                 <option value="${entry.id}" ${selectedScenario === entry.id ? "selected" : ""}>${escapeHtml(entry.title)} · ${escapeHtml(scenarioSourceLabel(entry.source))}${entry.validation.ok ? "" : " · 시작 불가"}</option>`).join("")}
             </select>
           </label>
+          ${selectedEntry === undefined || selectedEntry.difficulties.length < 2
+            ? ""
+            : `<label class="new-game-scenario-picker">
+                <span>루프·난이도 변형</span>
+                <select data-new-game-difficulty
+                  data-ui-draft-key="${difficultyDraftKey}">
+                  ${selectedEntry.difficulties.map((difficulty) => `
+                    <option value="${difficulty.index}" ${selectedDifficulty?.index === difficulty.index ? "selected" : ""}>
+                      ${difficulty.numberOfLoops}루프 · ${difficulty.difficulty === 0 ? "난이도 미확인" : `난이도 ${difficulty.difficulty}`}
+                    </option>`).join("")}
+                </select>
+              </label>`}
           ${selectedEntry === undefined
             ? ""
             : `<p class="scenario-source-summary">
                 출처: <strong>${escapeHtml(scenarioSourceLabel(selectedEntry.source))}</strong>
+                ${selectedDifficulty === undefined
+                  ? ""
+                  : ` · ${selectedDifficulty.numberOfLoops}루프 · ${selectedDifficulty.difficulty === 0 ? "난이도 미확인" : `난이도 ${selectedDifficulty.difficulty}`}`}
               </p>`}
           ${mysteryBoyRole === undefined
             ? ""
@@ -2641,16 +2705,16 @@ function renderScenarioSelection(): void {
                 <strong>${escapeHtml(characterName("mysteryBoy"))} · ${escapeHtml(roleName(mysteryBoyRole))}</strong>
                 <p>${escapeHtml(MYSTERY_BOY_PLOT_LESS_ROLE_TEXT)}</p>
               </aside>`}
-          ${selectedEntry === undefined || selectedEntry.validation.ok
+          ${selectedEntry === undefined || selectedDifficulty?.validation.ok
             ? ""
             : `<aside class="scenario-trait-notice scenario-validation-warning">
                 <span class="eyebrow">${escapeHtml(scenarioValidationHeading(selectedEntry.source))}</span>
                 <strong>${escapeHtml(selectedEntry.title)} · 시작 불가</strong>
-                <p>${escapeHtml(selectedEntry.validation.errors.join(" "))}</p>
+                <p>${escapeHtml(selectedDifficulty?.validation.errors.join(" ") ?? "난이도 정보를 읽을 수 없습니다.")}</p>
               </aside>`}
           <div class="flow-actions primary-actions">
             <button type="button" class="next-phase" data-action="start-selected-scenario"
-              ${selectedEntry?.validation.ok === true ? "" : "disabled"}>게임 시작</button>
+              ${selectedDifficulty?.validation.ok === true ? "" : "disabled"}>게임 시작</button>
           </div>
         </section>
       </main>
@@ -2720,6 +2784,9 @@ function render(): void {
           <div class="round-status">
             <span>${escapeHtml(tragedySet)}</span>
             <strong>${state.loop.loop}루프 / ${state.scenario.loops}루프 시나리오</strong>
+            ${state.scenario.difficulty === undefined
+              ? ""
+              : `<small>${state.scenario.difficulty === 0 ? "난이도 미확인" : `난이도 ${state.scenario.difficulty}`}</small>`}
             ${state.loop.loop > state.scenario.loops
               ? `<small>추가 루프 (하우스 룰)</small>`
               : ""}
@@ -3096,7 +3163,10 @@ root.addEventListener("click", (event) => {
     const scenarioId = draftValue("new-game:scenario") ||
       scenarioEntries[0]?.id;
     const entry = scenarioEntries.find(({ id }) => id === scenarioId);
-    if (entry !== undefined) startFreshScenario(entry);
+    const difficultyIndex = Number(
+      draftValue("new-game:difficulty") || "0",
+    );
+    if (entry !== undefined) startFreshScenario(entry, difficultyIndex);
     return;
   }
 
@@ -3379,6 +3449,11 @@ root.addEventListener("change", (event) => {
   if (draftKey !== undefined) {
     uiInputDrafts.set(draftKey, control.value);
     if (draftKey === "new-game:scenario") {
+      uiInputDrafts.delete("new-game:difficulty");
+      render();
+      return;
+    }
+    if (draftKey === "new-game:difficulty") {
       render();
       return;
     }

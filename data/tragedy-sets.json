@@ -1,0 +1,62 @@
+{
+  "firstSteps": {
+    "id": "firstSteps",
+    "name": "First Steps",
+    "numberOfMainPlots": 1,
+    "numberOfSubPlots": 1,
+    "mainPlots": [
+      "murderPlan",
+      "lightAvenger",
+      "placeProtect"
+    ],
+    "subPlots": [
+      "shadowRipper",
+      "unsettlingRumor",
+      "hideousScript"
+    ],
+    "incidents": [
+      "murder",
+      "increasingUnease",
+      "suicide",
+      "hospitalIncident",
+      "farawayMurder",
+      "missingPerson",
+      "spreading"
+    ],
+    "hasFinalGuess": false
+  },
+  "basicTragedy": {
+    "id": "basicTragedy",
+    "name": "Basic Tragedy",
+    "numberOfMainPlots": 1,
+    "numberOfSubPlots": 2,
+    "mainPlots": [
+      "murderPlan",
+      "sealedItem",
+      "signWithMe",
+      "changeOfFuture",
+      "giantTimeBomb"
+    ],
+    "subPlots": [
+      "circleFriends",
+      "loveAffair",
+      "hiddenFreak",
+      "unsettlingRumor",
+      "paranoiaVirus",
+      "threadsFate",
+      "unknownFactor"
+    ],
+    "incidents": [
+      "butterflyEffect",
+      "farawayMurder",
+      "foulEvil",
+      "hospitalIncident",
+      "increasingUnease",
+      "missingPerson",
+      "murder",
+      "spreading",
+      "suicide"
+    ],
+    "hasFinalGuess": true
+  }
+}

@@ -1,6 +1,6 @@
-import basicScriptsJson from "../../data/basic-tragedy-scripts.json";
 import goodwillAbilitiesJson from "../../data/goodwill-abilities.json";
 import { characterDataOf } from "../data";
+import { tragedySetDefinition } from "../tragedy-sets";
 import {
   abilityLocationsOf,
   characterLocation,
@@ -102,16 +102,6 @@ export interface GoodwillRefusalHistoryEntry {
 const GOODWILL_ABILITIES = goodwillAbilitiesJson as unknown as Readonly<
   Record<CharacterId, readonly StructuredGoodwillAbility[]>
 >;
-
-const BASIC_TRAGEDY_SUBPLOTS = unique(
-  (basicScriptsJson as unknown[]).flatMap((raw) => {
-    if (typeof raw !== "object" || raw === null) return [];
-    const subPlots = (raw as { subPlots?: unknown }).subPlots;
-    return Array.isArray(subPlots)
-      ? subPlots.filter((plot): plot is string => typeof plot === "string")
-      : [];
-  }),
-);
 
 export function encodeIncidentSelection(
   selection: IncidentSelection,
@@ -230,10 +220,6 @@ function targetsFor(
   ];
 }
 
-function unique(values: readonly string[]): string[] {
-  return [...new Set(values)];
-}
-
 function uniqueIncidentSelections(
   values: readonly IncidentSelection[],
 ): IncidentSelection[] {
@@ -284,7 +270,7 @@ function choiceFor(
   if (choices.length === 1 && choices[0] === "subplot") {
     return {
       kind: "subplot",
-      options: BASIC_TRAGEDY_SUBPLOTS,
+      options: [...tragedySetDefinition(state.scenario.tragedySet).subPlots],
       revealOptions: state.scenario.subPlots,
     };
   }

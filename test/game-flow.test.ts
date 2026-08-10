@@ -862,6 +862,64 @@ describe("last-day outcomes", () => {
     });
   });
 
+  it("ends firstSteps with a mastermind win instead of a final guess", () => {
+    const state = createGameState(scenario({
+      tragedySet: "firstSteps",
+      mainPlot: "placeProtect",
+      subPlots: ["shadowRipper"],
+      loops: 1,
+      daysPerLoop: 1,
+    }));
+    startRound(state);
+    state.loop.locIntrigue.School = 2;
+    state.loop.phase = "P9_ROUND_END";
+
+    advanceGame(state);
+    expect(state.gamePhase).toBe("LOOP_JUDGMENT");
+    continueAfterLoopJudgment(state);
+
+    expect(state.gamePhase).toBe("GAME_OVER");
+    expect(state.finalGuess).toBeUndefined();
+    expect(state.result).toEqual({
+      winner: "mastermind",
+      reason: "allLoopsLost",
+    });
+  });
+
+  it("keeps the house-rule extra loop available in firstSteps", () => {
+    const state = createGameState(scenario({
+      tragedySet: "firstSteps",
+      mainPlot: "placeProtect",
+      subPlots: ["shadowRipper"],
+      loops: 1,
+      daysPerLoop: 1,
+    }));
+    startRound(state);
+    state.loop.locIntrigue.School = 2;
+    state.loop.phase = "P9_ROUND_END";
+    advanceGame(state);
+
+    startHouseRuleExtraLoop(state);
+
+    expect(state.gamePhase).toBe("LOOP_TIME_GAP");
+    expect(state.loop.loop).toBe(2);
+    expect(state.extraLoopsPlayed).toBe(1);
+  });
+
+  it("rejects skipping a firstSteps time gap to a final guess", () => {
+    const state = createGameState(scenario({
+      tragedySet: "firstSteps",
+      mainPlot: "placeProtect",
+      subPlots: ["shadowRipper"],
+    }));
+    chooseInitialLeader(state, 0);
+
+    expect(() => skipToFinalGuess(state)).toThrow(
+      'tragedy set "firstSteps" has no final guess',
+    );
+    expect(state.gamePhase).toBe("LOOP_TIME_GAP");
+  });
+
   it("starts repeatable house-rule extra loops after the final loop", () => {
     const state = createGameState(scenario({
       mainPlot: "sealedItem",
