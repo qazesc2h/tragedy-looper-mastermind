@@ -379,6 +379,9 @@ describe("goodwill availability and refusal", () => {
     }, "refuse");
 
     expect(result.refused).toBe(true);
+    expect(state.loop.abilitiesUsedThisRound).toEqual([
+      "classRep:goodwill:0",
+    ]);
     expect(state.loop.abilitiesUsedThisLoop).toEqual([
       "classRep:goodwill:0",
     ]);
@@ -390,10 +393,54 @@ describe("goodwill availability and refusal", () => {
       loop: 1,
       day: 1,
     }]);
+    expect(state.loop.phaseLog).toContainEqual({
+      loop: 1,
+      day: 1,
+      phase: "P6_GOODWILL",
+      kind: "goodwillUsed",
+      character: "classRep",
+      rank: 2,
+      abilityIndex: 0,
+      response: "refuse",
+      effectApplied: false,
+    });
     expect(() => resolveGoodwillAbility(state, {
       user: "classRep",
       rank: 2,
-    }, "refuse")).toThrow("already spent this loop");
+    }, "refuse")).toThrow("already used this round");
+  });
+
+  it("allows each ability once per round even without a loop limit", () => {
+    const state = createState("goodwill-chain-and-refusal");
+    state.loop.phase = "P6_GOODWILL";
+    state.loop.charCounters.girlStudent.goodwill = 2;
+
+    resolveGoodwillAbility(state, {
+      user: "girlStudent",
+      rank: 2,
+      target: "boyStudent",
+    }, "resolve");
+
+    expect(state.loop.abilitiesUsedThisLoop).toEqual([]);
+    expect(state.loop.abilitiesUsedThisRound).toEqual([
+      "girlStudent:goodwill:0",
+    ]);
+    expect(() => resolveGoodwillAbility(state, {
+      user: "girlStudent",
+      rank: 2,
+      target: "boyStudent",
+    }, "resolve")).toThrow("already used this round");
+
+    state.loop.phase = "P9_ROUND_END";
+    advance(state);
+    expect(state.loop.abilitiesUsedThisRound).toEqual([]);
+
+    state.loop.phase = "P6_GOODWILL";
+    expect(() => resolveGoodwillAbility(state, {
+      user: "girlStudent",
+      rank: 2,
+      target: "boyStudent",
+    }, "resolve")).not.toThrow();
   });
 
   it("forces mandatory refusal even if resolve was requested", () => {

@@ -19,6 +19,7 @@ import {
 } from "../types";
 import { killCharacter, reviveCharacter, withDeathBatch } from "./death";
 import { resolveIncidentEffect } from "./incident";
+import { recordPhaseLog } from "./phase-log";
 
 export type GoodwillResponse = "resolve" | "refuse";
 export type GoodwillRefusalKind = "none" | "optional" | "mandatory";
@@ -155,9 +156,16 @@ function assertAbilityAvailable(
     );
   }
 
+  const key = abilityUseKey(declaration.user, selected.index);
+  if (state.loop.abilitiesUsedThisRound.includes(key)) {
+    throw new Error(
+      `rank ${declaration.rank} goodwill ability for ` +
+      `"${declaration.user}" is already used this round`,
+    );
+  }
+
   const limit = selected.ability.timesPerLoop;
   if (limit !== null) {
-    const key = abilityUseKey(declaration.user, selected.index);
     const used = state.loop.abilitiesUsedThisLoop.filter(
       (usedKey) => usedKey === key,
     ).length;
@@ -175,10 +183,10 @@ function recordAbilityUse(
   declaration: GoodwillDeclaration,
   selected: SelectedAbility,
 ): void {
+  const key = abilityUseKey(declaration.user, selected.index);
+  state.loop.abilitiesUsedThisRound.push(key);
   if (selected.ability.timesPerLoop !== null) {
-    state.loop.abilitiesUsedThisLoop.push(
-      abilityUseKey(declaration.user, selected.index),
-    );
+    state.loop.abilitiesUsedThisLoop.push(key);
   }
 }
 
@@ -744,6 +752,17 @@ export function resolveGoodwillAbility(
       loop: state.loop.loop,
       day: state.loop.day,
     });
+    recordPhaseLog(state, {
+      loop: state.loop.loop,
+      day: state.loop.day,
+      phase: "P6_GOODWILL",
+      kind: "goodwillUsed",
+      character: declaration.user,
+      rank: declaration.rank,
+      abilityIndex: selected.index,
+      response: "refuse",
+      effectApplied: false,
+    });
     return {
       user: declaration.user,
       rank: declaration.rank,
@@ -770,6 +789,17 @@ export function resolveGoodwillAbility(
     );
   }
   recordAbilityUse(state, declaration, selected);
+  recordPhaseLog(state, {
+    loop: state.loop.loop,
+    day: state.loop.day,
+    phase: "P6_GOODWILL",
+    kind: "goodwillUsed",
+    character: declaration.user,
+    rank: declaration.rank,
+    abilityIndex: selected.index,
+    response: "resolve",
+    effectApplied,
+  });
 
   return {
     user: declaration.user,

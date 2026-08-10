@@ -31,6 +31,7 @@ describe("current state dump", () => {
     state.loop.leader = 1;
     state.loop.spentOncePerLoop.protagonists[1].push("goodwillPlus2");
     state.loop.abilitiesUsedThisLoop.push("classRep:goodwill:0");
+    state.loop.abilitiesUsedThisRound.push("classRep:goodwill:0");
     state.loop.charCounters.classRep.goodwill = 2;
 
     const dump = currentStateDump(state);
@@ -42,6 +43,7 @@ describe("current state dump", () => {
       "leader",
       "spentOncePerLoop",
       "abilitiesUsedThisLoop",
+      "abilitiesUsedThisRound",
       "board",
       "counters",
     ]);
@@ -55,6 +57,7 @@ describe("current state dump", () => {
         protagonists: [[], ["goodwillPlus2"], []],
       },
       abilitiesUsedThisLoop: ["classRep:goodwill:0"],
+      abilitiesUsedThisRound: ["classRep:goodwill:0"],
       counters: { classRep: { goodwill: 2 } },
     });
     expect(JSON.parse(serializeCurrentStateDump(state))).toEqual(dump);

@@ -59,9 +59,9 @@ export interface PlacementGroup {
 }
 
 const COMPACT_ACTION_CARD_LABELS: Partial<Record<ActionCard, string>> = {
-  moveVertical: "↕",
-  moveHorizontal: "↔",
-  moveDiagonal: "⤢",
+  moveVertical: "이동↕",
+  moveHorizontal: "이동↔",
+  moveDiagonal: "이동⤢",
 };
 
 /** 좁은 카드 면에만 쓰는 표기. 접근성 이름과 설명에는 전체 이름을 유지한다. */

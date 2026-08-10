@@ -58,7 +58,22 @@ button {
 }
 
 button:disabled {
-  cursor: default;
+  cursor: not-allowed;
+  filter: grayscale(0.72) saturate(0.35);
+  opacity: 0.46;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:disabled:active {
+  transform: none;
+}
+
+select:disabled,
+input:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.65);
+  opacity: 0.5;
 }
 
 button:focus-visible,
@@ -328,21 +343,24 @@ select {
   font-size: 0.68rem;
 }
 
-.phase-log-groups {
+.phase-log-loops,
+.phase-log-days {
   display: grid;
   gap: 6px;
 }
 
-.phase-log-group {
+.phase-log-loop,
+.phase-log-day {
   overflow: hidden;
   border: 1px solid #4f4333;
   border-radius: 9px;
   background: #201c16;
 }
 
-.phase-log-group summary {
+.phase-log-loop > summary,
+.phase-log-day > summary {
   display: grid;
-  grid-template-columns: minmax(100px, 1fr) minmax(0, 1.25fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   min-height: 44px;
   align-items: center;
   gap: 7px;
@@ -351,38 +369,48 @@ select {
   list-style: none;
 }
 
-.phase-log-group summary::-webkit-details-marker {
+.phase-log-loop summary::-webkit-details-marker,
+.phase-log-day summary::-webkit-details-marker {
   display: none;
 }
 
-.phase-log-group[open] summary {
+.phase-log-loop[open] > summary,
+.phase-log-day[open] > summary {
   border-bottom: 1px solid #4f4333;
   background: #282117;
 }
 
-.phase-log-group summary span,
-.phase-log-group summary strong,
-.phase-log-group summary small {
+.phase-log-loop summary strong,
+.phase-log-loop summary small,
+.phase-log-day summary strong,
+.phase-log-day summary small {
   min-width: 0;
   font-size: 0.7rem;
 }
 
-.phase-log-group summary span {
-  color: #aa9d86;
-}
-
-.phase-log-group summary strong {
+.phase-log-loop summary strong,
+.phase-log-day summary strong {
   overflow: hidden;
   color: #d8bd86;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.phase-log-group summary small {
+.phase-log-loop summary small,
+.phase-log-day summary small {
   color: #7f7565;
 }
 
-.phase-log-group ol {
+.phase-log-days {
+  padding: 6px;
+}
+
+.phase-log-day {
+  border-color: #3e3529;
+  background: #1b1813;
+}
+
+.phase-log-day ol {
   display: grid;
   gap: 0;
   margin: 0;
@@ -390,13 +418,20 @@ select {
   list-style: none;
 }
 
-.phase-log-group li {
+.phase-log-day li {
+  display: grid;
+  gap: 2px;
   border-left: 2px solid #80663d;
   margin: 6px 8px;
   padding: 3px 7px;
   color: #b9ae99;
   font-size: 0.72rem;
   line-height: 1.4;
+}
+
+.phase-log-day li b {
+  color: #d8bd86;
+  font-size: 0.65rem;
 }
 
 .workspace,
@@ -1649,7 +1684,11 @@ select {
 
 .hand-card.is-placed,
 .hand-card:disabled {
-  opacity: 0.32;
+  border-color: #403a32;
+  background: #181714;
+  box-shadow: none;
+  color: #756f64;
+  opacity: 0.48;
 }
 
 .hand-card span {
@@ -1669,6 +1708,12 @@ select {
   line-height: 1.1;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.hand-card .hand-card-disabled-reason {
+  color: #b8a78a;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .protagonist-hands {
@@ -1834,7 +1879,9 @@ select {
 }
 
 .goodwill-card.is-disabled {
-  opacity: 0.62;
+  border-color: #403b34;
+  background: #1b1a17;
+  color: #777168;
 }
 
 .goodwill-actions {
@@ -1844,12 +1891,28 @@ select {
 }
 
 .goodwill-actions button {
+  display: grid;
+  align-content: center;
+  gap: 2px;
   border: 1px solid #78603b;
   border-radius: 8px;
   background: #342a1d;
   padding: 8px;
   color: #ddc391;
   font-size: 0.75rem;
+}
+
+.goodwill-actions button:disabled {
+  border-color: #454039;
+  background: #1b1a17;
+  color: #8a8377;
+  box-shadow: none;
+}
+
+.goodwill-actions button small {
+  font-size: 0.6rem;
+  font-weight: 600;
+  line-height: 1.2;
 }
 
 .modal-layer {

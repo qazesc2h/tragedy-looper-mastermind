@@ -61,6 +61,7 @@ export type GoodwillDisabledReason =
   | "dead"
   | "minLoop"
   | "notImplemented"
+  | "usedThisRound"
   | "spent"
   | "restrictedLocation"
   | "noTarget"
@@ -303,6 +304,9 @@ function disabledReasonFor(
   }
   if (ability.implemented === false) return "notImplemented";
   const key = `${character}:goodwill:${ability.abilityIndex}`;
+  if (state.loop.abilitiesUsedThisRound.includes(key)) {
+    return "usedThisRound";
+  }
   const used = state.loop.abilitiesUsedThisLoop.filter(
     (usedKey) => usedKey === key,
   ).length;
@@ -359,6 +363,10 @@ function disabledDiagnosticFor(
       return `loop=${state.loop.loop}, minLoop=${ability.minLoop}`;
     case "notImplemented":
       return `implemented=${ability.implemented}`;
+    case "usedThisRound":
+      return `usedThisRound=${JSON.stringify(
+        state.loop.abilitiesUsedThisRound,
+      )}`;
     case "spent": {
       const key = `${character}:goodwill:${ability.abilityIndex}`;
       const used = state.loop.abilitiesUsedThisLoop.filter(

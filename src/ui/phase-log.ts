@@ -1,43 +1,59 @@
-import type { GameState, Phase, PhaseLogEntry } from "../types";
+import type { GameState, PhaseLogEntry } from "../types";
 
-export interface PhaseLogGroup {
+export interface PhaseLogDayGroup {
   key: string;
   loop: number;
   day: number;
-  phase: Phase;
   entries: PhaseLogEntry[];
 }
 
-export function phaseLogGroups(state: GameState): PhaseLogGroup[] {
+export interface PhaseLogLoopGroup {
+  key: string;
+  loop: number;
+  days: PhaseLogDayGroup[];
+}
+
+export function phaseLogLoopGroups(state: GameState): PhaseLogLoopGroup[] {
   const entries = [
     ...state.history.flatMap((loop) => loop.phaseLog ?? []),
     ...(state.loop.phaseLog ?? []),
   ];
-  const groups = new Map<string, PhaseLogGroup>();
+  const loops = new Map<number, Map<number, PhaseLogEntry[]>>();
 
-  for (let index = entries.length - 1; index >= 0; index -= 1) {
-    const entry = entries[index];
-    const key = `${entry.loop}:${entry.day}:${entry.phase}`;
-    const existing = groups.get(key);
-    if (existing) {
-      existing.entries.push(entry);
-      continue;
-    }
-    groups.set(key, {
-      key,
-      loop: entry.loop,
-      day: entry.day,
-      phase: entry.phase,
-      entries: [entry],
-    });
+  for (const entry of entries) {
+    const days = loops.get(entry.loop) ?? new Map<number, PhaseLogEntry[]>();
+    const dayEntries = days.get(entry.day) ?? [];
+    dayEntries.push(entry);
+    days.set(entry.day, dayEntries);
+    loops.set(entry.loop, days);
   }
 
-  return [...groups.values()];
+  return [...loops.entries()]
+    .sort(([left], [right]) => right - left)
+    .map(([loop, days]) => ({
+      key: String(loop),
+      loop,
+      days: [...days.entries()]
+        .sort(([left], [right]) => right - left)
+        .map(([day, dayEntries]) => ({
+          key: `${loop}:${day}`,
+          loop,
+          day,
+          entries: dayEntries,
+        })),
+    }));
 }
 
-export function phaseLogGroupIsOpen(
+export function phaseLogLoopIsOpen(
   state: GameState,
-  group: PhaseLogGroup,
+  group: PhaseLogLoopGroup,
+): boolean {
+  return group.loop === state.loop.loop;
+}
+
+export function phaseLogDayIsOpen(
+  state: GameState,
+  group: PhaseLogDayGroup,
 ): boolean {
   return group.loop === state.loop.loop && group.day === state.loop.day;
 }

@@ -409,9 +409,7 @@ describe("structured goodwill ability UI", () => {
     state.loop.phase = "P7_INCIDENT";
 
     advanceGame(state);
-    expect(state.loop.phase).toBe("P9_ROUND_END");
     expect(state.loop.leader).toBe(1);
-    advanceGame(state);
     expect(state.loop).toMatchObject({
       day: 2,
       phase: "P2_MASTERMIND_ACTION",
@@ -452,6 +450,28 @@ describe("structured goodwill ability UI", () => {
     ).toEqual([
       { abilityIndex: 0, rank: 2 },
       { abilityIndex: 1, rank: 2 },
+    ]);
+  });
+
+  it("disables only the goodwill ability already used this round", () => {
+    const state = createState(["journalist", "boyStudent"]);
+    unlock(state, "journalist", 2);
+    setBoardLocation(state.loop, "journalist", "City");
+    setBoardLocation(state.loop, "boyStudent", "City");
+
+    resolveGoodwillAbility(state, {
+      user: "journalist",
+      rank: 2,
+      abilityIndex: 0,
+      target: "boyStudent",
+    }, "resolve");
+
+    expect(goodwillAbilityViews(state).map((view) => ({
+      abilityIndex: view.abilityIndex,
+      disabledReason: view.disabledReason,
+    }))).toEqual([
+      { abilityIndex: 0, disabledReason: "usedThisRound" },
+      { abilityIndex: 1, disabledReason: undefined },
     ]);
   });
 

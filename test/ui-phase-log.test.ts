@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import { initLoop } from "../src/engine/setup";
 import {
-  phaseLogGroupIsOpen,
-  phaseLogGroups,
+  phaseLogDayIsOpen,
+  phaseLogLoopGroups,
+  phaseLogLoopIsOpen,
 } from "../src/ui/phase-log";
 import type {
   GameState,
@@ -28,9 +29,15 @@ function logEntries(loop: number): PhaseLogEntry[] {
     for (let index = 0; index < 9; index += 1) {
       const phase = ([
         "P1_ROUND_START",
+        "P2_MASTERMIND_ACTION",
+        "P3_PROTAGONIST_ACTION",
+        "P4_RESOLVE",
         "P5_MASTERMIND_ABILITY",
+        "P6_GOODWILL",
         "P7_INCIDENT",
-      ] as const)[index % 3];
+        "P8_LEADER_PASS",
+        "P9_ROUND_END",
+      ] as const)[index];
       entries.push({ loop, day, phase, kind: "notApplicable" });
     }
   }
@@ -57,38 +64,35 @@ function createLongState(): GameState {
 }
 
 describe("phase log groups", () => {
-  it("puts the latest loop, day, and phase first and opens only today", () => {
+  it("nests days under loops and opens only the current loop's today", () => {
     const state = createLongState();
-    const groups = phaseLogGroups(state);
+    const groups = phaseLogLoopGroups(state);
 
-    expect(groups[0]).toMatchObject({
-      loop: 3,
-      day: 7,
-      phase: "P7_INCIDENT",
-    });
-    expect(groups.at(-1)).toMatchObject({
-      loop: 1,
-      day: 1,
-      phase: "P1_ROUND_START",
-    });
-    expect(groups.filter((group) => phaseLogGroupIsOpen(state, group)))
-      .toHaveLength(3);
-    expect(
-      groups.filter((group) => phaseLogGroupIsOpen(state, group)).every(
-        ({ loop, day }) => loop === 3 && day === 7,
-      ),
-    ).toBe(true);
+    expect(groups[0]).toMatchObject({ loop: 3 });
+    expect(groups[0]?.days[0]).toMatchObject({ day: 7 });
+    expect(groups.at(-1)).toMatchObject({ loop: 1 });
+    expect(groups.at(-1)?.days.at(-1)).toMatchObject({ day: 1 });
+    expect(groups.filter((group) => phaseLogLoopIsOpen(state, group)))
+      .toHaveLength(1);
+    expect(groups.flatMap(({ days }) => days).filter(
+      (group) => phaseLogDayIsOpen(state, group),
+    )).toEqual([expect.objectContaining({ loop: 3, day: 7 })]);
   });
 
   it("groups 189 entries without dropping history or slowing rendering data", () => {
     const state = createLongState();
     const startedAt = performance.now();
-    const groups = phaseLogGroups(state);
+    const groups = phaseLogLoopGroups(state);
     const elapsed = performance.now() - startedAt;
 
-    expect(groups.reduce((sum, group) => sum + group.entries.length, 0))
+    expect(groups.reduce((loopSum, loopGroup) =>
+      loopSum + loopGroup.days.reduce(
+        (daySum, dayGroup) => daySum + dayGroup.entries.length,
+        0,
+      ), 0))
       .toBe(189);
-    expect(groups).toHaveLength(63);
+    expect(groups).toHaveLength(3);
+    expect(groups.every(({ days }) => days.length === 7)).toBe(true);
     expect(elapsed).toBeLessThan(100);
   });
 });

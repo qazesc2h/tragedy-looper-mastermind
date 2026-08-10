@@ -10,7 +10,6 @@ import {
   type Location,
   type LoopOutcome,
   type Phase,
-  type PhaseLogEntry,
   type RecordedLoss,
   type RoleId,
   type Scenario,
@@ -19,6 +18,7 @@ import { requestLoopEnd } from "./flow";
 import { incidentFailureReasons } from "./incident";
 import { evaluateLoss, type LossCondition } from "./loss";
 import { advance, collectHooks, resolveHooks } from "./phases";
+import { recordPhaseLog } from "./phase-log";
 import { initLoop } from "./setup";
 
 const TIME_GAP_SECONDS = 10 * 60;
@@ -260,16 +260,28 @@ export function settleGameFlow(state: GameState): LoopOutcome | undefined {
   return state.pendingLoopEnd ? finishLoop(state) : undefined;
 }
 
-function appendPhaseLog(
-  state: GameState,
-  entry: PhaseLogEntry,
-): void {
-  (state.loop.phaseLog ??= []).push(entry);
-}
-
 function activeHookExists(state: GameState, phase: Phase): boolean {
   return collectHooks(state, phase).some(
     ({ hook, self }) => hook.when(state, self),
+  );
+}
+
+function phaseAlreadyLogged(
+  state: GameState,
+  loop: number,
+  day: number,
+  phase: Phase,
+): boolean {
+  return state.loop.phaseLog?.some((entry) =>
+    entry.loop === loop && entry.day === day && entry.phase === phase
+  ) ?? false;
+}
+
+function roundEndNeedsAttention(state: GameState): boolean {
+  if (state.loop.day === state.scenario.daysPerLoop) return true;
+  if (activeHookExists(state, "P9_ROUND_END")) return true;
+  return evaluateLoss(state).some(
+    (condition) => condition.met && condition.blockedBy === undefined,
   );
 }
 
@@ -290,16 +302,48 @@ function advanceRoundOnce(
 
   const result = advance(state, incidentChoice);
 
-  if (phase === "P7_INCIDENT") {
+  if (phase === "P1_ROUND_START") {
+    if (!phaseAlreadyLogged(state, loop, day, phase)) {
+      recordPhaseLog(state, { loop, day, phase, kind: "phaseCompleted" });
+    }
+  } else if (phase === "P2_MASTERMIND_ACTION") {
+    recordPhaseLog(state, {
+      loop,
+      day,
+      phase,
+      kind: "cardsPlaced",
+      placements: structuredClone(
+        state.loop.placed.filter(({ owner }) => owner === "mastermind"),
+      ),
+    });
+  } else if (phase === "P3_PROTAGONIST_ACTION") {
+    recordPhaseLog(state, {
+      loop,
+      day,
+      phase,
+      kind: "cardsPlaced",
+      placements: structuredClone(
+        state.loop.placed.filter(({ owner }) => owner !== "mastermind"),
+      ),
+    });
+  } else if (phase === "P5_MASTERMIND_ABILITY") {
+    if (!phaseAlreadyLogged(state, loop, day, phase)) {
+      recordPhaseLog(state, { loop, day, phase, kind: "abilitySkipped" });
+    }
+  } else if (phase === "P6_GOODWILL") {
+    if (!phaseAlreadyLogged(state, loop, day, phase)) {
+      recordPhaseLog(state, { loop, day, phase, kind: "goodwillSkipped" });
+    }
+  } else if (phase === "P7_INCIDENT") {
     if (!scheduled) {
-      appendPhaseLog(state, {
+      recordPhaseLog(state, {
         loop,
         day,
         phase,
         kind: "notApplicable",
       });
     } else if (result) {
-      appendPhaseLog(state, {
+      recordPhaseLog(state, {
         loop,
         day,
         phase,
@@ -312,13 +356,28 @@ function advanceRoundOnce(
       });
     }
   } else if (phase === "P8_LEADER_PASS") {
-    appendPhaseLog(state, {
+    recordPhaseLog(state, {
       loop,
       day,
       phase,
       kind: "leaderPassed",
       from: leader,
       to: state.loop.leader,
+    });
+  } else if (
+    phase === "P9_ROUND_END" &&
+    !phaseAlreadyLogged(state, loop, day, phase) &&
+    (
+      state.pendingLoopEnd !== undefined ||
+      state.loop.phase !== "P9_ROUND_END"
+    )
+  ) {
+    recordPhaseLog(state, {
+      loop,
+      day,
+      phase,
+      kind: "roundEnded",
+      loopEnded: state.pendingLoopEnd !== undefined,
     });
   }
 
@@ -335,7 +394,7 @@ export function advanceAutomaticRoundPhases(state: GameState): void {
     ) && !activeHookExists(state, phase);
 
     if (noActiveHook) {
-      appendPhaseLog(state, {
+      recordPhaseLog(state, {
         loop: state.loop.loop,
         day: state.loop.day,
         phase,
@@ -354,6 +413,17 @@ export function advanceAutomaticRoundPhases(state: GameState): void {
     }
 
     if (phase === "P8_LEADER_PASS") {
+      advanceRoundOnce(state);
+      continue;
+    }
+
+    if (phase === "P9_ROUND_END" && !roundEndNeedsAttention(state)) {
+      recordPhaseLog(state, {
+        loop: state.loop.loop,
+        day: state.loop.day,
+        phase,
+        kind: "notApplicable",
+      });
       advanceRoundOnce(state);
       continue;
     }

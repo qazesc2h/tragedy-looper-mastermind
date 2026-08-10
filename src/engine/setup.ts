@@ -60,6 +60,7 @@ export function initLoop(scenario: Scenario, loopNumber = 1): LoopState {
       protagonists: [[], [], []],
     },
     abilitiesUsedThisLoop: [],
+    abilitiesUsedThisRound: [],
     placed: [],
     actionResolutionComplete: false,
     phaseLog: [],

@@ -250,6 +250,7 @@ describe("UI localStorage snapshots", () => {
     const {
       spentOncePerLoop: _spentOncePerLoop,
       abilitiesUsedThisLoop: _abilitiesUsedThisLoop,
+      abilitiesUsedThisRound: _abilitiesUsedThisRound,
       ...savedLoop
     } = current.loop;
     const {
@@ -278,6 +279,8 @@ describe("UI localStorage snapshots", () => {
     expect(restored.games["basicTragedy:1"].state.loop.spentOncePerLoop)
       .toEqual({ mastermind: [], protagonists: [[], [], []] });
     expect(restored.games["basicTragedy:1"].state.loop.abilitiesUsedThisLoop)
+      .toEqual([]);
+    expect(restored.games["basicTragedy:1"].state.loop.abilitiesUsedThisRound)
       .toEqual([]);
     expect(restored.games["basicTragedy:1"].state.loopOutcomes).toEqual([]);
     expect(restored.games["basicTragedy:1"].state.extraLoopsPlayed).toBe(0);

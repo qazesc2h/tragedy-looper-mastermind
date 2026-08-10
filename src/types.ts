@@ -256,8 +256,59 @@ export type PhaseLogEntry =
   | {
     loop: number;
     day: number;
-    phase: "P1_ROUND_START" | "P5_MASTERMIND_ABILITY" | "P7_INCIDENT";
+    phase: Phase;
     kind: "notApplicable";
+  }
+  | {
+    loop: number;
+    day: number;
+    phase: "P1_ROUND_START";
+    kind: "phaseCompleted";
+  }
+  | {
+    loop: number;
+    day: number;
+    phase: "P2_MASTERMIND_ACTION" | "P3_PROTAGONIST_ACTION";
+    kind: "cardsPlaced";
+    placements: PlacedCard[];
+  }
+  | {
+    loop: number;
+    day: number;
+    phase: "P4_RESOLVE";
+    kind: "actionResolved";
+    results: string[];
+  }
+  | {
+    loop: number;
+    day: number;
+    phase: "P5_MASTERMIND_ABILITY";
+    kind: "abilityActivated";
+    character: CharacterId;
+    description: string;
+  }
+  | {
+    loop: number;
+    day: number;
+    phase: "P5_MASTERMIND_ABILITY";
+    kind: "abilitySkipped";
+  }
+  | {
+    loop: number;
+    day: number;
+    phase: "P6_GOODWILL";
+    kind: "goodwillUsed";
+    character: CharacterId;
+    rank: number;
+    abilityIndex: number;
+    response: "resolve" | "refuse";
+    effectApplied: boolean;
+  }
+  | {
+    loop: number;
+    day: number;
+    phase: "P6_GOODWILL";
+    kind: "goodwillSkipped";
   }
   | {
     loop: number;
@@ -277,6 +328,13 @@ export type PhaseLogEntry =
     kind: "leaderPassed";
     from: 0 | 1 | 2;
     to: 0 | 1 | 2;
+  }
+  | {
+    loop: number;
+    day: number;
+    phase: "P9_ROUND_END";
+    kind: "roundEnded";
+    loopEnded: boolean;
   };
 
 /** 이번 루프에 각본가가 주인공에게 전달해야 하는 공개·해결 결과. */
@@ -330,6 +388,8 @@ export interface LoopState {
   };
   /** "shrineMaiden:goodwill:1" 같은 1루프당 1회 우호 능력 */
   abilitiesUsedThisLoop: string[];
+  /** 같은 우호 능력은 횟수 제한 표기와 무관하게 한 라운드에 한 번만 쓴다. */
+  abilitiesUsedThisRound: string[];
 
   /** 우호 능력으로 이번 루프 동안 금지 장소가 해제된 캐릭터 */
   locationRestrictionsRemoved?: CharacterId[];

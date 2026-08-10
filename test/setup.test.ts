@@ -39,6 +39,7 @@ describe("basic tragedy setup", () => {
         protagonists: [[], [], []],
       });
       expect(loop.abilitiesUsedThisLoop).toEqual([]);
+      expect(loop.abilitiesUsedThisRound).toEqual([]);
       expect(loop.placed).toEqual([]);
 
       for (const character of Object.keys(scenario.cast)) {

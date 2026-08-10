@@ -210,6 +210,7 @@ export function advance(
         return undefined;
       }
       delete s.loop.optionalLossActivations;
+      s.loop.abilitiesUsedThisRound = [];
       s.loop.day += 1;
       s.loop.phase = "P1_ROUND_START";
       return undefined;

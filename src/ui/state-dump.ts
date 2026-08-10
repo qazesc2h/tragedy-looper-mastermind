@@ -7,6 +7,7 @@ export interface CurrentStateDump {
   leader: 0 | 1 | 2;
   spentOncePerLoop: LoopState["spentOncePerLoop"];
   abilitiesUsedThisLoop: string[];
+  abilitiesUsedThisRound: string[];
   board: LoopState["board"];
   counters: LoopState["charCounters"];
 }
@@ -20,6 +21,7 @@ export function currentStateDump(state: GameState): CurrentStateDump {
     leader: state.loop.leader,
     spentOncePerLoop: state.loop.spentOncePerLoop,
     abilitiesUsedThisLoop: state.loop.abilitiesUsedThisLoop,
+    abilitiesUsedThisRound: state.loop.abilitiesUsedThisRound,
     board: state.loop.board,
     counters: state.loop.charCounters,
   });

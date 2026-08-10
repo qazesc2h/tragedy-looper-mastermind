@@ -26,6 +26,7 @@ import { validatePlacement } from "../engine/legal";
 import { distanceToLoss, setOptionalLossActivation } from "../engine/loss";
 import { intrigueForbidActive } from "../engine/movement";
 import { collectHooks } from "../engine/phases";
+import { recordPhaseLog } from "../engine/phase-log";
 import {
   loadBasicTragedyScenarioCatalog,
   scenarioSourceLabel,
@@ -99,7 +100,11 @@ import {
   spentCardsSummary,
   type IncidentScheduleRow,
 } from "./mastermind-panel";
-import { phaseLogGroupIsOpen, phaseLogGroups } from "./phase-log";
+import {
+  phaseLogDayIsOpen,
+  phaseLogLoopGroups,
+  phaseLogLoopIsOpen,
+} from "./phase-log";
 import {
   clearAppStorage,
   emptyTrackerStore,
@@ -854,23 +859,65 @@ function renderPhases(state: GameState): string {
 }
 
 function renderPhaseLog(state: GameState): string {
-  const groups = phaseLogGroups(state);
-  if (groups.length === 0) return "";
+  const loopGroups = phaseLogLoopGroups(state);
+  if (loopGroups.length === 0) return "";
 
-  const line = (entry: (typeof groups)[number]["entries"][number]): string => {
+  const lines = (
+    entry: (typeof loopGroups)[number]["days"][number]["entries"][number],
+  ): string[] => {
     if (entry.kind === "notApplicable") {
-      return "해당 없음";
+      return ["해당 없음"];
+    }
+    if (entry.kind === "phaseCompleted") {
+      return ["단계 완료"];
+    }
+    if (entry.kind === "cardsPlaced") {
+      return entry.placements.map((placement) =>
+        `${ownerLabel(placement.owner)} · ${targetLabel(placement.target)} · ${
+          actionCardName(placement.card)
+        }`
+      );
+    }
+    if (entry.kind === "actionResolved") {
+      return entry.results;
+    }
+    if (entry.kind === "abilityActivated") {
+      return [
+        `${characterName(entry.character)} · ${gameText(entry.description)} 발동`,
+      ];
+    }
+    if (entry.kind === "abilitySkipped") {
+      return ["발동한 능력 없음"];
+    }
+    if (entry.kind === "goodwillUsed") {
+      const result = entry.response === "refuse"
+        ? misc("Refused", "Refused")
+        : entry.effectApplied
+        ? "해결 · 효과 적용"
+        : "해결 · 효과 없음";
+      return [
+        `${characterName(entry.character)}[우호${entry.rank}] · ${result}`,
+      ];
+    }
+    if (entry.kind === "goodwillSkipped") {
+      return ["사용한 우호 능력 없음"];
     }
     if (entry.kind === "leaderPassed") {
-      return `${ownerLabel(entry.from)} → ${ownerLabel(entry.to)}`;
+      return [`${ownerLabel(entry.from)} → ${ownerLabel(entry.to)}`];
+    }
+    if (entry.kind === "roundEnded") {
+      return [entry.loopEnded ? "루프 종료 판정" : "다음 날로 진행"];
     }
     const result = entry.fired
       ? entry.effectApplied ? "발생 · 효과 적용" : "발생 · 효과 없음"
       : `발생하지 않음 (${entry.failureReasons.map(incidentFailureLabel).join(" · ")})`;
-    return `${incidentName(entry.incident)} · ${result}`;
+    return [`${incidentName(entry.incident)} · ${result}`];
   };
-  const entryCount = groups.reduce(
-    (sum, group) => sum + group.entries.length,
+  const entryCount = loopGroups.reduce(
+    (loopSum, loopGroup) => loopSum + loopGroup.days.reduce(
+      (daySum, dayGroup) => daySum + dayGroup.entries.length,
+      0,
+    ),
     0,
   );
 
@@ -880,16 +927,33 @@ function renderPhaseLog(state: GameState): string {
         <strong>진행 기록</strong>
         <span>${entryCount}건</span>
       </header>
-      <div class="phase-log-groups">
-        ${groups.map((group) => `
-          <details class="phase-log-group" ${phaseLogGroupIsOpen(state, group) ? "open" : ""}>
+      <div class="phase-log-loops">
+        ${loopGroups.map((loopGroup) => `
+          <details class="phase-log-loop" ${
+            phaseLogLoopIsOpen(state, loopGroup) ? "open" : ""
+          }>
             <summary>
-              <span>루프 ${group.loop} · ${group.day}일</span>
-              <strong>${escapeHtml(phaseName(group.phase))}</strong>
-              <small>${group.entries.length}건</small>
+              <strong>루프 ${loopGroup.loop}</strong>
+              <small>${loopGroup.days.length}일</small>
             </summary>
-            <ol>${group.entries.map((entry) => `
-              <li>${escapeHtml(line(entry))}</li>`).join("")}</ol>
+            <div class="phase-log-days">
+              ${loopGroup.days.map((dayGroup) => `
+                <details class="phase-log-day" ${
+                  phaseLogDayIsOpen(state, dayGroup) ? "open" : ""
+                }>
+                  <summary>
+                    <strong>${dayGroup.day}일</strong>
+                    <small>${dayGroup.entries.length}건</small>
+                  </summary>
+                  <ol>${dayGroup.entries.flatMap((entry) =>
+                    lines(entry).map((line) => `
+                      <li>
+                        <b>${escapeHtml(phaseName(entry.phase))}</b>
+                        <span>${escapeHtml(line)}</span>
+                      </li>`)
+                  ).join("")}</ol>
+                </details>`).join("")}
+            </div>
           </details>`).join("")}
       </div>
     </section>`;
@@ -997,18 +1061,28 @@ function renderHand(
           once ? misc("Once per {type}").replace("{type}", misc("Loop")) : "",
           spent ? misc("Spent", "Spent") : "",
         ].filter(Boolean).join(" · ");
+        const unavailable = !enabled || placed || spent;
+        const disabledReason = spent
+          ? `${misc("Spent", "Spent")} · 선택 불가`
+          : placed
+            ? "이미 배치함"
+            : !enabled
+              ? "현재 차례 아님"
+              : "";
         return `
           <button type="button"
             class="hand-card owner-${owner} ${placed ? "is-placed" : ""} ${selected ? "is-selected" : ""} ${spent ? "is-spent" : ""}"
             data-action="select-hand-card" data-owner="${owner}"
             data-card="${entry.card}" data-card-key="${entry.key}"
-            ${!enabled || placed ? "disabled" : ""}
+            ${unavailable ? "disabled" : ""}
             title="${escapeHtml(fullName)}"
             aria-label="${escapeHtml(`${fullName}${status ? ` · ${status}` : ""}`)}"
             aria-pressed="${selected}">
             <span aria-hidden="true">${escapeHtml(displayName)}</span>
             ${once ? `<small>${escapeHtml(misc("Once per {type}").replace("{type}", misc("Loop")))}</small>` : ""}
-            ${spent ? `<b>${escapeHtml(misc("Spent", "Spent"))}</b>` : ""}
+            ${disabledReason
+              ? `<b class="hand-card-disabled-reason">${escapeHtml(disabledReason)}</b>`
+              : ""}
           </button>`;
       }).join("")}
     </div>`;
@@ -1330,6 +1404,8 @@ function goodwillDisabledMessage(
       return `${view.schema.minLoop}번째 루프부터 사용 가능`;
     case "notImplemented":
       return "아직 구현되지 않은 능력";
+    case "usedThisRound":
+      return "오늘 이미 사용한 능력";
     case "spent":
       return "이번 루프에 사용함";
     case "restrictedLocation":
@@ -1637,6 +1713,8 @@ function renderGoodwillAbilities(state: GameState): string {
       : !availability.refuseAllowed
         ? "우호 무시가 없어 거부 불가"
         : "";
+    const resolveDisabledReason = disabled ? reason : resolveRuleTitle;
+    const refuseDisabledReason = disabled ? reason : refuseRuleTitle;
     return `
     <article class="goodwill-card ${disabled ? "is-disabled" : ""}">
       <div class="goodwill-copy">
@@ -1660,14 +1738,20 @@ function renderGoodwillAbilities(state: GameState): string {
           data-ability-index="${abilityIndex}" data-goodwill-key="${escapeHtml(key)}"
           ${disabled || !availability.resolveAllowed ? "disabled" : ""}
           ${resolveRuleTitle ? `title="${escapeHtml(resolveRuleTitle)}"` : ""}>
-          ${escapeHtml(misc("Resolve", "Resolve"))}
+          <span>${escapeHtml(misc("Resolve", "Resolve"))}</span>
+          ${resolveDisabledReason
+            ? `<small>${escapeHtml(resolveDisabledReason)}</small>`
+            : ""}
         </button>
         <button type="button" data-action="goodwill" data-response="refuse"
           data-character="${escapeHtml(character)}" data-rank="${schema.rank}"
           data-ability-index="${abilityIndex}" data-goodwill-key="${escapeHtml(key)}"
           ${disabled || !availability.refuseAllowed ? "disabled" : ""}
           ${refuseRuleTitle ? `title="${escapeHtml(refuseRuleTitle)}"` : ""}>
-          ${escapeHtml(misc("Refuse", "Refuse"))}
+          <span>${escapeHtml(misc("Refuse", "Refuse"))}</span>
+          ${refuseDisabledReason
+            ? `<small>${escapeHtml(refuseDisabledReason)}</small>`
+            : ""}
         </button>
       </div>
     </article>`;
@@ -2716,6 +2800,17 @@ function applySelectedOptionalHooks(state: GameState): void {
     }
     // 선택 훅은 선택한 하나마다 사망 배치를 닫고 종료 판정을 한다.
     withDeathBatch(state, () => hook.effect(state, self, target));
+    if (phase === "P5_MASTERMIND_ABILITY") {
+      recordPhaseLog(state, {
+        loop: state.loop.loop,
+        day: state.loop.day,
+        phase,
+        kind: "abilityActivated",
+        character: self,
+        description:
+          hook.source.description ?? hook.source.prerequisite ?? hook.source.timing,
+      });
+    }
     settleGameFlow(state);
     if (state.gamePhase !== "ROUND") return;
   }
@@ -2790,12 +2885,27 @@ function revealActionCards(): void {
     applySelectedOptionalHooks(state);
     const before = structuredClone(state);
     advanceGame(state);
+    const items = collectResolutionReport(before, state, cards);
+    const results = items.length === 0
+      ? [misc("No effect", "No effect")]
+      : items.map((item) => item.category === "noEffect"
+        ? `[무효] ${noEffectResolutionLine(item)}`
+        : `[${item.category === "movement" ? "이동" : "카운터"}] ${
+          resolutionChangeLine(item)
+        }${item.causeHidden ? " · 원인 비공개" : ""}`);
+    recordPhaseLog(state, {
+      loop: state.loop.loop,
+      day: state.loop.day,
+      phase: "P4_RESOLVE",
+      kind: "actionResolved",
+      results,
+    });
     resolutionReceipt = {
       scenarioId: entry.id,
       loop: state.loop.loop,
       day: state.loop.day,
       cards,
-      items: collectResolutionReport(before, state, cards),
+      items,
     };
     selectedHandCard = undefined;
     operationSheetOpen = false;
@@ -3148,6 +3258,11 @@ root.addEventListener("click", (event) => {
       ? "mastermind"
       : Number(ownerValue) as 0 | 1 | 2;
     const state = currentState();
+    if (ownerCardIsSpent(state, owner, card)) {
+      notice = `${actionCardName(card)} · 소진되어 선택할 수 없습니다`;
+      render();
+      return;
+    }
     const mastermindNeedsReplacement =
       state.loop.phase === "P3_PROTAGONIST_ACTION" &&
       placementsForOwner(state, "mastermind").length < 3;

@@ -197,7 +197,7 @@
         await pause();
       }
 
-      async function advanceManualDeathToP9() {
+      async function advanceManualDeathThroughRound(lossExpected) {
         await placeCards(["patient", "nurse", "policeOfficer"]);
         click(".dock-primary[data-action='advance']");
         await waitFor(
@@ -233,10 +233,12 @@
         );
         click(".dock-primary[data-action='advance']");
         await waitFor(
-          () => currentPhase() === "라운드 종료 단계",
-          "P9 라운드 종료 단계",
+          () => currentPhase() === (
+            lossExpected ? "라운드 종료 단계" : "각본가 · 행동 단계"
+          ),
+          lossExpected ? "P9 라운드 종료 단계" : "빈 P9 자동 통과 뒤 다음 날 P2",
         );
-        assert(!judgmentTitle(), "P9 판정 전에 수동 사망으로 루프가 종료됨");
+        assert(!judgmentTitle(), "라운드 종료 판정 전에 루프가 종료됨");
       }
 
       async function runDeferredDeathCase() {
@@ -251,7 +253,7 @@
         click("[data-action='close-character-modal']");
         await pause();
 
-        await advanceManualDeathToP9();
+        await advanceManualDeathThroughRound(true);
         click(".dock-primary[data-action='advance']");
         await waitFor(
           () => judgmentTitle(),
@@ -277,12 +279,7 @@
         click("[data-action='close-character-modal']");
         await pause();
 
-        await advanceManualDeathToP9();
-        click(".dock-primary[data-action='advance']");
-        await waitFor(
-          () => currentPhase() === "각본가 · 행동 단계",
-          "생존 복구 뒤 다음 날 P2",
-        );
+        await advanceManualDeathThroughRound(false);
         assert(!judgmentTitle(), "생존 복구 후 P9에서 패배 판정됨");
         reports.push({
           case: "manual-death-corrected",

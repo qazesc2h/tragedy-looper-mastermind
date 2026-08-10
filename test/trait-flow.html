@@ -696,9 +696,9 @@
         await openOperationSheet("각본가 이동 카드 축약");
 
         const expected = [
-          ["moveVertical", "↕", "이동↑↓"],
-          ["moveHorizontal", "↔", "이동←→"],
-          ["moveDiagonal", "⤢", "대각 이동"],
+          ["moveVertical", "이동↕", "이동↑↓"],
+          ["moveHorizontal", "이동↔", "이동←→"],
+          ["moveDiagonal", "이동⤢", "대각 이동"],
         ];
         for (const [card, visible, fullName] of expected) {
           const button = await waitFor(

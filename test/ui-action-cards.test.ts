@@ -33,9 +33,9 @@ function createState(): GameState {
 
 describe("UI action-card hands", () => {
   it.each([
-    ["moveVertical", "이동↑↓", "↕"],
-    ["moveHorizontal", "이동←→", "↔"],
-    ["moveDiagonal", "대각 이동", "⤢"],
+    ["moveVertical", "이동↑↓", "이동↕"],
+    ["moveHorizontal", "이동←→", "이동↔"],
+    ["moveDiagonal", "대각 이동", "이동⤢"],
     ["forbidMove", "이동 금지", "이동 금지"],
   ] as const)("uses compact label for %s without changing its full name", (
     card,

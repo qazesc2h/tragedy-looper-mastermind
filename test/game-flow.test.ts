@@ -393,6 +393,51 @@ describe("game setup and loop preparation", () => {
 });
 
 describe("automatic empty round phases", () => {
+  it("records the cards finalized in P2 and P3", () => {
+    const state = createGameState(scenario());
+    startRound(state);
+    state.loop.placed.push({
+      owner: "mastermind",
+      card: "intriguePlus1",
+      target: { kind: "character", id: "boyStudent" },
+    });
+
+    advanceGame(state);
+
+    expect(state.loop.phase).toBe("P3_PROTAGONIST_ACTION");
+    expect(state.loop.phaseLog).toContainEqual({
+      loop: 1,
+      day: 1,
+      phase: "P2_MASTERMIND_ACTION",
+      kind: "cardsPlaced",
+      placements: [{
+        owner: "mastermind",
+        card: "intriguePlus1",
+        target: { kind: "character", id: "boyStudent" },
+      }],
+    });
+
+    state.loop.placed.push({
+      owner: 0,
+      card: "goodwillPlus1",
+      target: { kind: "character", id: "boyStudent" },
+    });
+    advanceGame(state);
+
+    expect(state.loop.phase).toBe("P4_RESOLVE");
+    expect(state.loop.phaseLog).toContainEqual({
+      loop: 1,
+      day: 1,
+      phase: "P3_PROTAGONIST_ACTION",
+      kind: "cardsPlaced",
+      placements: [{
+        owner: 0,
+        card: "goodwillPlus1",
+        target: { kind: "character", id: "boyStudent" },
+      }],
+    });
+  });
+
   it("keeps the resolved result in P4, then skips an unavailable P5", () => {
     const state = createGameState(scenario());
     startRound(state);
@@ -439,14 +484,17 @@ describe("automatic empty round phases", () => {
     );
   });
 
-  it("skips a day without an incident and automatically passes the leader", () => {
+  it("skips an empty P9 after passing the leader", () => {
     const state = createGameState(scenario());
     startRound(state);
     state.loop.phase = "P6_GOODWILL";
 
     advanceGame(state);
 
-    expect(state.loop.phase).toBe("P9_ROUND_END");
+    expect(state.loop).toMatchObject({
+      day: 2,
+      phase: "P2_MASTERMIND_ACTION",
+    });
     expect(state.loop.leader).toBe(1);
     expect(state.loop.phaseLog).toEqual(expect.arrayContaining([
       {
@@ -463,7 +511,57 @@ describe("automatic empty round phases", () => {
         from: 0,
         to: 1,
       },
+      {
+        loop: 1,
+        day: 1,
+        phase: "P9_ROUND_END",
+        kind: "notApplicable",
+      },
     ]));
+  });
+
+  it("stops at P9 when a hook can fire", () => {
+    const state = createGameState(scenario({
+      cast: {
+        boyStudent: "keyPerson",
+        girlStudent: "killer",
+      },
+    }));
+    startRound(state);
+    setBoardLocation(state.loop, "boyStudent", "City");
+    setBoardLocation(state.loop, "girlStudent", "City");
+    state.loop.charCounters.boyStudent.intrigue = 2;
+    state.loop.phase = "P8_LEADER_PASS";
+
+    advanceGame(state);
+
+    expect(state.loop.phase).toBe("P9_ROUND_END");
+    expect(state.loop.day).toBe(1);
+  });
+
+  it("stops at P9 when a loss condition is met", () => {
+    const state = createGameState(scenario({
+      cast: { boyStudent: "keyPerson" },
+    }));
+    startRound(state);
+    setBoardLife(state.loop, "boyStudent", false);
+    state.loop.phase = "P8_LEADER_PASS";
+
+    advanceGame(state);
+
+    expect(state.loop.phase).toBe("P9_ROUND_END");
+    expect(state.loop.day).toBe(1);
+  });
+
+  it("never auto-skips P9 on the last day", () => {
+    const state = createGameState(scenario({ daysPerLoop: 1 }));
+    startRound(state);
+    state.loop.phase = "P8_LEADER_PASS";
+
+    advanceGame(state);
+
+    expect(state.loop.phase).toBe("P9_ROUND_END");
+    expect(state.gamePhase).toBe("ROUND");
   });
 
   it("does not auto-skip a scheduled incident whose condition is unmet", () => {
@@ -489,7 +587,10 @@ describe("automatic empty round phases", () => {
       fired: false,
       effectApplied: false,
     });
-    expect(state.loop.phase).toBe("P9_ROUND_END");
+    expect(state.loop).toMatchObject({
+      day: 2,
+      phase: "P2_MASTERMIND_ACTION",
+    });
     expect(state.loop.phaseLog).toContainEqual({
       loop: 1,
       day: 1,
