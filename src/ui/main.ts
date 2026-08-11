@@ -25,6 +25,7 @@ import {
 import { validatePlacement } from "../engine/legal";
 import { distanceToLoss, setOptionalLossActivation } from "../engine/loss";
 import { intrigueForbidActive } from "../engine/movement";
+import { publicBoardChanges } from "../engine/hypothesis";
 import { collectHooks } from "../engine/phases";
 import { recordPhaseLog } from "../engine/phase-log";
 import {
@@ -3046,6 +3047,7 @@ function applySelectedOptionalHooks(state: GameState): void {
     }
     // 선택 훅은 선택한 하나마다 사망 배치를 닫는다. 종료 판정은 단계 결과를
     // 한 번 렌더한 뒤 다음 사용자 입력에서 확정한다.
+    const beforeAbility = structuredClone(state.loop);
     withDeathBatch(state, () => hook.effect(state, self, target));
     if (phase === "P5_MASTERMIND_ABILITY") {
       recordPhaseLog(state, {
@@ -3056,6 +3058,7 @@ function applySelectedOptionalHooks(state: GameState): void {
         ...(self ? { character: self } : {}),
         description:
           hook.source.description ?? hook.source.prerequisite ?? hook.source.timing,
+        publicChanges: publicBoardChanges(beforeAbility, state.loop),
       });
     }
   }

@@ -725,6 +725,13 @@ describe("friend / reveal role", () => {
     applyIfEligible(revealHook, state, FRIEND);
 
     expect(state.loop.revealedRoleCharacters).toEqual([FRIEND]);
+    expect(state.loop.publicInformationThisLoop).toContainEqual({
+      kind: "roleReveal",
+      character: FRIEND,
+      role: "friend",
+      loop: 1,
+      day: 1,
+    });
     expect(boardIsAlive(state.loop, FRIEND)).toBe(false);
   });
 

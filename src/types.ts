@@ -252,6 +252,27 @@ export interface IncidentResult {
   effectApplied: boolean;
 }
 
+/** 원인을 숨긴 채 주인공도 확인할 수 있는 게임판 변화. */
+export type PublicBoardChange =
+  | {
+    kind: "counter";
+    target: Target;
+    counter: keyof Counters | "protection";
+    delta: number;
+  }
+  | {
+    kind: "movement";
+    character: CharacterId;
+    from: Location;
+    to: Location;
+  }
+  | {
+    kind: "status";
+    character: CharacterId;
+    from: BoardCharacterState["status"];
+    to: BoardCharacterState["status"];
+  };
+
 export type IncidentFailureReason =
   | "culpritAbsent"
   | "culpritDead"
@@ -294,6 +315,8 @@ export type PhaseLogEntry =
     /** 캐릭터 역할 능력일 때만 존재한다. 룰 능력은 추가 규칙으로 표시한다. */
     character?: CharacterId;
     description: string;
+    /** 능력의 정체는 숨기고 게임판에서 관측된 결과만 보존한다. */
+    publicChanges?: PublicBoardChange[];
   }
   | {
     loop: number;
@@ -351,6 +374,13 @@ export type PhaseLogEntry =
 
 /** 이번 루프에 각본가가 주인공에게 전달해야 하는 공개·해결 결과. */
 export type PublicInformation =
+  | {
+    kind: "roleReveal";
+    character: CharacterId;
+    role: RoleId;
+    loop: number;
+    day: number;
+  }
   | {
     kind: "goodwillRefusal";
     character: CharacterId;

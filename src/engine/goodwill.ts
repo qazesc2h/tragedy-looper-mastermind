@@ -268,6 +268,13 @@ function revealRole(state: GameState, character: CharacterId): boolean {
   const revealed = state.loop.revealedRoleCharacters ??= [];
   if (revealed.includes(character)) return false;
   revealed.push(character);
+  recordPublicInformation(state, {
+    kind: "roleReveal",
+    character,
+    role: effectiveRole(state, character),
+    loop: state.loop.loop,
+    day: state.loop.day,
+  });
   return true;
 }
 
