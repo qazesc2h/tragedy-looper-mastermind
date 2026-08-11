@@ -229,7 +229,21 @@ const optionalHookSelections = new Map<string, OptionalHookSelection>();
 const uiInputDrafts = new Map<string, string>();
 let uiInputDraftScope = "";
 let noticeDismissTimer: number | undefined;
+let uiActionInProgress = false;
 const NOTICE_DURATION_MS = 5_000;
+const MAX_RUNTIME_ERRORS = 10;
+
+interface UiTransactionSnapshot {
+  game: StoredGame;
+  selectedHandCard?: SelectedHandCard;
+  resolutionReceipt?: ResolutionReceipt;
+  openCharacterModal?: CharacterId;
+  openLocationModal?: Location;
+  operationSheetOpen: boolean;
+  optionalHookSelections: Map<string, OptionalHookSelection>;
+  uiInputDrafts: Map<string, string>;
+  uiInputDraftScope: string;
+}
 
 function goodwillDraftKey(key: string, field: GoodwillDraftField): string {
   return `goodwill:${key}:${field}`;
@@ -348,6 +362,95 @@ function saveState(
     );
   } catch (error) {
     notice = errorMessage(error);
+  }
+}
+
+function captureUiTransaction(game: StoredGame): UiTransactionSnapshot {
+  return {
+    game: structuredClone(game),
+    selectedHandCard: structuredClone(selectedHandCard),
+    resolutionReceipt: structuredClone(resolutionReceipt),
+    openCharacterModal,
+    openLocationModal,
+    operationSheetOpen,
+    optionalHookSelections: structuredClone(optionalHookSelections),
+    uiInputDrafts: structuredClone(uiInputDrafts),
+    uiInputDraftScope,
+  };
+}
+
+function recordRuntimeError(
+  state: GameState,
+  action: string,
+  error: unknown,
+): void {
+  const errors = state.runtimeErrors ??= [];
+  errors.push({
+    occurredAt: new Date().toISOString(),
+    action,
+    message: errorMessage(error),
+    gamePhase: state.gamePhase,
+    loop: structuredClone(state.loop),
+    ...(state.pendingLoopEnd === undefined
+      ? {}
+      : { pendingLoopEnd: structuredClone(state.pendingLoopEnd) }),
+  });
+  if (errors.length > MAX_RUNTIME_ERRORS) {
+    errors.splice(0, errors.length - MAX_RUNTIME_ERRORS);
+  }
+}
+
+function rollbackUiTransaction(
+  scenarioId: string,
+  snapshot: UiTransactionSnapshot,
+  action: string,
+  error: unknown,
+): void {
+  tracker.games[scenarioId] = snapshot.game;
+  selectedHandCard = snapshot.selectedHandCard;
+  resolutionReceipt = snapshot.resolutionReceipt;
+  openCharacterModal = snapshot.openCharacterModal;
+  openLocationModal = snapshot.openLocationModal;
+  operationSheetOpen = snapshot.operationSheetOpen;
+  optionalHookSelections.clear();
+  for (const [key, selection] of snapshot.optionalHookSelections) {
+    optionalHookSelections.set(key, selection);
+  }
+  uiInputDrafts.clear();
+  for (const [key, value] of snapshot.uiInputDrafts) {
+    uiInputDrafts.set(key, value);
+  }
+  uiInputDraftScope = snapshot.uiInputDraftScope;
+
+  const state = tracker.games[scenarioId].state;
+  recordRuntimeError(state, action, error);
+  notice = errorMessage(error);
+  try {
+    persistGameState(
+      window.localStorage,
+      tracker,
+      scenarioId,
+      state,
+      `error:${action}`,
+    );
+  } catch (persistenceError) {
+    notice = `${notice} · 오류 상태 저장 실패: ${errorMessage(persistenceError)}`;
+  }
+  render();
+}
+
+function runLockedUiAction(
+  button: HTMLButtonElement,
+  action: () => void,
+): void {
+  if (uiActionInProgress) return;
+  uiActionInProgress = true;
+  button.disabled = true;
+  button.setAttribute("aria-busy", "true");
+  try {
+    action();
+  } finally {
+    uiActionInProgress = false;
   }
 }
 
@@ -909,7 +1012,9 @@ function renderPhaseLog(state: GameState): string {
     }
     if (entry.kind === "abilityActivated") {
       return [
-        `${characterName(entry.character)} · ${gameText(entry.description)} 발동`,
+        `${entry.character ? characterName(entry.character) : misc("Extra Rules")} · ${
+          gameText(entry.description)
+        } 발동`,
       ];
     }
     if (entry.kind === "abilitySkipped") {
@@ -2924,7 +3029,7 @@ function applySelectedOptionalHooks(state: GameState): void {
         day: state.loop.day,
         phase,
         kind: "abilityActivated",
-        character: self,
+        ...(self ? { character: self } : {}),
         description:
           hook.source.description ?? hook.source.prerequisite ?? hook.source.timing,
       });
@@ -2995,7 +3100,7 @@ function revealActionCards(): void {
     return;
   }
 
-  const rollback = structuredClone(state);
+  const transaction = captureUiTransaction(game);
   const cards = structuredClone(state.loop.placed);
   try {
     applySelectedOptionalHooks(state);
@@ -3027,18 +3132,23 @@ function revealActionCards(): void {
     operationSheetOpen = false;
     optionalHookSelections.clear();
     notice = "";
-    saveState(entry.id, state, "cards-resolved");
+    persistGameState(
+      window.localStorage,
+      tracker,
+      entry.id,
+      state,
+      "cards-resolved",
+    );
+    render();
   } catch (error) {
-    game.state = rollback;
-    notice = errorMessage(error);
+    rollbackUiTransaction(entry.id, transaction, "cards-resolved", error);
   }
-  render();
 }
 
 function resolveGoodwillFromButton(button: HTMLButtonElement): void {
   const entry = activeScenarioEntry();
   const game = tracker.games[entry.id];
-  const before = structuredClone(game.state);
+  const transaction = captureUiTransaction(game);
   const character = button.dataset.character;
   const rank = Number(button.dataset.rank);
   const abilityIndex = Number(button.dataset.abilityIndex);
@@ -3127,19 +3237,29 @@ function resolveGoodwillFromButton(button: HTMLButtonElement): void {
       response,
     );
     notice = "";
-    saveState(entry.id, game.state, `goodwill-${response}`);
+    persistGameState(
+      window.localStorage,
+      tracker,
+      entry.id,
+      game.state,
+      `goodwill-${response}`,
+    );
     clearGoodwillDraft(key);
+    render();
   } catch (error) {
-    game.state = before;
-    notice = errorMessage(error);
+    rollbackUiTransaction(
+      entry.id,
+      transaction,
+      `goodwill-${response}`,
+      error,
+    );
   }
-  render();
 }
 
 function advanceCurrentPhase(): void {
   const entry = activeScenarioEntry();
   const game = tracker.games[entry.id];
-  const before = structuredClone(game.state);
+  const transaction = captureUiTransaction(game);
   const state = game.state;
   if (state.gamePhase !== "ROUND") return;
   const phaseBefore = state.loop.phase;
@@ -3154,7 +3274,13 @@ function advanceCurrentPhase(): void {
       operationSheetOpen = false;
       optionalHookSelections.clear();
       notice = "";
-      saveState(entry.id, state, "phase-result-confirmed");
+      persistGameState(
+        window.localStorage,
+        tracker,
+        entry.id,
+        state,
+        "phase-result-confirmed",
+      );
       render();
       return;
     }
@@ -3188,12 +3314,17 @@ function advanceCurrentPhase(): void {
     }
     optionalHookSelections.clear();
     notice = "";
-    saveState(entry.id, state, "phase-advance");
+    persistGameState(
+      window.localStorage,
+      tracker,
+      entry.id,
+      state,
+      "phase-advance",
+    );
+    render();
   } catch (error) {
-    game.state = before;
-    notice = errorMessage(error);
+    rollbackUiTransaction(entry.id, transaction, "phase-advance", error);
   }
-  render();
 }
 
 root.addEventListener("click", (event) => {
@@ -3291,7 +3422,7 @@ root.addEventListener("click", (event) => {
   }
 
   if (action === "advance") {
-    advanceCurrentPhase();
+    runLockedUiAction(button, advanceCurrentPhase);
     return;
   }
 
@@ -3374,7 +3505,7 @@ root.addEventListener("click", (event) => {
   }
 
   if (action === "reveal-cards") {
-    revealActionCards();
+    runLockedUiAction(button, revealActionCards);
     return;
   }
 
@@ -3454,7 +3585,7 @@ root.addEventListener("click", (event) => {
   }
 
   if (action === "goodwill") {
-    resolveGoodwillFromButton(button);
+    runLockedUiAction(button, () => resolveGoodwillFromButton(button));
     return;
   }
 
@@ -3588,13 +3719,31 @@ root.addEventListener("change", (event) => {
   if (action === "optional-loss") {
     const key = control.dataset.lossKey;
     if (!key) return;
-    commit("optional-loss-activation", (state) => {
+    const entry = activeScenarioEntry();
+    const game = tracker.games[entry.id];
+    const transaction = captureUiTransaction(game);
+    try {
       setOptionalLossActivation(
-        state,
+        game.state,
         key,
         (control as HTMLInputElement).checked,
       );
-    });
+      persistGameState(
+        window.localStorage,
+        tracker,
+        entry.id,
+        game.state,
+        "optional-loss-activation",
+      );
+      render();
+    } catch (error) {
+      rollbackUiTransaction(
+        entry.id,
+        transaction,
+        "optional-loss-activation",
+        error,
+      );
+    }
     return;
   }
 

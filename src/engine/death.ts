@@ -49,6 +49,8 @@ export function withDeathBatch<T>(
   operation: () => T,
 ): T {
   let batch = deathBatches.get(state);
+  const outermost = batch === undefined;
+  const rollback = outermost ? structuredClone(state) : undefined;
   if (batch === undefined) {
     batch = {
       depth: 0,
@@ -60,12 +62,21 @@ export function withDeathBatch<T>(
   batch.depth += 1;
 
   try {
-    return operation();
-  } finally {
+    const result = operation();
     batch.depth -= 1;
     if (batch.depth === 0) {
       closeDeathBatch(state, batch);
     }
+    return result;
+  } catch (error) {
+    batch.depth -= 1;
+    if (outermost && rollback !== undefined) {
+      deathBatches.delete(state);
+      const mutableState = state as unknown as Record<string, unknown>;
+      for (const key of Object.keys(mutableState)) delete mutableState[key];
+      Object.assign(mutableState, rollback);
+    }
+    throw error;
   }
 }
 

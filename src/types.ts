@@ -291,7 +291,8 @@ export type PhaseLogEntry =
     day: number;
     phase: "P5_MASTERMIND_ABILITY";
     kind: "abilityActivated";
-    character: CharacterId;
+    /** 캐릭터 역할 능력일 때만 존재한다. 룰 능력은 추가 규칙으로 표시한다. */
+    character?: CharacterId;
     description: string;
   }
   | {
@@ -461,6 +462,16 @@ export interface LoopState {
   specialGauge?: number;
 }
 
+/** UI 작업 실패 시 롤백된 안전 상태와 오류 메시지를 함께 보존한다. */
+export interface RuntimeErrorRecord {
+  occurredAt: string;
+  action: string;
+  message: string;
+  gamePhase: GamePhase;
+  loop: LoopState;
+  pendingLoopEnd?: LoopEndRequest;
+}
+
 export interface GameState {
   scenario: Scenario;
   gamePhase: GamePhase;
@@ -473,6 +484,8 @@ export interface GameState {
   extraLoopsPlayed?: number;
   /** 효과 해결 중 발생한 종료 신호. 동시 해결이 끝날 때까지 적용을 미룬다. */
   pendingLoopEnd?: LoopEndRequest;
+  /** 최근 UI/단계 처리 오류. 현재 상태 복사 진단 정보에 포함한다. */
+  runtimeErrors?: RuntimeErrorRecord[];
   finalGuess?: FinalGuessState;
   result?: GameResult;
   /** 시간의 틈 권장 10분 타이머. 실행 중이면 endsAt으로 남은 시간을 계산한다. */

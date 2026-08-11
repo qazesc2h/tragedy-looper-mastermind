@@ -906,6 +906,114 @@
         });
       }
 
+      function unsettlingRumorCard() {
+        return Array.from(frameDocument().querySelectorAll(".hook-card")).find(
+          (card) => card.textContent?.includes("임의의 장소 1곳에 음모 1개"),
+        );
+      }
+
+      function storedState(scenarioId) {
+        const raw = window.localStorage.getItem(
+          "tragedy-looper-mastermind:tracker",
+        );
+        if (raw === null) throw new Error("검사용 저장 상태가 없습니다.");
+        return JSON.parse(raw).games[scenarioId].state;
+      }
+
+      async function runUnsettlingRumorTransactionCase() {
+        const scenarioId = "firstSteps:4";
+        await loadScenario(scenarioId, "unsettling-rumor-transaction");
+        mutateStoredState(scenarioId, (state) => {
+          state.gamePhase = "ROUND";
+          state.loop.day = 3;
+          state.loop.phase = "P5_MASTERMIND_ABILITY";
+          state.loop.phaseLog = [];
+          state.loop.locIntrigue.Hospital = 0;
+          state.loop.abilitiesUsedThisLoop = [];
+          delete state.runtimeErrors;
+          delete state.pendingLoopEnd;
+          delete state.loop.pendingImmediateLossKeys;
+        });
+        await reloadFrame("unsettling-rumor-transaction-ready");
+        await openOperationSheet("불온한 소문 조작 패널");
+
+        let card = await waitFor(unsettlingRumorCard, "불온한 소문 능력");
+        const checkbox = card.querySelector("[data-action='optional-hook']");
+        checkbox.checked = true;
+        checkbox.dispatchEvent(new (frameWindow().Event)("change", {
+          bubbles: true,
+        }));
+        await pause();
+
+        click(".dock-primary[data-action='advance']");
+        await waitFor(
+          () => frameDocument().querySelector(".notice-toast"),
+          "대상 누락 오류 표시",
+        );
+        const failed = storedState(scenarioId);
+        assert(
+          failed.loop.phase === "P5_MASTERMIND_ABILITY",
+          `대상 누락 뒤 단계: ${failed.loop.phase}`,
+        );
+        assert(
+          failed.loop.locIntrigue.Hospital === 0,
+          `대상 누락 뒤 병원 음모: ${failed.loop.locIntrigue.Hospital}`,
+        );
+        assert(
+          !failed.loop.abilitiesUsedThisLoop.includes("unsettlingRumor:plot:0"),
+          `대상 누락 뒤 사용 기록: ${failed.loop.abilitiesUsedThisLoop}`,
+        );
+        const error = failed.runtimeErrors?.at(-1);
+        assert(
+          error?.action === "phase-advance" &&
+            error.message.includes("대상") &&
+            error.loop.phase === "P5_MASTERMIND_ABILITY" &&
+            error.loop.locIntrigue.Hospital === 0,
+          `기록된 오류 상태: ${JSON.stringify(error)}`,
+        );
+
+        card = await waitFor(unsettlingRumorCard, "롤백 뒤 불온한 소문 능력");
+        const location = card.querySelector("[data-action='optional-hook-target']");
+        location.value = "location:Hospital";
+        location.dispatchEvent(new (frameWindow().Event)("change", {
+          bubbles: true,
+        }));
+        await pause();
+        const advance = frameDocument().querySelector(
+          ".dock-primary[data-action='advance']",
+        );
+        advance.click();
+        advance.click();
+        await waitFor(
+          () => currentPhase() === "우호",
+          "불온한 소문 정상 적용 뒤 P6",
+        );
+        const applied = storedState(scenarioId);
+        const abilityLog = applied.loop.phaseLog.find(
+          (entry) => entry.kind === "abilityActivated",
+        );
+        assert(applied.loop.phase === "P6_GOODWILL", `연타 뒤 단계: ${applied.loop.phase}`);
+        assert(
+          applied.loop.locIntrigue.Hospital === 1,
+          `정상 적용 뒤 병원 음모: ${applied.loop.locIntrigue.Hospital}`,
+        );
+        assert(
+          applied.loop.abilitiesUsedThisLoop.filter(
+            (key) => key === "unsettlingRumor:plot:0",
+          ).length === 1,
+          `정상 적용 뒤 사용 기록: ${applied.loop.abilitiesUsedThisLoop}`,
+        );
+        assert(
+          abilityLog && !("character" in abilityLog),
+          `룰 능력 단계 기록: ${JSON.stringify(abilityLog)}`,
+        );
+        assert(advance.disabled, "처리 중 단계 진행 버튼이 비활성화되지 않음");
+        reports.push({
+          unsettlingRumor: "atomic rollback, target applied, double-click blocked",
+          recordedError: error?.message,
+        });
+      }
+
       async function run() {
         await runTimeGapTimerCases();
         await runDraftInputCases();
@@ -919,6 +1027,7 @@
         await runScientistChoice("intrigue", "우 0 불 0/2 음 1");
         await runHenchmanLocationChoice();
         await runFatalIncidentResultCase();
+        await runUnsettlingRumorTransactionCase();
         restoreStorage();
         const passed = failures.length === 0;
         const report = { reports, failures };

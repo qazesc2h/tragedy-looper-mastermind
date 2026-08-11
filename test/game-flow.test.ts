@@ -640,6 +640,25 @@ describe("automatic empty round phases", () => {
 });
 
 describe("immediate loop interruption and judgment", () => {
+  it("rolls back an entire effect batch when an ability throws", () => {
+    const state = createGameState(scenario({
+      cast: { doctor: "person" },
+    }));
+    startRound(state);
+
+    expect(() => withDeathBatch(state, () => {
+      state.loop.locIntrigue.Hospital += 1;
+      state.loop.abilitiesUsedThisLoop.push("failing:ability:0");
+      killCharacter(state, "doctor");
+      throw new Error("effect failed");
+    })).toThrow("effect failed");
+
+    expect(state.loop.locIntrigue.Hospital).toBe(0);
+    expect(state.loop.abilitiesUsedThisLoop).toEqual([]);
+    expect(boardIsAlive(state.loop, "doctor")).toBe(true);
+    expect(state.loop.pendingImmediateLossKeys).toBeUndefined();
+  });
+
   it("keeps a fatal P7 incident result visible until settlement is confirmed", () => {
     const state = createGameState(scenario({
       cast: {

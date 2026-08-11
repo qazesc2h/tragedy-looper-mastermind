@@ -259,6 +259,16 @@
         await advanceManualDeathThroughRound(true);
         click(".dock-primary[data-action='advance']");
         await waitFor(
+          () => currentPhase() === "라운드 종료 단계" &&
+            frameDocument().querySelector(
+              ".dock-primary[data-action='advance']",
+            )?.textContent?.includes("결과 확인·승패 판정"),
+          "P9 결과 표시 뒤 승패 판정 대기",
+        );
+        assert(!judgmentTitle(), "P9 결과 확인 전에 루프가 종료됨");
+
+        click(".dock-primary[data-action='advance']");
+        await waitFor(
           () => judgmentTitle(),
           "P9 핵심 인물 패배 판정",
         );

@@ -33,10 +33,19 @@ describe("current state dump", () => {
     state.loop.abilitiesUsedThisLoop.push("classRep:goodwill:0");
     state.loop.abilitiesUsedThisRound.push("classRep:goodwill:0");
     state.loop.charCounters.classRep.goodwill = 2;
+    state.loop.locIntrigue.Hospital = 1;
+    state.runtimeErrors = [{
+      occurredAt: "2026-08-11T00:00:00.000Z",
+      action: "phase-advance",
+      message: "test failure",
+      gamePhase: state.gamePhase,
+      loop: structuredClone(state.loop),
+    }];
 
     const dump = currentStateDump(state);
 
     expect(Object.keys(dump)).toEqual([
+      "gamePhase",
       "loop",
       "day",
       "phase",
@@ -46,9 +55,13 @@ describe("current state dump", () => {
       "abilitiesUsedThisRound",
       "board",
       "counters",
+      "locationIntrigue",
+      "pendingImmediateLossKeys",
+      "errors",
     ]);
     expect(dump).toMatchObject({
       loop: 2,
+      gamePhase: "ROUND",
       day: 3,
       phase: "P6_GOODWILL",
       leader: 1,
@@ -59,6 +72,12 @@ describe("current state dump", () => {
       abilitiesUsedThisLoop: ["classRep:goodwill:0"],
       abilitiesUsedThisRound: ["classRep:goodwill:0"],
       counters: { classRep: { goodwill: 2 } },
+      locationIntrigue: { Hospital: 1 },
+      pendingImmediateLossKeys: [],
+      errors: [{
+        action: "phase-advance",
+        message: "test failure",
+      }],
     });
     expect(JSON.parse(serializeCurrentStateDump(state))).toEqual(dump);
 
