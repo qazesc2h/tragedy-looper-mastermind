@@ -25,12 +25,8 @@ import {
 import { validatePlacement } from "../engine/legal";
 import { distanceToLoss, setOptionalLossActivation } from "../engine/loss";
 import { intrigueForbidActive } from "../engine/movement";
-import {
-  publicBoardChanges,
-  publicObservationContext,
-  type ProtagonistObservation,
-} from "../engine/hypothesis";
-import { collectHooks } from "../engine/phases";
+import { type ProtagonistObservation } from "../engine/hypothesis";
+import { applyHookEffect, collectHooks } from "../engine/phases";
 import { recordPhaseLog } from "../engine/phase-log";
 import {
   loadScenarioCatalog,
@@ -2465,7 +2461,7 @@ function observedCounterLabel(
   return counter === "protection" ? "보호" : counterLabel(counter);
 }
 
-function mastermindAbilityObservationLabel(
+function publicAbilityObservationLabel(
   observation: Extract<
     ProtagonistObservation,
     { kind: "mastermindAbilityResult" }
@@ -2481,7 +2477,12 @@ function mastermindAbilityObservationLabel(
     }
     return `${characterName(change.character)} ${change.to === "dead" ? "사망" : change.to === "alive" ? "생존" : "미등장"}`;
   });
-  return `각본가 능력 결과 · ${changeLabels.join(" · ")}`;
+  const timing = observation.timing === "ON_DEATH"
+    ? "캐릭터 사망 직후"
+    : observation.timing === "LOOP_START"
+    ? "루프 시작"
+    : "각본가 능력 결과";
+  return `${timing} · ${changeLabels.join(" · ")}`;
 }
 
 function hypothesisObservationLabel(
@@ -2495,7 +2496,7 @@ function hypothesisObservationLabel(
     case "subplotRevealed":
       return `정보원 룰 X 공개 · ${plotName(observation.revealedSubplot)}`;
     case "mastermindAbilityResult":
-      return mastermindAbilityObservationLabel(observation);
+      return publicAbilityObservationLabel(observation);
     case "incidentOccurred":
       return `${observation.day}일 ${incidentName(observation.incident)} · ${observation.occurred ? "발생" : "미발생"}`;
     case "incidentCulpritRevealed":
@@ -3201,21 +3202,17 @@ function applySelectedOptionalHooks(state: GameState): void {
     }
     // 선택 훅은 선택한 하나마다 사망 배치를 닫는다. 종료 판정은 단계 결과를
     // 한 번 렌더한 뒤 다음 사용자 입력에서 확정한다.
-    const beforeAbility = structuredClone(state.loop);
-    withDeathBatch(state, () => hook.effect(state, self, target));
-    if (phase === "P5_MASTERMIND_ABILITY") {
-      recordPhaseLog(state, {
-        loop: state.loop.loop,
-        day: state.loop.day,
+    withDeathBatch(state, () => {
+      applyHookEffect(
+        state,
         phase,
-        kind: "abilityActivated",
-        ...(self ? { character: self } : {}),
-        description:
-          hook.source.description ?? hook.source.prerequisite ?? hook.source.timing,
-        publicChanges: publicBoardChanges(beforeAbility, state.loop),
-        publicContext: publicObservationContext(beforeAbility),
-      });
-    }
+        hook,
+        self,
+        target,
+        undefined,
+        phase === "P5_MASTERMIND_ABILITY",
+      );
+    });
   }
 }
 

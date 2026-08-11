@@ -7,6 +7,7 @@ import {
 } from "../src/engine/death";
 import { settleGameFlow } from "../src/engine/game";
 import { requestLoopEnd } from "../src/engine/flow";
+import { evaluateStateRuleHypotheses } from "../src/engine/hypothesis";
 import {
   advance,
   collectHooks,
@@ -788,6 +789,21 @@ describe("lover / lovedOne death reactions", () => {
     expect(killCharacter(state, LOVED_ONE)).toBe(true);
 
     expect(state.loop.charCounters[LOVER].paranoia).toBe(6);
+    expect(state.loop.phaseLog).toContainEqual(expect.objectContaining({
+      kind: "abilityActivated",
+      timing: "ON_DEATH",
+      publicTrigger: {
+        kind: "death",
+        deadCharacters: [LOVED_ONE],
+      },
+      publicChanges: [{
+        kind: "counter",
+        target: { kind: "character", id: LOVER },
+        counter: "paranoia",
+        delta: 6,
+      }],
+    }));
+    expect(evaluateStateRuleHypotheses(state).remaining).toHaveLength(30);
   });
 
   it("does not react when an unrelated character dies", () => {
@@ -801,6 +817,7 @@ describe("lover / lovedOne death reactions", () => {
 
     expect(state.loop.charCounters[LOVER].paranoia).toBe(0);
     expect(state.loop.charCounters[LOVED_ONE].paranoia).toBe(0);
+    expect(state.loop.phaseLog).toEqual([]);
   });
 
   it("reacts through killCharacter when Lover B dies", () => {

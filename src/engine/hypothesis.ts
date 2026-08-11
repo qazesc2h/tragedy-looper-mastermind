@@ -2,16 +2,14 @@ import { characterDataOf } from "../data";
 import { PLOT_IMPL } from "../impl/plots";
 import { ROLE_IMPL } from "../impl/roles";
 import {
-  LOCATIONS,
-  characterLocation,
   effectiveRole,
-  isCharacterPresent,
   type CharacterId,
   type GameState,
+  type HookPoint,
   type IncidentId,
   type LoopEndReason,
-  type LoopState,
   type PlotId,
+  type PublicAbilityTrigger,
   type PublicBoardChange,
   type PublicObservationContext,
   type RoleId,
@@ -20,6 +18,11 @@ import {
   rolesForTragedySet,
   tragedySetDefinition,
 } from "../tragedy-sets";
+
+export {
+  publicBoardChanges,
+  publicObservationContext,
+} from "./public-observation";
 
 export interface RuleCombination {
   id: string;
@@ -74,6 +77,8 @@ export type ProtagonistObservation =
     loop: number;
     day: number;
     changes: PublicBoardChange[];
+    timing?: HookPoint;
+    trigger?: PublicAbilityTrigger;
     context?: PublicObservationContext;
   }
   | {
@@ -89,7 +94,9 @@ export type RuleContradictionCode =
   | "outsiderRoleAssociated"
   | "goodwillRefusalUnavailable"
   | "revealedSubplotMissing"
-  | "mastermindAbilityUnavailable";
+  | "mastermindAbilityUnavailable"
+  | "deathReactionUnavailable"
+  | "loopStartEffectUnavailable";
 
 export interface RuleContradiction {
   code: RuleContradictionCode;
@@ -312,6 +319,57 @@ function abilityObservationContradiction(
   ranges: ReadonlyMap<RoleId, RoleRange>,
   publicCast: readonly CharacterId[],
 ): RuleContradiction | undefined {
+  const deathReaction = observation.timing === "ON_DEATH" &&
+    observation.trigger?.kind === "death" &&
+    observation.trigger.deadCharacters.length > 0 &&
+    observation.changes.some((change) =>
+      change.kind === "counter" &&
+      change.target.kind === "character" &&
+      !observation.trigger?.deadCharacters.includes(change.target.id) &&
+      change.counter === "paranoia" &&
+      change.delta === 6
+    );
+  if (deathReaction) {
+    return combination.subPlots.includes("loveAffair")
+      ? undefined
+      : {
+        code: "deathReactionUnavailable",
+        observation,
+        reason: "사망 직후 공개된 불안 6 증가를 이 조합으로 설명할 수 없습니다.",
+      };
+  }
+
+  const loopStartParanoiaTargets = new Set(
+    observation.timing === "LOOP_START"
+      ? observation.changes.flatMap((change) =>
+        change.kind === "counter" &&
+          change.target.kind === "character" &&
+          change.counter === "paranoia" &&
+          change.delta === 2
+          ? [change.target.id]
+          : []
+      )
+      : [],
+  );
+  if (loopStartParanoiaTargets.size >= 2) {
+    return combination.subPlots.includes("threadsFate")
+      ? undefined
+      : {
+        code: "loopStartEffectUnavailable",
+        observation,
+        reason: "루프 시작에 공개된 복수 캐릭터 불안 2 증가를 이 조합으로 설명할 수 없습니다.",
+      };
+  }
+
+  // C-1에서 넓힌 다른 훅 시점은 각 단계 전용 필터가 생기기 전까지 관측만 한다.
+  // timing이 없는 구 저장 기록은 기존 P5 관측으로 보수적으로 호환한다.
+  if (
+    observation.timing !== undefined &&
+    observation.timing !== "P5_MASTERMIND_ABILITY"
+  ) {
+    return undefined;
+  }
+
   for (const change of observation.changes) {
     if (change.kind !== "counter" || change.delta <= 0) continue;
 
@@ -526,6 +584,10 @@ export function collectProtagonistObservations(
           loop: entry.loop,
           day: entry.day,
           changes: entry.publicChanges,
+          ...(entry.timing === undefined ? {} : { timing: entry.timing }),
+          ...(entry.publicTrigger === undefined
+            ? {}
+            : { trigger: entry.publicTrigger }),
           ...(entry.publicContext === undefined
             ? {}
             : { context: entry.publicContext }),
@@ -561,85 +623,4 @@ export function evaluateStateRuleHypotheses(
     collectProtagonistObservations(state),
     { publicCast: Object.keys(state.scenario.cast) },
   );
-}
-
-/** 선택 능력 전후의 공개 게임판 변화만 추출한다. */
-export function publicBoardChanges(
-  before: LoopState,
-  after: LoopState,
-): PublicBoardChange[] {
-  const changes: PublicBoardChange[] = [];
-  for (const at of LOCATIONS) {
-    const delta = after.locIntrigue[at] - before.locIntrigue[at];
-    if (delta !== 0) {
-      changes.push({
-        kind: "counter",
-        target: { kind: "location", at },
-        counter: "intrigue",
-        delta,
-      });
-    }
-  }
-
-  for (const character of Object.keys(after.board)) {
-    const beforePosition = before.board[character];
-    const afterPosition = after.board[character];
-    if (beforePosition === undefined || afterPosition === undefined) continue;
-    if (beforePosition.status !== afterPosition.status) {
-      changes.push({
-        kind: "status",
-        character,
-        from: beforePosition.status,
-        to: afterPosition.status,
-      });
-    }
-    if (
-      isCharacterPresent(beforePosition) &&
-      isCharacterPresent(afterPosition) &&
-      characterLocation(beforePosition, character) !==
-        characterLocation(afterPosition, character)
-    ) {
-      changes.push({
-        kind: "movement",
-        character,
-        from: characterLocation(beforePosition, character),
-        to: characterLocation(afterPosition, character),
-      });
-    }
-
-    const beforeCounters = before.charCounters[character];
-    const afterCounters = after.charCounters[character];
-    if (beforeCounters === undefined || afterCounters === undefined) continue;
-    for (const counter of [
-      "goodwill",
-      "paranoia",
-      "intrigue",
-      "protection",
-    ] as const) {
-      const delta = afterCounters[counter] - beforeCounters[counter];
-      if (delta !== 0) {
-        changes.push({
-          kind: "counter",
-          target: { kind: "character", id: character },
-          counter,
-          delta,
-        });
-      }
-    }
-  }
-  return changes;
-}
-
-/** 능력 발동 직전의 공개 장소 음모 상태를 복사한다. */
-export function publicObservationContext(
-  loop: LoopState,
-): PublicObservationContext {
-  return {
-    locationIntrigue: {
-      Hospital: loop.locIntrigue.Hospital,
-      Shrine: loop.locIntrigue.Shrine,
-      City: loop.locIntrigue.City,
-      School: loop.locIntrigue.School,
-    },
-  };
 }

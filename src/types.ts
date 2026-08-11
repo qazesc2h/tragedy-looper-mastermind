@@ -278,6 +278,12 @@ export interface PublicObservationContext {
   locationIntrigue: Record<Location, number>;
 }
 
+/** 능력의 정체를 밝히지 않고 공개된 직전 사건만 보존한다. */
+export type PublicAbilityTrigger = {
+  kind: "death";
+  deadCharacters: CharacterId[];
+};
+
 export type IncidentFailureReason =
   | "culpritAbsent"
   | "culpritDead"
@@ -315,8 +321,12 @@ export type PhaseLogEntry =
   | {
     loop: number;
     day: number;
-    phase: "P5_MASTERMIND_ABILITY";
+    phase: Phase;
     kind: "abilityActivated";
+    /** 실제 훅 시점. 구 저장의 P5 기록에는 없을 수 있다. */
+    timing?: HookPoint;
+    /** 역할명 대신 주인공도 본 직전 사건만 기록한다. */
+    publicTrigger?: PublicAbilityTrigger;
     /** 캐릭터 역할 능력일 때만 존재한다. 룰 능력은 추가 규칙으로 표시한다. */
     character?: CharacterId;
     description: string;

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { settleGameFlow } from "../src/engine/game";
 import { requestLoopEnd } from "../src/engine/flow";
+import { evaluateStateRuleHypotheses } from "../src/engine/hypothesis";
 import { resolveHooks } from "../src/engine/phases";
 import { initLoop } from "../src/engine/setup";
 import { PLOT_IMPL } from "../src/impl/plots";
@@ -190,6 +191,36 @@ describe("threadsFate", () => {
 
     expect(state.loop.charCounters[BOY].paranoia).toBe(0);
     expect(state.loop.charCounters[GIRL].paranoia).toBe(0);
+  });
+
+  it("records one loop-start ability result with every visible +2 change", () => {
+    const state = createPlotState("threadsFate");
+    state.loop.charCounters[BOY].goodwill = 1;
+    state.loop.charCounters[GIRL].goodwill = 1;
+    endLoop(state);
+
+    state.loop = initLoop(state.scenario, 2);
+    resolveHooks(state, "LOOP_START");
+
+    expect(state.loop.phaseLog).toContainEqual(expect.objectContaining({
+      kind: "abilityActivated",
+      timing: "LOOP_START",
+      publicChanges: [
+        {
+          kind: "counter",
+          target: { kind: "character", id: BOY },
+          counter: "paranoia",
+          delta: 2,
+        },
+        {
+          kind: "counter",
+          target: { kind: "character", id: GIRL },
+          counter: "paranoia",
+          delta: 2,
+        },
+      ],
+    }));
+    expect(evaluateStateRuleHypotheses(state).remaining).toHaveLength(30);
   });
 
   it("uses only the last loop snapshot", () => {

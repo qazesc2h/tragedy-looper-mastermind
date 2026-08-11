@@ -109,6 +109,16 @@ describe("game setup and loop preparation", () => {
     expect(state.loop.charCounters.boyStudent.goodwill).toBe(0);
     expect(state.loop.charCounters.boyStudent.paranoia).toBe(2);
     expect(state.loop.leader).toBe(2);
+    expect(state.loop.phaseLog).toContainEqual(expect.objectContaining({
+      kind: "abilityActivated",
+      timing: "LOOP_START",
+      publicChanges: [{
+        kind: "counter",
+        target: { kind: "character", id: "boyStudent" },
+        counter: "paranoia",
+        delta: 2,
+      }],
+    }));
   });
 
   it("applies blackCat's Shrine intrigue after reset in every loop", () => {

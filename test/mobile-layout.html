@@ -551,6 +551,75 @@
         }
 
         await selectScenario("basicTragedy:1");
+        mutateActiveState((state) => {
+          state.history = [];
+          state.loopOutcomes = [];
+          state.loop.revealedRoleCharacters = [];
+          state.loop.publicInformationThisLoop = [];
+          state.loop.phaseLog = [];
+          state.loop.phaseLog.push(
+            {
+              loop: 1,
+              day: 2,
+              phase: "P7_INCIDENT",
+              kind: "abilityActivated",
+              timing: "ON_DEATH",
+              description: "hidden source",
+              publicTrigger: {
+                kind: "death",
+                deadCharacters: ["girlStudent"],
+              },
+              publicChanges: [{
+                kind: "counter",
+                target: { kind: "character", id: "boyStudent" },
+                counter: "paranoia",
+                delta: 6,
+              }],
+            },
+            {
+              loop: 2,
+              day: 1,
+              phase: "P1_ROUND_START",
+              kind: "abilityActivated",
+              timing: "LOOP_START",
+              description: "hidden source",
+              publicChanges: ["boyStudent", "girlStudent"].map((id) => ({
+                kind: "counter",
+                target: { kind: "character", id },
+                counter: "paranoia",
+                delta: 2,
+              })),
+            },
+          );
+        });
+        await reloadApp("c2-fixed-observations");
+        document = frameDocument();
+        panel = document.querySelector(".rule-hypothesis-information");
+        panel.open = true;
+        panel.scrollIntoView({ block: "start" });
+        await pause(100);
+        const c2Text = panel.textContent.replace(/\s+/g, " ").trim();
+        const c2Report = {
+          summary: panel.querySelector(":scope > summary").textContent
+            .replace(/\s+/g, " ").trim(),
+          impactCount: panel.querySelectorAll(".hypothesis-exclusions li").length,
+          text: c2Text,
+          horizontal: horizontalOverflow(),
+        };
+        reports.push({ label: "C-2 확정 관측", ...c2Report });
+        if (
+          !c2Report.summary.includes("105 → 5") ||
+          c2Report.impactCount !== 2 ||
+          !c2Text.includes("캐릭터 사망 직후") ||
+          !c2Text.includes("불안+6") ||
+          !c2Text.includes("루프 시작") ||
+          !c2Text.includes("불안+2") ||
+          c2Report.horizontal.scrollWidth > WIDTH
+        ) {
+          failures.push(`C-2 확정 관측: ${JSON.stringify(c2Report)}`);
+        }
+
+        await selectScenario("basicTragedy:1");
       }
 
       async function inspectScrollableModalBodies() {

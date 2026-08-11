@@ -5,7 +5,7 @@ import {
   isCharacterPresent,
   type GameState, type Hook, type HookPoint, type IncidentChoice,
   type HookContext, type IncidentResult, type Phase,
-  PHASE_ORDER,
+  type PublicAbilityTrigger, type Target, PHASE_ORDER,
 } from "../types";
 import { effectiveAbilityRoles, ROLE_IMPL } from "../impl/roles";
 import { PLOT_IMPL } from "../impl/plots";
@@ -15,6 +15,11 @@ import { resolveIncident } from "./incident";
 import { requestLoopEnd } from "./flow";
 import { evaluateLoss } from "./loss";
 import { withDeathBatch } from "./death";
+import { recordPhaseLog } from "./phase-log";
+import {
+  publicBoardChanges,
+  publicObservationContext,
+} from "./public-observation";
 
 function requestEndForActivatedLosses(s: GameState): void {
   // LOOP_END 조건은 라운드 종료 훅과 LAST_DAY 처리를 마친 뒤 finishLoop()에서
@@ -93,6 +98,50 @@ export function collectHooks(s: GameState, at: HookPoint): {
   return out;
 }
 
+function publicTrigger(
+  context: HookContext | undefined,
+): PublicAbilityTrigger | undefined {
+  if (context?.kind !== "death") return undefined;
+  return {
+    kind: "death",
+    deadCharacters: [...context.deadCharacters],
+  };
+}
+
+/**
+ * 훅 하나의 공개 게임판 변화를 기록한다. 사망 배치 안에서 호출해야 하므로
+ * 최초 사망과 그 뒤 ON_DEATH 반응이 서로 다른 관측으로 남는다.
+ */
+export function applyHookEffect(
+  s: GameState,
+  at: HookPoint,
+  hook: Hook,
+  self: string,
+  target?: Target,
+  context?: HookContext,
+  recordWhenUnchanged = false,
+): void {
+  const before = structuredClone(s.loop);
+  hook.effect(s, self, target);
+  const publicChanges = publicBoardChanges(before, s.loop);
+  if (publicChanges.length === 0 && !recordWhenUnchanged) return;
+  const trigger = publicTrigger(context);
+
+  recordPhaseLog(s, {
+    loop: s.loop.loop,
+    day: s.loop.day,
+    phase: s.loop.phase,
+    kind: "abilityActivated",
+    timing: at,
+    ...(self ? { character: self } : {}),
+    description:
+      hook.source.description ?? hook.source.prerequisite ?? hook.source.timing,
+    publicChanges,
+    publicContext: publicObservationContext(before),
+    ...(trigger === undefined ? {} : { publicTrigger: trigger }),
+  });
+}
+
 /**
  * [강제] 를 전부 동시에 해결한 뒤 [선택] 을 각본가가 원하는 순서로.
  * (주인공 설명서 28p 「추리 참조표 및 카드 용어 설명」)
@@ -117,7 +166,9 @@ export function resolveHooks(
       target: x.hook.effectTarget?.(s, x.self),
     }));                                                        // ① 전원 판정
   withDeathBatch(s, () => {
-    for (const x of fired) x.hook.effect(s, x.self, x.target);   // ② 일괄 적용
+    for (const x of fired) {
+      applyHookEffect(s, at, x.hook, x.self, x.target, context);
+    }                                                           // ② 일괄 적용
   });
 
   // TODO: [선택] 훅은 각본가에게 목록을 제시하고 순서/발동 여부를 받아야 한다.

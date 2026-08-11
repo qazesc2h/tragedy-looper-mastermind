@@ -327,6 +327,49 @@ describe("observation model", () => {
     }]);
   });
 
+  it("keeps a public death trigger while discarding the hidden ability source", () => {
+    const state = firstStepsState();
+    state.loop.phaseLog = [{
+      loop: 1,
+      day: 2,
+      phase: "P7_INCIDENT",
+      kind: "abilityActivated",
+      timing: "ON_DEATH",
+      character: "shrineMaiden",
+      description: "hidden lover role",
+      publicTrigger: {
+        kind: "death",
+        deadCharacters: ["boyStudent"],
+      },
+      publicChanges: [{
+        kind: "counter",
+        target: { kind: "character", id: "shrineMaiden" },
+        counter: "paranoia",
+        delta: 6,
+      }],
+    }];
+
+    const observations = collectProtagonistObservations(state);
+
+    expect(observations).toContainEqual({
+      kind: "mastermindAbilityResult",
+      loop: 1,
+      day: 2,
+      timing: "ON_DEATH",
+      trigger: {
+        kind: "death",
+        deadCharacters: ["boyStudent"],
+      },
+      changes: [{
+        kind: "counter",
+        target: { kind: "character", id: "shrineMaiden" },
+        counter: "paranoia",
+        delta: 6,
+      }],
+    });
+    expect(JSON.stringify(observations)).not.toContain("hidden lover role");
+  });
+
   it("snapshots public location intrigue without retaining a live reference", () => {
     const state = firstStepsState();
     state.loop.locIntrigue.City = 2;
@@ -381,6 +424,164 @@ describe("basicTragedy rule-layer regression", () => {
     const evaluation = evaluateRuleHypotheses("basicTragedy", [observation]);
 
     expect(evaluation.remaining).toHaveLength(90);
+  });
+
+  it("fixes loveAffair from a public +6 paranoia death reaction", () => {
+    const observation: ProtagonistObservation = {
+      kind: "mastermindAbilityResult",
+      loop: 1,
+      day: 2,
+      timing: "ON_DEATH",
+      trigger: {
+        kind: "death",
+        deadCharacters: ["girlStudent"],
+      },
+      changes: [{
+        kind: "counter",
+        target: { kind: "character", id: "boyStudent" },
+        counter: "paranoia",
+        delta: 6,
+      }],
+    };
+
+    const evaluation = evaluateRuleHypotheses("basicTragedy", [observation]);
+
+    expect(evaluation.remaining).toHaveLength(30);
+    expect(evaluation.remaining.every(({ subPlots }) =>
+      subPlots.includes("loveAffair")
+    )).toBe(true);
+    expect(evaluation.excluded).toHaveLength(75);
+  });
+
+  it("fixes threadsFate from multiple public loop-start +2 changes", () => {
+    const observation: ProtagonistObservation = {
+      kind: "mastermindAbilityResult",
+      loop: 2,
+      day: 1,
+      timing: "LOOP_START",
+      changes: ["boyStudent", "girlStudent"].map((id) => ({
+        kind: "counter" as const,
+        target: { kind: "character" as const, id },
+        counter: "paranoia" as const,
+        delta: 2,
+      })),
+    };
+
+    const evaluation = evaluateRuleHypotheses("basicTragedy", [observation]);
+
+    expect(evaluation.remaining).toHaveLength(30);
+    expect(evaluation.remaining.every(({ subPlots }) =>
+      subPlots.includes("threadsFate")
+    )).toBe(true);
+    expect(evaluation.excluded).toHaveLength(75);
+  });
+
+  it("keeps five main-plot combinations after both fixed subplots are observed", () => {
+    const deathReaction: ProtagonistObservation = {
+      kind: "mastermindAbilityResult",
+      loop: 1,
+      day: 2,
+      timing: "ON_DEATH",
+      trigger: { kind: "death", deadCharacters: ["girlStudent"] },
+      changes: [{
+        kind: "counter",
+        target: { kind: "character", id: "boyStudent" },
+        counter: "paranoia",
+        delta: 6,
+      }],
+    };
+    const loopStart: ProtagonistObservation = {
+      kind: "mastermindAbilityResult",
+      loop: 2,
+      day: 1,
+      timing: "LOOP_START",
+      changes: ["boyStudent", "girlStudent"].map((id) => ({
+        kind: "counter" as const,
+        target: { kind: "character" as const, id },
+        counter: "paranoia" as const,
+        delta: 2,
+      })),
+    };
+
+    const evaluation = evaluateRuleHypotheses(
+      "basicTragedy",
+      [deathReaction, loopStart],
+    );
+
+    expect(evaluation.remaining).toHaveLength(5);
+    expect(evaluation.remaining.every(({ subPlots }) =>
+      subPlots.includes("loveAffair") && subPlots.includes("threadsFate")
+    )).toBe(true);
+  });
+
+  it("does not infer C-2 rules without the complete public pattern", () => {
+    const deathWithoutTrigger: ProtagonistObservation = {
+      kind: "mastermindAbilityResult",
+      loop: 1,
+      day: 2,
+      timing: "ON_DEATH",
+      changes: [{
+        kind: "counter",
+        target: { kind: "character", id: "boyStudent" },
+        counter: "paranoia",
+        delta: 6,
+      }],
+    };
+    const oneLoopStartTarget: ProtagonistObservation = {
+      kind: "mastermindAbilityResult",
+      loop: 2,
+      day: 1,
+      timing: "LOOP_START",
+      changes: [{
+        kind: "counter",
+        target: { kind: "character", id: "boyStudent" },
+        counter: "paranoia",
+        delta: 2,
+      }],
+    };
+
+    expect(evaluateRuleHypotheses(
+      "basicTragedy",
+      [deathWithoutTrigger],
+    ).remaining).toHaveLength(105);
+    expect(evaluateRuleHypotheses(
+      "basicTragedy",
+      [oneLoopStartTarget],
+    ).remaining).toHaveLength(105);
+  });
+
+  it("only records other C-1 timings until their later filters are implemented", () => {
+    const observations: ProtagonistObservation[] = [
+      {
+        kind: "mastermindAbilityResult",
+        loop: 1,
+        day: 2,
+        timing: "P9_ROUND_END",
+        changes: [{
+          kind: "status",
+          character: "boyStudent",
+          from: "alive",
+          to: "dead",
+        }],
+      },
+      {
+        kind: "mastermindAbilityResult",
+        loop: 2,
+        day: 1,
+        timing: "LOOP_START",
+        changes: [{
+          kind: "counter",
+          target: { kind: "character", id: "girlStudent" },
+          counter: "goodwill",
+          delta: 1,
+        }],
+      },
+    ];
+
+    expect(evaluateRuleHypotheses(
+      "basicTragedy",
+      observations,
+    ).remaining).toHaveLength(105);
   });
 
   it("excludes combinations that cannot explain a normal character's refusal", () => {

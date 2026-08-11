@@ -286,6 +286,52 @@ describe("mastermind rule hypothesis summary", () => {
       .toEqual([0, 0, 30]);
   });
 
+  it("reports sequential impact for the two fixed C-2 subplot observations", () => {
+    const state = createState();
+    state.loop.phaseLog?.push(
+      {
+        loop: 1,
+        day: 2,
+        phase: "P7_INCIDENT",
+        kind: "abilityActivated",
+        timing: "ON_DEATH",
+        description: "hidden source",
+        publicTrigger: {
+          kind: "death",
+          deadCharacters: ["girlStudent"],
+        },
+        publicChanges: [{
+          kind: "counter",
+          target: { kind: "character", id: "officeWorker" },
+          counter: "paranoia",
+          delta: 6,
+        }],
+      },
+      {
+        loop: 1,
+        day: 1,
+        phase: "P1_ROUND_START",
+        kind: "abilityActivated",
+        timing: "LOOP_START",
+        description: "hidden source",
+        publicChanges: ["girlStudent", "officeWorker"].map((id) => ({
+          kind: "counter" as const,
+          target: { kind: "character" as const, id },
+          counter: "paranoia" as const,
+          delta: 2,
+        })),
+      },
+    );
+
+    const summary = ruleHypothesisSummary(state);
+
+    expect(summary.remainingCombinations).toHaveLength(5);
+    expect(summary.mainPlotCandidates).toHaveLength(5);
+    expect(summary.subPlotCandidates).toEqual(["loveAffair", "threadsFate"]);
+    expect(summary.observationImpacts.map(({ excludedCount }) => excludedCount))
+      .toEqual([0, 0, 75, 25]);
+  });
+
   it("marks the nine-combination firstSteps set for a full list", () => {
     const state = createState();
     state.scenario.tragedySet = "firstSteps";
