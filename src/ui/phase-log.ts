@@ -45,15 +45,15 @@ export function phaseLogLoopGroups(state: GameState): PhaseLogLoopGroup[] {
 }
 
 export function phaseLogLoopIsOpen(
-  state: GameState,
-  group: PhaseLogLoopGroup,
+  _state: GameState,
+  _group: PhaseLogLoopGroup,
 ): boolean {
-  return group.loop === state.loop.loop;
+  return false;
 }
 
 export function phaseLogDayIsOpen(
-  state: GameState,
-  group: PhaseLogDayGroup,
+  _state: GameState,
+  _group: PhaseLogDayGroup,
 ): boolean {
-  return group.loop === state.loop.loop && group.day === state.loop.day;
+  return false;
 }

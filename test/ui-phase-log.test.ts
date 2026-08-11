@@ -64,7 +64,7 @@ function createLongState(): GameState {
 }
 
 describe("phase log groups", () => {
-  it("nests days under loops and opens only the current loop's today", () => {
+  it("nests days under loops and keeps every group collapsed by default", () => {
     const state = createLongState();
     const groups = phaseLogLoopGroups(state);
 
@@ -73,10 +73,10 @@ describe("phase log groups", () => {
     expect(groups.at(-1)).toMatchObject({ loop: 1 });
     expect(groups.at(-1)?.days.at(-1)).toMatchObject({ day: 1 });
     expect(groups.filter((group) => phaseLogLoopIsOpen(state, group)))
-      .toHaveLength(1);
+      .toEqual([]);
     expect(groups.flatMap(({ days }) => days).filter(
       (group) => phaseLogDayIsOpen(state, group),
-    )).toEqual([expect.objectContaining({ loop: 3, day: 7 })]);
+    )).toEqual([]);
   });
 
   it("groups 189 entries without dropping history or slowing rendering data", () => {
