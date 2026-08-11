@@ -68,7 +68,7 @@ export function ruleHypothesisSummary(
     evaluation.remaining.flatMap(({ subPlots }) => subPlots),
   );
   const alreadyExcluded = new Set<string>();
-  const observationImpacts = evaluation.observations.flatMap((observation) => {
+  const observationImpacts = evaluation.observations.map((observation) => {
     const newlyExcluded = evaluation.combinations.filter(
       ({ combination, contradictions }) =>
         !alreadyExcluded.has(combination.id) &&
@@ -79,9 +79,7 @@ export function ruleHypothesisSummary(
     for (const { combination } of newlyExcluded) {
       alreadyExcluded.add(combination.id);
     }
-    return newlyExcluded.length === 0
-      ? []
-      : [{ observation, excludedCount: newlyExcluded.length }];
+    return { observation, excludedCount: newlyExcluded.length };
   });
   const mainPlotCandidates = definition.mainPlots.filter((plot) =>
     remainingMainPlots.has(plot)

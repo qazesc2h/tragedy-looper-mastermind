@@ -13,6 +13,7 @@ import {
   type LoopState,
   type PlotId,
   type PublicBoardChange,
+  type PublicObservationContext,
   type RoleId,
 } from "../types";
 import {
@@ -73,6 +74,7 @@ export type ProtagonistObservation =
     loop: number;
     day: number;
     changes: PublicBoardChange[];
+    context?: PublicObservationContext;
   }
   | {
     kind: "goodwillIncidentEffect";
@@ -224,6 +226,40 @@ function roleCouldAppear(
   ) && inactiveSetRoleIsPossible(tragedySetRoles, ranges, role);
 }
 
+function factorAbilityConditionMet(
+  context: PublicObservationContext | undefined,
+  abilityRole: "conspiracyTheorist" | "keyPerson",
+): boolean {
+  // 구 저장 로그에는 시점 스냅샷이 없다. 근거 없이 후보를 배제하지 않는다.
+  if (context === undefined) return true;
+  return abilityRole === "conspiracyTheorist"
+    ? context.locationIntrigue.School >= 2
+    : context.locationIntrigue.City >= 2;
+}
+
+function roleAbilityCouldAppear(
+  tragedySetRoles: readonly RoleId[],
+  ranges: ReadonlyMap<RoleId, RoleRange>,
+  abilityRole: "conspiracyTheorist" | "keyPerson",
+  publicCast: readonly CharacterId[],
+  context: PublicObservationContext | undefined,
+): boolean {
+  if (roleCouldAppear(
+    tragedySetRoles,
+    ranges,
+    abilityRole,
+    publicCast,
+  )) {
+    return true;
+  }
+  return factorAbilityConditionMet(context, abilityRole) && roleCouldAppear(
+    tragedySetRoles,
+    ranges,
+    "factor",
+    publicCast,
+  );
+}
+
 function roleObservationContradiction(
   observation: Extract<ProtagonistObservation, { kind: "roleRevealed" }>,
   tragedySetRoles: readonly RoleId[],
@@ -281,16 +317,12 @@ function abilityObservationContradiction(
 
     let possible = true;
     if (change.counter === "paranoia") {
-      possible = roleCouldAppear(
+      possible = roleAbilityCouldAppear(
         tragedySetRoles,
         ranges,
         "conspiracyTheorist",
         publicCast,
-      ) || roleCouldAppear(
-        tragedySetRoles,
-        ranges,
-        "factor",
-        publicCast,
+        observation.context,
       );
     } else if (change.counter === "intrigue") {
       possible = change.target.kind === "location"
@@ -494,6 +526,9 @@ export function collectProtagonistObservations(
           loop: entry.loop,
           day: entry.day,
           changes: entry.publicChanges,
+          ...(entry.publicContext === undefined
+            ? {}
+            : { context: entry.publicContext }),
         });
       }
     }
@@ -593,4 +628,18 @@ export function publicBoardChanges(
     }
   }
   return changes;
+}
+
+/** 능력 발동 직전의 공개 장소 음모 상태를 복사한다. */
+export function publicObservationContext(
+  loop: LoopState,
+): PublicObservationContext {
+  return {
+    locationIntrigue: {
+      Hospital: loop.locIntrigue.Hospital,
+      Shrine: loop.locIntrigue.Shrine,
+      City: loop.locIntrigue.City,
+      School: loop.locIntrigue.School,
+    },
+  };
 }

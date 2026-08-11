@@ -27,6 +27,7 @@ import { distanceToLoss, setOptionalLossActivation } from "../engine/loss";
 import { intrigueForbidActive } from "../engine/movement";
 import {
   publicBoardChanges,
+  publicObservationContext,
   type ProtagonistObservation,
 } from "../engine/hypothesis";
 import { collectHooks } from "../engine/phases";
@@ -2576,13 +2577,15 @@ function renderRuleHypotheses(state: GameState): string {
         </div>
         ${combinationList}
         <section class="hypothesis-exclusions">
-          <h3>관측별 배제</h3>
+          <h3>관측 목록</h3>
           ${summary.observationImpacts.length === 0
-            ? `<p class="empty-overlay">아직 후보를 배제한 관측이 없습니다.</p>`
+            ? `<p class="empty-overlay">아직 관측이 없습니다.</p>`
             : `<ul>${summary.observationImpacts.map(({ observation, excludedCount }) => `
                 <li>
                   <span>${escapeHtml(hypothesisObservationLabel(observation))}</span>
-                  <strong>→ ${excludedCount}개 배제</strong>
+                  <strong>${excludedCount === 0
+                    ? "배제 없음"
+                    : `${excludedCount}개 배제`}</strong>
                 </li>`).join("")}</ul>`}
         </section>
       </div>
@@ -3210,6 +3213,7 @@ function applySelectedOptionalHooks(state: GameState): void {
         description:
           hook.source.description ?? hook.source.prerequisite ?? hook.source.timing,
         publicChanges: publicBoardChanges(beforeAbility, state.loop),
+        publicContext: publicObservationContext(beforeAbility),
       });
     }
   }

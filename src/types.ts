@@ -273,6 +273,11 @@ export type PublicBoardChange =
     to: BoardCharacterState["status"];
   };
 
+/** 능력 발동 시점에 주인공도 확인할 수 있었던 공개 게임판 상태. */
+export interface PublicObservationContext {
+  locationIntrigue: Record<Location, number>;
+}
+
 export type IncidentFailureReason =
   | "culpritAbsent"
   | "culpritDead"
@@ -317,6 +322,8 @@ export type PhaseLogEntry =
     description: string;
     /** 능력의 정체는 숨기고 게임판에서 관측된 결과만 보존한다. */
     publicChanges?: PublicBoardChange[];
+    /** 조건부 역할 능력을 판정하기 위한 발동 직전 공개 상태. */
+    publicContext?: PublicObservationContext;
   }
   | {
     loop: number;

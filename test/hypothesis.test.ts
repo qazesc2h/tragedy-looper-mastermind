@@ -8,13 +8,14 @@ import {
   evaluateRuleHypotheses,
   evaluateStateRuleHypotheses,
   publicBoardChanges,
+  publicObservationContext,
   type ProtagonistObservation,
 } from "../src/engine/hypothesis";
 import {
   loadBasicTragedyScenarioCatalog,
   loadFirstStepsScenarioCatalog,
 } from "../src/scenario-catalog";
-import type { GameState } from "../src/types";
+import type { GameState, PublicObservationContext } from "../src/types";
 
 function firstStepsState(): GameState {
   const scenario = structuredClone(
@@ -28,6 +29,20 @@ function roleRevealed(
   role: string,
 ): ProtagonistObservation {
   return { kind: "roleRevealed", loop: 1, character, role };
+}
+
+function observationContext(
+  schoolIntrigue: number,
+  cityIntrigue = 0,
+): PublicObservationContext {
+  return {
+    locationIntrigue: {
+      Hospital: 0,
+      Shrine: 0,
+      City: cityIntrigue,
+      School: schoolIntrigue,
+    },
+  };
 }
 
 describe("rule combination enumeration", () => {
@@ -141,6 +156,26 @@ describe("firstSteps hypothesis filtering", () => {
       contradictions.some(({ code }) => code === "mastermindAbilityUnavailable")
     )).toBe(true);
   });
+
+  it("keeps all nine after a visible paranoia increase", () => {
+    const observation: ProtagonistObservation = {
+      kind: "mastermindAbilityResult",
+      loop: 1,
+      day: 1,
+      changes: [{
+        kind: "counter",
+        target: { kind: "character", id: "shrineMaiden" },
+        counter: "paranoia",
+        delta: 1,
+      }],
+      context: observationContext(0),
+    };
+
+    const evaluation = evaluateRuleHypotheses("firstSteps", [observation]);
+
+    expect(evaluation.remaining).toHaveLength(9);
+    expect(evaluation.excluded).toEqual([]);
+  });
 });
 
 describe("observation model", () => {
@@ -230,6 +265,7 @@ describe("observation model", () => {
           counter: "paranoia",
           delta: 1,
         }],
+        publicContext: observationContext(0, 2),
       },
     ];
     state.loopOutcomes = [{
@@ -264,6 +300,18 @@ describe("observation model", () => {
       incident: "murder",
       occurred: false,
     });
+    expect(observations).toContainEqual({
+      kind: "mastermindAbilityResult",
+      loop: 1,
+      day: 2,
+      changes: [{
+        kind: "counter",
+        target: { kind: "character", id: "boyStudent" },
+        counter: "paranoia",
+        delta: 1,
+      }],
+      context: observationContext(0, 2),
+    });
   });
 
   it("derives only visible changes from a mastermind ability", () => {
@@ -278,9 +326,63 @@ describe("observation model", () => {
       delta: 1,
     }]);
   });
+
+  it("snapshots public location intrigue without retaining a live reference", () => {
+    const state = firstStepsState();
+    state.loop.locIntrigue.City = 2;
+    const context = publicObservationContext(state.loop);
+
+    state.loop.locIntrigue.City = 3;
+
+    expect(context).toEqual(observationContext(0, 2));
+  });
 });
 
 describe("basicTragedy rule-layer regression", () => {
+  function visibleParanoiaIncrease(
+    schoolIntrigue: number,
+  ): Extract<ProtagonistObservation, { kind: "mastermindAbilityResult" }> {
+    return {
+      kind: "mastermindAbilityResult",
+      loop: 1,
+      day: 1,
+      changes: [{
+        kind: "counter",
+        target: { kind: "character", id: "shrineMaiden" },
+        counter: "paranoia",
+        delta: 1,
+      }],
+      context: observationContext(schoolIntrigue),
+    };
+  }
+
+  it("excludes 30 combinations when Factor lacks its School condition", () => {
+    const evaluation = evaluateRuleHypotheses("basicTragedy", [
+      visibleParanoiaIncrease(0),
+    ]);
+
+    expect(evaluation.remaining).toHaveLength(75);
+    expect(evaluation.excluded).toHaveLength(30);
+  });
+
+  it("allows Factor to explain paranoia when School has 2 intrigue", () => {
+    const evaluation = evaluateRuleHypotheses("basicTragedy", [
+      visibleParanoiaIncrease(2),
+    ]);
+
+    expect(evaluation.remaining).toHaveLength(90);
+    expect(evaluation.excluded).toHaveLength(15);
+  });
+
+  it("keeps old observations without context conservative", () => {
+    const observation = visibleParanoiaIncrease(0);
+    delete observation.context;
+
+    const evaluation = evaluateRuleHypotheses("basicTragedy", [observation]);
+
+    expect(evaluation.remaining).toHaveLength(90);
+  });
+
   it("excludes combinations that cannot explain a normal character's refusal", () => {
     const observation: ProtagonistObservation = {
       kind: "goodwillRefused",

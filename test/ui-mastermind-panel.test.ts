@@ -180,7 +180,8 @@ describe("mastermind rule hypothesis summary", () => {
     expect(summary.remainingCombinations).toHaveLength(105);
     expect(summary.mainPlotCandidates).toHaveLength(5);
     expect(summary.subPlotCandidates).toHaveLength(7);
-    expect(summary.observationImpacts).toEqual([]);
+    expect(summary.observationImpacts.map(({ excludedCount }) => excludedCount))
+      .toEqual([0, 0]);
   });
 
   it("counts newly excluded combinations once in observation order", () => {
@@ -208,11 +209,81 @@ describe("mastermind rule hypothesis summary", () => {
     expect(summary.ruleYFixed).toBe(true);
     expect(summary.remainingCombinations).toHaveLength(21);
     expect(summary.observationImpacts.map(({ excludedCount }) => excludedCount))
-      .toEqual([63, 21]);
+      .toEqual([63, 21, 0, 0]);
     expect(summary.observationImpacts.reduce(
       (sum, { excludedCount }) => sum + excludedCount,
       0,
     )).toBe(summary.totalCombinations - summary.remainingCombinations.length);
+  });
+
+  it("shows zero-impact observations instead of dropping them", () => {
+    const state = createState();
+    state.scenario.tragedySet = "firstSteps";
+    state.loop.phaseLog?.push({
+      loop: 1,
+      day: 1,
+      phase: "P5_MASTERMIND_ABILITY",
+      kind: "abilityActivated",
+      character: "girlStudent",
+      description: "hidden ability",
+      publicChanges: [{
+        kind: "counter",
+        target: { kind: "character", id: "girlStudent" },
+        counter: "paranoia",
+        delta: 1,
+      }],
+      publicContext: {
+        locationIntrigue: {
+          Hospital: 0,
+          Shrine: 0,
+          City: 0,
+          School: 0,
+        },
+      },
+    });
+
+    const summary = ruleHypothesisSummary(state);
+
+    expect(summary.remainingCombinations).toHaveLength(9);
+    expect(summary.observationImpacts).toHaveLength(3);
+    expect(summary.observationImpacts.at(-1)).toMatchObject({
+      excludedCount: 0,
+      observation: { kind: "mastermindAbilityResult" },
+    });
+  });
+
+  it("derives both rule axes from unique plots in remaining combinations", () => {
+    const state = createState();
+    state.loop.phaseLog?.push({
+      loop: 1,
+      day: 1,
+      phase: "P5_MASTERMIND_ABILITY",
+      kind: "abilityActivated",
+      character: "girlStudent",
+      description: "hidden ability",
+      publicChanges: [{
+        kind: "counter",
+        target: { kind: "character", id: "girlStudent" },
+        counter: "paranoia",
+        delta: 1,
+      }],
+      publicContext: {
+        locationIntrigue: {
+          Hospital: 0,
+          Shrine: 0,
+          City: 0,
+          School: 0,
+        },
+      },
+    });
+
+    const summary = ruleHypothesisSummary(state);
+
+    expect(summary.remainingCombinations).toHaveLength(75);
+    expect(summary.mainPlotCandidates).toHaveLength(5);
+    expect(summary.subPlotCandidates).toHaveLength(7);
+    expect(summary.observationImpacts.map(({ excludedCount }) => excludedCount))
+      .toEqual([0, 0, 30]);
   });
 
   it("marks the nine-combination firstSteps set for a full list", () => {

@@ -489,13 +489,38 @@
           fixedReport.impactCount !== 2 ||
           !fixedText.includes("룰 Y 후보 5 → 1") ||
           !fixedText.includes("확정 · 위험") ||
-          !fixedText.includes("관측별 배제") ||
+          !fixedText.includes("관측 목록") ||
           fixedReport.horizontal.scrollWidth > WIDTH
         ) {
           failures.push(`룰 Y 확정 강조: ${JSON.stringify(fixedReport)}`);
         }
 
         await selectScenario("firstSteps:1");
+        mutateActiveState((state) => {
+          state.loop.phaseLog.push({
+            loop: state.loop.loop,
+            day: state.loop.day,
+            phase: "P5_MASTERMIND_ABILITY",
+            kind: "abilityActivated",
+            character: "shrineMaiden",
+            description: "hidden ability",
+            publicChanges: [{
+              kind: "counter",
+              target: { kind: "character", id: "shrineMaiden" },
+              counter: "paranoia",
+              delta: 1,
+            }],
+            publicContext: {
+              locationIntrigue: {
+                Hospital: 0,
+                Shrine: 0,
+                City: 0,
+                School: 0,
+              },
+            },
+          });
+        });
+        await reloadApp("first-steps-zero-impact-observation");
         document = frameDocument();
         panel = document.querySelector(".rule-hypothesis-information");
         panel.open = true;
@@ -509,6 +534,8 @@
           hasNestedList: Boolean(
             panel.querySelector(".hypothesis-combinations-nested"),
           ),
+          impactCount: panel.querySelectorAll(".hypothesis-exclusions li").length,
+          text: panel.textContent.replace(/\s+/g, " ").trim(),
           horizontal: horizontalOverflow(),
         };
         reports.push({ label: "입문편 룰 후보 전체 목록", ...firstStepsReport });
@@ -516,6 +543,8 @@
           !firstStepsReport.summary.includes("9 → 9") ||
           firstStepsReport.combinationCount !== 9 ||
           firstStepsReport.hasNestedList ||
+          firstStepsReport.impactCount !== 1 ||
+          !firstStepsReport.text.includes("배제 없음") ||
           firstStepsReport.horizontal.scrollWidth > WIDTH
         ) {
           failures.push(`입문편 룰 후보 전체 목록: ${JSON.stringify(firstStepsReport)}`);
