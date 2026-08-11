@@ -59,6 +59,7 @@ import {
   type IncidentCounter,
   type Location,
   type Phase,
+  type PhaseLogEntry,
   type PlacedCard,
   type Scenario,
   type Target,
@@ -1784,6 +1785,9 @@ function renderGoodwillAbilities(state: GameState): string {
 }
 
 function renderPhaseControls(state: GameState): string {
+  const loopEndPending = state.pendingLoopEnd !== undefined ||
+    (state.loop.pendingImmediateLossKeys?.length ?? 0) > 0;
+  const resultConfirmation = "결과 확인·승패 판정";
   const heading = (step: number, title: string) => `
     <div class="operation-heading">
       <div><span class="eyebrow">${step}</span><h2>${escapeHtml(title)}</h2></div>
@@ -1819,20 +1823,30 @@ function renderPhaseControls(state: GameState): string {
     case "P5_MASTERMIND_ABILITY":
       return `<section class="operation-panel">
           ${heading(5, phaseName(state.loop.phase))}
-          ${renderHookList(state, state.loop.phase, true)}
-          <div class="operation-footer">${renderAdvanceButton()}</div>
+          ${loopEndPending
+            ? "<p>능력 결과를 확인한 뒤 승패 판정으로 진행하세요.</p>"
+            : renderHookList(state, state.loop.phase, true)}
+          <div class="operation-footer">${renderAdvanceButton(
+            loopEndPending ? resultConfirmation : undefined,
+          )}</div>
         </section>`;
     case "P6_GOODWILL":
       return `<section class="operation-panel">
         ${heading(6, phaseName(state.loop.phase))}
-        ${renderGoodwillAbilities(state)}
-        <div class="operation-footer">${renderAdvanceButton()}</div>
+        ${loopEndPending
+          ? "<p>우호 능력 결과를 확인한 뒤 승패 판정으로 진행하세요.</p>"
+          : renderGoodwillAbilities(state)}
+        <div class="operation-footer">${renderAdvanceButton(
+          loopEndPending ? resultConfirmation : undefined,
+        )}</div>
       </section>`;
     case "P7_INCIDENT":
       return `<section class="operation-panel">
         ${heading(7, phaseName(state.loop.phase))}
         <div class="phase-incident-list">${renderTodayIncidents(state, true)}</div>
-        <div class="operation-footer">${renderAdvanceButton(misc("Incident trigger"))}</div>
+        <div class="operation-footer">${renderAdvanceButton(
+          loopEndPending ? resultConfirmation : misc("Incident trigger"),
+        )}</div>
       </section>`;
     case "P8_LEADER_PASS":
       return `<section class="operation-panel compact-operation">
@@ -1847,12 +1861,14 @@ function renderPhaseControls(state: GameState): string {
           <div>${renderHookList(
             state,
             state.loop.phase,
-            Boolean(state.loop.roundEndMandatoryResolved),
+            Boolean(state.loop.roundEndMandatoryResolved) && !loopEndPending,
           )}</div>
           <div class="loss-list">${renderLossDistance(state)}</div>
         </div>
         <div class="operation-footer">${renderAdvanceButton(
-          !state.loop.roundEndMandatoryResolved
+          loopEndPending
+            ? resultConfirmation
+            : !state.loop.roundEndMandatoryResolved
             ? "강제 효과 해결"
             : state.loop.day === state.scenario.daysPerLoop
             ? "루프 종료·승패 판정"
@@ -1869,6 +1885,15 @@ interface DockPrimaryAction {
 }
 
 function dockPrimaryAction(state: GameState): DockPrimaryAction {
+  const loopEndPending = state.pendingLoopEnd !== undefined ||
+    (state.loop.pendingImmediateLossKeys?.length ?? 0) > 0;
+  if (loopEndPending) {
+    return {
+      action: "advance",
+      label: "결과 확인·승패 판정",
+      disabled: false,
+    };
+  }
   switch (state.loop.phase) {
     case "P2_MASTERMIND_ACTION":
       return {
@@ -2041,6 +2066,15 @@ function renderTodayIncidents(
   }
 
   return scheduled.map(({ incident, culprit }) => {
+    const judgment = [...(state.loop.phaseLog ?? [])].reverse().find(
+      (entry): entry is Extract<PhaseLogEntry, { kind: "incidentJudged" }> =>
+      entry.loop === state.loop.loop &&
+      entry.day === state.loop.day &&
+      entry.phase === "P7_INCIDENT" &&
+      entry.kind === "incidentJudged" &&
+      entry.incident === incident &&
+      entry.culprit === culprit,
+    );
     const fires = incidentFires(state, culprit);
     const failureReasons = incidentFailureReasons(state, culprit);
     const effectSuppressed = culprit === "blackCat";
@@ -2067,10 +2101,26 @@ function renderTodayIncidents(
           ? `<p class="incident-effect">${escapeHtml(effectText)}</p>`
           : ""}
         <p class="incident-judgment ${fires ? "is-fired" : "is-not-fired"}">
-          ${fires
+          ${judgment
+            ? judgment.fired
+              ? `판정 결과 · 발생 · ${judgment.effectApplied ? "효과 적용" : "효과 없음"}`
+              : `판정 결과 · 발생하지 않음 (${judgment.failureReasons.map(incidentFailureLabel).join(" · ")})`
+            : fires
             ? "판정 결과 · 발생"
             : `판정 결과 · 발생하지 않음 (${failureReasons.map(incidentFailureLabel).join(" · ")})`}
         </p>
+        ${judgment?.deaths && judgment.deaths.length > 0
+          ? `<p class="incident-public-result">${escapeHtml(
+            `${incidentName(incident)}이 발생하여 ${
+              judgment.deaths.map(characterName).join("·")
+            }가 사망했습니다.`,
+          )}</p>`
+          : ""}
+        ${judgment?.protagonistsDied
+          ? `<p class="incident-public-result">${escapeHtml(
+            `${incidentName(incident)}이 발생하여 주인공이 사망했습니다.`,
+          )}</p>`
+          : ""}
         <div class="incident-conditions">
           <span>${mark(alive)} ${escapeHtml(misc("Alive", "생존"))}</span>
           <span>${mark(paranoia >= limit)} ${escapeHtml(misc("Paranoia"))} ${paranoia}/${limit}</span>
@@ -2865,7 +2915,8 @@ function applySelectedOptionalHooks(state: GameState): void {
     if (targetOptions.length > 0 && target === undefined) {
       throw new Error(misc("Select a target", "Select a target"));
     }
-    // 선택 훅은 선택한 하나마다 사망 배치를 닫고 종료 판정을 한다.
+    // 선택 훅은 선택한 하나마다 사망 배치를 닫는다. 종료 판정은 단계 결과를
+    // 한 번 렌더한 뒤 다음 사용자 입력에서 확정한다.
     withDeathBatch(state, () => hook.effect(state, self, target));
     if (phase === "P5_MASTERMIND_ABILITY") {
       recordPhaseLog(state, {
@@ -2878,8 +2929,6 @@ function applySelectedOptionalHooks(state: GameState): void {
           hook.source.description ?? hook.source.prerequisite ?? hook.source.timing,
       });
     }
-    settleGameFlow(state);
-    if (state.gamePhase !== "ROUND") return;
   }
 }
 
@@ -2951,7 +3000,7 @@ function revealActionCards(): void {
   try {
     applySelectedOptionalHooks(state);
     const before = structuredClone(state);
-    advanceGame(state);
+    advanceGame(state, undefined, { deferSettlement: true });
     const items = collectResolutionReport(before, state, cards);
     const results = items.length === 0
       ? [misc("No effect", "No effect")]
@@ -3077,7 +3126,6 @@ function resolveGoodwillFromButton(button: HTMLButtonElement): void {
       },
       response,
     );
-    settleGameFlow(game.state);
     notice = "";
     saveState(entry.id, game.state, `goodwill-${response}`);
     clearGoodwillDraft(key);
@@ -3098,6 +3146,19 @@ function advanceCurrentPhase(): void {
 
   try {
     if (
+      state.pendingLoopEnd !== undefined ||
+      (state.loop.pendingImmediateLossKeys?.length ?? 0) > 0
+    ) {
+      settleGameFlow(state);
+      selectedHandCard = undefined;
+      operationSheetOpen = false;
+      optionalHookSelections.clear();
+      notice = "";
+      saveState(entry.id, state, "phase-result-confirmed");
+      render();
+      return;
+    }
+    if (
       state.loop.phase === "P2_MASTERMIND_ACTION" &&
       placementsForOwner(state, "mastermind").length !== 3
     ) {
@@ -3114,7 +3175,11 @@ function advanceCurrentPhase(): void {
     }
     applySelectedOptionalHooks(state);
     if (state.gamePhase === "ROUND") {
-      advanceGame(state, incidentChoiceFromDraft());
+      advanceGame(
+        state,
+        incidentChoiceFromDraft(),
+        { deferSettlement: true },
+      );
     }
     selectedHandCard = undefined;
     operationSheetOpen = false;

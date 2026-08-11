@@ -640,6 +640,58 @@ describe("automatic empty round phases", () => {
 });
 
 describe("immediate loop interruption and judgment", () => {
+  it("keeps a fatal P7 incident result visible until settlement is confirmed", () => {
+    const state = createGameState(scenario({
+      cast: {
+        boyStudent: "person",
+        doctor: "keyPerson",
+        patient: "person",
+      },
+      incidents: [{
+        day: 1,
+        incident: "hospitalIncident",
+        culprit: "boyStudent",
+      }],
+    }));
+    startRound(state);
+    state.loop.phase = "P7_INCIDENT";
+    state.loop.charCounters.boyStudent.paranoia = 2;
+    state.loop.locIntrigue.Hospital = 1;
+
+    expect(advanceGame(
+      state,
+      undefined,
+      { deferSettlement: true },
+    )).toEqual({
+      incident: "hospitalIncident",
+      culprit: "boyStudent",
+      fired: true,
+      effectApplied: true,
+    });
+
+    expect(state.gamePhase).toBe("ROUND");
+    expect(state.loop.phase).toBe("P7_INCIDENT");
+    expect(boardIsAlive(state.loop, "doctor")).toBe(false);
+    expect(state.loop.pendingImmediateLossKeys).toEqual([
+      "role:keyPerson:doctor",
+    ]);
+    expect(state.loop.phaseLog).toContainEqual({
+      loop: 1,
+      day: 1,
+      phase: "P7_INCIDENT",
+      kind: "incidentJudged",
+      incident: "hospitalIncident",
+      culprit: "boyStudent",
+      fired: true,
+      effectApplied: true,
+      failureReasons: [],
+      deaths: ["doctor", "patient"],
+    });
+
+    settleGameFlow(state);
+    expect(state.gamePhase).toBe("LOOP_JUDGMENT");
+  });
+
   it("ends immediately but still reveals a simultaneously dead friend (FAQ Q20)", () => {
     const state = createGameState(scenario({
       cast: {

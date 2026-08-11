@@ -289,6 +289,7 @@ function roundEndNeedsAttention(state: GameState): boolean {
 function advanceRoundOnce(
   state: GameState,
   incidentChoice?: IncidentChoice,
+  deferSettlement = false,
 ): IncidentResult | undefined {
   const phase = state.loop.phase;
   const loop = state.loop.loop;
@@ -300,6 +301,11 @@ function advanceRoundOnce(
   const failureReasons: IncidentFailureReason[] = scheduled
     ? incidentFailureReasons(state, scheduled.culprit)
     : [];
+  const livingBeforeIncident = phase === "P7_INCIDENT"
+    ? new Set(Object.entries(state.loop.board)
+      .filter(([, position]) => position.status === "alive")
+      .map(([character]) => character))
+    : new Set<string>();
 
   const result = advance(state, incidentChoice);
 
@@ -336,6 +342,11 @@ function advanceRoundOnce(
       recordPhaseLog(state, { loop, day, phase, kind: "goodwillSkipped" });
     }
   } else if (phase === "P7_INCIDENT") {
+    const deaths = [...livingBeforeIncident].filter(
+      (character) => state.loop.board[character]?.status === "dead",
+    );
+    const protagonistsDied =
+      state.pendingLoopEnd?.reason === "protagonistDeath";
     if (!scheduled) {
       recordPhaseLog(state, {
         loop,
@@ -354,6 +365,8 @@ function advanceRoundOnce(
         fired: result.fired,
         effectApplied: result.effectApplied,
         failureReasons: result.fired ? [] : failureReasons,
+        ...(deaths.length > 0 ? { deaths } : {}),
+        ...(protagonistsDied ? { protagonistsDied: true } : {}),
       });
     }
   } else if (phase === "P8_LEADER_PASS") {
@@ -382,12 +395,15 @@ function advanceRoundOnce(
     });
   }
 
-  settleGameFlow(state);
+  if (!deferSettlement) settleGameFlow(state);
   return result;
 }
 
 /** 내용이 없는 단계와 리더 교대를 연속 처리하고 각 단계를 기록한다. */
-export function advanceAutomaticRoundPhases(state: GameState): void {
+export function advanceAutomaticRoundPhases(
+  state: GameState,
+  deferSettlement = false,
+): void {
   while (state.gamePhase === "ROUND") {
     const phase = state.loop.phase;
     const noActiveHook = (
@@ -401,7 +417,7 @@ export function advanceAutomaticRoundPhases(state: GameState): void {
         phase,
         kind: "notApplicable",
       });
-      advanceRoundOnce(state);
+      advanceRoundOnce(state, undefined, deferSettlement);
       continue;
     }
 
@@ -409,12 +425,12 @@ export function advanceAutomaticRoundPhases(state: GameState): void {
       phase === "P7_INCIDENT" &&
       !state.scenario.incidents.some(({ day }) => day === state.loop.day)
     ) {
-      advanceRoundOnce(state);
+      advanceRoundOnce(state, undefined, deferSettlement);
       continue;
     }
 
     if (phase === "P8_LEADER_PASS") {
-      advanceRoundOnce(state);
+      advanceRoundOnce(state, undefined, deferSettlement);
       continue;
     }
 
@@ -425,7 +441,7 @@ export function advanceAutomaticRoundPhases(state: GameState): void {
         phase,
         kind: "notApplicable",
       });
-      advanceRoundOnce(state);
+      advanceRoundOnce(state, undefined, deferSettlement);
       continue;
     }
 
@@ -437,12 +453,14 @@ export function advanceAutomaticRoundPhases(state: GameState): void {
 export function advanceGame(
   state: GameState,
   incidentChoice?: IncidentChoice,
+  options: { deferSettlement?: boolean } = {},
 ): IncidentResult | undefined {
   if (state.gamePhase !== "ROUND") {
     throw new Error(`round phase cannot advance during ${state.gamePhase}`);
   }
-  const result = advanceRoundOnce(state, incidentChoice);
-  advanceAutomaticRoundPhases(state);
+  const deferSettlement = options.deferSettlement ?? false;
+  const result = advanceRoundOnce(state, incidentChoice, deferSettlement);
+  advanceAutomaticRoundPhases(state, deferSettlement);
   return result;
 }
 

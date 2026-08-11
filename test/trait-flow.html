@@ -66,6 +66,16 @@
         element.click();
       }
 
+      function currentPhase() {
+        return frameDocument().querySelector(".phase-step.is-current strong")
+          ?.textContent?.trim();
+      }
+
+      function judgmentTitle() {
+        return frameDocument().querySelector(".game-flow-screen h1")
+          ?.textContent?.trim();
+      }
+
       function changeSelect(selector, value) {
         const select = frameDocument().querySelector(selector);
         if (!(select instanceof frameWindow().HTMLSelectElement)) {
@@ -846,6 +856,56 @@
         reports.push({ henchmanLocation: "Hospital", remembered });
       }
 
+      async function runFatalIncidentResultCase() {
+        const scenarioId = "firstSteps:4";
+        await loadScenario(scenarioId, "fatal-incident-result");
+        mutateStoredState(scenarioId, (state) => {
+          state.gamePhase = "ROUND";
+          state.loop.day = 3;
+          state.loop.phase = "P7_INCIDENT";
+          state.loop.phaseLog = [];
+          state.loop.locIntrigue.Hospital = 1;
+          state.loop.charCounters.boyStudent.paranoia = 2;
+          state.loop.board.doctor = { status: "alive", at: "Hospital" };
+          state.loop.board.patient = { status: "alive", at: "Hospital" };
+          delete state.pendingLoopEnd;
+          delete state.loop.pendingImmediateLossKeys;
+        });
+        await reloadFrame("fatal-incident-result-ready");
+
+        click(".dock-primary[data-action='advance']");
+        await waitFor(
+          () => frameDocument().querySelector(
+            ".dock-primary[data-action='advance']",
+          )?.textContent?.includes("결과 확인·승패 판정"),
+          "치명적 사건 결과 확인 대기",
+        );
+        const incidentPanel = frameDocument().querySelector(
+          ".today-information .incident-card",
+        )?.textContent?.replace(/\s+/g, " ").trim() ?? "";
+        assert(currentPhase() === "사건 단계", `치명적 사건 직후 단계: ${currentPhase()}`);
+        assert(!judgmentTitle(), "사건 결과 확인 전에 승패 판정으로 전환됨");
+        assert(
+          incidentPanel.includes("병원 사건") &&
+            incidentPanel.includes("판정 결과 · 발생 · 효과 적용") &&
+            incidentPanel.includes("병원 사건이 발생하여 의사·입원 환자가 사망했습니다."),
+          `치명적 사건 결과 안내: ${incidentPanel}`,
+        );
+        assert(
+          frameDocument().querySelector(
+            ".character-chip-wrap.is-dead [data-character='doctor']",
+          ) !== null,
+          "병원 사건 결과 화면에서 의사 사망이 표시되지 않음",
+        );
+
+        click(".dock-primary[data-action='advance']");
+        await waitFor(() => judgmentTitle(), "사건 결과 확인 뒤 승패 판정");
+        reports.push({
+          fatalIncident: "P7 result shown before loop judgment",
+          incidentPanel,
+        });
+      }
+
       async function run() {
         await runTimeGapTimerCases();
         await runDraftInputCases();
@@ -858,6 +918,7 @@
         await runScientistChoice("goodwill", "우 1 불 0/2 음 0");
         await runScientistChoice("intrigue", "우 0 불 0/2 음 1");
         await runHenchmanLocationChoice();
+        await runFatalIncidentResultCase();
         restoreStorage();
         const passed = failures.length === 0;
         const report = { reports, failures };
