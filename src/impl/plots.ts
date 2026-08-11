@@ -2,7 +2,7 @@
 //    재생성해도 when/effect 는 덮어쓰지 않도록 주의할 것.
 //    source 는 원본 영문 텍스트(수정 금지). ko 는 정발 용어.
 
-import { isCharacterAlive } from "../types";
+import { isCharacterAlive, LOCATIONS } from "../types";
 import type { GameState, CharacterId, Hook, Target } from "../types";
 
 const UNSETTLING_RUMOR_USE_KEY = "unsettlingRumor:plot:0";
@@ -209,6 +209,8 @@ export const PLOT_IMPL: Record<string, {
         },
         when: (s: GameState, _self: CharacterId) =>
           unsettlingRumorAvailable(s),
+        selectableTargets: () =>
+          LOCATIONS.map((at) => ({ kind: "location", at })),
         effect: (
           s: GameState,
           _self: CharacterId,

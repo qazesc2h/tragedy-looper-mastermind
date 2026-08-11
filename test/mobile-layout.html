@@ -68,6 +68,28 @@
         return current;
       }
 
+      function mutateActiveState(mutate) {
+        const storageKey = "tragedy-looper-mastermind:tracker";
+        const raw = window.localStorage.getItem(storageKey);
+        if (raw === null) throw new Error("검사용 저장 상태가 없습니다.");
+        const tracker = JSON.parse(raw);
+        mutate(tracker.games[tracker.activeScenarioId].state);
+        window.localStorage.setItem(storageKey, JSON.stringify(tracker));
+      }
+
+      async function reloadApp(label) {
+        const loaded = new Promise((resolve) => {
+          frame.addEventListener("load", resolve, { once: true });
+        });
+        frame.src = `/?mobile-layout-case=${encodeURIComponent(label)}`;
+        await loaded;
+        await waitFor(
+          () => frameDocument().querySelector(".game-board"),
+          `${label} 게임판`,
+        );
+        await frameDocument().fonts.ready;
+      }
+
       function click(selector) {
         const element = frameDocument().querySelector(selector);
         if (!(element instanceof frameWindow().HTMLElement)) {
@@ -396,6 +418,165 @@
         await pause();
       }
 
+      async function inspectScrollableModalBodies() {
+        mutateActiveState((state) => {
+          state.gamePhase = "ROUND";
+          state.loop.phase = "P4_RESOLVE";
+          state.loop.actionResolutionComplete = false;
+          state.loop.placed = [
+            {
+              owner: "mastermind",
+              card: "moveVertical",
+              target: { kind: "character", id: "shrineMaiden" },
+            },
+            {
+              owner: "mastermind",
+              card: "intriguePlus1",
+              target: { kind: "character", id: "richStudent" },
+            },
+            {
+              owner: "mastermind",
+              card: "paranoiaPlus1",
+              target: { kind: "character", id: "classRep" },
+            },
+            {
+              owner: 0,
+              card: "moveHorizontal",
+              target: { kind: "character", id: "informer" },
+            },
+            {
+              owner: 1,
+              card: "forbidIntrigue",
+              target: { kind: "character", id: "officeWorker" },
+            },
+            {
+              owner: 2,
+              card: "goodwillPlus1",
+              target: { kind: "character", id: "officeWorker" },
+            },
+          ];
+        });
+        await reloadApp("six-card-resolution-modal");
+        click("[data-action='toggle-operation-sheet']");
+        const sheet = await waitFor(
+          () => frameDocument().querySelector(".operation-sheet"),
+          "6장 행동 해결 모달",
+        );
+        const scrollBody = sheet.querySelector(".operation-panel-scroll");
+        const footer = sheet.querySelector(".operation-footer");
+        const confirmButton = frameDocument().querySelector(
+          ".dock-primary[data-action='reveal-cards']",
+        );
+        if (!scrollBody || !footer || !confirmButton) {
+          throw new Error("행동 해결 스크롤 본문·하단 영역·확인 버튼을 찾을 수 없습니다.");
+        }
+        const placementCount = sheet.querySelectorAll(".placement-group li").length;
+        const footerBefore = footer.getBoundingClientRect();
+        const confirmBefore = confirmButton.getBoundingClientRect();
+        scrollBody.scrollTop = scrollBody.scrollHeight;
+        await pause(100);
+        const footerAfter = footer.getBoundingClientRect();
+        const confirmAfter = confirmButton.getBoundingClientRect();
+        const resolutionReport = {
+          placementCount,
+          overflowY: frameWindow().getComputedStyle(scrollBody).overflowY,
+          clientHeight: scrollBody.clientHeight,
+          scrollHeight: scrollBody.scrollHeight,
+          footerBefore: { top: footerBefore.top, bottom: footerBefore.bottom },
+          footerAfter: { top: footerAfter.top, bottom: footerAfter.bottom },
+          confirmBefore: { top: confirmBefore.top, bottom: confirmBefore.bottom },
+          confirmAfter: { top: confirmAfter.top, bottom: confirmAfter.bottom },
+        };
+        reports.push({ label: "6장 행동 해결 모달", ...resolutionReport });
+        if (placementCount !== 6) {
+          failures.push(`행동 해결 배치 요약 ${placementCount}/6`);
+        }
+        if (
+          resolutionReport.overflowY !== "auto" ||
+          resolutionReport.scrollHeight <= resolutionReport.clientHeight
+        ) {
+          failures.push(`행동 해결 본문 세로 스크롤: ${JSON.stringify(resolutionReport)}`);
+        }
+        if (
+          Math.abs(footerBefore.top - footerAfter.top) > 0.5 ||
+          Math.abs(confirmBefore.top - confirmAfter.top) > 0.5 ||
+          confirmAfter.bottom > HEIGHT + 0.5
+        ) {
+          failures.push(`행동 해결 하단 고정 실패: ${JSON.stringify(resolutionReport)}`);
+        }
+        click("[data-action='close-operation-sheet']");
+        await pause();
+
+        click("[data-action='board-character'][data-character='shrineMaiden']");
+        const detail = await waitFor(
+          () => frameDocument().querySelector(".detail-modal"),
+          "캐릭터 상세 모달",
+        );
+        const detailBody = detail.querySelector(".detail-modal-body");
+        const detailHeader = detail.querySelector(".detail-modal-header");
+        if (!detailBody || !detailHeader) {
+          throw new Error("캐릭터 상세 고정 헤더·스크롤 본문을 찾을 수 없습니다.");
+        }
+        const detailHeaderBefore = detailHeader.getBoundingClientRect();
+        detailBody.scrollTop = detailBody.scrollHeight;
+        await pause(100);
+        const detailHeaderAfter = detailHeader.getBoundingClientRect();
+        const detailReport = {
+          overflowY: frameWindow().getComputedStyle(detailBody).overflowY,
+          clientHeight: detailBody.clientHeight,
+          scrollHeight: detailBody.scrollHeight,
+          headerBefore: detailHeaderBefore.top,
+          headerAfter: detailHeaderAfter.top,
+        };
+        reports.push({ label: "캐릭터 상세 모달", ...detailReport });
+        if (
+          detailReport.overflowY !== "auto" ||
+          Math.abs(detailHeaderBefore.top - detailHeaderAfter.top) > 0.5
+        ) {
+          failures.push(`캐릭터 상세 스크롤 경계: ${JSON.stringify(detailReport)}`);
+        }
+        click("[data-action='close-character-modal']");
+        await pause();
+
+        mutateActiveState((state) => {
+          state.loop.phase = "P6_GOODWILL";
+          state.loop.placed = [];
+          for (const counters of Object.values(state.loop.charCounters)) {
+            counters.goodwill = 10;
+          }
+        });
+        await reloadApp("goodwill-scroll-modal");
+        click("[data-action='toggle-operation-sheet']");
+        const goodwillScroll = await waitFor(
+          () => frameDocument().querySelector(".operation-panel-scroll"),
+          "우호 능력 스크롤 본문",
+        );
+        const goodwillFooter = frameDocument().querySelector(
+          ".operation-sheet .operation-footer",
+        );
+        if (!goodwillFooter) throw new Error("우호 능력 하단 영역을 찾을 수 없습니다.");
+        const goodwillFooterBefore = goodwillFooter.getBoundingClientRect();
+        goodwillScroll.scrollTop = goodwillScroll.scrollHeight;
+        await pause(100);
+        const goodwillFooterAfter = goodwillFooter.getBoundingClientRect();
+        const goodwillReport = {
+          cardCount: frameDocument().querySelectorAll(".goodwill-card").length,
+          clientHeight: goodwillScroll.clientHeight,
+          scrollHeight: goodwillScroll.scrollHeight,
+          footerBefore: goodwillFooterBefore.top,
+          footerAfter: goodwillFooterAfter.top,
+        };
+        reports.push({ label: "우호 능력 목록", ...goodwillReport });
+        if (
+          goodwillReport.scrollHeight <= goodwillReport.clientHeight ||
+          Math.abs(goodwillFooterBefore.top - goodwillFooterAfter.top) > 0.5
+        ) {
+          failures.push(`우호 능력 목록 스크롤 경계: ${JSON.stringify(goodwillReport)}`);
+        }
+        click("[data-action='close-operation-sheet']");
+        await pause();
+      }
+
       async function run() {
         await enterRound();
 
@@ -421,6 +602,8 @@
         await inspectStorageActions();
         await inspectDockAndToast();
         await inspectOpenCardPanel();
+        await selectScenario("basicTragedy:5");
+        await inspectScrollableModalBodies();
 
         await selectScenario("basicTragedy:20");
         const characters = [...frameDocument().querySelectorAll(

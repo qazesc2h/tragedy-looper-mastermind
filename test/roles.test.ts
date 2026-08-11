@@ -15,6 +15,7 @@ import {
 import { resolveActions } from "../src/engine/resolve";
 import { initLoop } from "../src/engine/setup";
 import { effectiveAbilityRoles, ROLE_IMPL } from "../src/impl/roles";
+import { PLOT_IMPL } from "../src/impl/plots";
 import type {
   GameState,
   Hook,
@@ -276,6 +277,11 @@ describe("brain", () => {
 describe("cultist", () => {
   const targetHook = hook("cultist");
 
+  it("asks only whether to activate and has no selectable target", () => {
+    expect(targetHook.kind).toBe("optional");
+    expect(targetHook.selectableTargets).toBeUndefined();
+  });
+
   it("ignores an active forbid intrigue on this location", () => {
     const state = createState();
     state.loop.placed = [
@@ -413,6 +419,48 @@ describe("cultist", () => {
     expect(boardLocation(state.loop, CULTIST)).toBe("Hospital");
     expect(state.loop.locIntrigue.Hospital).toBe(1);
     expect(state.loop.cultistsIgnoringForbidIntrigue).toBeUndefined();
+  });
+
+  it("ignores forbid intrigue on a character sharing the post-movement location", () => {
+    const state = createState();
+    setBoardLocation(state.loop, KEY_PERSON, "Hospital");
+    state.loop.placed = [
+      {
+        owner: "mastermind",
+        card: "moveVertical",
+        target: { kind: "character", id: CULTIST },
+      },
+      {
+        owner: 0,
+        card: "forbidIntrigue",
+        target: { kind: "character", id: KEY_PERSON },
+      },
+      {
+        owner: "mastermind",
+        card: "intriguePlus1",
+        target: { kind: "character", id: KEY_PERSON },
+      },
+    ];
+
+    targetHook.effect(state, CULTIST);
+    resolveActions(state);
+
+    expect(boardLocation(state.loop, CULTIST)).toBe("Hospital");
+    expect(state.loop.charCounters[KEY_PERSON].intrigue).toBe(1);
+  });
+});
+
+describe("optional hook target contracts", () => {
+  it("declares targets only for the three optional hooks that select one", () => {
+    expect(ROLE_IMPL.brain.hooks[0].selectableTargets).toBeTypeOf("function");
+    expect(ROLE_IMPL.conspiracyTheorist.hooks[0].selectableTargets)
+      .toBeTypeOf("function");
+    expect(PLOT_IMPL.unsettlingRumor.hooks[0].selectableTargets)
+      .toBeTypeOf("function");
+
+    expect(ROLE_IMPL.cultist.hooks[0].selectableTargets).toBeUndefined();
+    expect(ROLE_IMPL.killer.hooks[0].selectableTargets).toBeUndefined();
+    expect(ROLE_IMPL.timeTraveler.hooks[1].selectableTargets).toBeUndefined();
   });
 });
 

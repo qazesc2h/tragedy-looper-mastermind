@@ -42,7 +42,7 @@ function characterCounters(state: GameState, character: CharacterId) {
   return counters;
 }
 
-function resolveMovement(
+export function resolveMovement(
   state: GameState,
   placed: readonly PlacedCard[],
 ): void {

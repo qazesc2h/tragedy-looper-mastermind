@@ -40,6 +40,7 @@ import {
 import {
   MASTERMIND_ONCE_PER_LOOP,
   PROTAGONIST_ONCE_PER_LOOP,
+  resolveMovement,
 } from "../engine/resolve";
 import { INCIDENT_IMPL } from "../impl/incidents";
 import { ROLE_IMPL } from "../impl/roles";
@@ -55,6 +56,7 @@ import {
   type ActionCard,
   type CharacterId,
   type GameState,
+  type Hook,
   type IncidentChoice,
   type IncidentCounter,
   type Location,
@@ -913,33 +915,35 @@ function renderCharacterModal(state: GameState): string {
           <button type="button" class="icon-button" data-action="close-character-modal"
             aria-label="상세 닫기">×</button>
         </header>
-        <button type="button" class="life-toggle ${alive ? "is-alive" : "is-dead"}"
-          data-action="toggle-character-life" data-character="${escapeHtml(character)}">
-          <span>${escapeHtml(aliveLabel)}</span>
-          <strong>${alive ? "탭하여 사망 처리" : "탭하여 생존 처리"}</strong>
-        </button>
-        <div class="detail-counter-list">
-          ${renderCounter(character, "goodwill", counters.goodwill)}
-          ${renderCounter(
-            character,
-            "paranoia",
-            counters.paranoia,
-            `/${data.paranoiaLimit}`,
-          )}
-          ${renderCounter(character, "intrigue", counters.intrigue)}
+        <div class="detail-modal-body">
+          <button type="button" class="life-toggle ${alive ? "is-alive" : "is-dead"}"
+            data-action="toggle-character-life" data-character="${escapeHtml(character)}">
+            <span>${escapeHtml(aliveLabel)}</span>
+            <strong>${alive ? "탭하여 사망 처리" : "탭하여 생존 처리"}</strong>
+          </button>
+          <div class="detail-counter-list">
+            ${renderCounter(character, "goodwill", counters.goodwill)}
+            ${renderCounter(
+              character,
+              "paranoia",
+              counters.paranoia,
+              `/${data.paranoiaLimit}`,
+            )}
+            ${renderCounter(character, "intrigue", counters.intrigue)}
+          </div>
+          ${renderCharacterTraitInformation(state, character)}
+          ${renderCharacterLocationInformation(state, character)}
+          ${renderCharacterIncidentInformation(state, character)}
+          <label class="location-select">
+            <span>${escapeHtml(misc("Location", "Location"))}</span>
+            <select data-action="move-character" data-character="${escapeHtml(character)}">
+              ${LOCATIONS.map((location) => `
+                <option value="${location}" ${characterLocation(position, character) === location ? "selected" : ""}>
+                  ${escapeHtml(locationName(location))}
+                </option>`).join("")}
+            </select>
+          </label>
         </div>
-        ${renderCharacterTraitInformation(state, character)}
-        ${renderCharacterLocationInformation(state, character)}
-        ${renderCharacterIncidentInformation(state, character)}
-        <label class="location-select">
-          <span>${escapeHtml(misc("Location", "Location"))}</span>
-          <select data-action="move-character" data-character="${escapeHtml(character)}">
-            ${LOCATIONS.map((location) => `
-              <option value="${location}" ${characterLocation(position, character) === location ? "selected" : ""}>
-                ${escapeHtml(locationName(location))}
-              </option>`).join("")}
-          </select>
-        </label>
       </section>
     </div>`;
 }
@@ -961,13 +965,15 @@ function renderLocationModal(state: GameState): string {
           <button type="button" class="icon-button" data-action="close-location-modal"
             aria-label="장소 상세 닫기">×</button>
         </header>
-        <div class="location-modal-counter">
-          <span>${escapeHtml(misc("Intrigue"))}</span>
-          <button type="button" data-action="location-counter" data-location="${location}"
-            data-delta="-1" aria-label="${escapeHtml(`${misc("Intrigue")} -1`)}">−</button>
-          <strong>${state.loop.locIntrigue[location]}</strong>
-          <button type="button" data-action="location-counter" data-location="${location}"
-            data-delta="1" aria-label="${escapeHtml(`${misc("Intrigue")} +1`)}">+</button>
+        <div class="detail-modal-body">
+          <div class="location-modal-counter">
+            <span>${escapeHtml(misc("Intrigue"))}</span>
+            <button type="button" data-action="location-counter" data-location="${location}"
+              data-delta="-1" aria-label="${escapeHtml(`${misc("Intrigue")} -1`)}">−</button>
+            <strong>${state.loop.locIntrigue[location]}</strong>
+            <button type="button" data-action="location-counter" data-location="${location}"
+              data-delta="1" aria-label="${escapeHtml(`${misc("Intrigue")} +1`)}">+</button>
+          </div>
         </div>
       </section>
     </div>`;
@@ -1236,20 +1242,22 @@ function renderMastermindAction(
 ): string {
   const placed = placementsForOwner(state, "mastermind").length;
   return `
-    <section class="operation-panel card-placement-panel">
-      <div class="operation-heading">
-        <div>
-          <span class="eyebrow">${correctingBeforeReveal ? "배치 수정" : "2"} · ${escapeHtml(ownerLabel("mastermind"))}</span>
-          <h2>${escapeHtml(
-            correctingBeforeReveal
-              ? "각본가 카드 다시 배치"
-              : phaseName("P2_MASTERMIND_ACTION"),
-          )}</h2>
+    <section class="operation-panel card-placement-panel has-fixed-footer">
+      <div class="operation-panel-scroll">
+        <div class="operation-heading">
+          <div>
+            <span class="eyebrow">${correctingBeforeReveal ? "배치 수정" : "2"} · ${escapeHtml(ownerLabel("mastermind"))}</span>
+            <h2>${escapeHtml(
+              correctingBeforeReveal
+                ? "각본가 카드 다시 배치"
+                : phaseName("P2_MASTERMIND_ACTION"),
+            )}</h2>
+          </div>
+          <strong class="placement-progress ${placed === 3 ? "is-complete" : ""}">${placed}/3</strong>
         </div>
-        <strong class="placement-progress ${placed === 3 ? "is-complete" : ""}">${placed}/3</strong>
+        ${renderPlacementPrompt()}
+        ${renderHand(state, "mastermind", MASTERMIND_HAND, placed < 3)}
       </div>
-      ${renderPlacementPrompt()}
-      ${renderHand(state, "mastermind", MASTERMIND_HAND, placed < 3)}
       <div class="operation-footer">
         <span>${escapeHtml(misc("3 cards required", "3 cards required"))}</span>
         ${renderAdvanceButton(undefined, placed !== 3)}
@@ -1264,32 +1272,34 @@ function renderProtagonistAction(state: GameState): string {
     ({ owner }) => owner !== "mastermind",
   ).length;
   return `
-    <section class="operation-panel card-placement-panel">
-      <div class="operation-heading">
-        <div>
-          <span class="eyebrow">3 · ${escapeHtml(misc("Protagonists"))}</span>
-          <h2>${escapeHtml(phaseName("P3_PROTAGONIST_ACTION"))}</h2>
+    <section class="operation-panel card-placement-panel has-fixed-footer">
+      <div class="operation-panel-scroll">
+        <div class="operation-heading">
+          <div>
+            <span class="eyebrow">3 · ${escapeHtml(misc("Protagonists"))}</span>
+            <h2>${escapeHtml(phaseName("P3_PROTAGONIST_ACTION"))}</h2>
+          </div>
+          <strong class="placement-progress ${placed === 3 ? "is-complete" : ""}">${placed}/3</strong>
         </div>
-        <strong class="placement-progress ${placed === 3 ? "is-complete" : ""}">${placed}/3</strong>
-      </div>
-      ${renderPlacementPrompt()}
-      <div class="protagonist-hands">
-        ${order.map((owner, index) => {
-          const done = placementsForOwner(state, owner).length === 1;
-          return `
-            <section class="protagonist-hand ${owner === current ? "is-current" : ""} ${done ? "is-done" : ""}">
-              <header>
-                <div>
-                  <span>${index + 1}</span>
-                  <h3>${escapeHtml(ownerLabel(owner))}</h3>
-                </div>
-                ${owner === state.loop.leader
-                  ? `<b>${escapeHtml(misc("Leader", "Leader"))}</b>`
-                  : ""}
-              </header>
-              ${renderHand(state, owner, PROTAGONIST_HAND, owner === current)}
-            </section>`;
-        }).join("")}
+        ${renderPlacementPrompt()}
+        <div class="protagonist-hands">
+          ${order.map((owner, index) => {
+            const done = placementsForOwner(state, owner).length === 1;
+            return `
+              <section class="protagonist-hand ${owner === current ? "is-current" : ""} ${done ? "is-done" : ""}">
+                <header>
+                  <div>
+                    <span>${index + 1}</span>
+                    <h3>${escapeHtml(ownerLabel(owner))}</h3>
+                  </div>
+                  ${owner === state.loop.leader
+                    ? `<b>${escapeHtml(misc("Leader", "Leader"))}</b>`
+                    : ""}
+                </header>
+                ${renderHand(state, owner, PROTAGONIST_HAND, owner === current)}
+              </section>`;
+          }).join("")}
+        </div>
       </div>
       <div class="operation-footer">
         <span>${current === undefined
@@ -1442,29 +1452,35 @@ function hookKey(phase: Phase, self: string, index: number): string {
   return `${phase}:${self || "plot"}:${index}`;
 }
 
-function hookTargetOptions(state: GameState, self: CharacterId, text: string): Target[] {
-  if (text.includes("any location")) {
-    return LOCATIONS.map((at) => ({ kind: "location", at }));
-  }
-  if (!self || !text.includes("this location")) return [];
+function hookTargetOptions(
+  state: GameState,
+  self: CharacterId,
+  hook: Hook,
+): Target[] {
+  return hook.selectableTargets?.(state, self) ?? [];
+}
 
-  const locations = abilityLocationsOf(state, self);
-  const targets: Target[] = [];
-  if (text.includes("this location or")) {
-    targets.push(...locations.map((at) => ({
-      kind: "location" as const,
-      at,
-    })));
-  }
-  for (const [character, position] of Object.entries(state.loop.board)) {
-    if (
-      isCharacterAlive(position) &&
-      locations.includes(characterLocation(position, character))
-    ) {
-      targets.push({ kind: "character", id: character });
+function cultistIgnoreSummary(
+  state: GameState,
+  self: CharacterId,
+  hook: Hook,
+): string {
+  if (hook !== ROLE_IMPL.cultist.hooks[0]) return "";
+
+  const movementResolved = structuredClone(state);
+  resolveMovement(movementResolved, movementResolved.loop.placed);
+  const locations = abilityLocationsOf(movementResolved, self);
+  const ignoredCount = state.loop.placed.filter((placement) => {
+    if (placement.card !== "forbidIntrigue") return false;
+    if (placement.target.kind === "location") {
+      return locations.includes(placement.target.at);
     }
-  }
-  return targets;
+    const position = movementResolved.loop.board[placement.target.id];
+    return position !== undefined &&
+      isCharacterAlive(position) &&
+      locations.includes(characterLocation(position, placement.target.id));
+  }).length;
+  return `${locations.map(locationName).join("·")}의 음모 금지 ${ignoredCount}장 무시`;
 }
 
 function encodeTarget(target: Target): string {
@@ -1497,7 +1513,8 @@ function renderHookList(
     const selection = optionalHookSelections.get(key);
     const optional = hook.kind === "optional";
     const text = hook.source.description ?? hook.source.prerequisite ?? "";
-    const targets = hookTargetOptions(state, self, text);
+    const targets = hookTargetOptions(state, self, hook);
+    const activationSummary = cultistIgnoreSummary(state, self, hook);
     return `
       <article class="hook-card ${selection?.selected ? "is-selected" : ""}">
         <div>
@@ -1505,6 +1522,9 @@ function renderHookList(
           <strong>${escapeHtml(gameText(text || hook.source.timing))}</strong>
         </div>
         <small>${escapeHtml(hook.kind === "mandatory" ? misc("Mandatory") : misc("Optional"))}</small>
+        ${activationSummary
+          ? `<p class="hook-activation-summary">${escapeHtml(activationSummary)}</p>`
+          : ""}
         ${interactive && optional
           ? `<label class="hook-toggle">
               <input type="checkbox" data-action="optional-hook" data-hook-key="${escapeHtml(key)}"
@@ -1911,8 +1931,8 @@ function renderPhaseControls(state: GameState): string {
         ? renderMastermindAction(state, true)
         : renderProtagonistAction(state);
     case "P4_RESOLVE":
-      return `<section class="operation-panel">
-        <div class="resolve-control-copy">
+      return `<section class="operation-panel has-fixed-footer">
+        <div class="resolve-control-copy operation-panel-scroll">
           ${heading(4, phaseName(state.loop.phase))}
           ${state.loop.actionResolutionComplete
             ? `<p>카드 공개와 효과 해결이 완료되었습니다. 결과 요약을 확인한 뒤 진행하세요.</p>`
@@ -1926,29 +1946,35 @@ function renderPhaseControls(state: GameState): string {
         </div>
       </section>`;
     case "P5_MASTERMIND_ABILITY":
-      return `<section class="operation-panel">
+      return `<section class="operation-panel has-fixed-footer">
+        <div class="operation-panel-scroll">
           ${heading(5, phaseName(state.loop.phase))}
           ${loopEndPending
             ? "<p>능력 결과를 확인한 뒤 승패 판정으로 진행하세요.</p>"
             : renderHookList(state, state.loop.phase, true)}
+        </div>
           <div class="operation-footer">${renderAdvanceButton(
             loopEndPending ? resultConfirmation : undefined,
           )}</div>
         </section>`;
     case "P6_GOODWILL":
-      return `<section class="operation-panel">
-        ${heading(6, phaseName(state.loop.phase))}
-        ${loopEndPending
-          ? "<p>우호 능력 결과를 확인한 뒤 승패 판정으로 진행하세요.</p>"
-          : renderGoodwillAbilities(state)}
+      return `<section class="operation-panel has-fixed-footer">
+        <div class="operation-panel-scroll">
+          ${heading(6, phaseName(state.loop.phase))}
+          ${loopEndPending
+            ? "<p>우호 능력 결과를 확인한 뒤 승패 판정으로 진행하세요.</p>"
+            : renderGoodwillAbilities(state)}
+        </div>
         <div class="operation-footer">${renderAdvanceButton(
           loopEndPending ? resultConfirmation : undefined,
         )}</div>
       </section>`;
     case "P7_INCIDENT":
-      return `<section class="operation-panel">
-        ${heading(7, phaseName(state.loop.phase))}
-        <div class="phase-incident-list">${renderTodayIncidents(state, true)}</div>
+      return `<section class="operation-panel has-fixed-footer">
+        <div class="operation-panel-scroll">
+          ${heading(7, phaseName(state.loop.phase))}
+          <div class="phase-incident-list">${renderTodayIncidents(state, true)}</div>
+        </div>
         <div class="operation-footer">${renderAdvanceButton(
           loopEndPending ? resultConfirmation : misc("Incident trigger"),
         )}</div>
@@ -1960,15 +1986,17 @@ function renderPhaseControls(state: GameState): string {
         ${renderAdvanceButton()}
       </section>`;
     case "P9_ROUND_END":
-      return `<section class="operation-panel">
-        ${heading(9, phaseName(state.loop.phase))}
-        <div class="round-end-grid">
-          <div>${renderHookList(
-            state,
-            state.loop.phase,
-            Boolean(state.loop.roundEndMandatoryResolved) && !loopEndPending,
-          )}</div>
-          <div class="loss-list">${renderLossDistance(state)}</div>
+      return `<section class="operation-panel has-fixed-footer">
+        <div class="operation-panel-scroll">
+          ${heading(9, phaseName(state.loop.phase))}
+          <div class="round-end-grid">
+            <div>${renderHookList(
+              state,
+              state.loop.phase,
+              Boolean(state.loop.roundEndMandatoryResolved) && !loopEndPending,
+            )}</div>
+            <div class="loss-list">${renderLossDistance(state)}</div>
+          </div>
         </div>
         <div class="operation-footer">${renderAdvanceButton(
           loopEndPending
@@ -3011,11 +3039,7 @@ function applySelectedOptionalHooks(state: GameState): void {
     if (!selection?.selected || hook.kind !== "optional") continue;
     if (!hook.when(state, self)) continue;
 
-    const targetOptions = hookTargetOptions(
-      state,
-      self,
-      hook.source.description ?? hook.source.prerequisite ?? "",
-    );
+    const targetOptions = hookTargetOptions(state, self, hook);
     const target = decodeTarget(selection.target);
     if (targetOptions.length > 0 && target === undefined) {
       throw new Error(misc("Select a target", "Select a target"));

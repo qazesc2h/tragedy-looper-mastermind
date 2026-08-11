@@ -906,6 +906,104 @@
         });
       }
 
+      async function runCultistToggleCase() {
+        const scenarioId = "firstSteps:4";
+        await loadScenario(scenarioId, "cultist-toggle");
+        mutateStoredState(scenarioId, (state) => {
+          state.gamePhase = "ROUND";
+          state.loop.day = 1;
+          state.loop.phase = "P4_RESOLVE";
+          state.loop.phaseLog = [];
+          state.loop.actionResolutionComplete = false;
+          state.loop.board.boyStudent = { status: "alive", at: "School" };
+          state.loop.board.girlStudent = { status: "alive", at: "School" };
+          state.loop.charCounters.girlStudent.intrigue = 0;
+          state.loop.placed = [
+            {
+              owner: "mastermind",
+              card: "moveVertical",
+              target: { kind: "character", id: "boyStudent" },
+            },
+            {
+              owner: "mastermind",
+              card: "intriguePlus1",
+              target: { kind: "character", id: "girlStudent" },
+            },
+            {
+              owner: "mastermind",
+              card: "paranoiaPlus1",
+              target: { kind: "character", id: "patient" },
+            },
+            {
+              owner: 0,
+              card: "moveVertical",
+              target: { kind: "character", id: "girlStudent" },
+            },
+            {
+              owner: 1,
+              card: "forbidIntrigue",
+              target: { kind: "character", id: "girlStudent" },
+            },
+            {
+              owner: 2,
+              card: "goodwillPlus1",
+              target: { kind: "character", id: "doctor" },
+            },
+          ];
+          delete state.loop.cultistsIgnoringForbidIntrigue;
+          delete state.pendingLoopEnd;
+          delete state.loop.pendingImmediateLossKeys;
+        });
+        await reloadFrame("cultist-toggle-ready");
+        await openOperationSheet("광신도 행동 해결 패널");
+
+        const summary = await waitFor(
+          () => frameDocument().querySelector(".hook-activation-summary"),
+          "광신도 무시 범위 요약",
+        );
+        const card = summary.closest(".hook-card");
+        assert(
+          summary.textContent?.trim() === "신사의 음모 금지 1장 무시",
+          `이동 후 광신도 무시 요약: ${summary.textContent?.trim()}`,
+        );
+        assert(
+          card?.querySelector("[data-action='optional-hook-target']") === null,
+          "광신도 능력에 대상 선택 UI가 표시됨",
+        );
+        const toggle = card?.querySelector("[data-action='optional-hook']");
+        if (!(toggle instanceof frameWindow().HTMLInputElement)) {
+          throw new Error("광신도 발동 토글을 찾을 수 없습니다.");
+        }
+        toggle.click();
+        await pause();
+
+        click(".dock-primary[data-action='reveal-cards']");
+        await waitFor(
+          () => frameDocument().querySelector(
+            ".dock-primary[data-action='advance']",
+          )?.textContent?.includes("다음 단계"),
+          "광신도 발동 뒤 P4 결과",
+        );
+        const applied = storedState(scenarioId);
+        assert(
+          applied.loop.board.boyStudent.at === "Shrine" &&
+            applied.loop.board.girlStudent.at === "Shrine",
+          `광신도·여학생 이동 결과: ${JSON.stringify(applied.loop.board)}`,
+        );
+        assert(
+          applied.loop.charCounters.girlStudent.intrigue === 1,
+          `이동 후 같은 장소 캐릭터의 음모: ${applied.loop.charCounters.girlStudent.intrigue}`,
+        );
+        assert(
+          applied.loop.cultistsIgnoringForbidIntrigue === undefined,
+          "P4 종료 뒤 광신도 임시 상태가 남음",
+        );
+        reports.push({
+          cultist: "toggle only, post-movement scope, character forbid ignored",
+          summary: summary.textContent?.trim(),
+        });
+      }
+
       function unsettlingRumorCard() {
         return Array.from(frameDocument().querySelectorAll(".hook-card")).find(
           (card) => card.textContent?.includes("임의의 장소 1곳에 음모 1개"),
@@ -1027,6 +1125,7 @@
         await runScientistChoice("intrigue", "우 0 불 0/2 음 1");
         await runHenchmanLocationChoice();
         await runFatalIncidentResultCase();
+        await runCultistToggleCase();
         await runUnsettlingRumorTransactionCase();
         restoreStorage();
         const passed = failures.length === 0;

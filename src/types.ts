@@ -515,6 +515,8 @@ export interface Hook {
     self: CharacterId,
     context?: HookContext,
   ) => boolean;
+  /** 선택형 훅이 사용자에게 요구하는 합법 대상. 없으면 발동 여부만 선택한다. */
+  selectableTargets?: (s: GameState, self: CharacterId) => Target[];
   /** 동시 해결 전에 확정해야 하는 효과 대상 */
   effectTarget?: (s: GameState, self: CharacterId) => Target | undefined;
   effect: (

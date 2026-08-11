@@ -72,6 +72,32 @@ function placeBrainIntrigue(
   state.loop.charCounters[target.id].intrigue += 1;
 }
 
+function livingCharacterTargetsInAbilityLocations(
+  state: GameState,
+  self: CharacterId,
+): Target[] {
+  const locations = abilityLocationsOf(state, self);
+  return Object.entries(state.loop.board)
+    .filter(([character, position]) =>
+      isCharacterAlive(position) &&
+      locations.includes(characterLocation(position, character))
+    )
+    .map(([id]) => ({ kind: "character", id }));
+}
+
+function brainIntrigueTargets(
+  state: GameState,
+  self: CharacterId,
+): Target[] {
+  return [
+    ...abilityLocationsOf(state, self).map((at) => ({
+      kind: "location" as const,
+      at,
+    })),
+    ...livingCharacterTargetsInAbilityLocations(state, self),
+  ];
+}
+
 function activateCultistIntrigueIgnore(
   state: GameState,
   self: CharacterId,
@@ -262,6 +288,7 @@ export const ROLE_IMPL: Record<string, {
           description: `You may place 1 :intrigue: on this location or on any character in this location.`,
         },
         when: (_s: GameState, _self: CharacterId) => true,
+        selectableTargets: brainIntrigueTargets,
         effect: (
           s: GameState,
           self: CharacterId,
@@ -379,6 +406,7 @@ export const ROLE_IMPL: Record<string, {
           description: `You may place 1 :paranoia: on any character in this location.`,
         },
         when: (_s: GameState, _self: CharacterId) => true,
+        selectableTargets: livingCharacterTargetsInAbilityLocations,
         effect: (
           s: GameState,
           self: CharacterId,
