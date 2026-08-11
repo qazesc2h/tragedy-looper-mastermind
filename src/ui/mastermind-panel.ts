@@ -1,11 +1,19 @@
 import { characterDataOf } from "../data";
+import {
+  evaluateStateRuleHypotheses,
+  type EvaluatedRuleCombination,
+  type ProtagonistObservation,
+  type RuleCombination,
+} from "../engine/hypothesis";
 import { incidentFailureReasons, incidentFires } from "../engine/incident";
 import { distanceToLoss } from "../engine/loss";
+import { tragedySetDefinition } from "../tragedy-sets";
 import { characterEntryTiming } from "../types";
 import type {
   CharacterId,
   GameState,
   IncidentFailureReason,
+  PlotId,
   ScheduledIncident,
 } from "../types";
 
@@ -27,6 +35,73 @@ export interface IncidentScheduleRow extends ScheduledIncident {
   judgmentRecorded: boolean;
   /** FAQ Q5의 비공개 등장 정보를 각본가에게만 보여 주는 표기. */
   culpritEntryLabel?: string;
+}
+
+export interface RuleHypothesisObservationImpact {
+  observation: ProtagonistObservation;
+  excludedCount: number;
+}
+
+export interface RuleHypothesisSummary {
+  totalCombinations: number;
+  remainingCombinations: RuleCombination[];
+  evaluatedCombinations: EvaluatedRuleCombination[];
+  mainPlotTotal: number;
+  mainPlotCandidates: PlotId[];
+  subPlotTotal: number;
+  subPlotCandidates: PlotId[];
+  ruleYFixed: boolean;
+  observationImpacts: RuleHypothesisObservationImpact[];
+  showEveryCombination: boolean;
+}
+
+/** 각본가 패널에 필요한 룰 후보와 관측별 순차 배제 수를 계산한다. */
+export function ruleHypothesisSummary(
+  state: GameState,
+): RuleHypothesisSummary {
+  const definition = tragedySetDefinition(state.scenario.tragedySet);
+  const evaluation = evaluateStateRuleHypotheses(state);
+  const remainingMainPlots = new Set(
+    evaluation.remaining.map(({ mainPlot }) => mainPlot),
+  );
+  const remainingSubPlots = new Set(
+    evaluation.remaining.flatMap(({ subPlots }) => subPlots),
+  );
+  const alreadyExcluded = new Set<string>();
+  const observationImpacts = evaluation.observations.flatMap((observation) => {
+    const newlyExcluded = evaluation.combinations.filter(
+      ({ combination, contradictions }) =>
+        !alreadyExcluded.has(combination.id) &&
+        contradictions.some((contradiction) =>
+          contradiction.observation === observation
+        ),
+    );
+    for (const { combination } of newlyExcluded) {
+      alreadyExcluded.add(combination.id);
+    }
+    return newlyExcluded.length === 0
+      ? []
+      : [{ observation, excludedCount: newlyExcluded.length }];
+  });
+  const mainPlotCandidates = definition.mainPlots.filter((plot) =>
+    remainingMainPlots.has(plot)
+  );
+  const subPlotCandidates = definition.subPlots.filter((plot) =>
+    remainingSubPlots.has(plot)
+  );
+
+  return {
+    totalCombinations: evaluation.combinations.length,
+    remainingCombinations: evaluation.remaining,
+    evaluatedCombinations: evaluation.combinations,
+    mainPlotTotal: definition.mainPlots.length,
+    mainPlotCandidates,
+    subPlotTotal: definition.subPlots.length,
+    subPlotCandidates,
+    ruleYFixed: mainPlotCandidates.length === 1,
+    observationImpacts,
+    showEveryCombination: evaluation.combinations.length <= 9,
+  };
 }
 
 function occurrenceFired(

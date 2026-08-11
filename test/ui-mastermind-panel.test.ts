@@ -8,6 +8,7 @@ import {
   incidentScheduleRows,
   incidentScheduleRowsForCharacter,
   lossDistanceSummary,
+  ruleHypothesisSummary,
   spentCardsSummary,
 } from "../src/ui/mastermind-panel";
 import type { GameState, Scenario } from "../src/types";
@@ -162,5 +163,66 @@ describe("mastermind incident schedule", () => {
     state.loop.spentOncePerLoop.mastermind.push("moveVertical");
     state.loop.spentOncePerLoop.protagonists[1].push("goodwillPlus2");
     expect(spentCardsSummary(state)).toBe("각본가 1 · 주인공 0/1/0");
+  });
+});
+
+describe("mastermind rule hypothesis summary", () => {
+  it("shows all 105 basic combinations before any observation narrows them", () => {
+    const summary = ruleHypothesisSummary(createState());
+
+    expect(summary).toMatchObject({
+      totalCombinations: 105,
+      mainPlotTotal: 5,
+      subPlotTotal: 7,
+      ruleYFixed: false,
+      showEveryCombination: false,
+    });
+    expect(summary.remainingCombinations).toHaveLength(105);
+    expect(summary.mainPlotCandidates).toHaveLength(5);
+    expect(summary.subPlotCandidates).toHaveLength(7);
+    expect(summary.observationImpacts).toEqual([]);
+  });
+
+  it("counts newly excluded combinations once in observation order", () => {
+    const state = createState();
+    state.loop.publicInformationThisLoop = [
+      {
+        kind: "roleReveal",
+        character: "girlStudent",
+        role: "brain",
+        loop: 1,
+        day: 1,
+      },
+      {
+        kind: "roleReveal",
+        character: "officeWorker",
+        role: "keyPerson",
+        loop: 1,
+        day: 2,
+      },
+    ];
+
+    const summary = ruleHypothesisSummary(state);
+
+    expect(summary.mainPlotCandidates).toEqual(["murderPlan"]);
+    expect(summary.ruleYFixed).toBe(true);
+    expect(summary.remainingCombinations).toHaveLength(21);
+    expect(summary.observationImpacts.map(({ excludedCount }) => excludedCount))
+      .toEqual([63, 21]);
+    expect(summary.observationImpacts.reduce(
+      (sum, { excludedCount }) => sum + excludedCount,
+      0,
+    )).toBe(summary.totalCombinations - summary.remainingCombinations.length);
+  });
+
+  it("marks the nine-combination firstSteps set for a full list", () => {
+    const state = createState();
+    state.scenario.tragedySet = "firstSteps";
+
+    const summary = ruleHypothesisSummary(state);
+
+    expect(summary.totalCombinations).toBe(9);
+    expect(summary.remainingCombinations).toHaveLength(9);
+    expect(summary.showEveryCombination).toBe(true);
   });
 });

@@ -418,6 +418,112 @@
         await pause();
       }
 
+      async function inspectRuleHypothesisPanels() {
+        let document = frameDocument();
+        let panel = document.querySelector(".rule-hypothesis-information");
+        if (!(panel instanceof frameWindow().HTMLDetailsElement)) {
+          throw new Error("룰 후보 패널을 찾을 수 없습니다.");
+        }
+        const collapsedRect = panel.querySelector(":scope > summary")
+          .getBoundingClientRect();
+        const collapsedText = panel.querySelector(":scope > summary").textContent
+          .replace(/\s+/g, " ").trim();
+        const collapsedReport = {
+          text: collapsedText,
+          rect: {
+            left: collapsedRect.left,
+            right: collapsedRect.right,
+            height: collapsedRect.height,
+          },
+          horizontal: horizontalOverflow(),
+        };
+        reports.push({ label: "기본편 룰 후보 접힘", ...collapsedReport });
+        if (
+          !collapsedText.includes("룰 후보") ||
+          !collapsedText.includes("105 → 105") ||
+          collapsedRect.left < -0.5 ||
+          collapsedRect.right > WIDTH + 0.5 ||
+          collapsedRect.height < 44 ||
+          collapsedReport.horizontal.scrollWidth > WIDTH
+        ) {
+          failures.push(`기본편 룰 후보 접힘: ${JSON.stringify(collapsedReport)}`);
+        }
+
+        mutateActiveState((state) => {
+          state.loop.revealedRoleCharacters = ["doctor", "girlStudent"];
+          state.loop.publicInformationThisLoop = [
+            {
+              kind: "roleReveal",
+              character: "doctor",
+              role: "brain",
+              loop: 1,
+              day: 1,
+            },
+            {
+              kind: "roleReveal",
+              character: "girlStudent",
+              role: "keyPerson",
+              loop: 1,
+              day: 2,
+            },
+          ];
+        });
+        await reloadApp("rule-y-fixed");
+        document = frameDocument();
+        panel = document.querySelector(".rule-hypothesis-information");
+        panel.open = true;
+        panel.scrollIntoView({ block: "start" });
+        await pause(100);
+        const fixedText = panel.textContent.replace(/\s+/g, " ").trim();
+        const fixedReport = {
+          fixedClass: panel.classList.contains("is-rule-y-fixed"),
+          axisCount: panel.querySelectorAll(".hypothesis-axis").length,
+          impactCount: panel.querySelectorAll(".hypothesis-exclusions li").length,
+          text: fixedText,
+          horizontal: horizontalOverflow(),
+        };
+        reports.push({ label: "룰 Y 확정 강조", ...fixedReport });
+        if (
+          !fixedReport.fixedClass ||
+          fixedReport.axisCount !== 2 ||
+          fixedReport.impactCount !== 2 ||
+          !fixedText.includes("룰 Y 후보 5 → 1") ||
+          !fixedText.includes("확정 · 위험") ||
+          !fixedText.includes("관측별 배제") ||
+          fixedReport.horizontal.scrollWidth > WIDTH
+        ) {
+          failures.push(`룰 Y 확정 강조: ${JSON.stringify(fixedReport)}`);
+        }
+
+        await selectScenario("firstSteps:1");
+        document = frameDocument();
+        panel = document.querySelector(".rule-hypothesis-information");
+        panel.open = true;
+        await pause(100);
+        const firstStepsReport = {
+          summary: panel.querySelector(":scope > summary").textContent
+            .replace(/\s+/g, " ").trim(),
+          combinationCount: panel.querySelectorAll(
+            ".hypothesis-combinations li",
+          ).length,
+          hasNestedList: Boolean(
+            panel.querySelector(".hypothesis-combinations-nested"),
+          ),
+          horizontal: horizontalOverflow(),
+        };
+        reports.push({ label: "입문편 룰 후보 전체 목록", ...firstStepsReport });
+        if (
+          !firstStepsReport.summary.includes("9 → 9") ||
+          firstStepsReport.combinationCount !== 9 ||
+          firstStepsReport.hasNestedList ||
+          firstStepsReport.horizontal.scrollWidth > WIDTH
+        ) {
+          failures.push(`입문편 룰 후보 전체 목록: ${JSON.stringify(firstStepsReport)}`);
+        }
+
+        await selectScenario("basicTragedy:1");
+      }
+
       async function inspectScrollableModalBodies() {
         mutateActiveState((state) => {
           state.gamePhase = "ROUND";
@@ -579,6 +685,7 @@
 
       async function run() {
         await enterRound();
+        await inspectRuleHypothesisPanels();
 
         const starts = {
           patient: "Hospital",

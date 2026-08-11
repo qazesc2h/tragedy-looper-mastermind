@@ -25,7 +25,10 @@ import {
 import { validatePlacement } from "../engine/legal";
 import { distanceToLoss, setOptionalLossActivation } from "../engine/loss";
 import { intrigueForbidActive } from "../engine/movement";
-import { publicBoardChanges } from "../engine/hypothesis";
+import {
+  publicBoardChanges,
+  type ProtagonistObservation,
+} from "../engine/hypothesis";
 import { collectHooks } from "../engine/phases";
 import { recordPhaseLog } from "../engine/phase-log";
 import {
@@ -105,6 +108,7 @@ import {
   incidentScheduleRows,
   incidentScheduleRowsForCharacter,
   lossDistanceSummary,
+  ruleHypothesisSummary,
   spentCardsSummary,
   type IncidentScheduleRow,
 } from "./mastermind-panel";
@@ -2454,11 +2458,143 @@ function renderIncidentSchedule(state: GameState): string {
   </section>`;
 }
 
+function observedCounterLabel(
+  counter: IncidentCounter | "protection",
+): string {
+  return counter === "protection" ? "보호" : counterLabel(counter);
+}
+
+function mastermindAbilityObservationLabel(
+  observation: Extract<
+    ProtagonistObservation,
+    { kind: "mastermindAbilityResult" }
+  >,
+): string {
+  const changeLabels = observation.changes.map((change) => {
+    if (change.kind === "counter") {
+      const delta = change.delta > 0 ? `+${change.delta}` : String(change.delta);
+      return `${targetLabel(change.target)} ${observedCounterLabel(change.counter)}${delta}`;
+    }
+    if (change.kind === "movement") {
+      return `${characterName(change.character)} ${locationName(change.from)} → ${locationName(change.to)}`;
+    }
+    return `${characterName(change.character)} ${change.to === "dead" ? "사망" : change.to === "alive" ? "생존" : "미등장"}`;
+  });
+  return `각본가 능력 결과 · ${changeLabels.join(" · ")}`;
+}
+
+function hypothesisObservationLabel(
+  observation: ProtagonistObservation,
+): string {
+  switch (observation.kind) {
+    case "roleRevealed":
+      return `${characterName(observation.character)} = ${roleName(observation.role)} 공개`;
+    case "goodwillRefused":
+      return `${characterName(observation.character)} 우호 능력 거부`;
+    case "subplotRevealed":
+      return `정보원 룰 X 공개 · ${plotName(observation.revealedSubplot)}`;
+    case "mastermindAbilityResult":
+      return mastermindAbilityObservationLabel(observation);
+    case "incidentOccurred":
+      return `${observation.day}일 ${incidentName(observation.incident)} · ${observation.occurred ? "발생" : "미발생"}`;
+    case "incidentCulpritRevealed":
+      return `${incidentName(observation.incident)} 범인 공개 · ${characterName(observation.culprit)}`;
+    case "lossObserved":
+      return `${observation.loop}루프 ${observation.day}일 주인공 패배`;
+    case "goodwillIncidentEffect":
+      return `${observation.day}일 ${incidentName(observation.incident)} 효과 해결`;
+  }
+}
+
+function ruleCombinationLabel(
+  mainPlot: string,
+  subPlots: readonly string[],
+): string {
+  return `${plotName(mainPlot)} + ${subPlots.map(plotName).join(" / ")}`;
+}
+
+function renderRuleHypotheses(state: GameState): string {
+  const summary = ruleHypothesisSummary(state);
+  const remainingCount = summary.remainingCombinations.length;
+  const mainCandidateNames = summary.mainPlotCandidates.map(plotName);
+  const subCandidateNames = summary.subPlotCandidates.map(plotName);
+  const remainingList = summary.remainingCombinations.map((combination) => `
+    <li>
+      <span>${escapeHtml(ruleCombinationLabel(
+        combination.mainPlot,
+        combination.subPlots,
+      ))}</span>
+      <b>남음</b>
+    </li>`).join("");
+  const combinationList = summary.showEveryCombination
+    ? `<section class="hypothesis-combinations">
+        <h3>전체 조합 ${summary.totalCombinations}개</h3>
+        <ul>${summary.evaluatedCombinations.map(({ combination, excluded }) => `
+          <li class="${excluded ? "is-excluded" : ""}">
+            <span>${escapeHtml(ruleCombinationLabel(
+              combination.mainPlot,
+              combination.subPlots,
+            ))}</span>
+            <b>${excluded ? "배제" : "남음"}</b>
+          </li>`).join("")}</ul>
+      </section>`
+    : `<details class="hypothesis-combinations hypothesis-combinations-nested">
+        <summary>남은 조합 ${remainingCount}개 보기</summary>
+        <ul>${remainingList}</ul>
+      </details>`;
+
+  return `
+    <details class="info-accordion compact-information rule-hypothesis-information ${
+      summary.ruleYFixed ? "is-rule-y-fixed" : ""
+    }">
+      <summary>
+        <strong>룰 후보</strong>
+        <span class="accordion-summary-value">
+          ${summary.totalCombinations} → ${remainingCount}
+          ${summary.ruleYFixed ? `<b>룰 Y 확정</b>` : ""}
+        </span>
+        <i aria-hidden="true"></i>
+      </summary>
+      <div class="info-accordion-body hypothesis-body">
+        <section class="hypothesis-axis ${summary.ruleYFixed ? "is-danger" : ""}">
+          <div>
+            <span>룰 Y 후보</span>
+            <strong>${summary.mainPlotTotal} → ${summary.mainPlotCandidates.length}</strong>
+            ${summary.ruleYFixed ? `<em>확정 · 위험</em>` : ""}
+          </div>
+          <p>${escapeHtml(mainCandidateNames.join(" / ") || "후보 없음")}</p>
+        </section>
+        <section class="hypothesis-axis">
+          <div>
+            <span>룰 X 후보</span>
+            <strong>${summary.subPlotTotal} → ${summary.subPlotCandidates.length}</strong>
+          </div>
+          <p>${escapeHtml(subCandidateNames.join(" / ") || "후보 없음")}</p>
+        </section>
+        <div class="hypothesis-combination-count">
+          <span>조합</span><strong>${remainingCount}개</strong>
+        </div>
+        ${combinationList}
+        <section class="hypothesis-exclusions">
+          <h3>관측별 배제</h3>
+          ${summary.observationImpacts.length === 0
+            ? `<p class="empty-overlay">아직 후보를 배제한 관측이 없습니다.</p>`
+            : `<ul>${summary.observationImpacts.map(({ observation, excludedCount }) => `
+                <li>
+                  <span>${escapeHtml(hypothesisObservationLabel(observation))}</span>
+                  <strong>→ ${excludedCount}개 배제</strong>
+                </li>`).join("")}</ul>`}
+        </section>
+      </div>
+    </details>`;
+}
+
 function renderMastermindOverlay(state: GameState): string {
   if (!tracker.mastermindOverlay) return "";
   return `
     <aside class="mastermind-overlay" aria-label="각본가 정보">
       ${renderLoopStartInformation(state)}
+      ${renderRuleHypotheses(state)}
       <details class="info-accordion today-information" open>
         <summary>
           <span><small>오늘</small><strong>사건·범인·판정 상태</strong></span>
@@ -2504,23 +2640,38 @@ function renderMastermindOverlay(state: GameState): string {
 }
 
 function renderPublicInformation(state: GameState): string {
-  const roleItems = (state.loop.revealedRoleCharacters ?? []).map(
-    (character) =>
-      `${characterName(character)}의 역할: ${roleName(effectiveRole(state, character))}`,
+  const exactRoleReveals = (state.loop.publicInformationThisLoop ?? []).filter(
+    (information) => information.kind === "roleReveal",
   );
-  const informationItems = (state.loop.publicInformationThisLoop ?? []).map(
-    (information) => {
+  const exactRoleCharacters = new Set(
+    exactRoleReveals.map(({ character }) => character),
+  );
+  const roleItems = [
+    ...exactRoleReveals.map(({ character, role }) =>
+      `${characterName(character)}의 역할: ${roleName(role)}`
+    ),
+    ...(state.loop.revealedRoleCharacters ?? [])
+      .filter((character) => !exactRoleCharacters.has(character))
+      .map((character) =>
+        `${characterName(character)}의 역할: ${roleName(effectiveRole(state, character))}`
+      ),
+  ];
+  const informationItems = (state.loop.publicInformationThisLoop ?? []).flatMap(
+    (information): string[] => {
       switch (information.kind) {
+        case "roleReveal":
+        case "goodwillRefusal":
+          return [];
         case "incidentCulprit":
-          return `${characterName(information.source)}: ${misc("Day")} ${information.day} · ` +
-            `${incidentName(information.incident)}의 범인은 ${characterName(information.culprit)}`;
+          return [`${characterName(information.source)}: ${misc("Day")} ${information.day} · ` +
+            `${incidentName(information.incident)}의 범인은 ${characterName(information.culprit)}`];
         case "subplot":
-          return `리더 선언: ${plotName(information.declaredSubplot)} / ` +
-            `각본가 공개: ${plotName(information.revealedSubplot)}`;
+          return [`리더 선언: ${plotName(information.declaredSubplot)} / ` +
+            `각본가 공개: ${plotName(information.revealedSubplot)}`];
         case "incidentEffect":
-          return `${misc("Day")} ${information.day} · ${incidentName(information.incident)}를 ` +
+          return [`${misc("Day")} ${information.day} · ${incidentName(information.incident)}를 ` +
             `${characterName(information.culprit)}이(가) 범인인 것으로 효과 해결` +
-            (information.effectApplied ? "" : " (적용된 효과 없음)");
+            (information.effectApplied ? "" : " (적용된 효과 없음)")];
       }
     },
   );
