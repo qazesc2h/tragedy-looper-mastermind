@@ -552,6 +552,25 @@
           () => frameDocument().querySelector("[data-action='start-selected-scenario']"),
           "아웃사이더 시나리오 선택 화면",
         );
+        changeSelect("[data-new-game-scenario]", "basicTragedy:12");
+        const errataNotice = await waitFor(
+          () => frameDocument().querySelector(".scenario-errata-notice"),
+          "정오표 적용 안내",
+        );
+        assert(
+          frameDocument().querySelector(".scenario-source-summary")
+            ?.textContent?.includes("정오표 적용됨") &&
+            errataNotice.textContent?.includes("정보원 역할") &&
+            errataNotice.textContent.includes("선동가 → 엑스트라") &&
+            errataNotice.textContent.includes("사용자 실물 확인"),
+          `Those with Antibodies 정오표 안내: ${errataNotice.textContent}`,
+        );
+        assert(
+          !frameDocument().querySelector("[data-action='start-selected-scenario']")
+            ?.disabled,
+          "정오표 적용 공식 시나리오의 게임 시작 버튼이 비활성임",
+        );
+
         changeSelect("[data-new-game-scenario]", "basicTragedy:18");
         const invalidFanWarning = await waitFor(
           () => frameDocument().querySelector(".scenario-validation-warning"),

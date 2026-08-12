@@ -6,6 +6,12 @@
 
 ## 해결됨
 
+### Q3. 공식 각본 `Those with Antibodies`의 선동가 2명 배정
+- 원본 인쇄: `richStudent`와 `informer`가 모두 `conspiracyTheorist`로 적혀 있어, `paranoiaVirus`가 추가하는 1명과 선동가 최대 인원 1명을 초과한다.
+- 정오표: `informer`의 역할을 `person`으로 정정한다.
+- 근거: 원본 각본 카드가 잘못 인쇄되었고 게임사가 뒤에 정오표로 바로잡았음을 사용자가 실물로 확인했다.
+- 판정: upstream 데이터는 원본 인쇄물을 충실히 옮긴 것이므로 데이터 오류로 고치지 않는다. `data/errata.json`의 정오표 오버레이를 파싱 후·검증 전에 적용한다.
+
 ### 아웃사이더 — 엑스트라 배정 불가
 - source: "Always has a role not associated with current plot."
 - 확정: 아웃사이더는 엑스트라를 맡을 수 없다. 반드시 참극 세트의 역할 중 현재 시나리오의 룰에 쓰이지 않은 역할을 맡는다.

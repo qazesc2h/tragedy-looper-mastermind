@@ -10,6 +10,7 @@ import {
   validateScenario,
   type ScenarioValidationResult,
 } from "./engine/validate";
+import { scenarioErrataFor, type ScenarioErratum } from "./errata";
 import type { Scenario } from "./types";
 
 export type ScenarioSource = "official" | "community" | "unknown";
@@ -26,6 +27,7 @@ export interface ScenarioCatalogEntry {
   difficulties: readonly ScenarioDifficultyOption[];
   source: ScenarioSource;
   validation: ScenarioValidationResult;
+  errata: readonly ScenarioErratum[];
 }
 
 const SCENARIO_SOURCES: readonly ScenarioSource[] = [
@@ -92,6 +94,7 @@ function buildScenarioCatalog(): ScenarioCatalogEntry[] {
         (difficulty): ScenarioDifficultyOption => {
           const scenario = adaptTragedyScript(raw, {
             difficultyIndex: difficulty.index,
+            scenarioId: id,
             skipValidation: true,
           });
           return {
@@ -111,6 +114,7 @@ function buildScenarioCatalog(): ScenarioCatalogEntry[] {
         scenario: defaultDifficulty.scenario,
         difficulties,
         source,
+        errata: scenarioErrataFor(id),
         validation: defaultDifficulty.validation,
       };
     }),

@@ -1,0 +1,14 @@
+{
+  "_note": "게임사 정오표. 원본 인쇄물의 오류를 정정한 내용. upstream 데이터는 원본을 충실히 옮긴 것이므로 여기서 덮어쓴다.",
+  "corrections": [
+    {
+      "scenario": "basicTragedy:12",
+      "title": "Those with Antibodies",
+      "field": "cast.informer",
+      "printed": "conspiracyTheorist",
+      "corrected": "person",
+      "source": "게임사 정오표",
+      "verifiedBy": "사용자 실물 확인"
+    }
+  ]
+}

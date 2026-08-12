@@ -1,4 +1,5 @@
 import { LOCATIONS } from "../types";
+import { applyScenarioErrataToLoadedScenario } from "../errata";
 import type { GameState, Location, LoopState, Phase } from "../types";
 
 export const TRACKER_STORAGE_KEY = "tragedy-looper-mastermind:tracker";
@@ -229,9 +230,18 @@ function restoreTrackerStore(
       if (defaults === undefined) {
         throw new Error(`tracker.games.${scenarioId} is unknown`);
       }
+      const restoredGame = restoreStoredGame(
+        defaults,
+        game,
+        `tracker.games.${scenarioId}`,
+      );
+      applyScenarioErrataToLoadedScenario(
+        scenarioId,
+        restoredGame.state.scenario,
+      );
       return [
         scenarioId,
-        restoreStoredGame(defaults, game, `tracker.games.${scenarioId}`),
+        restoredGame,
       ];
     }),
   );

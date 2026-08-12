@@ -1,5 +1,6 @@
 import charactersJson from "../../data/characters.json";
 import { PLOT_IMPL } from "../impl/plots";
+import { ROLE_IMPL } from "../impl/roles";
 import {
   rolesForTragedySet,
   TRAGEDY_SETS,
@@ -12,6 +13,7 @@ interface ValidationCharacterData {
   en?: unknown;
   ko?: unknown;
   tags?: unknown;
+  plotLessRole?: unknown;
 }
 
 export interface ScenarioValidationResult {
@@ -171,6 +173,51 @@ function validateHideousScript(scenario: Scenario): string[] {
     : [`최악의 시나리오: 골칫거리는 0~2명이어야 합니다. 현재 ${count}명입니다.`];
 }
 
+function maximumAddedRoleCounts(scenario: Scenario): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const plot of activePlots(scenario)) {
+    for (const [role, rawCount] of Object.entries(
+      PLOT_IMPL[plot]?.addsRoles ?? {},
+    )) {
+      const addedMaximum = Array.isArray(rawCount) ? rawCount[1] : rawCount;
+      const summed = (counts.get(role) ?? 0) + addedMaximum;
+      counts.set(role, Math.min(
+        summed,
+        ROLE_IMPL[role]?.max ?? Number.POSITIVE_INFINITY,
+      ));
+    }
+  }
+  return counts;
+}
+
+function validateRoleCounts(
+  scenario: Scenario,
+  definition: TragedySetDefinition,
+): string[] {
+  const rolePool = new Set(rolesForTragedySet(definition.id));
+  const allowed = maximumAddedRoleCounts(scenario);
+  const actual = new Map<string, number>();
+  for (const [character, role] of Object.entries(scenario.cast)) {
+    // 모방자는 최대 인원을 무시해 역할을 복제하고, 아웃사이더는 활성 룰 외
+    // 역할을 맡는다. 둘 다 룰이 공급하는 역할 정원에는 포함하지 않는다.
+    if (characters[character]?.plotLessRole === true || role === "person") {
+      continue;
+    }
+    if (!rolePool.has(role)) continue;
+    actual.set(role, (actual.get(role) ?? 0) + 1);
+  }
+
+  return [...actual.entries()].flatMap(([role, count]) => {
+    const limit = allowed.get(role) ?? 0;
+    if (count <= limit) return [];
+    const roleName = ROLE_IMPL[role]?.ko ?? role;
+    return [
+      `역할 수: ${roleName} 역할은 선택된 룰에서 최대 ${limit}명까지 ` +
+        `배정할 수 있지만 현재 ${count}명입니다.`,
+    ];
+  });
+}
+
 function metadataValueLabel(value: unknown): string {
   return value === undefined ? "없음" : JSON.stringify(value);
 }
@@ -230,6 +277,7 @@ export function validateScenario(
     ...validateSignWithMe(scenario),
     ...validateAiRole(scenario),
     ...validateMysteryBoyRole(scenario, definition),
+    ...validateRoleCounts(scenario, definition),
     ...validateHideousScript(scenario),
     ...validateBossTurf(scenario),
     ...validateEntryTiming(

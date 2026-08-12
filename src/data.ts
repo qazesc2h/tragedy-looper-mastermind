@@ -3,6 +3,7 @@ import charactersJson from "../data/characters.json";
 import firstStepsScriptsJson from "../data/first-steps-scripts.json";
 import goodwillAbilitiesJson from "../data/goodwill-abilities.json";
 import { validateScenario } from "./engine/validate";
+import { applyScenarioErrata } from "./errata";
 
 import type {
   CharacterId,
@@ -34,6 +35,8 @@ export interface GoodwillAbilityData {
 }
 
 export interface ScenarioAdapterOptions {
+  /** 번들 각본 ID. 주어지면 검증 전에 정오표 오버레이를 적용한다. */
+  scenarioId?: string;
   /** difficultySets에서 사용할 항목. 원본에 적힌 첫 항목이 기본값이다. */
   difficultyIndex?: number;
   /** 원본 각본 메타데이터를 테스트·도구에서 덮어쓸 때 사용한다. */
@@ -361,6 +364,9 @@ export function adaptTragedyScript(
     scriptSpecified:
       Object.keys(scriptSpecified).length > 0 ? scriptSpecified : undefined,
   };
+  if (options.scenarioId !== undefined) {
+    applyScenarioErrata(options.scenarioId, title, scenario);
+  }
   if (options.skipValidation !== true) {
     const validation = validateScenario(scenario);
     if (!validation.ok) {
@@ -379,15 +385,21 @@ const rawFirstStepsScripts: readonly unknown[] = firstStepsScriptsJson;
 export function loadBasicTragedyScenarios(
   options: ScenarioAdapterOptions = {},
 ): Scenario[] {
-  return rawBasicTragedyScripts.map((script) =>
-    adaptTragedyScript(script, options)
+  return rawBasicTragedyScripts.map((script, index) =>
+    adaptTragedyScript(script, {
+      ...options,
+      scenarioId: `basicTragedy:${index + 1}`,
+    })
   );
 }
 
 export function loadFirstStepsScenarios(
   options: ScenarioAdapterOptions = {},
 ): Scenario[] {
-  return rawFirstStepsScripts.map((script) =>
-    adaptTragedyScript(script, options)
+  return rawFirstStepsScripts.map((script, index) =>
+    adaptTragedyScript(script, {
+      ...options,
+      scenarioId: `firstSteps:${index + 1}`,
+    })
   );
 }

@@ -355,6 +355,15 @@ function createGame(entry: ScenarioEntry, difficultyIndex = 0): GameState {
   return createGameState(scenario);
 }
 
+function scenarioErrataLines(entry: ScenarioEntry): string[] {
+  return entry.errata.map((correction) => {
+    const character = correction.field.slice("cast.".length);
+    return `${characterName(character)} 역할: ` +
+      `${roleName(correction.printed)} → ${roleName(correction.corrected)} ` +
+      `· ${correction.source} · ${correction.verifiedBy}`;
+  });
+}
+
 function saveState(
   scenarioId: string,
   state: GameState,
@@ -3022,7 +3031,7 @@ function renderScenarioSelection(): void {
             <select data-new-game-scenario
               data-ui-draft-key="${scenarioDraftKey}">
               ${scenarioEntries.map((entry) => `
-                <option value="${entry.id}" ${selectedScenario === entry.id ? "selected" : ""}>${escapeHtml(entry.title)} · ${escapeHtml(scenarioSourceLabel(entry.source))}${entry.validation.ok ? "" : " · 시작 불가"}</option>`).join("")}
+                <option value="${entry.id}" ${selectedScenario === entry.id ? "selected" : ""}>${escapeHtml(entry.title)} · ${escapeHtml(scenarioSourceLabel(entry.source))}${entry.errata.length > 0 ? " · 정오표 적용" : ""}${entry.validation.ok ? "" : " · 시작 불가"}</option>`).join("")}
             </select>
           </label>
           ${selectedEntry === undefined || selectedEntry.difficulties.length < 2
@@ -3044,7 +3053,17 @@ function renderScenarioSelection(): void {
                 ${selectedDifficulty === undefined
                   ? ""
                   : ` · ${selectedDifficulty.numberOfLoops}루프 · ${selectedDifficulty.difficulty === 0 ? "난이도 미확인" : `난이도 ${selectedDifficulty.difficulty}`}`}
+                ${selectedEntry.errata.length > 0 ? " · 정오표 적용됨" : ""}
               </p>`}
+          ${selectedEntry === undefined || selectedEntry.errata.length === 0
+            ? ""
+            : `<aside class="scenario-trait-notice scenario-errata-notice">
+                <span class="eyebrow">정오표 적용됨</span>
+                <strong>인쇄물과 다른 정정값을 사용합니다.</strong>
+                ${scenarioErrataLines(selectedEntry).map((line) =>
+                  `<p>${escapeHtml(line)}</p>`
+                ).join("")}
+              </aside>`}
           ${mysteryBoyRole === undefined
             ? ""
             : `<aside class="scenario-trait-notice">
@@ -3124,7 +3143,7 @@ function render(): void {
               ${scenarioEntries.map((candidate) => `
                 <option value="${candidate.id}" ${candidate.id === entry.id ? "selected" : ""}
                   ${candidate.validation.ok ? "" : "disabled"}>
-                  ${escapeHtml(candidate.title)} · ${escapeHtml(scenarioSourceLabel(candidate.source))}${candidate.validation.ok ? "" : " · 시작 불가"}
+                  ${escapeHtml(candidate.title)} · ${escapeHtml(scenarioSourceLabel(candidate.source))}${candidate.errata.length > 0 ? " · 정오표 적용" : ""}${candidate.validation.ok ? "" : " · 시작 불가"}
                 </option>`).join("")}
             </select>
           </label>
@@ -3134,6 +3153,9 @@ function render(): void {
             ${state.scenario.difficulty === undefined
               ? ""
               : `<small>${state.scenario.difficulty === 0 ? "난이도 미확인" : `난이도 ${state.scenario.difficulty}`}</small>`}
+            ${entry.errata.length > 0
+              ? `<small class="scenario-errata-badge" title="${escapeHtml(scenarioErrataLines(entry).join(" / "))}">정오표 적용됨</small>`
+              : ""}
             ${state.loop.loop > state.scenario.loops
               ? `<small>추가 루프 (하우스 룰)</small>`
               : ""}

@@ -61,6 +61,10 @@ describe("validateScenario", () => {
     const scenario = structuredClone(source);
     scenario.mainPlot = "murderPlan";
     scenario.subPlots = ["loveAffair", "unsettlingRumor"];
+    for (const character of Object.keys(scenario.cast)) {
+      scenario.cast[character] = "person";
+    }
+    if ("ai" in scenario.cast) scenario.cast.ai = "killer";
     scenario.cast.mysteryBoy = "keyPerson";
 
     expect(validateScenario(scenario)).toEqual({
@@ -78,6 +82,10 @@ describe("validateScenario", () => {
     const scenario = structuredClone(source);
     scenario.mainPlot = "murderPlan";
     scenario.subPlots = ["loveAffair", "unsettlingRumor"];
+    for (const character of Object.keys(scenario.cast)) {
+      scenario.cast[character] = "person";
+    }
+    if ("ai" in scenario.cast) scenario.cast.ai = "killer";
     scenario.cast.mysteryBoy = "witch";
 
     expect(validateScenario(scenario)).toEqual({ ok: true, errors: [] });
@@ -175,7 +183,8 @@ describe("validateScenario", () => {
 
   it("accepts AI assigned a non-person role", () => {
     const scenario = structuredClone(scenarios[0]);
-    scenario.cast.ai = "brain";
+    scenario.cast.informer = "person";
+    scenario.cast.ai = "serialKiller";
 
     expect(validateScenario(scenario)).toEqual({ ok: true, errors: [] });
   });

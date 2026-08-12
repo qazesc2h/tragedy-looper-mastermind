@@ -188,6 +188,13 @@ select {
   color: var(--ink-dim);
 }
 
+.round-status .scenario-errata-badge {
+  border: 1px solid #8b6e37;
+  border-radius: 999px;
+  padding: 2px 7px;
+  color: #f4d68d;
+}
+
 .session-actions {
   display: flex;
   grid-column: 1 / -1;
@@ -1251,6 +1258,15 @@ select {
 
 .scenario-validation-warning .eyebrow {
   color: #efaaa0;
+}
+
+.scenario-errata-notice {
+  border-color: #8b6e37;
+  background: #282116;
+}
+
+.scenario-errata-notice .eyebrow {
+  color: #f4d68d;
 }
 
 .character-trait-information h3 {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { initLoop } from "../src/engine/setup";
+import { loadBasicTragedyScenarioCatalog } from "../src/scenario-catalog";
 import {
   APP_STORAGE_PREFIX,
   clearAppStorage,
@@ -72,6 +73,27 @@ function storedGameDefaults(scenarioId: string): StoredGame | undefined {
   if (scenarioId !== "basicTragedy:1") return undefined;
   return {
     state: state(),
+    observationsByLoop: {},
+    updatedAt: new Date(0).toISOString(),
+  };
+}
+
+function antibodiesDefaults(scenarioId: string): StoredGame | undefined {
+  if (scenarioId !== "basicTragedy:12") return undefined;
+  const entry = loadBasicTragedyScenarioCatalog().find(
+    ({ id }) => id === scenarioId,
+  );
+  if (entry === undefined) throw new Error("missing antibodies scenario");
+  const scenario = entry.scenario;
+  return {
+    state: {
+      scenario,
+      gamePhase: "ROUND",
+      loop: initLoop(scenario),
+      history: [],
+      loopOutcomes: [],
+      extraLoopsPlayed: 0,
+    },
     observationsByLoop: {},
     updatedAt: new Date(0).toISOString(),
   };
@@ -284,6 +306,24 @@ describe("UI localStorage snapshots", () => {
       .toEqual([]);
     expect(restored.games["basicTragedy:1"].state.loopOutcomes).toEqual([]);
     expect(restored.games["basicTragedy:1"].state.extraLoopsPlayed).toBe(0);
+  });
+
+  it("applies scenario errata when restoring a save made from printed data", () => {
+    const storage = new MemoryStorage();
+    const defaults = antibodiesDefaults("basicTragedy:12");
+    if (defaults === undefined) throw new Error("missing test defaults");
+    const printed = structuredClone(defaults);
+    printed.state.scenario.cast.informer = "conspiracyTheorist";
+    storage.setItem(TRACKER_STORAGE_KEY, JSON.stringify({
+      activeScenarioId: "basicTragedy:12",
+      mastermindOverlay: true,
+      games: { "basicTragedy:12": printed },
+    }));
+
+    const restored = loadTrackerStore(storage, antibodiesDefaults);
+
+    expect(restored.games["basicTragedy:12"].state.scenario.cast.informer)
+      .toBe("person");
   });
 
 });
