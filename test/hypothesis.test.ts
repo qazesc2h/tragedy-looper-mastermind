@@ -50,7 +50,7 @@ function basicState(id: string): GameState {
 function roleRevealed(
   character: string,
   role: string,
-): ProtagonistObservation {
+): Extract<ProtagonistObservation, { kind: "roleRevealed" }> {
   return { kind: "roleRevealed", loop: 1, character, role };
 }
 
@@ -109,6 +109,28 @@ function roundEndDeathObservation(
       character: deadCharacter,
       from: "alive",
       to: "dead",
+    }],
+    context: boardObservationContext(characters),
+  };
+}
+
+function locationIntrigueObservation(
+  loop: number,
+  characters: NonNullable<PublicObservationContext["characters"]>,
+): Extract<
+  ProtagonistObservation,
+  { kind: "mastermindAbilityResult" }
+> {
+  return {
+    kind: "mastermindAbilityResult",
+    loop,
+    day: 3,
+    timing: "P5_MASTERMIND_ABILITY",
+    changes: [{
+      kind: "counter",
+      target: { kind: "location", at: "Hospital" },
+      counter: "intrigue",
+      delta: 1,
     }],
     context: boardObservationContext(characters),
   };
@@ -255,6 +277,195 @@ describe("firstSteps hypothesis filtering", () => {
   });
 });
 
+describe("cross-observation role causes", () => {
+  const firstLoop = locationIntrigueObservation(1, {
+    doctor: publicCharacter("Hospital"),
+    patient: publicCharacter("Hospital"),
+  });
+  const secondLoop = locationIntrigueObservation(2, {
+    doctor: publicCharacter("Hospital"),
+    patient: publicCharacter("School"),
+  });
+  const thirdLoop = locationIntrigueObservation(3, {
+    doctor: publicCharacter("School"),
+    patient: publicCharacter("Hospital"),
+  });
+
+  it("forces unsettlingRumor when no single brain can explain every loop", () => {
+    expect(evaluateRuleHypotheses(
+      "firstSteps",
+      [firstLoop, secondLoop],
+    ).remaining).toHaveLength(7);
+
+    const evaluation = evaluateRuleHypotheses(
+      "firstSteps",
+      [firstLoop, secondLoop, thirdLoop],
+    );
+    expect(evaluation.remaining).toHaveLength(3);
+    expect(evaluation.remaining.every(({ subPlots }) =>
+      subPlots.includes("unsettlingRumor")
+    )).toBe(true);
+    expect(evaluation.excluded.some(({ contradictions }) =>
+      contradictions.some(({ code, observation }) =>
+        code === "crossObservationRoleUnavailable" &&
+        observation === thirdLoop
+      )
+    )).toBe(true);
+  });
+
+  it("treats an empty location as the empty-candidate special case", () => {
+    const emptyHospital = locationIntrigueObservation(2, {
+      doctor: publicCharacter("School"),
+      patient: publicCharacter("School"),
+    });
+    const evaluation = evaluateRuleHypotheses("firstSteps", [emptyHospital]);
+
+    expect(evaluation.remaining).toHaveLength(3);
+    expect(evaluation.remaining.every(({ subPlots }) =>
+      subPlots.includes("unsettlingRumor")
+    )).toBe(true);
+  });
+
+  it("does not spend unsettlingRumor twice in the same loop", () => {
+    const evaluation = evaluateRuleHypotheses("firstSteps", [
+      locationIntrigueObservation(1, {
+        doctor: publicCharacter("Hospital"),
+        patient: publicCharacter("School"),
+      }),
+      locationIntrigueObservation(1, {
+        doctor: publicCharacter("School"),
+        patient: publicCharacter("Hospital"),
+      }),
+    ]);
+
+    expect(evaluation.remaining).toHaveLength(2);
+    expect(evaluation.remaining.every(({ mainPlot, subPlots }) =>
+      mainPlot !== "placeProtect" && subPlots.includes("unsettlingRumor")
+    )).toBe(true);
+  });
+
+  it("includes the boss turf in a role cause candidate set", () => {
+    const turfState = publicCharacter("City");
+    turfState.abilityLocations = ["City", "Hospital"];
+    const evaluation = evaluateRuleHypotheses("firstSteps", [
+      locationIntrigueObservation(1, { boss: turfState }),
+    ]);
+
+    expect(evaluation.remaining).toHaveLength(7);
+  });
+
+  it("lets later exact role reveals narrow an earlier cause set", () => {
+    const observations: ProtagonistObservation[] = [
+      firstLoop,
+      roleRevealed("doctor", "person"),
+      roleRevealed("patient", "person"),
+    ];
+    const evaluation = evaluateRuleHypotheses("firstSteps", observations);
+
+    expect(evaluation.remaining).toHaveLength(3);
+    expect(evaluation.remaining.every(({ subPlots }) =>
+      subPlots.includes("unsettlingRumor")
+    )).toBe(true);
+    expect(evaluation.excluded.some(({ contradictions }) =>
+      contradictions.some(({ code, observation }) =>
+        code === "crossObservationRoleUnavailable" &&
+        observation === observations[2]
+      )
+    )).toBe(true);
+  });
+
+  it("does not use a legacy reconstructed role as confirmed evidence", () => {
+    const evaluation = evaluateRuleHypotheses("firstSteps", [
+      firstLoop,
+      { ...roleRevealed("doctor", "person"), confirmed: false },
+      { ...roleRevealed("patient", "person"), confirmed: false },
+    ]);
+
+    expect(evaluation.remaining).toHaveLength(7);
+  });
+
+  it("clamps two plotted conspiracy theorists to the role maximum of one", () => {
+    const targetReveal = roleRevealed("girlStudent", "person");
+    const paranoiaAt = (
+      loop: number,
+      actor: CharacterId,
+    ): ProtagonistObservation => ({
+      kind: "mastermindAbilityResult",
+      loop,
+      day: 1,
+      timing: "P5_MASTERMIND_ABILITY",
+      changes: [{
+        kind: "counter",
+        target: { kind: "character", id: "girlStudent" },
+        counter: "paranoia",
+        delta: 1,
+      }],
+      context: boardObservationContext({
+        girlStudent: publicCharacter("Hospital"),
+        doctor: publicCharacter(actor === "doctor" ? "Hospital" : "School"),
+        patient: publicCharacter(actor === "patient" ? "Hospital" : "School"),
+      }),
+    });
+    const evaluation = evaluateRuleHypotheses("basicTragedy", [
+      targetReveal,
+      paranoiaAt(1, "doctor"),
+      paranoiaAt(2, "patient"),
+    ]);
+    const doubleAddition = evaluation.combinations.find(({ combination }) =>
+      combination.mainPlot === "murderPlan" &&
+      combination.subPlots.includes("circleFriends") &&
+      combination.subPlots.includes("paranoiaVirus")
+    );
+
+    expect(doubleAddition?.excluded).toBe(true);
+    expect(doubleAddition?.contradictions.some(({ code }) =>
+      code === "crossObservationRoleUnavailable"
+    )).toBe(true);
+  });
+
+  it("requires one fixed serial killer across repeated P9 pair deaths", () => {
+    const firstDeath = roundEndDeathObservation({
+      shrineMaiden: publicCharacter("Shrine"),
+      doctor: publicCharacter("Shrine"),
+      patient: publicCharacter("School"),
+    });
+    const secondDeath = {
+      ...roundEndDeathObservation({
+        shrineMaiden: publicCharacter("Shrine"),
+        doctor: publicCharacter("School"),
+        patient: publicCharacter("Shrine"),
+      }),
+      loop: 2,
+    };
+
+    expect(evaluateRuleHypotheses(
+      "basicTragedy",
+      [firstDeath, secondDeath],
+    ).remaining).toHaveLength(0);
+  });
+
+  it("requires the same key person across repeated killer deaths", () => {
+    const firstDeath = roundEndDeathObservation({
+      shrineMaiden: publicCharacter("Shrine", 2),
+      doctor: publicCharacter("Shrine"),
+      patient: publicCharacter("Shrine"),
+    });
+    const secondDeath = {
+      ...roundEndDeathObservation({
+        patient: publicCharacter("Shrine", 2),
+        doctor: publicCharacter("Shrine"),
+        shrineMaiden: publicCharacter("Shrine"),
+      }, "patient"),
+      loop: 2,
+    };
+
+    expect(evaluateRuleHypotheses(
+      "basicTragedy",
+      [firstDeath, secondDeath],
+    ).remaining).toHaveLength(0);
+  });
+});
+
 describe("observation model", () => {
   it("records the role at the exact goodwill reveal moment", () => {
     const state = firstStepsState();
@@ -280,6 +491,21 @@ describe("observation model", () => {
       loop: 1,
       character: "shrineMaiden",
       role: "serialKiller",
+      confirmed: true,
+    });
+  });
+
+  it("marks loop-snapshot role restoration as unconfirmed", () => {
+    const state = firstStepsState();
+    state.scenario.cast.shrineMaiden = "keyPerson";
+    state.loop.revealedRoleCharacters = ["shrineMaiden"];
+
+    expect(collectProtagonistObservations(state)).toContainEqual({
+      kind: "roleRevealed",
+      loop: 1,
+      character: "shrineMaiden",
+      role: "keyPerson",
+      confirmed: false,
     });
   });
 
@@ -888,6 +1114,33 @@ describe("basicTragedy rule-layer regression", () => {
       kind === "mastermindAbilityResult"
     )).toBe(false);
     expect(evaluateStateRuleHypotheses(state).remaining).toHaveLength(9);
+  });
+
+  it("does not treat the journalist's known P6 counters as hidden role causes", () => {
+    const state = basicState("basicTragedy:6");
+    state.loop.phaseLog = [{
+      loop: 1,
+      day: 1,
+      phase: "P6_GOODWILL",
+      kind: "goodwillUsed",
+      character: "journalist",
+      rank: 2,
+      abilityIndex: 1,
+      response: "resolve",
+      effectApplied: true,
+      publicChanges: [{
+        kind: "counter",
+        target: { kind: "location", at: "City" },
+        counter: "intrigue",
+        delta: 1,
+      }],
+      publicContext: publicObservationContext(state.loop),
+    }];
+
+    expect(collectProtagonistObservations(state).some(({ kind }) =>
+      kind === "mastermindAbilityResult"
+    )).toBe(false);
+    expect(evaluateStateRuleHypotheses(state).remaining).toHaveLength(105);
   });
 
   it("preserves actual bundled combinations through C-3 and C-4 paths", () => {

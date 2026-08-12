@@ -38,6 +38,8 @@ export type ProtagonistObservation =
     loop: number;
     character: CharacterId;
     role: RoleId;
+    /** false면 공개 순간 역할이 없는 구 저장을 루프 스냅샷으로 복원한 값이다. */
+    confirmed?: boolean;
   }
   | {
     kind: "goodwillRefused";
@@ -105,7 +107,7 @@ export type RuleContradictionCode =
   | "mastermindAbilityUnavailable"
   | "deathReactionUnavailable"
   | "loopStartEffectUnavailable"
-  | "roundEndDeathUnavailable"
+  | "crossObservationRoleUnavailable"
   | "loopStartGoodwillUnavailable"
   | "intrigueForbidIgnoreUnavailable";
 
@@ -177,9 +179,10 @@ function roleRanges(combination: RuleCombination): Map<RoleId, RoleRange> {
         ? rawCount
         : [rawCount, rawCount];
       const existing = ranges.get(role) ?? { min: 0, max: 0 };
+      const roleLimit = ROLE_IMPL[role]?.max ?? Number.POSITIVE_INFINITY;
       ranges.set(role, {
-        min: existing.min + min,
-        max: existing.max + max,
+        min: Math.min(existing.min + min, roleLimit),
+        max: Math.min(existing.max + max, roleLimit),
       });
     }
   }
@@ -294,6 +297,8 @@ function roleObservationContradiction(
   tragedySetRoles: readonly RoleId[],
   ranges: ReadonlyMap<RoleId, RoleRange>,
 ): RuleContradiction | undefined {
+  // 공개 순간 역할이 없는 구 저장의 복원값은 확정 증거로 쓰지 않는다.
+  if (observation.confirmed === false) return undefined;
   const plotLessRole = characterDataOf(observation.character).plotLessRole;
   const compatible = plotLessRole
     ? inactiveSetRoleIsPossible(tragedySetRoles, ranges, observation.role)
@@ -346,7 +351,108 @@ function observedAbilityLocations(
     (character.location === undefined ? [] : [character.location]);
 }
 
-function roundEndDeathContradiction(
+interface RoleCauseRequirement {
+  role: RoleId;
+  candidates: CharacterId[];
+}
+
+interface ObservationCauseAlternative {
+  requirements: RoleCauseRequirement[];
+  /** 같은 루프에서 한 번뿐인 룰 능력의 소비 단위. */
+  oncePerLoopUse?: string;
+}
+
+interface ObservationCauseClause {
+  observation: Extract<
+    ProtagonistObservation,
+    { kind: "mastermindAbilityResult" }
+  >;
+  alternatives: ObservationCauseAlternative[];
+}
+
+function confirmedRoleByCharacter(
+  observations: readonly ProtagonistObservation[],
+): Map<CharacterId, RoleId> {
+  const roles = new Map<CharacterId, RoleId>();
+  for (const observation of observations) {
+    if (
+      observation.kind === "roleRevealed" &&
+      observation.confirmed !== false
+    ) {
+      roles.set(observation.character, observation.role);
+    }
+  }
+  return roles;
+}
+
+function roleAssignmentCompatible(
+  tragedySetRoles: readonly RoleId[],
+  ranges: ReadonlyMap<RoleId, RoleRange>,
+  role: RoleId,
+  character: CharacterId,
+  confirmedRoles: ReadonlyMap<CharacterId, RoleId>,
+): boolean {
+  const confirmedRole = confirmedRoles.get(character);
+  if (confirmedRole !== undefined && confirmedRole !== role) return false;
+  if (role === "person" && character === "ai") return false;
+  return roleCouldBelongToCharacter(
+    tragedySetRoles,
+    ranges,
+    role,
+    character,
+  );
+}
+
+function roleActorsReachingLocation(
+  context: PublicObservationContext,
+  location: string,
+  role: RoleId,
+  tragedySetRoles: readonly RoleId[],
+  ranges: ReadonlyMap<RoleId, RoleRange>,
+  confirmedRoles: ReadonlyMap<CharacterId, RoleId>,
+): CharacterId[] {
+  return Object.entries(context.characters ?? {}).flatMap(
+    ([character, state]) =>
+      state.status !== "absent" &&
+        observedAbilityLocations(state).includes(location) &&
+        roleAssignmentCompatible(
+          tragedySetRoles,
+          ranges,
+          role,
+          character,
+          confirmedRoles,
+        )
+        ? [character]
+        : [],
+  );
+}
+
+function roleCapacity(
+  role: RoleId,
+  tragedySetRoles: readonly RoleId[],
+  ranges: ReadonlyMap<RoleId, RoleRange>,
+  publicCast: readonly CharacterId[],
+): number {
+  if (role === "person") {
+    return publicCast.filter((character) =>
+      character !== "ai" && !characterDataOf(character).plotLessRole
+    ).length;
+  }
+
+  const activeCount = ranges.get(role)?.max ?? 0;
+  if (activeCount > 0) return activeCount;
+  if (!inactiveSetRoleIsPossible(tragedySetRoles, ranges, role)) return 0;
+
+  const outsiderCount = publicCast.filter((character) =>
+    characterDataOf(character).plotLessRole
+  ).length;
+  return Math.min(
+    outsiderCount,
+    ROLE_IMPL[role]?.max ?? Number.POSITIVE_INFINITY,
+  );
+}
+
+function p5CauseClauses(
   observation: Extract<
     ProtagonistObservation,
     { kind: "mastermindAbilityResult" }
@@ -354,90 +460,401 @@ function roundEndDeathContradiction(
   combination: RuleCombination,
   tragedySetRoles: readonly RoleId[],
   ranges: ReadonlyMap<RoleId, RoleRange>,
-): RuleContradiction | undefined {
+  confirmedRoles: ReadonlyMap<CharacterId, RoleId>,
+): ObservationCauseClause[] {
+  if (
+    observation.timing !== "P5_MASTERMIND_ABILITY" ||
+    observation.context?.characters === undefined
+  ) return [];
+
+  const clauses: ObservationCauseClause[] = [];
+  for (const change of observation.changes) {
+    if (
+      change.kind !== "counter" ||
+      change.delta <= 0 ||
+      (change.counter !== "paranoia" && change.counter !== "intrigue")
+    ) continue;
+
+    const targetLocation = change.target.kind === "location"
+      ? change.target.at
+      : observation.context.characters[change.target.id]?.status === "alive"
+      ? observation.context.characters[change.target.id]?.location
+      : undefined;
+    if (targetLocation === undefined) continue;
+
+    const alternatives: ObservationCauseAlternative[] = [];
+    if (change.counter === "paranoia") {
+      alternatives.push({
+        requirements: [{
+          role: "conspiracyTheorist",
+          candidates: roleActorsReachingLocation(
+            observation.context,
+            targetLocation,
+            "conspiracyTheorist",
+            tragedySetRoles,
+            ranges,
+            confirmedRoles,
+          ),
+        }],
+      });
+      if (observation.context.locationIntrigue.School >= 2) {
+        alternatives.push({
+          requirements: [{
+            role: "factor",
+            candidates: roleActorsReachingLocation(
+              observation.context,
+              targetLocation,
+              "factor",
+              tragedySetRoles,
+              ranges,
+              confirmedRoles,
+            ),
+          }],
+        });
+      }
+    } else {
+      alternatives.push({
+        requirements: [{
+          role: "brain",
+          candidates: roleActorsReachingLocation(
+            observation.context,
+            targetLocation,
+            "brain",
+            tragedySetRoles,
+            ranges,
+            confirmedRoles,
+          ),
+        }],
+      });
+      if (
+        change.target.kind === "location" &&
+        combination.subPlots.includes("unsettlingRumor")
+      ) {
+        alternatives.unshift({
+          requirements: [],
+          oncePerLoopUse: `unsettlingRumor:${observation.loop}`,
+        });
+      }
+    }
+    clauses.push({ observation, alternatives });
+  }
+  return clauses;
+}
+
+function roundEndDeathCauseClauses(
+  observation: Extract<
+    ProtagonistObservation,
+    { kind: "mastermindAbilityResult" }
+  >,
+  combination: RuleCombination,
+  tragedySetRoles: readonly RoleId[],
+  ranges: ReadonlyMap<RoleId, RoleRange>,
+  confirmedRoles: ReadonlyMap<CharacterId, RoleId>,
+): ObservationCauseClause[] {
   if (
     observation.timing !== "P9_ROUND_END" ||
     observation.context?.characters === undefined
-  ) return undefined;
+  ) return [];
 
-  const deaths = observation.changes.flatMap((change) =>
-    change.kind === "status" &&
-      change.from === "alive" &&
-      change.to === "dead"
-      ? [change.character]
-      : []
-  );
-  if (deaths.length === 0) return undefined;
+  const clauses: ObservationCauseClause[] = [];
+  for (const change of observation.changes) {
+    if (
+      change.kind !== "status" ||
+      change.from !== "alive" ||
+      change.to !== "dead"
+    ) continue;
 
-  for (const death of deaths) {
-    const deceased = observation.context.characters[death];
+    const deceased = observation.context.characters[change.character];
     if (deceased?.status !== "alive" || deceased.location === undefined) {
       continue;
     }
     const deathLocation = deceased.location;
     const livingHere = Object.entries(observation.context.characters)
-      .filter(([, character]) =>
-        character.status === "alive" &&
-        character.location === deathLocation
+      .filter(([, state]) =>
+        state.status === "alive" && state.location === deathLocation
       );
-    const others = livingHere.filter(([character]) => character !== death);
+    const others = livingHere.filter(([character]) =>
+      character !== change.character
+    );
     const possibleKillers = Object.entries(observation.context.characters)
       .filter(([character, state]) =>
-        character !== death &&
+        character !== change.character &&
         state.status !== "absent" &&
         observedAbilityLocations(state).includes(deathLocation)
-      );
+      )
+      .map(([character]) => character);
 
-    const serialPattern = livingHere.length === 2 && others.length === 1;
-    const actualSerialKillerPossible = serialPattern &&
-      others.some(([character]) =>
-        roleCouldBelongToCharacter(
+    const alternatives: ObservationCauseAlternative[] = [];
+    if (livingHere.length === 2 && others.length === 1) {
+      const serialCandidates = others.flatMap(([character]) =>
+        roleAssignmentCompatible(
+            tragedySetRoles,
+            ranges,
+            "serialKiller",
+            character,
+            confirmedRoles,
+          )
+          ? [character]
+          : []
+      );
+      alternatives.push({
+        requirements: [{ role: "serialKiller", candidates: serialCandidates }],
+      });
+
+      if (combination.subPlots.includes("paranoiaVirus")) {
+        const mutatedPersonCandidates = others.flatMap(([character, state]) =>
+          state.paranoia >= 3 &&
+            roleAssignmentCompatible(
+              tragedySetRoles,
+              ranges,
+              "person",
+              character,
+              confirmedRoles,
+            )
+            ? [character]
+            : []
+        );
+        alternatives.push({
+          requirements: [{
+            role: "person",
+            candidates: mutatedPersonCandidates,
+          }],
+        });
+      }
+    }
+
+    if (deceased.intrigue >= 2 && possibleKillers.length > 0) {
+      alternatives.push({
+        requirements: [
+          {
+            role: "killer",
+            candidates: possibleKillers.filter((character) =>
+              roleAssignmentCompatible(
+                tragedySetRoles,
+                ranges,
+                "killer",
+                character,
+                confirmedRoles,
+              )
+            ),
+          },
+          {
+            role: "keyPerson",
+            candidates: roleAssignmentCompatible(
+                tragedySetRoles,
+                ranges,
+                "keyPerson",
+                change.character,
+                confirmedRoles,
+              )
+              ? [change.character]
+              : [],
+          },
+        ],
+      });
+    }
+
+    // 공개 상태만으로 두 역할 능력 중 어느 패턴도 완성되지 않으면 보존만 한다.
+    if (alternatives.length > 0) {
+      clauses.push({ observation, alternatives });
+    }
+  }
+  return clauses;
+}
+
+function causeClausesForObservation(
+  observation: ProtagonistObservation,
+  combination: RuleCombination,
+  tragedySetRoles: readonly RoleId[],
+  ranges: ReadonlyMap<RoleId, RoleRange>,
+  confirmedRoles: ReadonlyMap<CharacterId, RoleId>,
+): ObservationCauseClause[] {
+  if (observation.kind !== "mastermindAbilityResult") return [];
+  return [
+    ...p5CauseClauses(
+      observation,
+      combination,
+      tragedySetRoles,
+      ranges,
+      confirmedRoles,
+    ),
+    ...roundEndDeathCauseClauses(
+      observation,
+      combination,
+      tragedySetRoles,
+      ranges,
+      confirmedRoles,
+    ),
+  ];
+}
+
+function holderOptionsForRole(
+  role: RoleId,
+  requirements: readonly RoleCauseRequirement[],
+  tragedySetRoles: readonly RoleId[],
+  ranges: ReadonlyMap<RoleId, RoleRange>,
+  publicCast: readonly CharacterId[],
+  confirmedRoles: ReadonlyMap<CharacterId, RoleId>,
+): Set<CharacterId>[] {
+  const capacity = roleCapacity(role, tragedySetRoles, ranges, publicCast);
+  const confirmedHolders = [...confirmedRoles.entries()].flatMap(
+    ([character, confirmedRole]) => confirmedRole === role ? [character] : [],
+  );
+  if (confirmedHolders.length > capacity) return [];
+
+  const mandatory = new Set(confirmedHolders);
+  const universe = [...new Set([
+    ...confirmedHolders,
+    ...requirements.flatMap(({ candidates }) => candidates),
+  ])];
+  const optional = universe.filter((character) => !mandatory.has(character));
+  const valid: Set<CharacterId>[] = [];
+  for (
+    let optionalCount = 0;
+    optionalCount <= capacity - mandatory.size;
+    optionalCount += 1
+  ) {
+    for (const selected of choose(optional, optionalCount)) {
+      const holders = new Set([...mandatory, ...selected]);
+      if (requirements.every(({ candidates }) =>
+        candidates.some((character) => holders.has(character))
+      )) {
+        if (![...valid].some((existing) =>
+          [...existing].every((character) => holders.has(character))
+        )) {
+          valid.push(holders);
+        }
+      }
+    }
+  }
+  return valid;
+}
+
+function roleRequirementsCanCoexist(
+  requirements: readonly RoleCauseRequirement[],
+  tragedySetRoles: readonly RoleId[],
+  ranges: ReadonlyMap<RoleId, RoleRange>,
+  publicCast: readonly CharacterId[],
+  confirmedRoles: ReadonlyMap<CharacterId, RoleId>,
+): boolean {
+  const byRole = new Map<RoleId, RoleCauseRequirement[]>();
+  for (const requirement of requirements) {
+    const roleRequirements = byRole.get(requirement.role) ?? [];
+    roleRequirements.push(requirement);
+    byRole.set(requirement.role, roleRequirements);
+  }
+
+  const roleOptions = [...byRole.entries()].map(([role, roleRequirements]) => ({
+    role,
+    options: holderOptionsForRole(
+      role,
+      roleRequirements,
+      tragedySetRoles,
+      ranges,
+      publicCast,
+      confirmedRoles,
+    ),
+  })).sort((left, right) => left.options.length - right.options.length);
+  if (roleOptions.some(({ options }) => options.length === 0)) return false;
+
+  const assign = (index: number, occupied: ReadonlySet<CharacterId>): boolean => {
+    const current = roleOptions[index];
+    if (current === undefined) return true;
+    return current.options.some((holders) => {
+      if ([...holders].some((character) => occupied.has(character))) {
+        return false;
+      }
+      return assign(index + 1, new Set([...occupied, ...holders]));
+    });
+  };
+  return assign(0, new Set());
+}
+
+function causeClausesAreSatisfiable(
+  clauses: readonly ObservationCauseClause[],
+  tragedySetRoles: readonly RoleId[],
+  ranges: ReadonlyMap<RoleId, RoleRange>,
+  publicCast: readonly CharacterId[],
+  confirmedRoles: ReadonlyMap<CharacterId, RoleId>,
+): boolean {
+  const ordered = [...clauses].sort(
+    (left, right) => left.alternatives.length - right.alternatives.length,
+  );
+  const search = (
+    index: number,
+    requirements: readonly RoleCauseRequirement[],
+    uses: ReadonlySet<string>,
+  ): boolean => {
+    const clause = ordered[index];
+    if (clause === undefined) return true;
+    return clause.alternatives.some((alternative) => {
+      if (
+        alternative.oncePerLoopUse !== undefined &&
+        uses.has(alternative.oncePerLoopUse)
+      ) return false;
+      const nextRequirements = [...requirements, ...alternative.requirements];
+      const nextUses = alternative.oncePerLoopUse === undefined
+        ? uses
+        : new Set([...uses, alternative.oncePerLoopUse]);
+      return roleRequirementsCanCoexist(
+          nextRequirements,
           tragedySetRoles,
           ranges,
-          "serialKiller",
-          character,
-        )
-      );
-    const virusSerialKillerPossible = serialPattern &&
-      combination.subPlots.includes("paranoiaVirus") &&
-      others.some(([characterId, character]) =>
-        !characterDataOf(characterId).plotLessRole &&
-        character.paranoia >= 3
-      );
+          publicCast,
+          confirmedRoles,
+        ) && search(index + 1, nextRequirements, nextUses);
+    });
+  };
+  return search(0, [], new Set());
+}
 
-    const killerPattern = deceased.intrigue >= 2 &&
-      possibleKillers.length >= 1;
-    const killerPossible = killerPattern &&
-      roleCouldBelongToCharacter(
+function crossObservationRoleContradiction(
+  observations: readonly ProtagonistObservation[],
+  combination: RuleCombination,
+  tragedySetRoles: readonly RoleId[],
+  ranges: ReadonlyMap<RoleId, RoleRange>,
+  publicCast: readonly CharacterId[],
+): RuleContradiction | undefined {
+  for (let index = 0; index < observations.length; index += 1) {
+    const observation = observations[index];
+    if (observation === undefined) continue;
+    const prefix = observations.slice(0, index + 1);
+    const confirmedRoles = confirmedRoleByCharacter(prefix);
+    const contextCharacters = prefix.flatMap((candidate) =>
+      candidate.kind === "mastermindAbilityResult"
+        ? Object.keys(candidate.context?.characters ?? {})
+        : []
+    );
+    const knownCast = [...new Set([
+      ...publicCast,
+      ...contextCharacters,
+      ...confirmedRoles.keys(),
+    ])];
+    const clauses = prefix.flatMap((candidate) =>
+      causeClausesForObservation(
+        candidate,
+        combination,
         tragedySetRoles,
         ranges,
-        "keyPerson",
-        death,
-      ) &&
-      possibleKillers.some(([character]) =>
-        roleCouldBelongToCharacter(
-          tragedySetRoles,
-          ranges,
-          "killer",
-          character,
-        )
-      );
-
-    if (!serialPattern && !killerPattern) {
-      // 공개 패턴만으로 C-3의 두 원인 중 어느 쪽도 특정할 수 없다.
-      continue;
-    }
+        confirmedRoles,
+      )
+    );
     if (
-      actualSerialKillerPossible ||
-      virusSerialKillerPossible ||
-      killerPossible
-    ) return undefined;
-
-    return {
-      code: "roundEndDeathUnavailable",
-      observation,
-      reason: "라운드 종료의 공개 사망 상태를 이 조합의 가능한 역할로 설명할 수 없습니다.",
-    };
+      clauses.length > 0 &&
+      !causeClausesAreSatisfiable(
+        clauses,
+        tragedySetRoles,
+        ranges,
+        knownCast,
+        confirmedRoles,
+      )
+    ) {
+      return {
+        code: "crossObservationRoleUnavailable",
+        observation,
+        reason: "누적된 공개 관측의 원인 후보를 고정된 역할 배정과 역할 수 상한으로 동시에 설명할 수 없습니다.",
+      };
+    }
   }
   return undefined;
 }
@@ -463,6 +880,7 @@ function loopStartGoodwillContradiction(
     const character = change.target.id;
     return observations.some((candidate) =>
         candidate.kind === "roleRevealed" &&
+        candidate.confirmed !== false &&
         candidate.character === character &&
         candidate.role === "friend" &&
         candidate.loop < observation.loop
@@ -571,14 +989,6 @@ function abilityObservationContradiction(
         reason: "루프 시작에 공개된 복수 캐릭터 불안 2 증가를 이 조합으로 설명할 수 없습니다.",
       };
   }
-
-  const roundEndDeath = roundEndDeathContradiction(
-    observation,
-    combination,
-    tragedySetRoles,
-    ranges,
-  );
-  if (roundEndDeath !== undefined) return roundEndDeath;
 
   const loopStartGoodwill = loopStartGoodwillContradiction(
     observation,
@@ -691,6 +1101,14 @@ function contradictionsForCombination(
     }
     if (contradiction !== undefined) contradictions.push(contradiction);
   }
+  const crossObservation = crossObservationRoleContradiction(
+    observations,
+    combination,
+    tragedySetRoles,
+    ranges,
+    options.publicCast ?? [],
+  );
+  if (crossObservation !== undefined) contradictions.push(crossObservation);
   return contradictions;
 }
 
@@ -752,6 +1170,7 @@ export function collectProtagonistObservations(
             loop: information.loop,
             character: information.character,
             role: information.role,
+            confirmed: true,
           });
           break;
         case "goodwillRefusal":
@@ -800,6 +1219,7 @@ export function collectProtagonistObservations(
         loop: loop.loop,
         character,
         role: effectiveRole({ ...state, loop }, character),
+        confirmed: false,
       });
     }
     for (const entry of loop.phaseLog ?? []) {
