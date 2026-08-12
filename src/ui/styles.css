@@ -1116,6 +1116,186 @@ select {
   padding: 7px;
 }
 
+.deduction-information {
+  border-color: #5e5941;
+}
+
+.deduction-body {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+}
+
+.deduction-summary-list {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.deduction-summary-row {
+  display: grid;
+  grid-template-columns: minmax(64px, 0.28fr) minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 7px;
+  border: 1px solid #443a2c;
+  border-radius: 7px;
+  background: #1d1a15;
+  padding: 7px;
+  font-size: 0.7rem;
+  line-height: 1.4;
+}
+
+.deduction-summary-row strong {
+  color: #d9c7a6;
+  font-size: 0.7rem;
+}
+
+.deduction-summary-row span {
+  min-width: 0;
+  color: #afa38f;
+  overflow-wrap: anywhere;
+}
+
+.deduction-summary-row b {
+  color: #a99a80;
+  font-size: 0.66rem;
+  white-space: nowrap;
+}
+
+.deduction-summary-row.is-narrowed {
+  border-color: #76613a;
+  background: rgba(72, 58, 31, 0.35);
+}
+
+.deduction-summary-row.is-narrowed b {
+  color: #e2bd72;
+}
+
+.deduction-summary-row.is-confirmed {
+  border-color: #4f7d5a;
+  background: rgba(35, 72, 44, 0.42);
+}
+
+.deduction-summary-row.is-confirmed span,
+.deduction-summary-row.is-confirmed b {
+  color: #a9dfa9;
+  font-weight: 800;
+}
+
+.deduction-grid-details {
+  min-width: 0;
+  border: 1px solid #4b402f;
+  border-radius: 8px;
+  background: #191713;
+}
+
+.info-accordion.compact-information .deduction-grid-details > summary {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 9px;
+  color: #d5c29e;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.deduction-grid-details > summary::after {
+  color: #a98e5c;
+  content: "＋";
+}
+
+.deduction-grid-details[open] > summary::after {
+  content: "−";
+}
+
+.deduction-grid-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  border-top: 1px solid #443a2c;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.deduction-grid {
+  min-width: max-content;
+  border-collapse: separate;
+  border-spacing: 0;
+  color: #d8ccb5;
+  font-size: 0.65rem;
+}
+
+.deduction-grid th,
+.deduction-grid td {
+  border-right: 1px solid #41392d;
+  border-bottom: 1px solid #41392d;
+}
+
+.deduction-grid thead th {
+  height: 96px;
+  background: #242017;
+  padding: 5px 4px;
+  color: #cdbd9f;
+  vertical-align: bottom;
+}
+
+.deduction-grid thead th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  width: 82px;
+  min-width: 82px;
+  height: auto;
+  text-align: left;
+}
+
+.deduction-grid thead th:not(:first-child) {
+  width: 34px;
+  min-width: 34px;
+}
+
+.deduction-grid thead th:not(:first-child) span {
+  display: inline-block;
+  max-height: 84px;
+  writing-mode: vertical-rl;
+}
+
+.deduction-grid tbody th {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  width: 82px;
+  min-width: 82px;
+  background: #242017;
+  padding: 6px;
+  color: #d8c7a7;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.deduction-grid td {
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  background: #1d1a15;
+  color: #c6b997;
+  text-align: center;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.deduction-grid td.is-impossible {
+  background: #21191a;
+  color: #8a6d6d;
+}
+
+.deduction-grid td.is-confirmed {
+  background: #24422c;
+  color: #b8efb8;
+}
+
 .scenario-information-panel,
 .incident-schedule-panel,
 .mastermind-overlay > section,

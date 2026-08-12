@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { initLoop } from "../src/engine/setup";
 import {
+  deductionTablesSummary,
   incidentDayLabelsForCharacter,
   incidentDaysForCharacter,
   incidentScheduleSummary,
@@ -341,5 +342,59 @@ describe("mastermind rule hypothesis summary", () => {
     expect(summary.totalCombinations).toBe(9);
     expect(summary.remainingCombinations).toHaveLength(9);
     expect(summary.showEveryCombination).toBe(true);
+  });
+});
+
+describe("mastermind deduction table summary", () => {
+  it("summarizes confirmed and narrowed role and culprit rows", () => {
+    const state = createState();
+    state.loop.publicInformationThisLoop = [
+      {
+        kind: "roleReveal",
+        character: "nurse",
+        role: "person",
+        loop: 1,
+        day: 1,
+      },
+      {
+        kind: "goodwillRefusal",
+        character: "officeWorker",
+        rank: 3,
+        abilityIndex: 0,
+        loop: 1,
+        day: 2,
+      },
+      {
+        kind: "incidentCulprit",
+        source: "godlyBeing",
+        day: 1,
+        incident: "foulEvil",
+        culprit: "girlStudent",
+      },
+    ];
+
+    const summary = deductionTablesSummary(state);
+    const nurse = summary.roleRows.find(({ character }) =>
+      character === "nurse"
+    );
+    const officeWorker = summary.roleRows.find(({ character }) =>
+      character === "officeWorker"
+    );
+    const girlStudent = summary.incidentRows.find(({ character }) =>
+      character === "girlStudent"
+    );
+
+    expect(nurse).toMatchObject({
+      confirmedRole: "person",
+      possibleRoles: ["person"],
+      narrowed: true,
+    });
+    expect(officeWorker?.narrowed).toBe(true);
+    expect(officeWorker?.possibleRoles).not.toContain("person");
+    expect(girlStudent?.confirmedColumn).toMatchObject({
+      day: 1,
+      incident: "foulEvil",
+    });
+    expect(girlStudent?.possibleColumns).toHaveLength(1);
   });
 });

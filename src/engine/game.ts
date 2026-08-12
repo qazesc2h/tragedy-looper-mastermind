@@ -20,6 +20,7 @@ import { incidentFailureReasons } from "./incident";
 import { evaluateLoss, type LossCondition } from "./loss";
 import { advance, collectHooks, resolveHooks } from "./phases";
 import { recordPhaseLog } from "./phase-log";
+import { publicObservationContext } from "./public-observation";
 import { initLoop } from "./setup";
 
 const TIME_GAP_SECONDS = 10 * 60;
@@ -306,6 +307,9 @@ function advanceRoundOnce(
       .filter(([, position]) => position.status === "alive")
       .map(([character]) => character))
     : new Set<string>();
+  const incidentContext = phase === "P7_INCIDENT"
+    ? publicObservationContext(state.loop)
+    : undefined;
 
   const result = advance(state, incidentChoice);
 
@@ -365,6 +369,9 @@ function advanceRoundOnce(
         fired: result.fired,
         effectApplied: result.effectApplied,
         failureReasons: result.fired ? [] : failureReasons,
+        ...(incidentContext === undefined
+          ? {}
+          : { publicContext: incidentContext }),
         ...(deaths.length > 0 ? { deaths } : {}),
         ...(protagonistsDied ? { protagonistsDied: true } : {}),
       });

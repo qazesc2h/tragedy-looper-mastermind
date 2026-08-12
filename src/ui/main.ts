@@ -103,6 +103,7 @@ import {
 } from "./goodwill-abilities";
 import { characterLocationInformation } from "./character-locations";
 import {
+  deductionTablesSummary,
   incidentDayLabelsForCharacter,
   incidentDaysForCharacter,
   incidentScheduleSummary,
@@ -2508,6 +2509,8 @@ function hypothesisObservationLabel(
       return `${characterName(observation.character)} = ${roleName(observation.role)} 공개`;
     case "goodwillRefused":
       return `${characterName(observation.character)} 우호 능력 거부`;
+    case "goodwillAccepted":
+      return `${characterName(observation.character)} 우호 능력 해결`;
     case "subplotRevealed":
       return `정보원 룰 X 공개 · ${plotName(observation.revealedSubplot)}`;
     case "mastermindAbilityResult":
@@ -2610,12 +2613,159 @@ function renderRuleHypotheses(state: GameState): string {
     </details>`;
 }
 
+function roleCellReasonLabel(code: string): string {
+  switch (code) {
+    case "roleRevealed": return "역할 공개";
+    case "otherRoleConfirmed": return "다른 역할 확정";
+    case "roleMaximumReached": return "최대 인원 도달";
+    case "outsiderConstraint": return "아웃사이더 제약";
+    case "characterConstraint": return "캐릭터 제약";
+    case "ruleUnavailable": return "남은 룰에서 불가";
+    case "goodwillRefusalRequired": return "우호 거부 관측";
+    case "mandatoryGoodwillRefusalMissing": return "절대 우호 거부 없음";
+    case "abilityLocationIntersection": return "능력 위치 교집합";
+    default: return code;
+  }
+}
+
+function incidentCellReasonLabel(code: string): string {
+  switch (code) {
+    case "culpritRevealed": return "범인 공개";
+    case "suicideDeathIdentified": return "자살 사망자 확인";
+    case "onlyRemainingCandidate": return "유일 후보";
+    case "otherCulpritConfirmed": return "다른 범인 확정";
+    case "culpritAlreadyAssigned": return "다른 사건 범인 확정";
+    case "firedBelowParanoia": return "발생 시 불안 미달";
+    case "firedWhileUnavailable": return "발생 시 생존하지 않음";
+    case "didNotFireDespiteConditions": return "충족했지만 미발생";
+    default: return code;
+  }
+}
+
+function possibilityMark(status: "possible" | "impossible" | "confirmed"): string {
+  return status === "confirmed" ? "✓" : status === "impossible" ? "×" : "○";
+}
+
+function renderDeductionTables(state: GameState): string {
+  const summary = deductionTablesSummary(state);
+  const roleRows = summary.roleRows.map((row) => {
+    const names = row.possibleRoles.map(roleName);
+    const text = row.confirmedRole === undefined
+      ? names.join(" / ") || "가능한 역할 없음"
+      : `${roleName(row.confirmedRole)} 확정`;
+    return `<li class="deduction-summary-row ${
+      row.confirmedRole === undefined ? "" : "is-confirmed"
+    } ${row.narrowed ? "is-narrowed" : ""}">
+      <strong>${escapeHtml(characterName(row.character))}</strong>
+      <span>${escapeHtml(text)}</span>
+      <b>${row.confirmedRole === undefined ? `(${row.possibleRoles.length})` : "✓"}</b>
+    </li>`;
+  }).join("");
+  const roleHeader = summary.roleTable.roles.map((role) => `
+    <th scope="col" title="${escapeHtml(roleName(role))}" aria-label="${escapeHtml(roleName(role))}">
+      <span>${escapeHtml(roleName(role))}</span>
+    </th>`).join("");
+  const roleGrid = summary.roleTable.characters.map((character) => `
+    <tr>
+      <th scope="row">${escapeHtml(characterName(character))}</th>
+      ${summary.roleTable.roles.map((role) => {
+        const cell = summary.roleTable.cells[character]?.[role];
+        const status = cell?.status ?? "impossible";
+        const reasons = cell?.reasons.map(({ code }) =>
+          roleCellReasonLabel(code)
+        ).join(" · ") || "가능";
+        const label = `${characterName(character)} · ${roleName(role)} · ${
+          status === "confirmed" ? "확정" : status === "impossible" ? "불가능" : "가능"
+        } · ${reasons}`;
+        return `<td class="is-${status}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${possibilityMark(status)}</td>`;
+      }).join("")}
+    </tr>`).join("");
+
+  const incidentRows = summary.incidentRows.map((row) => {
+    const labels = row.possibleColumns.map((column) =>
+      `${column.day}일 ${incidentName(column.incident)}`
+    );
+    const text = row.confirmedColumn === undefined
+      ? labels.join(" / ") || "가능한 사건 없음"
+      : `${row.confirmedColumn.day}일 ${incidentName(row.confirmedColumn.incident)} 확정`;
+    return `<li class="deduction-summary-row ${
+      row.confirmedColumn === undefined ? "" : "is-confirmed"
+    } ${row.narrowed ? "is-narrowed" : ""}">
+      <strong>${escapeHtml(characterName(row.character))}</strong>
+      <span>${escapeHtml(text)}</span>
+      <b>${row.confirmedColumn === undefined ? `(${row.possibleColumns.length})` : "✓"}</b>
+    </li>`;
+  }).join("");
+  const incidentHeader = summary.incidentTable.columns.map((column) => {
+    const label = `${column.day}일 ${incidentName(column.incident)}`;
+    return `<th scope="col" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}"><span>${escapeHtml(label)}</span></th>`;
+  }).join("");
+  const incidentGrid = summary.incidentTable.characters.map((character) => `
+    <tr>
+      <th scope="row">${escapeHtml(characterName(character))}</th>
+      ${summary.incidentTable.columns.map((column) => {
+        const cell = summary.incidentTable.cells[character]?.[column.id];
+        const status = cell?.status ?? "impossible";
+        const reasons = cell?.reasons.map(({ code }) =>
+          incidentCellReasonLabel(code)
+        ).join(" · ") || "가능";
+        const label = `${characterName(character)} · ${column.day}일 ${incidentName(column.incident)} · ${
+          status === "confirmed" ? "확정" : status === "impossible" ? "불가능" : "가능"
+        } · ${reasons}`;
+        return `<td class="is-${status}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${possibilityMark(status)}</td>`;
+      }).join("")}
+    </tr>`).join("");
+
+  return `
+    <details class="info-accordion compact-information deduction-information role-deduction-information">
+      <summary>
+        <strong>캐릭터별 역할 후보</strong>
+        <span class="accordion-summary-value">${summary.roleRows.filter(({ confirmedRole }) => confirmedRole !== undefined).length}명 확정</span>
+        <i aria-hidden="true"></i>
+      </summary>
+      <div class="info-accordion-body deduction-body">
+        <ul class="deduction-summary-list">${roleRows}</ul>
+        <details class="deduction-grid-details">
+          <summary>전체 역할 격자 보기</summary>
+          <div class="deduction-grid-scroll">
+            <table class="deduction-grid" aria-label="캐릭터별 역할 가능성 격자">
+              <thead><tr><th scope="col">캐릭터</th>${roleHeader}</tr></thead>
+              <tbody>${roleGrid}</tbody>
+            </table>
+          </div>
+        </details>
+      </div>
+    </details>
+    <details class="info-accordion compact-information deduction-information incident-deduction-information">
+      <summary>
+        <strong>사건 범인 후보</strong>
+        <span class="accordion-summary-value">${summary.incidentRows.filter(({ confirmedColumn }) => confirmedColumn !== undefined).length}건 확정</span>
+        <i aria-hidden="true"></i>
+      </summary>
+      <div class="info-accordion-body deduction-body">
+        ${summary.incidentTable.columns.length === 0
+          ? `<p class="empty-overlay">시나리오에 사건이 없습니다.</p>`
+          : `<ul class="deduction-summary-list">${incidentRows}</ul>
+            <details class="deduction-grid-details">
+              <summary>전체 범인 격자 보기</summary>
+              <div class="deduction-grid-scroll">
+                <table class="deduction-grid" aria-label="캐릭터별 사건 범인 가능성 격자">
+                  <thead><tr><th scope="col">캐릭터</th>${incidentHeader}</tr></thead>
+                  <tbody>${incidentGrid}</tbody>
+                </table>
+              </div>
+            </details>`}
+      </div>
+    </details>`;
+}
+
 function renderMastermindOverlay(state: GameState): string {
   if (!tracker.mastermindOverlay) return "";
   return `
     <aside class="mastermind-overlay" aria-label="각본가 정보">
       ${renderLoopStartInformation(state)}
       ${renderRuleHypotheses(state)}
+      ${renderDeductionTables(state)}
       <details class="info-accordion today-information" open>
         <summary>
           <span><small>오늘</small><strong>사건·범인·판정 상태</strong></span>

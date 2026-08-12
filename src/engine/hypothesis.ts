@@ -50,11 +50,21 @@ export type ProtagonistObservation =
     abilityIndex: number;
   }
   | {
+    kind: "goodwillAccepted";
+    loop: number;
+    day: number;
+    character: CharacterId;
+    rank: number;
+    abilityIndex: number;
+  }
+  | {
     kind: "incidentOccurred";
     loop: number;
     day: number;
     incident: IncidentId;
     occurred: boolean;
+    context?: PublicObservationContext;
+    deaths?: CharacterId[];
   }
   | {
     kind: "incidentCulpritRevealed";
@@ -159,6 +169,21 @@ export type RolePossibilityReason =
   }
   | {
     code: "ruleUnavailable";
+  }
+  | {
+    code: "goodwillRefusalRequired";
+    observation: Extract<ProtagonistObservation, { kind: "goodwillRefused" }>;
+  }
+  | {
+    code: "mandatoryGoodwillRefusalMissing";
+    observation: Extract<ProtagonistObservation, { kind: "goodwillAccepted" }>;
+  }
+  | {
+    code: "abilityLocationIntersection";
+    observations: Extract<
+      ProtagonistObservation,
+      { kind: "mastermindAbilityResult" }
+    >[];
   };
 
 export interface RolePossibilityCell {
@@ -1172,6 +1197,7 @@ function contradictionsForCombination(
       case "incidentCulpritRevealed":
       case "lossObserved":
       case "goodwillIncidentEffect":
+      case "goodwillAccepted":
         // 역할 배정 없이 룰 조합만으로 확정할 수 없으므로 보수적으로 유지한다.
         break;
     }
@@ -1286,6 +1312,96 @@ function maximumRoleCapacity(
   );
 }
 
+interface AbilityLocationRoleConstraint {
+  role: "brain";
+  candidates: Set<CharacterId>;
+  observations: Extract<
+    ProtagonistObservation,
+    { kind: "mastermindAbilityResult" }
+  >[];
+}
+
+function brainLocationConstraint(
+  combinations: readonly RuleCombination[],
+  publicCast: readonly CharacterId[],
+  observations: readonly ProtagonistObservation[],
+): AbilityLocationRoleConstraint | undefined {
+  if (
+    combinations.length === 0 ||
+    combinations.some(({ subPlots }) => subPlots.includes("unsettlingRumor"))
+  ) {
+    return undefined;
+  }
+
+  let candidates: Set<CharacterId> | undefined;
+  const evidence: Extract<
+    ProtagonistObservation,
+    { kind: "mastermindAbilityResult" }
+  >[] = [];
+  for (const observation of observations) {
+    if (
+      observation.kind !== "mastermindAbilityResult" ||
+      (
+        observation.timing !== undefined &&
+        observation.timing !== "P5_MASTERMIND_ABILITY"
+      ) ||
+      observation.context?.characters === undefined
+    ) {
+      continue;
+    }
+    const locations = observation.changes.flatMap((change) =>
+      change.kind === "counter" &&
+        change.counter === "intrigue" &&
+        change.delta > 0 &&
+        change.target.kind === "location"
+        ? [change.target.at]
+        : []
+    );
+    for (const location of locations) {
+      const atLocation = new Set(
+        publicCast.filter((character) => {
+          const state = observation.context?.characters?.[character];
+          return state?.status === "alive" &&
+            observedAbilityLocations(state).includes(location);
+        }),
+      );
+      candidates = candidates === undefined
+        ? atLocation
+        : new Set([...candidates].filter((character) =>
+          atLocation.has(character)
+        ));
+      if (!evidence.includes(observation)) evidence.push(observation);
+    }
+  }
+  return candidates === undefined
+    ? undefined
+    : { role: "brain", candidates, observations: evidence };
+}
+
+function goodwillRoleExclusionReason(
+  observations: readonly ProtagonistObservation[],
+  character: CharacterId,
+  role: RoleId,
+): RolePossibilityReason | undefined {
+  for (const observation of observations) {
+    if (
+      observation.kind === "goodwillRefused" &&
+      observation.character === character &&
+      !roleCanRefuseGoodwill(role)
+    ) {
+      return { code: "goodwillRefusalRequired", observation };
+    }
+    if (
+      observation.kind === "goodwillAccepted" &&
+      observation.character === character &&
+      ROLE_IMPL[role]?.goodwillRefusal === "Mandatory"
+    ) {
+      return { code: "mandatoryGoodwillRefusalMissing", observation };
+    }
+  }
+  return undefined;
+}
+
 /**
  * 살아있는 룰 조합을 합집합으로 투영한다. 각 칸은 독립적으로 계산하며
  * 캐릭터 전체의 역할 배정을 만들거나 세지 않는다.
@@ -1298,9 +1414,18 @@ export function buildRolePossibilityTable(
 ): RolePossibilityTable {
   const tragedySetRoles = rolesForTragedySet(tragedySet);
   const confirmed = confirmedRoleObservations(observations);
+  const abilityConstraint = brainLocationConstraint(
+    combinations,
+    publicCast,
+    observations,
+  );
+  const inferredBrain = abilityConstraint?.candidates.size === 1
+    ? [...abilityConstraint.candidates][0]
+    : undefined;
   const confirmedRoles = new Set(
     [...confirmed.values()].map(({ role }) => role),
   );
+  if (inferredBrain !== undefined) confirmedRoles.add("brain");
   const roles = tragedySetRoles.filter((role) =>
     roleColumnAppears(role, combinations) || confirmedRoles.has(role)
   );
@@ -1313,6 +1438,11 @@ export function buildRolePossibilityTable(
     const characters = confirmedCharactersByRole.get(observation.role) ?? [];
     characters.push(character);
     confirmedCharactersByRole.set(observation.role, characters);
+  }
+  if (inferredBrain !== undefined && !confirmed.has(inferredBrain)) {
+    const characters = confirmedCharactersByRole.get("brain") ?? [];
+    characters.push(inferredBrain);
+    confirmedCharactersByRole.set("brain", characters);
   }
 
   const maximumByRole = new Map<RoleId, number>();
@@ -1350,6 +1480,48 @@ export function buildRolePossibilityTable(
             status: "impossible",
             reasons: [{ code: "otherRoleConfirmed", observation: revealed }],
           };
+        continue;
+      }
+
+      if (inferredBrain === character) {
+        const reason: RolePossibilityReason = {
+          code: "abilityLocationIntersection",
+          observations: abilityConstraint?.observations ?? [],
+        };
+        row[role] = role === "brain"
+          ? { character, role, status: "confirmed", reasons: [reason] }
+          : { character, role, status: "impossible", reasons: [reason] };
+        continue;
+      }
+
+      const goodwillReason = goodwillRoleExclusionReason(
+        observations,
+        character,
+        role,
+      );
+      if (goodwillReason !== undefined) {
+        row[role] = {
+          character,
+          role,
+          status: "impossible",
+          reasons: [goodwillReason],
+        };
+        continue;
+      }
+
+      if (
+        role === abilityConstraint?.role &&
+        !abilityConstraint.candidates.has(character)
+      ) {
+        row[role] = {
+          character,
+          role,
+          status: "impossible",
+          reasons: [{
+            code: "abilityLocationIntersection",
+            observations: abilityConstraint.observations,
+          }],
+        };
         continue;
       }
 
@@ -1404,14 +1576,16 @@ function tableContradictionsForCombination(
   combination: RuleCombination,
   publicCast: readonly CharacterId[],
   table: RolePossibilityTable,
-  observations: readonly ProtagonistObservation[],
 ): RoleTableRuleContradiction[] {
   const tragedySetRoles = rolesForTragedySet(tragedySet);
   const ranges = roleRanges(combination);
-  const confirmed = confirmedRoleObservations(observations);
   const confirmedCounts = new Map<RoleId, number>();
-  for (const { role } of confirmed.values()) {
-    confirmedCounts.set(role, (confirmedCounts.get(role) ?? 0) + 1);
+  for (const character of table.characters) {
+    for (const role of table.roles) {
+      if (table.cells[character]?.[role]?.status === "confirmed") {
+        confirmedCounts.set(role, (confirmedCounts.get(role) ?? 0) + 1);
+      }
+    }
   }
 
   const contradictions: RoleTableRuleContradiction[] = [];
@@ -1490,7 +1664,6 @@ export function evaluateRoleTableHypotheses(
         combination,
         publicCast,
         table,
-        observations,
       );
       if (contradictions.length === 0) continue;
       tableContradictions.set(combination.id, contradictions);
@@ -1602,13 +1775,31 @@ export function collectProtagonistObservations(
       });
     }
     for (const entry of loop.phaseLog ?? []) {
-      if (entry.kind === "incidentJudged") {
+      if (entry.kind === "goodwillUsed" && entry.response === "resolve") {
+        const ability = characterDataOf(entry.character)
+          .goodwillAbilities[entry.abilityIndex];
+        // 거부 불가 능력은 절대 우호 무시 역할도 해결할 수 있으므로 근거가 아니다.
+        if (ability !== undefined && !ability.immuneToGoodwillRefusel) {
+          observations.push({
+            kind: "goodwillAccepted",
+            loop: entry.loop,
+            day: entry.day,
+            character: entry.character,
+            rank: entry.rank,
+            abilityIndex: entry.abilityIndex,
+          });
+        }
+      } else if (entry.kind === "incidentJudged") {
         observations.push({
           kind: "incidentOccurred",
           loop: entry.loop,
           day: entry.day,
           incident: entry.incident,
           occurred: entry.fired,
+          ...(entry.publicContext === undefined
+            ? {}
+            : { context: entry.publicContext }),
+          ...(entry.deaths === undefined ? {} : { deaths: [...entry.deaths] }),
         });
       } else if (
         entry.kind === "actionResolved" &&

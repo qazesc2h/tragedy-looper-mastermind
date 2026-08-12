@@ -450,11 +450,11 @@
         }
 
         mutateActiveState((state) => {
-          state.loop.revealedRoleCharacters = ["doctor", "girlStudent"];
+          state.loop.revealedRoleCharacters = ["boyStudent", "girlStudent"];
           state.loop.publicInformationThisLoop = [
             {
               kind: "roleReveal",
-              character: "doctor",
+              character: "boyStudent",
               role: "brain",
               loop: 1,
               day: 1,
@@ -622,6 +622,121 @@
         await selectScenario("basicTragedy:1");
       }
 
+      async function inspectDeductionTables() {
+        mutateActiveState((state) => {
+          state.history = [];
+          state.loopOutcomes = [];
+          state.loop.phaseLog = [];
+          state.loop.revealedRoleCharacters = ["girlStudent"];
+          state.loop.publicInformationThisLoop = [
+            {
+              kind: "roleReveal",
+              character: "girlStudent",
+              role: "friend",
+              loop: 1,
+              day: 1,
+            },
+            {
+              kind: "goodwillRefusal",
+              character: "informer",
+              rank: 3,
+              abilityIndex: 0,
+              loop: 1,
+              day: 2,
+            },
+            {
+              kind: "incidentCulprit",
+              source: "godlyBeing",
+              incident: "foulEvil",
+              culprit: "officeWorker",
+              day: 3,
+            },
+          ];
+        });
+        await reloadApp("deduction-tables");
+        const document = frameDocument();
+        const rolePanel = document.querySelector(".role-deduction-information");
+        const incidentPanel = document.querySelector(
+          ".incident-deduction-information",
+        );
+        if (
+          !(rolePanel instanceof frameWindow().HTMLDetailsElement) ||
+          !(incidentPanel instanceof frameWindow().HTMLDetailsElement)
+        ) {
+          throw new Error("역할·범인 후보 패널을 찾을 수 없습니다.");
+        }
+
+        const roleSummaryRect = rolePanel.querySelector(":scope > summary")
+          .getBoundingClientRect();
+        const incidentSummaryRect = incidentPanel.querySelector(":scope > summary")
+          .getBoundingClientRect();
+        rolePanel.open = true;
+        incidentPanel.open = true;
+        const roleGridDetails = rolePanel.querySelector(".deduction-grid-details");
+        const incidentGridDetails = incidentPanel.querySelector(
+          ".deduction-grid-details",
+        );
+        roleGridDetails.open = true;
+        incidentGridDetails.open = true;
+        rolePanel.scrollIntoView({ block: "start" });
+        await pause(100);
+
+        const roleScroll = rolePanel.querySelector(".deduction-grid-scroll");
+        const incidentScroll = incidentPanel.querySelector(
+          ".deduction-grid-scroll",
+        );
+        roleScroll.scrollLeft = roleScroll.scrollWidth;
+        incidentScroll.scrollLeft = incidentScroll.scrollWidth;
+        await pause(100);
+        const report = {
+          roleSummaryHeight: roleSummaryRect.height,
+          incidentSummaryHeight: incidentSummaryRect.height,
+          roleConfirmedRows: rolePanel.querySelectorAll(
+            ".deduction-summary-row.is-confirmed",
+          ).length,
+          roleNarrowedRows: rolePanel.querySelectorAll(
+            ".deduction-summary-row.is-narrowed",
+          ).length,
+          incidentConfirmedRows: incidentPanel.querySelectorAll(
+            ".deduction-summary-row.is-confirmed",
+          ).length,
+          roleCells: rolePanel.querySelectorAll(".deduction-grid tbody td").length,
+          incidentCells: incidentPanel.querySelectorAll(
+            ".deduction-grid tbody td",
+          ).length,
+          roleScroll: {
+            clientWidth: roleScroll.clientWidth,
+            scrollWidth: roleScroll.scrollWidth,
+            scrollLeft: roleScroll.scrollLeft,
+          },
+          incidentScroll: {
+            clientWidth: incidentScroll.clientWidth,
+            scrollWidth: incidentScroll.scrollWidth,
+            scrollLeft: incidentScroll.scrollLeft,
+          },
+          roleText: rolePanel.textContent.replace(/\s+/g, " ").trim(),
+          incidentText: incidentPanel.textContent.replace(/\s+/g, " ").trim(),
+          horizontal: horizontalOverflow(),
+        };
+        reports.push({ label: "역할·범인 추리표", ...report });
+        if (
+          report.roleSummaryHeight < 44 ||
+          report.incidentSummaryHeight < 44 ||
+          report.roleConfirmedRows < 1 ||
+          report.roleNarrowedRows < 2 ||
+          report.incidentConfirmedRows < 1 ||
+          report.roleCells === 0 ||
+          report.incidentCells === 0 ||
+          report.roleScroll.scrollWidth <= report.roleScroll.clientWidth ||
+          report.roleScroll.scrollLeft <= 0 ||
+          !report.roleText.includes("확정") ||
+          !report.incidentText.includes("확정") ||
+          report.horizontal.scrollWidth > WIDTH
+        ) {
+          failures.push(`역할·범인 추리표: ${JSON.stringify(report)}`);
+        }
+      }
+
       async function inspectScrollableModalBodies() {
         mutateActiveState((state) => {
           state.gamePhase = "ROUND";
@@ -784,6 +899,7 @@
       async function run() {
         await enterRound();
         await inspectRuleHypothesisPanels();
+        await inspectDeductionTables();
 
         const starts = {
           patient: "Hospital",

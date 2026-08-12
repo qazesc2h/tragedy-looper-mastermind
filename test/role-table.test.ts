@@ -2,12 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildRolePossibilityTable,
+  collectProtagonistObservations,
   enumerateRuleCombinations,
   evaluateRoleTableHypotheses,
   evaluateRuleHypotheses,
   type ProtagonistObservation,
   type RuleCombination,
 } from "../src/engine/hypothesis";
+import { initLoop } from "../src/engine/setup";
+import type { GameState, Scenario } from "../src/types";
 
 function combination(id: string): RuleCombination {
   const found = [
@@ -111,6 +114,164 @@ describe("role possibility table", () => {
 
     expect(table.cells.doctor.keyPerson.status).toBe("possible");
     expect(table.cells.girlStudent.keyPerson.status).toBe("possible");
+  });
+
+  it("keeps only goodwill-refusal roles after an actual refusal", () => {
+    const observation: ProtagonistObservation = {
+      kind: "goodwillRefused",
+      loop: 1,
+      day: 1,
+      character: "doctor",
+      rank: 2,
+      abilityIndex: 0,
+    };
+    const table = buildRolePossibilityTable(
+      "basicTragedy",
+      ["doctor", "girlStudent"],
+      enumerateRuleCombinations("basicTragedy"),
+      [observation],
+    );
+
+    expect(table.cells.doctor.person.status).toBe("impossible");
+    expect(table.cells.doctor.killer.status).toBe("possible");
+    expect(table.cells.doctor.brain.status).toBe("possible");
+    expect(table.cells.doctor.factor.status).toBe("possible");
+    expect(table.cells.doctor.cultist.status).toBe("possible");
+    expect(table.cells.doctor.witch.status).toBe("possible");
+  });
+
+  it("excludes only mandatory refusal roles after a refusable ability resolves", () => {
+    const observation: ProtagonistObservation = {
+      kind: "goodwillAccepted",
+      loop: 1,
+      day: 1,
+      character: "doctor",
+      rank: 2,
+      abilityIndex: 0,
+    };
+    const table = buildRolePossibilityTable(
+      "basicTragedy",
+      ["doctor", "girlStudent"],
+      enumerateRuleCombinations("basicTragedy"),
+      [observation],
+    );
+
+    expect(table.cells.doctor.cultist.status).toBe("impossible");
+    expect(table.cells.doctor.witch.status).toBe("impossible");
+    expect(table.cells.doctor.killer.status).toBe("possible");
+    expect(table.cells.doctor.brain.status).toBe("possible");
+    expect(table.cells.doctor.person.status).toBe("possible");
+  });
+
+  it("intersects repeated location ability observations and confirms one brain", () => {
+    const observation = (
+      loop: number,
+      doctorLocation: "Hospital" | "School",
+      patientLocation: "Hospital" | "School",
+    ): ProtagonistObservation => ({
+      kind: "mastermindAbilityResult",
+      loop,
+      day: 1,
+      timing: "P5_MASTERMIND_ABILITY",
+      changes: [{
+        kind: "counter",
+        target: { kind: "location", at: "Hospital" },
+        counter: "intrigue",
+        delta: 1,
+      }],
+      context: {
+        locationIntrigue: {
+          Hospital: 0,
+          Shrine: 0,
+          City: 0,
+          School: 0,
+        },
+        characters: {
+          doctor: {
+            status: "alive",
+            location: doctorLocation,
+            abilityLocations: [doctorLocation],
+            goodwill: 0,
+            paranoia: 0,
+            intrigue: 0,
+          },
+          patient: {
+            status: "alive",
+            location: patientLocation,
+            abilityLocations: [patientLocation],
+            goodwill: 0,
+            paranoia: 0,
+            intrigue: 0,
+          },
+        },
+      },
+    });
+    const table = buildRolePossibilityTable(
+      "firstSteps",
+      ["doctor", "patient"],
+      [combination("murderPlan+shadowRipper")],
+      [
+        observation(1, "Hospital", "Hospital"),
+        observation(2, "Hospital", "School"),
+      ],
+    );
+
+    expect(table.cells.doctor.brain.status).toBe("confirmed");
+    expect(table.cells.doctor.person.status).toBe("impossible");
+    expect(table.cells.patient.brain).toMatchObject({
+      status: "impossible",
+      reasons: [{ code: "abilityLocationIntersection" }],
+    });
+  });
+
+  it("does not constrain brain locations while unsettling rumor remains", () => {
+    const table = buildRolePossibilityTable(
+      "firstSteps",
+      ["doctor", "patient"],
+      [
+        combination("murderPlan+shadowRipper"),
+        combination("murderPlan+unsettlingRumor"),
+      ],
+      [{
+        kind: "mastermindAbilityResult",
+        loop: 1,
+        day: 1,
+        timing: "P5_MASTERMIND_ABILITY",
+        changes: [{
+          kind: "counter",
+          target: { kind: "location", at: "Hospital" },
+          counter: "intrigue",
+          delta: 1,
+        }],
+        context: {
+          locationIntrigue: {
+            Hospital: 0,
+            Shrine: 0,
+            City: 0,
+            School: 0,
+          },
+          characters: {
+            doctor: {
+              status: "alive",
+              location: "Hospital",
+              goodwill: 0,
+              paranoia: 0,
+              intrigue: 0,
+            },
+            patient: {
+              status: "alive",
+              location: "School",
+              goodwill: 0,
+              paranoia: 0,
+              intrigue: 0,
+            },
+          },
+        },
+      }],
+    );
+
+    expect(table.cells.doctor.brain.status).toBe("possible");
+    expect(table.cells.patient.brain.status).toBe("possible");
   });
 });
 
@@ -218,5 +379,77 @@ describe("role table to rule propagation", () => {
     expect(evaluation.excluded.every(({ tableContradictions }) =>
       tableContradictions.every(({ role }) => role !== "curmudgeon")
     )).toBe(true);
+  });
+});
+
+describe("goodwill acceptance observations", () => {
+  it("ignores outsider and nurse abilities that cannot be refused", () => {
+    const scenario: Scenario = {
+      tragedySet: "basicTragedy",
+      mainPlot: "murderPlan",
+      subPlots: ["circleFriends", "loveAffair"],
+      cast: {
+        mysteryBoy: "curmudgeon",
+        nurse: "person",
+        doctor: "person",
+      },
+      incidents: [],
+      loops: 1,
+      daysPerLoop: 5,
+    };
+    const loop = initLoop(scenario);
+    loop.phaseLog = [
+      {
+        loop: 1,
+        day: 1,
+        phase: "P6_GOODWILL",
+        kind: "goodwillUsed",
+        character: "mysteryBoy",
+        rank: 3,
+        abilityIndex: 1,
+        response: "resolve",
+        effectApplied: true,
+      },
+      {
+        loop: 1,
+        day: 1,
+        phase: "P6_GOODWILL",
+        kind: "goodwillUsed",
+        character: "nurse",
+        rank: 2,
+        abilityIndex: 0,
+        response: "resolve",
+        effectApplied: true,
+      },
+      {
+        loop: 1,
+        day: 1,
+        phase: "P6_GOODWILL",
+        kind: "goodwillUsed",
+        character: "doctor",
+        rank: 2,
+        abilityIndex: 0,
+        response: "resolve",
+        effectApplied: true,
+      },
+    ];
+    const state: GameState = {
+      scenario,
+      gamePhase: "ROUND",
+      loop,
+      history: [],
+      loopOutcomes: [],
+    };
+
+    expect(collectProtagonistObservations(state).filter(
+      ({ kind }) => kind === "goodwillAccepted"
+    )).toEqual([{
+      kind: "goodwillAccepted",
+      loop: 1,
+      day: 1,
+      character: "doctor",
+      rank: 2,
+      abilityIndex: 0,
+    }]);
   });
 });

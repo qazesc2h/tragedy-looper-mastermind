@@ -601,7 +601,7 @@ describe("automatic empty round phases", () => {
       day: 2,
       phase: "P2_MASTERMIND_ACTION",
     });
-    expect(state.loop.phaseLog).toContainEqual({
+    expect(state.loop.phaseLog).toContainEqual(expect.objectContaining({
       loop: 1,
       day: 1,
       phase: "P7_INCIDENT",
@@ -611,7 +611,7 @@ describe("automatic empty round phases", () => {
       fired: false,
       effectApplied: false,
       failureReasons: ["insufficientParanoia"],
-    });
+    }));
   });
 
   it("records an absent culprit as the reason an incident did not fire", () => {
@@ -635,7 +635,7 @@ describe("automatic empty round phases", () => {
       fired: false,
       effectApplied: false,
     });
-    expect(state.loop.phaseLog).toContainEqual({
+    expect(state.loop.phaseLog).toContainEqual(expect.objectContaining({
       loop: 1,
       day: 1,
       phase: "P7_INCIDENT",
@@ -645,7 +645,7 @@ describe("automatic empty round phases", () => {
       fired: false,
       effectApplied: false,
       failureReasons: ["culpritAbsent"],
-    });
+    }));
   });
 });
 
@@ -704,7 +704,7 @@ describe("immediate loop interruption and judgment", () => {
     expect(state.loop.pendingImmediateLossKeys).toEqual([
       "role:keyPerson:doctor",
     ]);
-    expect(state.loop.phaseLog).toContainEqual({
+    expect(state.loop.phaseLog).toContainEqual(expect.objectContaining({
       loop: 1,
       day: 1,
       phase: "P7_INCIDENT",
@@ -715,7 +715,7 @@ describe("immediate loop interruption and judgment", () => {
       effectApplied: true,
       failureReasons: [],
       deaths: ["doctor", "patient"],
-    });
+    }));
 
     settleGameFlow(state);
     expect(state.gamePhase).toBe("LOOP_JUDGMENT");

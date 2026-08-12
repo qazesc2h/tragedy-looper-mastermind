@@ -1,10 +1,16 @@
 import { characterDataOf } from "../data";
 import {
-  evaluateStateRuleHypotheses,
-  type EvaluatedRuleCombination,
+  evaluateStateRoleTableHypotheses,
+  type EvaluatedRoleTableRuleCombination,
   type ProtagonistObservation,
   type RuleCombination,
+  type RolePossibilityTable,
 } from "../engine/hypothesis";
+import {
+  evaluateStateIncidentHypotheses,
+  type IncidentHypothesisColumn,
+  type IncidentPossibilityTable,
+} from "../engine/incident-hypothesis";
 import { incidentFailureReasons, incidentFires } from "../engine/incident";
 import { distanceToLoss } from "../engine/loss";
 import { tragedySetDefinition } from "../tragedy-sets";
@@ -45,7 +51,7 @@ export interface RuleHypothesisObservationImpact {
 export interface RuleHypothesisSummary {
   totalCombinations: number;
   remainingCombinations: RuleCombination[];
-  evaluatedCombinations: EvaluatedRuleCombination[];
+  evaluatedCombinations: EvaluatedRoleTableRuleCombination[];
   mainPlotTotal: number;
   mainPlotCandidates: PlotId[];
   subPlotTotal: number;
@@ -53,6 +59,30 @@ export interface RuleHypothesisSummary {
   ruleYFixed: boolean;
   observationImpacts: RuleHypothesisObservationImpact[];
   showEveryCombination: boolean;
+  tableExcludedCount: number;
+}
+
+export interface RolePossibilitySummaryRow {
+  character: CharacterId;
+  possibleRoles: string[];
+  confirmedRole?: string;
+  impossibleCount: number;
+  narrowed: boolean;
+}
+
+export interface IncidentPossibilitySummaryRow {
+  character: CharacterId;
+  possibleColumns: IncidentHypothesisColumn[];
+  confirmedColumn?: IncidentHypothesisColumn;
+  impossibleCount: number;
+  narrowed: boolean;
+}
+
+export interface DeductionTablesSummary {
+  roleTable: RolePossibilityTable;
+  roleRows: RolePossibilitySummaryRow[];
+  incidentTable: IncidentPossibilityTable;
+  incidentRows: IncidentPossibilitySummaryRow[];
 }
 
 /** 각본가 패널에 필요한 룰 후보와 관측별 순차 배제 수를 계산한다. */
@@ -60,7 +90,7 @@ export function ruleHypothesisSummary(
   state: GameState,
 ): RuleHypothesisSummary {
   const definition = tragedySetDefinition(state.scenario.tragedySet);
-  const evaluation = evaluateStateRuleHypotheses(state);
+  const evaluation = evaluateStateRoleTableHypotheses(state);
   const remainingMainPlots = new Set(
     evaluation.remaining.map(({ mainPlot }) => mainPlot),
   );
@@ -99,7 +129,50 @@ export function ruleHypothesisSummary(
     ruleYFixed: mainPlotCandidates.length === 1,
     observationImpacts,
     showEveryCombination: evaluation.combinations.length <= 9,
+    tableExcludedCount: evaluation.combinations.filter(
+      ({ tableContradictions }) => tableContradictions.length > 0
+    ).length,
   };
+}
+
+/** 역할표와 범인표를 같은 공개 관측 스냅샷에서 계산한다. */
+export function deductionTablesSummary(
+  state: GameState,
+): DeductionTablesSummary {
+  const roleEvaluation = evaluateStateRoleTableHypotheses(state);
+  const roleTable = roleEvaluation.table;
+  const incidentTable = evaluateStateIncidentHypotheses(state);
+  const roleRows = roleTable.characters.map((character) => {
+    const possibleRoles = roleTable.roles.filter((role) =>
+      roleTable.cells[character]?.[role]?.status !== "impossible"
+    );
+    const confirmedRole = roleTable.roles.find((role) =>
+      roleTable.cells[character]?.[role]?.status === "confirmed"
+    );
+    return {
+      character,
+      possibleRoles,
+      ...(confirmedRole === undefined ? {} : { confirmedRole }),
+      impossibleCount: roleTable.roles.length - possibleRoles.length,
+      narrowed: possibleRoles.length < roleTable.roles.length,
+    };
+  });
+  const incidentRows = incidentTable.characters.map((character) => {
+    const possibleColumns = incidentTable.columns.filter((column) =>
+      incidentTable.cells[character]?.[column.id]?.status !== "impossible"
+    );
+    const confirmedColumn = incidentTable.columns.find((column) =>
+      incidentTable.cells[character]?.[column.id]?.status === "confirmed"
+    );
+    return {
+      character,
+      possibleColumns,
+      ...(confirmedColumn === undefined ? {} : { confirmedColumn }),
+      impossibleCount: incidentTable.columns.length - possibleColumns.length,
+      narrowed: possibleColumns.length < incidentTable.columns.length,
+    };
+  });
+  return { roleTable, roleRows, incidentTable, incidentRows };
 }
 
 function occurrenceFired(
