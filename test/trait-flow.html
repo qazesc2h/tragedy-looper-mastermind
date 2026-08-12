@@ -998,6 +998,26 @@
           applied.loop.cultistsIgnoringForbidIntrigue === undefined,
           "P4 종료 뒤 광신도 임시 상태가 남음",
         );
+        const actionLog = applied.loop.phaseLog.find(
+          (entry) => entry.kind === "actionResolved",
+        );
+        assert(
+          actionLog?.placements?.length === 6 &&
+            actionLog.publicChanges?.some(
+              (change) => change.kind === "counter" &&
+                change.counter === "intrigue" &&
+                change.delta === 1,
+            ),
+          `광신도 P4 공개 상태 로그: ${JSON.stringify(actionLog)}`,
+        );
+        const hypothesisText = frameDocument().querySelector(
+          ".rule-hypothesis-information",
+        )?.textContent?.replace(/\s+/g, " ").trim() ?? "";
+        assert(
+          hypothesisText.includes("음모 금지 무시") &&
+            hypothesisText.includes("음모 증가"),
+          `광신도 공개 관측: ${hypothesisText}`,
+        );
         reports.push({
           cultist: "toggle only, post-movement scope, character forbid ignored",
           summary: summary.textContent?.trim(),

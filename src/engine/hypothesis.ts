@@ -13,6 +13,7 @@ import {
   type PublicBoardChange,
   type PublicObservationContext,
   type RoleId,
+  type Target,
 } from "../types";
 import {
   rolesForTragedySet,
@@ -87,6 +88,13 @@ export type ProtagonistObservation =
     day: number;
     incident: IncidentId;
     effectApplied: boolean;
+  }
+  | {
+    kind: "intrigueForbidIgnored";
+    loop: number;
+    day: number;
+    target: Target;
+    context?: PublicObservationContext;
   };
 
 export type RuleContradictionCode =
@@ -96,7 +104,10 @@ export type RuleContradictionCode =
   | "revealedSubplotMissing"
   | "mastermindAbilityUnavailable"
   | "deathReactionUnavailable"
-  | "loopStartEffectUnavailable";
+  | "loopStartEffectUnavailable"
+  | "roundEndDeathUnavailable"
+  | "loopStartGoodwillUnavailable"
+  | "intrigueForbidIgnoreUnavailable";
 
 export interface RuleContradiction {
   code: RuleContradictionCode;
@@ -233,6 +244,17 @@ function roleCouldAppear(
   ) && inactiveSetRoleIsPossible(tragedySetRoles, ranges, role);
 }
 
+function roleCouldBelongToCharacter(
+  tragedySetRoles: readonly RoleId[],
+  ranges: ReadonlyMap<RoleId, RoleRange>,
+  role: RoleId,
+  character: CharacterId,
+): boolean {
+  return characterDataOf(character).plotLessRole
+    ? inactiveSetRoleIsPossible(tragedySetRoles, ranges, role)
+    : activeRoleIsPossible(ranges, role);
+}
+
 function factorAbilityConditionMet(
   context: PublicObservationContext | undefined,
   abilityRole: "conspiracyTheorist" | "keyPerson",
@@ -309,6 +331,194 @@ function refusalObservationContradiction(
   };
 }
 
+function sameTarget(left: Target, right: Target): boolean {
+  return left.kind === right.kind && (
+    left.kind === "character"
+      ? left.id === (right.kind === "character" ? right.id : undefined)
+      : left.at === (right.kind === "location" ? right.at : undefined)
+  );
+}
+
+function observedAbilityLocations(
+  character: NonNullable<PublicObservationContext["characters"]>[CharacterId],
+): readonly string[] {
+  return character.abilityLocations ??
+    (character.location === undefined ? [] : [character.location]);
+}
+
+function roundEndDeathContradiction(
+  observation: Extract<
+    ProtagonistObservation,
+    { kind: "mastermindAbilityResult" }
+  >,
+  combination: RuleCombination,
+  tragedySetRoles: readonly RoleId[],
+  ranges: ReadonlyMap<RoleId, RoleRange>,
+): RuleContradiction | undefined {
+  if (
+    observation.timing !== "P9_ROUND_END" ||
+    observation.context?.characters === undefined
+  ) return undefined;
+
+  const deaths = observation.changes.flatMap((change) =>
+    change.kind === "status" &&
+      change.from === "alive" &&
+      change.to === "dead"
+      ? [change.character]
+      : []
+  );
+  if (deaths.length === 0) return undefined;
+
+  for (const death of deaths) {
+    const deceased = observation.context.characters[death];
+    if (deceased?.status !== "alive" || deceased.location === undefined) {
+      continue;
+    }
+    const deathLocation = deceased.location;
+    const livingHere = Object.entries(observation.context.characters)
+      .filter(([, character]) =>
+        character.status === "alive" &&
+        character.location === deathLocation
+      );
+    const others = livingHere.filter(([character]) => character !== death);
+    const possibleKillers = Object.entries(observation.context.characters)
+      .filter(([character, state]) =>
+        character !== death &&
+        state.status !== "absent" &&
+        observedAbilityLocations(state).includes(deathLocation)
+      );
+
+    const serialPattern = livingHere.length === 2 && others.length === 1;
+    const actualSerialKillerPossible = serialPattern &&
+      others.some(([character]) =>
+        roleCouldBelongToCharacter(
+          tragedySetRoles,
+          ranges,
+          "serialKiller",
+          character,
+        )
+      );
+    const virusSerialKillerPossible = serialPattern &&
+      combination.subPlots.includes("paranoiaVirus") &&
+      others.some(([characterId, character]) =>
+        !characterDataOf(characterId).plotLessRole &&
+        character.paranoia >= 3
+      );
+
+    const killerPattern = deceased.intrigue >= 2 &&
+      possibleKillers.length >= 1;
+    const killerPossible = killerPattern &&
+      roleCouldBelongToCharacter(
+        tragedySetRoles,
+        ranges,
+        "keyPerson",
+        death,
+      ) &&
+      possibleKillers.some(([character]) =>
+        roleCouldBelongToCharacter(
+          tragedySetRoles,
+          ranges,
+          "killer",
+          character,
+        )
+      );
+
+    if (!serialPattern && !killerPattern) {
+      // 공개 패턴만으로 C-3의 두 원인 중 어느 쪽도 특정할 수 없다.
+      continue;
+    }
+    if (
+      actualSerialKillerPossible ||
+      virusSerialKillerPossible ||
+      killerPossible
+    ) return undefined;
+
+    return {
+      code: "roundEndDeathUnavailable",
+      observation,
+      reason: "라운드 종료의 공개 사망 상태를 이 조합의 가능한 역할로 설명할 수 없습니다.",
+    };
+  }
+  return undefined;
+}
+
+function loopStartGoodwillContradiction(
+  observation: Extract<
+    ProtagonistObservation,
+    { kind: "mastermindAbilityResult" }
+  >,
+  observations: readonly ProtagonistObservation[],
+  tragedySetRoles: readonly RoleId[],
+  ranges: ReadonlyMap<RoleId, RoleRange>,
+  publicCast: readonly CharacterId[],
+): RuleContradiction | undefined {
+  if (observation.timing !== "LOOP_START") return undefined;
+  const eligibleCharacters = observation.changes.flatMap((change) => {
+    if (
+      change.kind !== "counter" ||
+      change.target.kind !== "character" ||
+      change.counter !== "goodwill" ||
+      change.delta !== 1
+    ) return [];
+    const character = change.target.id;
+    return observations.some((candidate) =>
+        candidate.kind === "roleRevealed" &&
+        candidate.character === character &&
+        candidate.role === "friend" &&
+        candidate.loop < observation.loop
+      )
+      ? [character]
+      : [];
+  });
+  if (eligibleCharacters.length === 0) return undefined;
+  if (roleCouldAppear(tragedySetRoles, ranges, "friend", publicCast)) {
+    return undefined;
+  }
+  return {
+    code: "loopStartGoodwillUnavailable",
+    observation,
+    reason: "역할 공개 뒤 루프 시작 우호 1 증가를 설명할 친구 역할이 없습니다.",
+  };
+}
+
+function intrigueForbidIgnoredContradiction(
+  observation: Extract<
+    ProtagonistObservation,
+    { kind: "intrigueForbidIgnored" }
+  >,
+  tragedySetRoles: readonly RoleId[],
+  ranges: ReadonlyMap<RoleId, RoleRange>,
+  publicCast: readonly CharacterId[],
+): RuleContradiction | undefined {
+  const targetLocation = observation.target.kind === "location"
+    ? observation.target.at
+    : observation.context?.characters?.[observation.target.id]?.location;
+  const contextCharacters = observation.context?.characters;
+  const cultistPossible = targetLocation === undefined ||
+      contextCharacters === undefined || publicCast.length === 0
+    ? roleCouldAppear(tragedySetRoles, ranges, "cultist", publicCast)
+    : publicCast.some((character) => {
+      const publicState = contextCharacters[character];
+      return publicState !== undefined &&
+        publicState.status !== "absent" &&
+        observedAbilityLocations(publicState).includes(targetLocation) &&
+        roleCouldBelongToCharacter(
+          tragedySetRoles,
+          ranges,
+          "cultist",
+          character,
+        );
+    });
+  if (cultistPossible) {
+    return undefined;
+  }
+  return {
+    code: "intrigueForbidIgnoreUnavailable",
+    observation,
+    reason: "유효한 음모 금지를 무시한 증가를 설명할 광신도 역할이 없습니다.",
+  };
+}
+
 function abilityObservationContradiction(
   observation: Extract<
     ProtagonistObservation,
@@ -318,6 +528,7 @@ function abilityObservationContradiction(
   tragedySetRoles: readonly RoleId[],
   ranges: ReadonlyMap<RoleId, RoleRange>,
   publicCast: readonly CharacterId[],
+  observations: readonly ProtagonistObservation[],
 ): RuleContradiction | undefined {
   const deathReaction = observation.timing === "ON_DEATH" &&
     observation.trigger?.kind === "death" &&
@@ -360,6 +571,23 @@ function abilityObservationContradiction(
         reason: "루프 시작에 공개된 복수 캐릭터 불안 2 증가를 이 조합으로 설명할 수 없습니다.",
       };
   }
+
+  const roundEndDeath = roundEndDeathContradiction(
+    observation,
+    combination,
+    tragedySetRoles,
+    ranges,
+  );
+  if (roundEndDeath !== undefined) return roundEndDeath;
+
+  const loopStartGoodwill = loopStartGoodwillContradiction(
+    observation,
+    observations,
+    tragedySetRoles,
+    ranges,
+    publicCast,
+  );
+  if (loopStartGoodwill !== undefined) return loopStartGoodwill;
 
   // C-1에서 넓힌 다른 훅 시점은 각 단계 전용 필터가 생기기 전까지 관측만 한다.
   // timing이 없는 구 저장 기록은 기존 P5 관측으로 보수적으로 호환한다.
@@ -440,6 +668,15 @@ function contradictionsForCombination(
         contradiction = abilityObservationContradiction(
           observation,
           combination,
+          tragedySetRoles,
+          ranges,
+          options.publicCast ?? [],
+          observations,
+        );
+        break;
+      case "intrigueForbidIgnored":
+        contradiction = intrigueForbidIgnoredContradiction(
+          observation,
           tragedySetRoles,
           ranges,
           options.publicCast ?? [],
@@ -574,6 +811,43 @@ export function collectProtagonistObservations(
           incident: entry.incident,
           occurred: entry.fired,
         });
+      } else if (
+        entry.kind === "actionResolved" &&
+        entry.placements !== undefined &&
+        entry.publicChanges !== undefined
+      ) {
+        const protagonistForbids = entry.placements.filter((placement) =>
+          placement.owner !== "mastermind" &&
+          placement.card === "forbidIntrigue"
+        );
+        if (protagonistForbids.length === 1) {
+          const forbid = protagonistForbids[0];
+          if (forbid !== undefined) {
+            const mastermindIncrease = entry.placements.some((placement) =>
+              placement.owner === "mastermind" &&
+              (placement.card === "intriguePlus1" ||
+                placement.card === "intriguePlus2") &&
+              sameTarget(placement.target, forbid.target)
+            );
+            const increaseObserved = entry.publicChanges.some((change) =>
+              change.kind === "counter" &&
+              change.counter === "intrigue" &&
+              change.delta > 0 &&
+              sameTarget(change.target, forbid.target)
+            );
+            if (mastermindIncrease && increaseObserved) {
+              observations.push({
+                kind: "intrigueForbidIgnored",
+                loop: entry.loop,
+                day: entry.day,
+                target: forbid.target,
+                ...(entry.publicContext === undefined
+                  ? {}
+                  : { context: entry.publicContext }),
+              });
+            }
+          }
+        }
       } else if (
         entry.kind === "abilityActivated" &&
         entry.publicChanges !== undefined &&

@@ -11,17 +11,40 @@ import {
   publicObservationContext,
   type ProtagonistObservation,
 } from "../src/engine/hypothesis";
+import { recordPhaseLog } from "../src/engine/phase-log";
+import {
+  applyHookEffect,
+  collectHooks,
+  resolveHooks,
+} from "../src/engine/phases";
+import { resolveActions } from "../src/engine/resolve";
+import { initLoop } from "../src/engine/setup";
 import {
   loadBasicTragedyScenarioCatalog,
   loadFirstStepsScenarioCatalog,
 } from "../src/scenario-catalog";
-import type { GameState, PublicObservationContext } from "../src/types";
+import type {
+  CharacterId,
+  GameState,
+  PlacedCard,
+  PublicObservationContext,
+} from "../src/types";
+import { isCharacterPresent } from "../src/types";
+import { setBoardLife, setBoardLocation } from "./helpers";
 
 function firstStepsState(): GameState {
   const scenario = structuredClone(
     loadFirstStepsScenarioCatalog()[0].scenario,
   );
   return createGameState(scenario);
+}
+
+function basicState(id: string): GameState {
+  const entry = loadBasicTragedyScenarioCatalog().find((candidate) =>
+    candidate.id === id
+  );
+  if (entry === undefined) throw new Error(`missing scenario ${id}`);
+  return createGameState(structuredClone(entry.scenario));
 }
 
 function roleRevealed(
@@ -43,6 +66,60 @@ function observationContext(
       School: schoolIntrigue,
     },
   };
+}
+
+function boardObservationContext(
+  characters: NonNullable<PublicObservationContext["characters"]>,
+): PublicObservationContext {
+  return {
+    ...observationContext(0),
+    characters,
+  };
+}
+
+function publicCharacter(
+  location: "Hospital" | "Shrine" | "City" | "School",
+  intrigue = 0,
+  paranoia = 0,
+): NonNullable<PublicObservationContext["characters"]>[CharacterId] {
+  return {
+    status: "alive",
+    location,
+    abilityLocations: [location],
+    goodwill: 0,
+    paranoia,
+    intrigue,
+  };
+}
+
+function roundEndDeathObservation(
+  characters: NonNullable<PublicObservationContext["characters"]>,
+  deadCharacter = "shrineMaiden",
+): Extract<
+  ProtagonistObservation,
+  { kind: "mastermindAbilityResult" }
+> {
+  return {
+    kind: "mastermindAbilityResult",
+    loop: 1,
+    day: 1,
+    timing: "P9_ROUND_END",
+    changes: [{
+      kind: "status",
+      character: deadCharacter,
+      from: "alive",
+      to: "dead",
+    }],
+    context: boardObservationContext(characters),
+  };
+}
+
+function actualCombinationRemains(state: GameState): boolean {
+  return evaluateStateRuleHypotheses(state).remaining.some((combination) =>
+    combination.mainPlot === state.scenario.mainPlot &&
+    combination.subPlots.length === state.scenario.subPlots.length &&
+    combination.subPlots.every((plot) => state.scenario.subPlots.includes(plot))
+  );
 }
 
 describe("rule combination enumeration", () => {
@@ -370,14 +447,20 @@ describe("observation model", () => {
     expect(JSON.stringify(observations)).not.toContain("hidden lover role");
   });
 
-  it("snapshots public location intrigue without retaining a live reference", () => {
+  it("snapshots the public board without retaining live references", () => {
     const state = firstStepsState();
     state.loop.locIntrigue.City = 2;
     const context = publicObservationContext(state.loop);
+    const maiden = context.characters?.shrineMaiden;
 
     state.loop.locIntrigue.City = 3;
+    state.loop.charCounters.shrineMaiden.paranoia = 4;
 
-    expect(context).toEqual(observationContext(0, 2));
+    expect(context.locationIntrigue).toEqual(
+      observationContext(0, 2).locationIntrigue,
+    );
+    expect(maiden?.paranoia).toBe(0);
+    expect(maiden?.status).toBe("alive");
   });
 });
 
@@ -550,14 +633,237 @@ describe("basicTragedy rule-layer regression", () => {
     ).remaining).toHaveLength(105);
   });
 
-  it("only records other C-1 timings until their later filters are implemented", () => {
-    const observations: ProtagonistObservation[] = [
+  it("keeps only hiddenFreak for an ordinary serial-killer pair", () => {
+    const observation = roundEndDeathObservation({
+      shrineMaiden: publicCharacter("Shrine"),
+      boyStudent: publicCharacter("Shrine"),
+      girlStudent: publicCharacter("School"),
+    });
+
+    const evaluation = evaluateRuleHypotheses(
+      "basicTragedy",
+      [observation],
+    );
+
+    expect(evaluation.remaining).toHaveLength(30);
+    expect(evaluation.excluded).toHaveLength(75);
+    expect(evaluation.remaining.every(({ subPlots }) =>
+      subPlots.includes("hiddenFreak")
+    )).toBe(true);
+  });
+
+  it("also keeps paranoiaVirus when the only survivor can mutate", () => {
+    const observation = roundEndDeathObservation({
+      shrineMaiden: publicCharacter("Shrine"),
+      boyStudent: publicCharacter("Shrine", 0, 3),
+      girlStudent: publicCharacter("School"),
+    });
+
+    const evaluation = evaluateRuleHypotheses(
+      "basicTragedy",
+      [observation],
+    );
+
+    expect(evaluation.remaining).toHaveLength(55);
+    expect(evaluation.excluded).toHaveLength(50);
+    expect(evaluation.remaining.every(({ subPlots }) =>
+      subPlots.includes("hiddenFreak") || subPlots.includes("paranoiaVirus")
+    )).toBe(true);
+  });
+
+  it("uses murderPlan when a non-pair death matches the killer condition", () => {
+    const observation = roundEndDeathObservation({
+      shrineMaiden: publicCharacter("Shrine", 2),
+      boyStudent: publicCharacter("Shrine"),
+      girlStudent: publicCharacter("Shrine"),
+    });
+
+    const evaluation = evaluateRuleHypotheses(
+      "basicTragedy",
+      [observation],
+    );
+
+    expect(evaluation.remaining).toHaveLength(21);
+    expect(evaluation.excluded).toHaveLength(84);
+    expect(evaluation.remaining.every(({ mainPlot }) =>
+      mainPlot === "murderPlan"
+    )).toBe(true);
+  });
+
+  it("keeps the union of serial-killer and killer explanations", () => {
+    const observation = roundEndDeathObservation({
+      shrineMaiden: publicCharacter("Shrine", 2),
+      boyStudent: publicCharacter("Shrine", 0, 3),
+      girlStudent: publicCharacter("School"),
+    });
+
+    const evaluation = evaluateRuleHypotheses(
+      "basicTragedy",
+      [observation],
+    );
+
+    expect(evaluation.remaining).toHaveLength(65);
+    expect(evaluation.excluded).toHaveLength(40);
+    expect(evaluation.remaining.every(({ mainPlot, subPlots }) =>
+      mainPlot === "murderPlan" ||
+      subPlots.includes("hiddenFreak") ||
+      subPlots.includes("paranoiaVirus")
+    )).toBe(true);
+  });
+
+  it("does not infer a P9 cause without the observation-time board", () => {
+    const observation = roundEndDeathObservation({
+      shrineMaiden: publicCharacter("Shrine"),
+      boyStudent: publicCharacter("Shrine"),
+    });
+    delete observation.context;
+
+    expect(evaluateRuleHypotheses(
+      "basicTragedy",
+      [observation],
+    ).remaining).toHaveLength(105);
+  });
+
+  it("preserves the outsider's inverse serial-killer assignment", () => {
+    const observation = roundEndDeathObservation({
+      shrineMaiden: publicCharacter("Shrine"),
+      mysteryBoy: publicCharacter("Shrine"),
+      boyStudent: publicCharacter("School"),
+    });
+
+    const evaluation = evaluateRuleHypotheses(
+      "basicTragedy",
+      [observation],
+    );
+
+    expect(evaluation.remaining).toHaveLength(75);
+    expect(evaluation.remaining.every(({ subPlots }) =>
+      !subPlots.includes("hiddenFreak")
+    )).toBe(true);
+  });
+
+  it("requires an earlier friend reveal before interpreting loop-start goodwill", () => {
+    const goodwill: ProtagonistObservation = {
+      kind: "mastermindAbilityResult",
+      loop: 2,
+      day: 1,
+      timing: "LOOP_START",
+      changes: [{
+        kind: "counter",
+        target: { kind: "character", id: "girlStudent" },
+        counter: "goodwill",
+        delta: 1,
+      }],
+    };
+
+    expect(evaluateRuleHypotheses(
+      "basicTragedy",
+      [goodwill],
+    ).remaining).toHaveLength(105);
+
+    const revealed = roleRevealed("girlStudent", "friend");
+    const withReveal = evaluateRuleHypotheses(
+      "basicTragedy",
+      [revealed, goodwill],
+    );
+    expect(withReveal.remaining).toHaveLength(55);
+    expect(withReveal.excluded).toHaveLength(50);
+    expect(withReveal.remaining.every(({ subPlots }) =>
+      subPlots.includes("circleFriends") || subPlots.includes("hiddenFreak")
+    )).toBe(true);
+    expect(withReveal.remaining).toEqual(
+      evaluateRuleHypotheses("basicTragedy", [revealed]).remaining,
+    );
+  });
+
+  it("keeps only cultist main plots after a valid intrigue forbid is ignored", () => {
+    const observation: ProtagonistObservation = {
+      kind: "intrigueForbidIgnored",
+      loop: 1,
+      day: 1,
+      target: { kind: "character", id: "girlStudent" },
+      context: boardObservationContext({
+        girlStudent: publicCharacter("School"),
+      }),
+    };
+
+    const evaluation = evaluateRuleHypotheses(
+      "basicTragedy",
+      [observation],
+    );
+
+    expect(evaluation.remaining).toHaveLength(42);
+    expect(evaluation.excluded).toHaveLength(63);
+    expect(evaluation.remaining.every(({ mainPlot }) =>
+      mainPlot === "sealedItem" || mainPlot === "changeOfFuture"
+    )).toBe(true);
+  });
+
+  it("collects cultist evidence only when exactly one protagonist forbid was valid", () => {
+    const state = basicState("basicTragedy:7");
+    const target = { kind: "character" as const, id: "classRep" };
+    const cards: PlacedCard[] = [
+      { owner: 0, card: "forbidIntrigue", target },
+      { owner: "mastermind", card: "intriguePlus1", target },
+    ];
+    recordPhaseLog(state, {
+      loop: 1,
+      day: 1,
+      phase: "P4_RESOLVE",
+      kind: "actionResolved",
+      results: [],
+      placements: cards,
+      publicContext: publicObservationContext(state.loop),
+      publicChanges: [{
+        kind: "counter",
+        target,
+        counter: "intrigue",
+        delta: 1,
+      }],
+    });
+
+    expect(collectProtagonistObservations(state)).toContainEqual(
+      expect.objectContaining({
+        kind: "intrigueForbidIgnored",
+        target,
+      }),
+    );
+
+    cards.push({ owner: 1, card: "forbidIntrigue", target });
+    const invalidatedByRule = basicState("basicTragedy:7");
+    recordPhaseLog(invalidatedByRule, {
+      loop: 1,
+      day: 1,
+      phase: "P4_RESOLVE",
+      kind: "actionResolved",
+      results: [],
+      placements: cards,
+      publicChanges: [{
+        kind: "counter",
+        target,
+        counter: "intrigue",
+        delta: 1,
+      }],
+    });
+    expect(collectProtagonistObservations(invalidatedByRule).some(
+      ({ kind }) => kind === "intrigueForbidIgnored",
+    )).toBe(false);
+  });
+
+  it("does not turn known P6 or P7 deaths into an unknown P9 cause", () => {
+    const state = firstStepsState();
+    state.loop.phaseLog = [
       {
-        kind: "mastermindAbilityResult",
         loop: 1,
-        day: 2,
-        timing: "P9_ROUND_END",
-        changes: [{
+        day: 1,
+        phase: "P6_GOODWILL",
+        kind: "goodwillUsed",
+        character: "alien",
+        rank: 4,
+        abilityIndex: 0,
+        response: "resolve",
+        effectApplied: true,
+        publicChanges: [{
           kind: "status",
           character: "boyStudent",
           from: "alive",
@@ -565,23 +871,131 @@ describe("basicTragedy rule-layer regression", () => {
         }],
       },
       {
-        kind: "mastermindAbilityResult",
-        loop: 2,
+        loop: 1,
         day: 1,
-        timing: "LOOP_START",
-        changes: [{
-          kind: "counter",
-          target: { kind: "character", id: "girlStudent" },
-          counter: "goodwill",
-          delta: 1,
-        }],
+        phase: "P7_INCIDENT",
+        kind: "incidentJudged",
+        incident: "murder",
+        culprit: "boyStudent",
+        fired: true,
+        effectApplied: true,
+        failureReasons: [],
       },
     ];
 
-    expect(evaluateRuleHypotheses(
-      "basicTragedy",
-      observations,
-    ).remaining).toHaveLength(105);
+    const observations = collectProtagonistObservations(state);
+    expect(observations.some(({ kind }) =>
+      kind === "mastermindAbilityResult"
+    )).toBe(false);
+    expect(evaluateStateRuleHypotheses(state).remaining).toHaveLength(9);
+  });
+
+  it("preserves actual bundled combinations through C-3 and C-4 paths", () => {
+    const serialState = basicState("basicTragedy:2");
+    serialState.gamePhase = "ROUND";
+    serialState.loop.phase = "P9_ROUND_END";
+    for (const character of Object.keys(serialState.loop.board)) {
+      if (isCharacterPresent(serialState.loop.board[character])) {
+        setBoardLocation(serialState.loop, character, "School");
+      }
+    }
+    setBoardLocation(serialState.loop, "boyStudent", "City");
+    setBoardLocation(serialState.loop, "shrineMaiden", "City");
+    resolveHooks(serialState, "P9_ROUND_END");
+    expect(collectProtagonistObservations(serialState)).toContainEqual(
+      expect.objectContaining({
+        kind: "mastermindAbilityResult",
+        timing: "P9_ROUND_END",
+      }),
+    );
+    expect(evaluateStateRuleHypotheses(serialState).remaining).toHaveLength(30);
+    expect(actualCombinationRemains(serialState)).toBe(true);
+
+    const killerState = basicState("basicTragedy:4");
+    killerState.gamePhase = "ROUND";
+    killerState.loop.phase = "P9_ROUND_END";
+    for (const character of Object.keys(killerState.loop.board)) {
+      if (isCharacterPresent(killerState.loop.board[character])) {
+        setBoardLocation(killerState.loop, character, "School");
+      }
+    }
+    for (const character of ["classRep", "informer", "shrineMaiden"]) {
+      setBoardLocation(killerState.loop, character, "City");
+    }
+    killerState.loop.charCounters.informer.intrigue = 2;
+    const killer = collectHooks(killerState, "P9_ROUND_END").find(
+      ({ self, hook }) => self === "classRep" && hook.kind === "optional",
+    );
+    if (killer === undefined) throw new Error("missing killer hook");
+    expect(killer.hook.when(killerState, killer.self)).toBe(true);
+    applyHookEffect(
+      killerState,
+      "P9_ROUND_END",
+      killer.hook,
+      killer.self,
+    );
+    expect(evaluateStateRuleHypotheses(killerState).remaining).toHaveLength(21);
+    expect(actualCombinationRemains(killerState)).toBe(true);
+
+    const friendState = basicState("basicTragedy:6");
+    friendState.gamePhase = "ROUND";
+    setBoardLife(friendState.loop, "classRep", false);
+    resolveHooks(friendState, "LOOP_END");
+    friendState.history.push(structuredClone(friendState.loop));
+    friendState.loop = initLoop(friendState.scenario, 2);
+    resolveHooks(friendState, "LOOP_START");
+    expect(friendState.loop.charCounters.classRep.goodwill).toBe(1);
+    expect(evaluateStateRuleHypotheses(friendState).remaining).toHaveLength(55);
+    expect(actualCombinationRemains(friendState)).toBe(true);
+
+    const cultistState = basicState("basicTragedy:7");
+    cultistState.gamePhase = "ROUND";
+    cultistState.loop.phase = "P4_RESOLVE";
+    setBoardLocation(cultistState.loop, "richStudent", "City");
+    setBoardLocation(cultistState.loop, "classRep", "City");
+    const cultist = collectHooks(cultistState, "P4_RESOLVE").find(
+      ({ self }) => self === "richStudent",
+    );
+    if (cultist === undefined) throw new Error("missing cultist hook");
+    applyHookEffect(
+      cultistState,
+      "P4_RESOLVE",
+      cultist.hook,
+      cultist.self,
+    );
+    const cultistTarget = {
+      kind: "character" as const,
+      id: "classRep",
+    };
+    const cultistCards: PlacedCard[] = [
+      { owner: 0, card: "forbidIntrigue", target: cultistTarget },
+      {
+        owner: "mastermind",
+        card: "intriguePlus1",
+        target: cultistTarget,
+      },
+    ];
+    cultistState.loop.placed = cultistCards;
+    const beforeCultistCards = structuredClone(cultistState.loop);
+    resolveActions(cultistState);
+    recordPhaseLog(cultistState, {
+      loop: 1,
+      day: 1,
+      phase: "P4_RESOLVE",
+      kind: "actionResolved",
+      results: [],
+      placements: cultistCards,
+      publicContext: publicObservationContext(beforeCultistCards),
+      publicChanges: publicBoardChanges(
+        beforeCultistCards,
+        cultistState.loop,
+      ),
+    });
+    expect(collectProtagonistObservations(cultistState)).toContainEqual(
+      expect.objectContaining({ kind: "intrigueForbidIgnored" }),
+    );
+    expect(evaluateStateRuleHypotheses(cultistState).remaining).toHaveLength(42);
+    expect(actualCombinationRemains(cultistState)).toBe(true);
   });
 
   it("excludes combinations that cannot explain a normal character's refusal", () => {

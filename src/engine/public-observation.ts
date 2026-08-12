@@ -78,6 +78,29 @@ export function publicBoardChanges(
 export function publicObservationContext(
   loop: LoopState,
 ): PublicObservationContext {
+  const characters: NonNullable<PublicObservationContext["characters"]> = {};
+  for (const [character, position] of Object.entries(loop.board)) {
+    const counters = loop.charCounters[character];
+    if (counters === undefined) continue;
+    const location = isCharacterPresent(position)
+      ? characterLocation(position, character)
+      : undefined;
+    const turf = loop.turfLocations[character];
+    characters[character] = {
+      status: position.status,
+      ...(location === undefined
+        ? {}
+        : {
+          location,
+          abilityLocations: turf !== undefined && turf !== location
+            ? [location, turf]
+            : [location],
+        }),
+      goodwill: counters.goodwill,
+      paranoia: counters.paranoia,
+      intrigue: counters.intrigue,
+    };
+  }
   return {
     locationIntrigue: {
       Hospital: loop.locIntrigue.Hospital,
@@ -85,5 +108,6 @@ export function publicObservationContext(
       City: loop.locIntrigue.City,
       School: loop.locIntrigue.School,
     },
+    characters,
   };
 }

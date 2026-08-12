@@ -20,6 +20,10 @@ import {
 import { killCharacter, reviveCharacter, withDeathBatch } from "./death";
 import { resolveIncidentEffect } from "./incident";
 import { recordPhaseLog } from "./phase-log";
+import {
+  publicBoardChanges,
+  publicObservationContext,
+} from "./public-observation";
 
 export type GoodwillResponse = "resolve" | "refuse";
 export type GoodwillRefusalKind = "none" | "optional" | "mandatory";
@@ -782,6 +786,7 @@ export function resolveGoodwillAbility(
   }
 
   // P6 선언 하나의 효과가 끝나면 사망 배치를 즉시 닫는다.
+  const beforeAbility = structuredClone(state.loop);
   const effectApplied = withDeathBatch(state, () =>
     applySimpleBaseAbility(
       state,
@@ -806,6 +811,8 @@ export function resolveGoodwillAbility(
     abilityIndex: selected.index,
     response: "resolve",
     effectApplied,
+    publicChanges: publicBoardChanges(beforeAbility, state.loop),
+    publicContext: publicObservationContext(beforeAbility),
   });
 
   return {

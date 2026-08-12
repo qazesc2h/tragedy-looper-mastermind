@@ -276,6 +276,16 @@ export type PublicBoardChange =
 /** 능력 발동 시점에 주인공도 확인할 수 있었던 공개 게임판 상태. */
 export interface PublicObservationContext {
   locationIntrigue: Record<Location, number>;
+  /** 관측 직전의 공개 캐릭터 위치·생사·카운터 복사본. */
+  characters?: Record<CharacterId, {
+    status: BoardCharacterState["status"];
+    location?: Location;
+    /** 거물의 세력권처럼 역할 능력이 닿는 공개 장소. */
+    abilityLocations?: Location[];
+    goodwill: number;
+    paranoia: number;
+    intrigue: number;
+  }>;
 }
 
 /** 능력의 정체를 밝히지 않고 공개된 직전 사건만 보존한다. */
@@ -317,6 +327,12 @@ export type PhaseLogEntry =
     phase: "P4_RESOLVE";
     kind: "actionResolved";
     results: string[];
+    /** P4 공개 직전 카드. 구 저장 기록에는 없을 수 있다. */
+    placements?: PlacedCard[];
+    /** P4 공개 직전 보드. 조건부 무효 원인을 판정한다. */
+    publicContext?: PublicObservationContext;
+    /** P4 해결로 실제 공개된 게임판 변화. */
+    publicChanges?: PublicBoardChange[];
   }
   | {
     loop: number;
@@ -351,6 +367,10 @@ export type PhaseLogEntry =
     abilityIndex: number;
     response: "resolve" | "refuse";
     effectApplied: boolean;
+    /** 우호 능력으로 공개된 게임판 변화. */
+    publicChanges?: PublicBoardChange[];
+    /** 우호 능력 해결 직전 공개 상태. */
+    publicContext?: PublicObservationContext;
   }
   | {
     loop: number;

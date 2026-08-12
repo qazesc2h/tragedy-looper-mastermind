@@ -29,6 +29,10 @@ import { type ProtagonistObservation } from "../engine/hypothesis";
 import { applyHookEffect, collectHooks } from "../engine/phases";
 import { recordPhaseLog } from "../engine/phase-log";
 import {
+  publicBoardChanges,
+  publicObservationContext,
+} from "../engine/public-observation";
+import {
   loadScenarioCatalog,
   scenarioSourceLabel,
   scenarioValidationHeading,
@@ -2481,6 +2485,8 @@ function publicAbilityObservationLabel(
     ? "캐릭터 사망 직후"
     : observation.timing === "LOOP_START"
     ? "루프 시작"
+    : observation.timing === "P9_ROUND_END"
+    ? "라운드 종료 시"
     : "각본가 능력 결과";
   return `${timing} · ${changeLabels.join(" · ")}`;
 }
@@ -2505,6 +2511,8 @@ function hypothesisObservationLabel(
       return `${observation.loop}루프 ${observation.day}일 주인공 패배`;
     case "goodwillIncidentEffect":
       return `${observation.day}일 ${incidentName(observation.incident)} 효과 해결`;
+    case "intrigueForbidIgnored":
+      return `음모 금지 무시 · ${targetLabel(observation.target)} 음모 증가`;
   }
 }
 
@@ -3299,6 +3307,9 @@ function revealActionCards(): void {
       phase: "P4_RESOLVE",
       kind: "actionResolved",
       results,
+      placements: cards,
+      publicContext: publicObservationContext(before.loop),
+      publicChanges: publicBoardChanges(before.loop, state.loop),
     });
     resolutionReceipt = {
       scenarioId: entry.id,
