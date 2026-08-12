@@ -131,6 +131,82 @@ export interface RuleHypothesisEvaluation {
   excluded: EvaluatedRuleCombination[];
 }
 
+export type RolePossibilityStatus =
+  | "possible"
+  | "impossible"
+  | "confirmed";
+
+export type RolePossibilityReason =
+  | {
+    code: "roleRevealed";
+    observation: Extract<ProtagonistObservation, { kind: "roleRevealed" }>;
+  }
+  | {
+    code: "otherRoleConfirmed";
+    observation: Extract<ProtagonistObservation, { kind: "roleRevealed" }>;
+  }
+  | {
+    code: "roleMaximumReached";
+    maximum: number;
+    confirmedCharacters: CharacterId[];
+  }
+  | {
+    code: "outsiderConstraint";
+  }
+  | {
+    code: "characterConstraint";
+    reason: string;
+  }
+  | {
+    code: "ruleUnavailable";
+  };
+
+export interface RolePossibilityCell {
+  character: CharacterId;
+  role: RoleId;
+  status: RolePossibilityStatus;
+  reasons: RolePossibilityReason[];
+}
+
+/** 전체 배정을 열거하지 않는 캐릭터 x 역할 독립 가능성 표. */
+export interface RolePossibilityTable {
+  characters: CharacterId[];
+  roles: RoleId[];
+  cells: Record<CharacterId, Record<RoleId, RolePossibilityCell>>;
+}
+
+export type RoleTableRuleContradiction =
+  | {
+    code: "requiredRoleUnavailable";
+    role: RoleId;
+    reason: string;
+  }
+  | {
+    code: "confirmedRoleCountExceedsMaximum";
+    role: RoleId;
+    confirmedCount: number;
+    maximum: number;
+    reason: string;
+  };
+
+export interface EvaluatedRoleTableRuleCombination {
+  combination: RuleCombination;
+  excluded: boolean;
+  contradictions: RuleContradiction[];
+  tableContradictions: RoleTableRuleContradiction[];
+}
+
+export interface RoleTableHypothesisEvaluation {
+  tragedySet: string;
+  observations: ProtagonistObservation[];
+  table: RolePossibilityTable;
+  combinations: EvaluatedRoleTableRuleCombination[];
+  remaining: RuleCombination[];
+  excluded: EvaluatedRoleTableRuleCombination[];
+  /** 룰 -> 표 -> 룰을 적용해 고정점에 도달하기까지 계산한 표의 수. */
+  propagationPasses: number;
+}
+
 interface EvaluationOptions {
   /** 캐릭터 정체는 공개 정보이므로 아웃사이더 역할 가능성에만 사용한다. */
   publicCast?: readonly CharacterId[];
@@ -1143,6 +1219,309 @@ export function evaluateRuleHypotheses(
   };
 }
 
+function confirmedRoleObservations(
+  observations: readonly ProtagonistObservation[],
+): Map<
+  CharacterId,
+  Extract<ProtagonistObservation, { kind: "roleRevealed" }>
+> {
+  const confirmed = new Map<
+    CharacterId,
+    Extract<ProtagonistObservation, { kind: "roleRevealed" }>
+  >();
+  for (const observation of observations) {
+    if (
+      observation.kind === "roleRevealed" &&
+      observation.confirmed !== false
+    ) {
+      confirmed.set(observation.character, observation);
+    }
+  }
+  return confirmed;
+}
+
+function roleColumnAppears(
+  role: RoleId,
+  combinations: readonly RuleCombination[],
+): boolean {
+  return role === "person" || combinations.some((combination) =>
+    (roleRanges(combination).get(role)?.max ?? 0) > 0
+  );
+}
+
+function rolePossibleForCharacter(
+  tragedySetRoles: readonly RoleId[],
+  combinations: readonly RuleCombination[],
+  role: RoleId,
+  character: CharacterId,
+): boolean {
+  if (role === "person" && character === "ai") return false;
+  return combinations.some((combination) =>
+    roleCouldBelongToCharacter(
+      tragedySetRoles,
+      roleRanges(combination),
+      role,
+      character,
+    )
+  );
+}
+
+function maximumRoleCapacity(
+  tragedySetRoles: readonly RoleId[],
+  combinations: readonly RuleCombination[],
+  role: RoleId,
+  publicCast: readonly CharacterId[],
+): number {
+  return combinations.reduce(
+    (maximum, combination) => Math.max(
+      maximum,
+      roleCapacity(
+        role,
+        tragedySetRoles,
+        roleRanges(combination),
+        publicCast,
+      ),
+    ),
+    0,
+  );
+}
+
+/**
+ * 살아있는 룰 조합을 합집합으로 투영한다. 각 칸은 독립적으로 계산하며
+ * 캐릭터 전체의 역할 배정을 만들거나 세지 않는다.
+ */
+export function buildRolePossibilityTable(
+  tragedySet: string,
+  publicCast: readonly CharacterId[],
+  combinations: readonly RuleCombination[],
+  observations: readonly ProtagonistObservation[],
+): RolePossibilityTable {
+  const tragedySetRoles = rolesForTragedySet(tragedySet);
+  const confirmed = confirmedRoleObservations(observations);
+  const confirmedRoles = new Set(
+    [...confirmed.values()].map(({ role }) => role),
+  );
+  const roles = tragedySetRoles.filter((role) =>
+    roleColumnAppears(role, combinations) || confirmedRoles.has(role)
+  );
+  for (const role of confirmedRoles) {
+    if (!roles.includes(role)) roles.push(role);
+  }
+
+  const confirmedCharactersByRole = new Map<RoleId, CharacterId[]>();
+  for (const [character, observation] of confirmed) {
+    const characters = confirmedCharactersByRole.get(observation.role) ?? [];
+    characters.push(character);
+    confirmedCharactersByRole.set(observation.role, characters);
+  }
+
+  const maximumByRole = new Map<RoleId, number>();
+  for (const role of roles) {
+    maximumByRole.set(
+      role,
+      maximumRoleCapacity(
+        tragedySetRoles,
+        combinations,
+        role,
+        publicCast,
+      ),
+    );
+  }
+
+  const cells: Record<
+    CharacterId,
+    Record<RoleId, RolePossibilityCell>
+  > = {};
+  for (const character of publicCast) {
+    const row: Record<RoleId, RolePossibilityCell> = {};
+    const revealed = confirmed.get(character);
+    for (const role of roles) {
+      if (revealed !== undefined) {
+        row[role] = revealed.role === role
+          ? {
+            character,
+            role,
+            status: "confirmed",
+            reasons: [{ code: "roleRevealed", observation: revealed }],
+          }
+          : {
+            character,
+            role,
+            status: "impossible",
+            reasons: [{ code: "otherRoleConfirmed", observation: revealed }],
+          };
+        continue;
+      }
+
+      const possible = rolePossibleForCharacter(
+        tragedySetRoles,
+        combinations,
+        role,
+        character,
+      );
+      if (!possible) {
+        const reason: RolePossibilityReason = character === "ai" &&
+            role === "person"
+          ? {
+            code: "characterConstraint",
+            reason: "AI는 엑스트라 역할을 가질 수 없습니다.",
+          }
+          : characterDataOf(character).plotLessRole
+          ? { code: "outsiderConstraint" }
+          : { code: "ruleUnavailable" };
+        row[role] = {
+          character,
+          role,
+          status: "impossible",
+          reasons: [reason],
+        };
+        continue;
+      }
+
+      const confirmedCharacters = confirmedCharactersByRole.get(role) ?? [];
+      const maximum = maximumByRole.get(role) ?? 0;
+      row[role] = maximum > 0 && confirmedCharacters.length >= maximum
+        ? {
+          character,
+          role,
+          status: "impossible",
+          reasons: [{
+            code: "roleMaximumReached",
+            maximum,
+            confirmedCharacters: [...confirmedCharacters],
+          }],
+        }
+        : { character, role, status: "possible", reasons: [] };
+    }
+    cells[character] = row;
+  }
+
+  return { characters: [...publicCast], roles, cells };
+}
+
+function tableContradictionsForCombination(
+  tragedySet: string,
+  combination: RuleCombination,
+  publicCast: readonly CharacterId[],
+  table: RolePossibilityTable,
+  observations: readonly ProtagonistObservation[],
+): RoleTableRuleContradiction[] {
+  const tragedySetRoles = rolesForTragedySet(tragedySet);
+  const ranges = roleRanges(combination);
+  const confirmed = confirmedRoleObservations(observations);
+  const confirmedCounts = new Map<RoleId, number>();
+  for (const { role } of confirmed.values()) {
+    confirmedCounts.set(role, (confirmedCounts.get(role) ?? 0) + 1);
+  }
+
+  const contradictions: RoleTableRuleContradiction[] = [];
+  for (const [role, confirmedCount] of confirmedCounts) {
+    const maximum = roleCapacity(
+      role,
+      tragedySetRoles,
+      ranges,
+      publicCast,
+    );
+    if (confirmedCount > maximum) {
+      contradictions.push({
+        code: "confirmedRoleCountExceedsMaximum",
+        role,
+        confirmedCount,
+        maximum,
+        reason: `${role} 확정 ${confirmedCount}명이 이 조합의 상한 ` +
+          `${maximum}명을 넘습니다.`,
+      });
+    }
+  }
+
+  for (const [role, range] of ranges) {
+    if (range.min === 0) continue;
+    const available = table.characters.some((character) => {
+      const cell = table.cells[character]?.[role];
+      return cell !== undefined && cell.status !== "impossible";
+    });
+    if (!available) {
+      contradictions.push({
+        code: "requiredRoleUnavailable",
+        role,
+        reason: `${role} 역할이 필요한 조합이지만 가능한 캐릭터가 없습니다.`,
+      });
+    }
+  }
+  return contradictions;
+}
+
+/** 룰과 역할 표의 양방향 전파를 더 이상 변화가 없을 때까지 반복한다. */
+export function evaluateRoleTableHypotheses(
+  tragedySet: string,
+  publicCast: readonly CharacterId[],
+  observations: readonly ProtagonistObservation[],
+): RoleTableHypothesisEvaluation {
+  const ruleEvaluation = evaluateRuleHypotheses(
+    tragedySet,
+    observations,
+    { publicCast },
+  );
+  let remaining = [...ruleEvaluation.remaining];
+  const tableContradictions = new Map<
+    string,
+    RoleTableRuleContradiction[]
+  >();
+  let table = buildRolePossibilityTable(
+    tragedySet,
+    publicCast,
+    remaining,
+    observations,
+  );
+  let propagationPasses = 0;
+
+  while (true) {
+    propagationPasses += 1;
+    table = buildRolePossibilityTable(
+      tragedySet,
+      publicCast,
+      remaining,
+      observations,
+    );
+    const newlyExcluded = new Set<string>();
+    for (const combination of remaining) {
+      const contradictions = tableContradictionsForCombination(
+        tragedySet,
+        combination,
+        publicCast,
+        table,
+        observations,
+      );
+      if (contradictions.length === 0) continue;
+      tableContradictions.set(combination.id, contradictions);
+      newlyExcluded.add(combination.id);
+    }
+    if (newlyExcluded.size === 0) break;
+    remaining = remaining.filter(({ id }) => !newlyExcluded.has(id));
+  }
+
+  const combinations = ruleEvaluation.combinations.map(
+    ({ combination, contradictions }) => {
+      const fromTable = tableContradictions.get(combination.id) ?? [];
+      return {
+        combination,
+        excluded: contradictions.length > 0 || fromTable.length > 0,
+        contradictions,
+        tableContradictions: fromTable,
+      };
+    },
+  );
+  return {
+    tragedySet,
+    observations: [...observations],
+    table,
+    combinations,
+    remaining,
+    excluded: combinations.filter(({ excluded }) => excluded),
+    propagationPasses,
+  };
+}
+
 function observationKey(observation: ProtagonistObservation): string {
   return JSON.stringify(observation);
 }
@@ -1316,5 +1695,15 @@ export function evaluateStateRuleHypotheses(
     state.scenario.tragedySet,
     collectProtagonistObservations(state),
     { publicCast: Object.keys(state.scenario.cast) },
+  );
+}
+
+export function evaluateStateRoleTableHypotheses(
+  state: GameState,
+): RoleTableHypothesisEvaluation {
+  return evaluateRoleTableHypotheses(
+    state.scenario.tragedySet,
+    Object.keys(state.scenario.cast),
+    collectProtagonistObservations(state),
   );
 }
