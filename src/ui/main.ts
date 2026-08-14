@@ -5,6 +5,11 @@ import {
 } from "../engine/goodwill";
 import { withDeathBatch } from "../engine/death";
 import {
+  previewP5Disclosure,
+  type DisclosureRisk,
+  type P5DisclosurePreview,
+} from "../engine/disclosure-preview";
+import {
   advanceGame,
   chooseInitialLeader,
   continueAfterLoopJudgment,
@@ -1513,6 +1518,71 @@ function encodeTarget(target: Target): string {
     : `location:${target.at}`;
 }
 
+function disclosureRiskLabel(risk: DisclosureRisk): string {
+  switch (risk) {
+    case "critical": return "확정 · 위험";
+    case "danger": return "위험";
+    case "caution": return "주의";
+    case "safe": return "안전";
+  }
+}
+
+function renderP5DisclosurePreview(
+  state: GameState,
+  hook: Hook,
+  self: CharacterId,
+  selection: OptionalHookSelection | undefined,
+  targets: readonly Target[],
+): string {
+  const baseline = `
+    <div class="disclosure-baseline">
+      <b>미발동</b>
+      <span>변화 없음 · 안전</span>
+    </div>`;
+  const selectedTarget = decodeTarget(selection?.target);
+  if (targets.length > 0 && selectedTarget === undefined) {
+    return `${baseline}<p class="disclosure-pending">대상 선택 후 노출 계산</p>`;
+  }
+
+  const preview = previewP5Disclosure(
+    state,
+    hook,
+    self,
+    selectedTarget,
+  );
+  return `${baseline}${renderDisclosureResult(preview)}`;
+}
+
+function renderDisclosureResult(preview: P5DisclosurePreview): string {
+  const facts: string[] = [];
+  if (
+    preview.before.ruleCombinations !== preview.after.ruleCombinations
+  ) {
+    facts.push(
+      `룰 ${preview.before.ruleCombinations} → ${preview.after.ruleCombinations}`,
+    );
+  }
+  if (preview.before.mainPlots !== preview.after.mainPlots) {
+    facts.push(`룰 Y 후보 ${preview.before.mainPlots} → ${preview.after.mainPlots}`);
+  }
+  for (const { character, role } of preview.newlyConfirmedRoles) {
+    facts.push(`${characterName(character)} = ${roleName(role)} 확정`);
+  }
+  if (preview.newlyImpossibleRoleCells > 0) {
+    facts.push(`역할 후보 칸 ${preview.newlyImpossibleRoleCells}개 감소`);
+  }
+  if (facts.length === 0) facts.push("후보 변화 없음");
+
+  return `
+    <section class="disclosure-preview risk-${preview.risk}" aria-live="polite">
+      <header>
+        <b>발동 예고</b>
+        <span>${escapeHtml(disclosureRiskLabel(preview.risk))}</span>
+      </header>
+      <ul>${facts.map((fact) => `<li>${escapeHtml(fact)}</li>`).join("")}</ul>
+    </section>`;
+}
+
 function renderHookList(
   state: GameState,
   phase: "P4_RESOLVE" | "P5_MASTERMIND_ABILITY" | "P9_ROUND_END",
@@ -1539,6 +1609,9 @@ function renderHookList(
     const text = hook.source.description ?? hook.source.prerequisite ?? "";
     const targets = hookTargetOptions(state, self, hook);
     const activationSummary = cultistIgnoreSummary(state, self, hook);
+    const disclosurePreview = phase === "P5_MASTERMIND_ABILITY"
+      ? renderP5DisclosurePreview(state, hook, self, selection, targets)
+      : "";
     return `
       <article class="hook-card ${selection?.selected ? "is-selected" : ""}">
         <div>
@@ -1564,6 +1637,7 @@ function renderHookList(
                 ${escapeHtml(targetLabel(target))}</option>`).join("")}
             </select>`
           : ""}
+        ${disclosurePreview}
       </article>`;
   }).join("")}</div>`;
 }

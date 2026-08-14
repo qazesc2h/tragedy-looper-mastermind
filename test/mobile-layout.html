@@ -418,6 +418,123 @@
         await pause();
       }
 
+      async function inspectP5DisclosurePreview() {
+        await selectScenario("firstSteps:4");
+        mutateActiveState((state) => {
+          state.gamePhase = "ROUND";
+          state.loop.phase = "P5_MASTERMIND_ABILITY";
+          state.loop.phaseLog = [];
+          for (const character of Object.keys(state.scenario.cast)) {
+            state.loop.board[character] = {
+              status: "alive",
+              at: character === "shrineMaiden" ? "Shrine" : "School",
+            };
+          }
+        });
+        await reloadApp("p5-disclosure-preview");
+        click("[data-action='toggle-operation-sheet']");
+        const card = await waitFor(
+          () => [...frameDocument().querySelectorAll(".hook-card")].find(
+            (candidate) => candidate.textContent.includes("무녀") &&
+              candidate.textContent.includes("불안"),
+          ),
+          "무녀 P5 정보 누출 예고",
+        );
+        const pendingText = card.textContent.replace(/\s+/g, " ").trim();
+        const target = card.querySelector("[data-action='optional-hook-target']");
+        if (!(target instanceof frameWindow().HTMLSelectElement)) {
+          throw new Error("무녀 P5 대상 선택기를 찾을 수 없습니다.");
+        }
+        target.value = "character:shrineMaiden";
+        target.dispatchEvent(new (frameWindow().Event)("change", {
+          bubbles: true,
+        }));
+        await pause(100);
+        const refreshedCard = [...frameDocument().querySelectorAll(".hook-card")]
+          .find((candidate) => candidate.textContent.includes("무녀") &&
+            candidate.textContent.includes("불안"));
+        const previewText = refreshedCard?.textContent
+          .replace(/\s+/g, " ").trim() ?? "";
+        const preview = refreshedCard?.querySelector(".disclosure-preview");
+        const previewRect = preview?.getBoundingClientRect();
+        const footerRect = frameDocument().querySelector(
+          ".operation-sheet .operation-footer",
+        )?.getBoundingClientRect();
+        const report = {
+          pendingText,
+          previewText,
+          critical: preview?.classList.contains("risk-critical") ?? false,
+          previewRect: previewRect === undefined
+            ? undefined
+            : { left: previewRect.left, right: previewRect.right },
+          footerRect: footerRect === undefined
+            ? undefined
+            : { top: footerRect.top, bottom: footerRect.bottom },
+          horizontal: horizontalOverflow(),
+        };
+        const checkbox = refreshedCard?.querySelector(
+          "[data-action='optional-hook']",
+        );
+        if (!(checkbox instanceof frameWindow().HTMLInputElement)) {
+          throw new Error("무녀 P5 발동 체크박스를 찾을 수 없습니다.");
+        }
+        checkbox.checked = true;
+        checkbox.dispatchEvent(new (frameWindow().Event)("change", {
+          bubbles: true,
+        }));
+        await pause();
+        click(".operation-sheet [data-action='advance']");
+        await waitFor(
+          () => frameDocument().querySelector(".phase-step.is-current strong")
+            ?.textContent.includes("우호"),
+          "P5 실제 발동 뒤 P6",
+        );
+        const stored = JSON.parse(window.localStorage.getItem(
+          "tragedy-looper-mastermind:tracker",
+        ));
+        const actualState = stored.games[stored.activeScenarioId].state;
+        const actualRoleText = frameDocument().querySelector(
+          ".role-deduction-information",
+        )?.textContent.replace(/\s+/g, " ").trim() ?? "";
+        report.actual = {
+          phase: actualState.loop.phase,
+          shrineMaidenParanoia:
+            actualState.loop.charCounters.shrineMaiden.paranoia,
+          abilityRecorded: actualState.loop.phaseLog.some((entry) =>
+            entry.kind === "abilityActivated" &&
+            entry.timing === "P5_MASTERMIND_ABILITY" &&
+            entry.character === "shrineMaiden"
+          ),
+          roleConfirmed: actualRoleText.includes("무녀 선동가 확정"),
+        };
+        reports.push({ label: "P5 정보 누출 예고", ...report });
+        if (
+          !pendingText.includes("미발동") ||
+          !pendingText.includes("변화 없음 · 안전") ||
+          !pendingText.includes("대상 선택 후 노출 계산") ||
+          !previewText.includes("발동 예고") ||
+          !previewText.includes("확정 · 위험") ||
+          !previewText.includes("무녀 = 선동가 확정") ||
+          !report.critical ||
+          previewRect === undefined ||
+          previewRect.left < -0.5 ||
+          previewRect.right > WIDTH + 0.5 ||
+          footerRect === undefined ||
+          footerRect.bottom > HEIGHT + 0.5 ||
+          report.horizontal.scrollWidth > WIDTH ||
+          report.actual.phase !== "P6_GOODWILL" ||
+          report.actual.shrineMaidenParanoia !== 1 ||
+          !report.actual.abilityRecorded ||
+          !report.actual.roleConfirmed
+        ) {
+          failures.push(`P5 정보 누출 예고: ${JSON.stringify(report)}`);
+        }
+        if (frameDocument().querySelector(".operation-sheet")) {
+          click("[data-action='close-operation-sheet']");
+          await pause();
+        }
+      }
+
       async function inspectRuleHypothesisPanels() {
         let document = frameDocument();
         let panel = document.querySelector(".rule-hypothesis-information");
@@ -985,6 +1102,7 @@
         await inspectStorageActions();
         await inspectDockAndToast();
         await inspectOpenCardPanel();
+        await inspectP5DisclosurePreview();
         await selectScenario("basicTragedy:5");
         await inspectScrollableModalBodies();
 

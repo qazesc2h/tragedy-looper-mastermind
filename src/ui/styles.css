@@ -2300,6 +2300,94 @@ select {
   line-height: 1.4;
 }
 
+.disclosure-baseline,
+.disclosure-preview header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.disclosure-baseline {
+  border: 1px solid #41634d;
+  border-radius: 7px;
+  background: #17241b;
+  padding: 7px 8px;
+  color: #b9d6bf;
+  font-size: 0.72rem;
+}
+
+.disclosure-baseline span {
+  color: #9fc9a8;
+  font-weight: 800;
+}
+
+.disclosure-pending {
+  margin: 0;
+  border-left: 3px solid #76654a;
+  background: #1b1915;
+  padding: 7px 8px;
+  color: #a69a87;
+  font-size: 0.72rem;
+}
+
+.disclosure-preview {
+  border: 1px solid #514536;
+  border-left-width: 4px;
+  border-radius: 7px;
+  background: #1c1a16;
+  padding: 7px 8px;
+}
+
+.disclosure-preview header b,
+.disclosure-preview header span {
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.disclosure-preview ul {
+  display: grid;
+  gap: 3px;
+  margin: 6px 0 0;
+  padding-left: 17px;
+  color: #e8decd;
+  font-size: 0.74rem;
+  line-height: 1.4;
+}
+
+.disclosure-preview.risk-critical {
+  border-color: #b55555;
+  background: #301a1a;
+}
+
+.disclosure-preview.risk-critical header span,
+.disclosure-preview.risk-danger header span {
+  color: #f0a2a2;
+}
+
+.disclosure-preview.risk-danger {
+  border-color: #9c5d4b;
+  background: #2b1d19;
+}
+
+.disclosure-preview.risk-caution {
+  border-color: #ad8138;
+  background: #2b2417;
+}
+
+.disclosure-preview.risk-caution header span {
+  color: #e6c474;
+}
+
+.disclosure-preview.risk-safe {
+  border-color: #41634d;
+  background: #17241b;
+}
+
+.disclosure-preview.risk-safe header span {
+  color: #9fc9a8;
+}
+
 .goodwill-card.is-disabled {
   border-color: #403b34;
   background: #1b1a17;
