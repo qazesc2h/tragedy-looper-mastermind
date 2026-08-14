@@ -1,5 +1,6 @@
 import { characterDataOf } from "../data";
 import {
+  evaluateRoleTableHypotheses,
   evaluateStateRoleTableHypotheses,
   type EvaluatedRoleTableRuleCombination,
   type ProtagonistObservation,
@@ -20,6 +21,7 @@ import type {
   GameState,
   IncidentFailureReason,
   PlotId,
+  RoleId,
   ScheduledIncident,
 } from "../types";
 
@@ -48,6 +50,12 @@ export interface RuleHypothesisObservationImpact {
   excludedCount: number;
 }
 
+export interface LossHypothesisDeduction {
+  observation: Extract<ProtagonistObservation, { kind: "lossObserved" }>;
+  fixedPlots: PlotId[];
+  fixedRoles: { character: CharacterId; role: RoleId }[];
+}
+
 export interface RuleHypothesisSummary {
   totalCombinations: number;
   remainingCombinations: RuleCombination[];
@@ -58,6 +66,7 @@ export interface RuleHypothesisSummary {
   subPlotCandidates: PlotId[];
   ruleYFixed: boolean;
   observationImpacts: RuleHypothesisObservationImpact[];
+  lossDeductions: LossHypothesisDeduction[];
   showEveryCombination: boolean;
   tableExcludedCount: number;
 }
@@ -117,6 +126,45 @@ export function ruleHypothesisSummary(
   const subPlotCandidates = definition.subPlots.filter((plot) =>
     remainingSubPlots.has(plot)
   );
+  const lossDeductions: LossHypothesisDeduction[] = [];
+  for (let index = 0; index < evaluation.observations.length; index += 1) {
+    const observation = evaluation.observations[index];
+    if (observation?.kind !== "lossObserved") continue;
+    const beforePrefix = evaluation.observations.slice(0, index);
+    const afterPrefix = evaluation.observations.slice(0, index + 1);
+    const publicCast = Object.keys(state.scenario.cast);
+    const beforeEvaluation = evaluateRoleTableHypotheses(
+      state.scenario.tragedySet,
+      publicCast,
+      beforePrefix,
+    );
+    const afterEvaluation = evaluateRoleTableHypotheses(
+      state.scenario.tragedySet,
+      publicCast,
+      afterPrefix,
+    );
+    const allPlots = [...definition.mainPlots, ...definition.subPlots];
+    const fixedPlots = allPlots.filter((plot) =>
+      afterEvaluation.remaining.length > 0 &&
+      afterEvaluation.remaining.every(({ mainPlot, subPlots }) =>
+        mainPlot === plot || subPlots.includes(plot)
+      ) &&
+      !beforeEvaluation.remaining.every(({ mainPlot, subPlots }) =>
+        mainPlot === plot || subPlots.includes(plot)
+      )
+    );
+    const fixedRoles = afterEvaluation.table.characters.flatMap((character) =>
+      afterEvaluation.table.roles.flatMap((role) =>
+        afterEvaluation.table.cells[character]?.[role]?.status === "confirmed" &&
+          beforeEvaluation.table.cells[character]?.[role]?.status !== "confirmed"
+          ? [{ character, role }]
+          : []
+      )
+    );
+    if (fixedPlots.length > 0 || fixedRoles.length > 0) {
+      lossDeductions.push({ observation, fixedPlots, fixedRoles });
+    }
+  }
 
   return {
     totalCombinations: evaluation.combinations.length,
@@ -128,6 +176,7 @@ export function ruleHypothesisSummary(
     subPlotCandidates,
     ruleYFixed: mainPlotCandidates.length === 1,
     observationImpacts,
+    lossDeductions,
     showEveryCombination: evaluation.combinations.length <= 9,
     tableExcludedCount: evaluation.combinations.filter(
       ({ tableContradictions }) => tableContradictions.length > 0

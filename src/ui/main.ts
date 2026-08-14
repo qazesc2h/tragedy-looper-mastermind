@@ -130,6 +130,7 @@ import {
   type TrackerStore,
 } from "./storage";
 import { serializeCurrentStateDump } from "./state-dump";
+import { characterTagLabels } from "./character-tags";
 import {
   actionCardTerm,
   gameText,
@@ -916,6 +917,7 @@ function renderCharacterModal(state: GameState): string {
   const aliveLabel = alive
     ? misc("Alive", "생존")
     : misc("Dead", "사망");
+  const tagLabels = characterTagLabels(character);
 
   return `
     <div class="modal-layer">
@@ -947,6 +949,12 @@ function renderCharacterModal(state: GameState): string {
             )}
             ${renderCounter(character, "intrigue", counters.intrigue)}
           </div>
+          <section class="character-tag-information" aria-label="캐릭터 속성">
+            <h3>속성</h3>
+            <ul>${tagLabels.map((label) =>
+              `<li>${escapeHtml(label)}</li>`
+            ).join("")}</ul>
+          </section>
           ${renderCharacterTraitInformation(state, character)}
           ${renderCharacterLocationInformation(state, character)}
           ${renderCharacterIncidentInformation(state, character)}
@@ -2522,7 +2530,9 @@ function hypothesisObservationLabel(
     case "incidentCulpritRevealed":
       return `${incidentName(observation.incident)} 범인 공개 · ${characterName(observation.culprit)}`;
     case "lossObserved":
-      return `${observation.loop}루프 ${observation.day}일 주인공 패배`;
+      return observation.timing === "protagonistDeath"
+        ? `${observation.loop}루프 ${observation.day}일 주인공 사망`
+        : `${observation.loop}루프 ${observation.day}일 루프 종료 승패 판정 패배`;
     case "goodwillIncidentEffect":
       return `${observation.day}일 ${incidentName(observation.incident)} 효과 해결`;
     case "intrigueForbidIgnored":
@@ -2566,8 +2576,20 @@ function renderRuleHypotheses(state: GameState): string {
         <summary>남은 조합 ${remainingCount}개 보기</summary>
         <ul>${remainingList}</ul>
       </details>`;
+  const lossDeductionAlerts = summary.lossDeductions.map((deduction) => {
+    const fixed = [
+      ...deduction.fixedPlots.map(plotName),
+      ...deduction.fixedRoles.map(({ character, role }) =>
+        `${characterName(character)} = ${roleName(role)}`
+      ),
+    ];
+    return `<section class="loss-deduction-alert" role="status">
+      <span>${deduction.observation.loop}루프 패배 추론</span>
+      <strong>이번 패배로 ${escapeHtml(fixed.join(" · "))} 확정됨</strong>
+    </section>`;
+  }).join("");
 
-  return `
+  return `${lossDeductionAlerts}
     <details class="info-accordion compact-information rule-hypothesis-information ${
       summary.ruleYFixed ? "is-rule-y-fixed" : ""
     }">
@@ -2630,6 +2652,7 @@ function roleCellReasonLabel(code: string): string {
     case "mandatoryGoodwillRefusalMissing": return "절대 우호 거부 없음";
     case "abilityLocationIntersection": return "능력 위치 교집합";
     case "loopEndRoleRevealMissing": return "루프 종료 역할 공개 없음";
+    case "lossConditionOnlyCandidate": return "패배 조건 유일 후보";
     default: return code;
   }
 }

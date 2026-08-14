@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { createGameState } from "../src/engine/game";
+import { createGameState, finishLoop } from "../src/engine/game";
 import { resolveGoodwillAbility } from "../src/engine/goodwill";
+import { setOptionalLossActivation } from "../src/engine/loss";
+import { requestLoopEnd } from "../src/engine/flow";
 import {
   collectProtagonistObservations,
   enumerateRuleCombinations,
   evaluateRuleHypotheses,
+  evaluateStateRoleTableHypotheses,
   evaluateStateRuleHypotheses,
   publicBoardChanges,
   publicObservationContext,
@@ -28,6 +31,7 @@ import type {
   GameState,
   PlacedCard,
   PublicObservationContext,
+  Scenario,
 } from "../src/types";
 import { isCharacterPresent } from "../src/types";
 import { setBoardLife, setBoardLocation } from "./helpers";
@@ -687,6 +691,253 @@ describe("observation model", () => {
     );
     expect(maiden?.paranoia).toBe(0);
     expect(maiden?.status).toBe("alive");
+  });
+});
+
+describe("loss observation filtering", () => {
+  const castCharacters = [
+    "boyStudent",
+    "girlStudent",
+    "classRep",
+    "doctor",
+    "patient",
+    "officeWorker",
+    "informer",
+    "richStudent",
+    "teacher",
+  ];
+
+  function lossState(
+    mainPlot: Scenario["mainPlot"],
+    subPlots: Scenario["subPlots"],
+    cast: Scenario["cast"] = {},
+  ): GameState {
+    const scenario: Scenario = {
+      tragedySet: "basicTragedy",
+      mainPlot,
+      subPlots,
+      cast: Object.fromEntries(castCharacters.map((character) =>
+        [character, cast[character] ?? "person"]
+      )),
+      incidents: [],
+      loops: 2,
+      daysPerLoop: 5,
+    };
+    const state = createGameState(scenario);
+    state.gamePhase = "ROUND";
+    state.loop.phase = "P9_ROUND_END";
+    state.loop.day = 5;
+    for (const character of castCharacters) {
+      state.loop.charCounters[character].goodwill = 3;
+    }
+    return state;
+  }
+
+  function finishNaturalLoop(state: GameState): void {
+    requestLoopEnd(state, "lastDay");
+    finishLoop(state);
+  }
+
+  it("fixes sealedItem when it is the only public non-death loss explanation", () => {
+    const state = lossState(
+      "sealedItem",
+      ["unsettlingRumor", "threadsFate"],
+      { classRep: "brain", doctor: "cultist", patient: "conspiracyTheorist" },
+    );
+    state.loop.locIntrigue.Shrine = 2;
+
+    finishNaturalLoop(state);
+    const evaluation = evaluateStateRoleTableHypotheses(state);
+
+    expect(evaluation.remaining).toHaveLength(21);
+    expect(evaluation.remaining.every(({ mainPlot }) =>
+      mainPlot === "sealedItem"
+    )).toBe(true);
+    expect(collectProtagonistObservations(state)).toContainEqual(
+      expect.objectContaining({
+        kind: "lossObserved",
+        timing: "lastDay",
+        context: expect.objectContaining({
+          phase: "P9_ROUND_END",
+          lastDay: true,
+        }),
+      }),
+    );
+  });
+
+  it("keeps multiple rule families when sealedItem and a dead friend both explain defeat", () => {
+    const state = lossState(
+      "sealedItem",
+      ["circleFriends", "threadsFate"],
+      {
+        classRep: "brain",
+        doctor: "cultist",
+        girlStudent: "friend",
+        boyStudent: "friend",
+        patient: "conspiracyTheorist",
+      },
+    );
+    state.loop.locIntrigue.Shrine = 2;
+    setBoardLife(state.loop, "girlStudent", false);
+
+    finishNaturalLoop(state);
+    const evaluation = evaluateStateRoleTableHypotheses(state);
+    const mainPlots = new Set(evaluation.remaining.map(({ mainPlot }) =>
+      mainPlot
+    ));
+
+    expect(mainPlots.size).toBeGreaterThan(1);
+    expect(mainPlots).toContain("sealedItem");
+    expect(mainPlots).toContain("murderPlan");
+  });
+
+  it("distinguishes protagonist death from a simultaneous sealedItem condition", () => {
+    const state = lossState(
+      "murderPlan",
+      ["unsettlingRumor", "threadsFate"],
+      {
+        boyStudent: "keyPerson",
+        officeWorker: "killer",
+        classRep: "brain",
+      },
+    );
+    state.loop.locIntrigue.Shrine = 2;
+    state.loop.charCounters.officeWorker.intrigue = 4;
+
+    setOptionalLossActivation(
+      state,
+      "role:killer:officeWorker",
+      true,
+    );
+    finishLoop(state);
+    const evaluation = evaluateStateRoleTableHypotheses(state);
+
+    expect(state.loopOutcomes[0].reason).toBe("protagonistDeath");
+    expect(evaluation.remaining).toHaveLength(21);
+    expect(evaluation.remaining.every(({ mainPlot }) =>
+      mainPlot === "murderPlan"
+    )).toBe(true);
+    expect(evaluation.table.cells.officeWorker.killer.status).toBe(
+      "confirmed",
+    );
+  });
+
+  it("uses a dead boy key person to keep murderPlan but not signWithMe", () => {
+    const state = lossState(
+      "murderPlan",
+      ["unsettlingRumor", "threadsFate"],
+      {
+        boyStudent: "keyPerson",
+        officeWorker: "killer",
+        classRep: "brain",
+      },
+    );
+    setBoardLife(state.loop, "boyStudent", false);
+    requestLoopEnd(state, "effect");
+    finishLoop(state);
+
+    const evaluation = evaluateStateRoleTableHypotheses(state);
+    expect(evaluation.remaining.every(({ mainPlot }) =>
+      mainPlot === "murderPlan"
+    )).toBe(true);
+    expect(evaluation.remaining.length).toBeGreaterThan(0);
+    expect(evaluation.table.cells.boyStudent.keyPerson.status).toBe(
+      "confirmed",
+    );
+  });
+
+  it("recognizes the time traveler last-day defeat", () => {
+    const state = lossState(
+      "changeOfFuture",
+      ["unsettlingRumor", "threadsFate"],
+      {
+        doctor: "cultist",
+        informer: "timeTraveler",
+        patient: "conspiracyTheorist",
+      },
+    );
+    state.loop.charCounters.informer.goodwill = 2;
+
+    setOptionalLossActivation(
+      state,
+      "role:timeTraveler:informer",
+      true,
+    );
+    finishLoop(state);
+
+    const evaluation = evaluateStateRoleTableHypotheses(state);
+    expect(evaluation.remaining).toHaveLength(21);
+    expect(evaluation.remaining.every(({ mainPlot }) =>
+      mainPlot === "changeOfFuture"
+    )).toBe(true);
+    expect(evaluation.table.cells.informer.timeTraveler.status).toBe(
+      "confirmed",
+    );
+  });
+
+  it("recognizes the lovedOne protagonist-death condition", () => {
+    const state = lossState(
+      "sealedItem",
+      ["loveAffair", "threadsFate"],
+      { boyStudent: "lovedOne", girlStudent: "lover" },
+    );
+    state.loop.charCounters.boyStudent.paranoia = 3;
+    state.loop.charCounters.boyStudent.intrigue = 1;
+
+    setOptionalLossActivation(
+      state,
+      "role:lovedOne:boyStudent",
+      true,
+    );
+    finishLoop(state);
+
+    const evaluation = evaluateStateRoleTableHypotheses(state);
+    expect(evaluation.remaining).toHaveLength(30);
+    expect(evaluation.remaining.every(({ subPlots }) =>
+      subPlots.includes("loveAffair")
+    )).toBe(true);
+    expect(evaluation.table.cells.boyStudent.lovedOne.status).toBe(
+      "confirmed",
+    );
+  });
+
+  it("keeps every rule combination when a public hospital incident explains protagonist death", () => {
+    const state = lossState(
+      "sealedItem",
+      ["unsettlingRumor", "threadsFate"],
+    );
+    state.loop.day = 2;
+    state.loop.phase = "P7_INCIDENT";
+    state.loop.locIntrigue.Hospital = 2;
+    state.loop.phaseLog = [{
+      loop: 1,
+      day: 2,
+      phase: "P7_INCIDENT",
+      kind: "incidentJudged",
+      incident: "hospitalIncident",
+      culprit: "doctor",
+      fired: true,
+      effectApplied: true,
+      failureReasons: [],
+      protagonistsDied: true,
+    }];
+    state.history = [structuredClone(state.loop)];
+    state.loopOutcomes = [{
+      loop: 1,
+      day: 2,
+      reason: "protagonistDeath",
+      result: "protagonistsLost",
+      losses: [{
+        key: "incident:hospitalIncident:2:doctor",
+        id: "hospitalIncident",
+        ko: "병원 사건",
+        label: "hidden exact cause",
+      }],
+    }];
+
+    expect(evaluateStateRoleTableHypotheses(state).remaining).toHaveLength(
+      105,
+    );
   });
 });
 

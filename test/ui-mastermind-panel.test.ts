@@ -191,6 +191,39 @@ describe("mastermind rule hypothesis summary", () => {
       .toEqual([0, 0]);
   });
 
+  it("attributes a newly fixed sealedItem rule to the observed defeat", () => {
+    const state = createState();
+    delete state.scenario.cast.shrineMaiden;
+    state.loop.day = state.scenario.daysPerLoop;
+    state.loop.phase = "P9_ROUND_END";
+    state.loop.locIntrigue.Shrine = 2;
+    for (const counters of Object.values(state.loop.charCounters)) {
+      counters.goodwill = 3;
+    }
+    state.history = [structuredClone(state.loop)];
+    state.loopOutcomes = [{
+      loop: 1,
+      day: state.loop.day,
+      reason: "lastDay",
+      result: "protagonistsLost",
+      losses: [{
+        key: "plot:sealedItem",
+        id: "sealedItem",
+        ko: "봉인된 것",
+        label: "hidden exact cause",
+      }],
+    }];
+
+    const summary = ruleHypothesisSummary(state);
+
+    expect(summary.mainPlotCandidates).toEqual(["sealedItem"]);
+    expect(summary.lossDeductions).toEqual([expect.objectContaining({
+      observation: expect.objectContaining({ kind: "lossObserved" }),
+      fixedPlots: ["sealedItem"],
+      fixedRoles: [],
+    })]);
+  });
+
   it("counts newly excluded combinations once in observation order", () => {
     const state = createState();
     state.loop.publicInformationThisLoop = [

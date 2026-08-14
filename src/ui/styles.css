@@ -2428,6 +2428,37 @@ select {
   gap: 7px;
 }
 
+.character-tag-information {
+  display: grid;
+  gap: 7px;
+  border-top: 1px solid #493d2d;
+  padding-top: 10px;
+}
+
+.character-tag-information h3 {
+  margin: 0;
+  color: #e8d3aa;
+  font-size: 0.86rem;
+}
+
+.character-tag-information ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.character-tag-information li {
+  border: 1px solid #665333;
+  border-radius: 999px;
+  background: #241e16;
+  padding: 4px 8px;
+  color: #ead09a;
+  font-size: 0.74rem;
+}
+
 .character-location-information {
   display: grid;
   gap: 7px;
@@ -2481,6 +2512,26 @@ select {
 .character-location-information .is-removed dd span {
   color: var(--ink-dim);
   text-decoration: line-through;
+}
+
+.loss-deduction-alert {
+  display: grid;
+  gap: 3px;
+  border: 1px solid #a87933;
+  border-radius: 10px;
+  background: #302414;
+  padding: 10px 12px;
+  color: #f7ddb0;
+}
+
+.loss-deduction-alert span {
+  color: #d9bd8b;
+  font-size: 0.7rem;
+}
+
+.loss-deduction-alert strong {
+  font-size: 0.82rem;
+  line-height: 1.45;
 }
 
 .character-incident-information {

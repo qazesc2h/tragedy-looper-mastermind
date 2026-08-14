@@ -4,11 +4,15 @@ import { ROLE_IMPL } from "../impl/roles";
 import {
   effectiveRole,
   isCharacterDead,
+  startLocationOf,
   type CharacterId,
   type GameState,
   type HookPoint,
   type IncidentId,
+  type Location,
+  type LoopState,
   type LoopEndReason,
+  type Phase,
   type PlotId,
   type PublicAbilityTrigger,
   type PublicBoardChange,
@@ -20,6 +24,7 @@ import {
   rolesForTragedySet,
   tragedySetDefinition,
 } from "../tragedy-sets";
+import { publicObservationContext as snapshotPublicContext } from "./public-observation";
 
 export {
   publicBoardChanges,
@@ -30,6 +35,13 @@ export interface RuleCombination {
   id: string;
   mainPlot: PlotId;
   subPlots: PlotId[];
+}
+
+export interface PublicLossObservationContext extends PublicObservationContext {
+  phase: Phase;
+  lastDay: boolean;
+  startingLocations: Partial<Record<CharacterId, Location>>;
+  firedIncidents: { day: number; incident: IncidentId }[];
 }
 
 /** 주인공이 실제 플레이에서 알게 된 사실만을 담는다. */
@@ -90,6 +102,8 @@ export type ProtagonistObservation =
     loop: number;
     day: number;
     timing: LoopEndReason;
+    /** 완료 시점 공개 상태. 구 저장처럼 없으면 배제 근거로 쓰지 않는다. */
+    context?: PublicLossObservationContext;
   }
   | {
     kind: "mastermindAbilityResult";
@@ -125,7 +139,8 @@ export type RuleContradictionCode =
   | "loopStartEffectUnavailable"
   | "crossObservationRoleUnavailable"
   | "loopStartGoodwillUnavailable"
-  | "intrigueForbidIgnoreUnavailable";
+  | "intrigueForbidIgnoreUnavailable"
+  | "lossConditionUnavailable";
 
 export interface RuleContradiction {
   code: RuleContradictionCode;
@@ -208,6 +223,10 @@ export type RolePossibilityReason =
       ProtagonistObservation,
       { kind: "deadAtLoopEndWithoutRoleReveal" }
     >;
+  }
+  | {
+    code: "lossConditionOnlyCandidate";
+    observation: Extract<ProtagonistObservation, { kind: "lossObserved" }>;
   };
 
 export interface RolePossibilityCell {
@@ -1162,6 +1181,240 @@ function abilityObservationContradiction(
   return undefined;
 }
 
+function characterCanHoldRoleForCombination(
+  combination: RuleCombination,
+  character: CharacterId,
+  role: RoleId,
+): boolean {
+  return !(combination.mainPlot === "signWithMe" &&
+    role === "keyPerson" &&
+    !characterDataOf(character).tags.includes("girl"));
+}
+
+function lossRoleCandidates(
+  tragedySet: string,
+  combination: RuleCombination,
+  role: RoleId,
+  publicCast: readonly CharacterId[],
+  observations: readonly ProtagonistObservation[],
+): CharacterId[] {
+  const tragedySetRoles = rolesForTragedySet(tragedySet);
+  const ranges = roleRanges(combination);
+  const confirmed = confirmedRoleByCharacter(observations);
+  return publicCast.filter((character) => {
+    const confirmedRole = confirmed.get(character);
+    if (confirmedRole !== undefined && confirmedRole !== role) return false;
+    return characterCanHoldRoleForCombination(combination, character, role) &&
+      roleCouldBelongToCharacter(
+        tragedySetRoles,
+        ranges,
+        role,
+        character,
+      ) &&
+      observedRoleExclusionReason(observations, character, role) === undefined;
+  });
+}
+
+function publicCharacterAtLoss(
+  context: PublicLossObservationContext,
+  character: CharacterId,
+): NonNullable<PublicObservationContext["characters"]>[CharacterId] | undefined {
+  return context.characters?.[character];
+}
+
+function plotLossCouldExplain(
+  tragedySet: string,
+  combination: RuleCombination,
+  plot: PlotId,
+  context: PublicLossObservationContext,
+  publicCast: readonly CharacterId[],
+  observations: readonly ProtagonistObservation[],
+): boolean {
+  switch (plot) {
+    case "lightAvenger":
+      return lossRoleCandidates(
+        tragedySet,
+        combination,
+        "brain",
+        publicCast,
+        observations,
+      ).some((character) => {
+        const start = context.startingLocations[character];
+        return start !== undefined && context.locationIntrigue[start] >= 2;
+      });
+    case "placeProtect":
+      return context.locationIntrigue.School >= 2;
+    case "sealedItem":
+      return context.locationIntrigue.Shrine >= 2;
+    case "signWithMe":
+      return lossRoleCandidates(
+        tragedySet,
+        combination,
+        "keyPerson",
+        publicCast,
+        observations,
+      ).some((character) =>
+        (publicCharacterAtLoss(context, character)?.intrigue ?? 0) >= 2
+      );
+    case "changeOfFuture":
+      return context.firedIncidents.some(({ incident }) =>
+        incident === "butterflyEffect"
+      );
+    case "giantTimeBomb":
+      return lossRoleCandidates(
+        tragedySet,
+        combination,
+        "witch",
+        publicCast,
+        observations,
+      ).some((character) => {
+        const start = context.startingLocations[character];
+        return start !== undefined && context.locationIntrigue[start] >= 2;
+      });
+    default:
+      return false;
+  }
+}
+
+function nonDeathLossCouldExplain(
+  tragedySet: string,
+  combination: RuleCombination,
+  context: PublicLossObservationContext,
+  publicCast: readonly CharacterId[],
+  observations: readonly ProtagonistObservation[],
+): boolean {
+  if ([combination.mainPlot, ...combination.subPlots].some((plot) =>
+    plotLossCouldExplain(
+      tragedySet,
+      combination,
+      plot,
+      context,
+      publicCast,
+      observations,
+    )
+  )) return true;
+
+  const keyPersonDied = lossRoleCandidates(
+    tragedySet,
+    combination,
+    "keyPerson",
+    publicCast,
+    observations,
+  ).some((character) =>
+    publicCharacterAtLoss(context, character)?.status === "dead"
+  );
+  if (keyPersonDied) return true;
+
+  if (context.locationIntrigue.City >= 2) {
+    const factorWithKeyPersonAbilityDied = lossRoleCandidates(
+      tragedySet,
+      combination,
+      "factor",
+      publicCast,
+      observations,
+    ).some((character) =>
+      publicCharacterAtLoss(context, character)?.status === "dead"
+    );
+    if (factorWithKeyPersonAbilityDied) return true;
+  }
+
+  const friendDied = lossRoleCandidates(
+    tragedySet,
+    combination,
+    "friend",
+    publicCast,
+    observations,
+  ).some((character) =>
+    publicCharacterAtLoss(context, character)?.status === "dead"
+  );
+  if (friendDied) return true;
+
+  return context.lastDay && lossRoleCandidates(
+    tragedySet,
+    combination,
+    "timeTraveler",
+    publicCast,
+    observations,
+  ).some((character) =>
+    (publicCharacterAtLoss(context, character)?.goodwill ?? 3) <= 2
+  );
+}
+
+function protagonistDeathCouldExplain(
+  tragedySet: string,
+  combination: RuleCombination,
+  observation: Extract<ProtagonistObservation, { kind: "lossObserved" }>,
+  context: PublicLossObservationContext,
+  publicCast: readonly CharacterId[],
+  observations: readonly ProtagonistObservation[],
+): boolean {
+  const hospitalIncident = context.phase === "P7_INCIDENT" &&
+    context.locationIntrigue.Hospital >= 2 &&
+    context.firedIncidents.some(({ day, incident }) =>
+      day === observation.day && incident === "hospitalIncident"
+    );
+  if (hospitalIncident) return true;
+  if (context.phase !== "P9_ROUND_END") return false;
+
+  const killerCouldAct = lossRoleCandidates(
+    tragedySet,
+    combination,
+    "killer",
+    publicCast,
+    observations,
+  ).some((character) =>
+    (publicCharacterAtLoss(context, character)?.intrigue ?? 0) >= 4
+  );
+  if (killerCouldAct) return true;
+
+  return lossRoleCandidates(
+    tragedySet,
+    combination,
+    "lovedOne",
+    publicCast,
+    observations,
+  ).some((character) => {
+    const state = publicCharacterAtLoss(context, character);
+    return (state?.paranoia ?? 0) >= 3 && (state?.intrigue ?? 0) >= 1;
+  });
+}
+
+function lossObservationContradiction(
+  observation: Extract<ProtagonistObservation, { kind: "lossObserved" }>,
+  tragedySet: string,
+  combination: RuleCombination,
+  publicCast: readonly CharacterId[],
+  observations: readonly ProtagonistObservation[],
+): RuleContradiction | undefined {
+  const context = observation.context;
+  if (context === undefined) return undefined;
+  const explained = observation.timing === "protagonistDeath"
+    ? protagonistDeathCouldExplain(
+      tragedySet,
+      combination,
+      observation,
+      context,
+      publicCast,
+      observations,
+    )
+    : nonDeathLossCouldExplain(
+      tragedySet,
+      combination,
+      context,
+      publicCast,
+      observations,
+    );
+  return explained
+    ? undefined
+    : {
+      code: "lossConditionUnavailable",
+      observation,
+      reason: observation.timing === "protagonistDeath"
+        ? "공개 상태에서 알려진 주인공 사망을 설명할 패배 조건이 이 조합에 없습니다."
+        : "공개 상태에서 알려진 루프 종료 패배를 설명할 패배 조건이 이 조합에 없습니다.",
+    };
+}
+
 function contradictionsForCombination(
   tragedySet: string,
   combination: RuleCombination,
@@ -1222,7 +1475,17 @@ function contradictionsForCombination(
         break;
       case "incidentOccurred":
       case "incidentCulpritRevealed":
+        // 역할 배정 없이 사건만으로는 룰 조합을 확정하지 않는다.
+        break;
       case "lossObserved":
+        contradiction = lossObservationContradiction(
+          observation,
+          tragedySet,
+          combination,
+          options.publicCast ?? [],
+          observations,
+        );
+        break;
       case "goodwillIncidentEffect":
       case "goodwillAccepted":
         // 역할 배정 없이 룰 조합만으로 확정할 수 없으므로 보수적으로 유지한다.
@@ -1496,6 +1759,110 @@ function conspiracyTheoristLocationConstraint(
     : { role: "conspiracyTheorist", candidates, observations: evidence };
 }
 
+interface LossInferredRole {
+  character: CharacterId;
+  role: RoleId;
+  observation: Extract<ProtagonistObservation, { kind: "lossObserved" }>;
+}
+
+function lossRoleCauseCandidates(
+  tragedySet: string,
+  combinations: readonly RuleCombination[],
+  publicCast: readonly CharacterId[],
+  observations: readonly ProtagonistObservation[],
+): LossInferredRole[] {
+  const inferred: LossInferredRole[] = [];
+  for (const observation of observations) {
+    if (observation.kind !== "lossObserved" || observation.context === undefined) {
+      continue;
+    }
+    const context = observation.context;
+    const causes = new Map<string, { character: CharacterId; role: RoleId }>();
+    let nonRoleCauseExists = false;
+
+    for (const combination of combinations) {
+      if (observation.timing === "protagonistDeath") {
+        if (
+          context.phase === "P7_INCIDENT" &&
+          context.locationIntrigue.Hospital >= 2 &&
+          context.firedIncidents.some(({ day, incident }) =>
+            day === observation.day && incident === "hospitalIncident"
+          )
+        ) {
+          nonRoleCauseExists = true;
+          continue;
+        }
+        if (context.phase !== "P9_ROUND_END") continue;
+        for (const role of ["killer", "lovedOne"] as const) {
+          for (const character of lossRoleCandidates(
+            tragedySet,
+            combination,
+            role,
+            publicCast,
+            observations,
+          )) {
+            const state = publicCharacterAtLoss(context, character);
+            const met = role === "killer"
+              ? (state?.intrigue ?? 0) >= 4
+              : (state?.paranoia ?? 0) >= 3 && (state?.intrigue ?? 0) >= 1;
+            if (met) causes.set(`${character}:${role}`, { character, role });
+          }
+        }
+        continue;
+      }
+
+      if ([combination.mainPlot, ...combination.subPlots].some((plot) =>
+        plotLossCouldExplain(
+          tragedySet,
+          combination,
+          plot,
+          context,
+          publicCast,
+          observations,
+        )
+      )) {
+        nonRoleCauseExists = true;
+      }
+
+      for (const role of ["keyPerson", "friend", "timeTraveler"] as const) {
+        if (role === "timeTraveler" && !context.lastDay) continue;
+        for (const character of lossRoleCandidates(
+          tragedySet,
+          combination,
+          role,
+          publicCast,
+          observations,
+        )) {
+          const state = publicCharacterAtLoss(context, character);
+          const met = role === "timeTraveler"
+            ? (state?.goodwill ?? 3) <= 2
+            : state?.status === "dead";
+          if (met) causes.set(`${character}:${role}`, { character, role });
+        }
+      }
+      if (context.locationIntrigue.City >= 2) {
+        for (const character of lossRoleCandidates(
+          tragedySet,
+          combination,
+          "factor",
+          publicCast,
+          observations,
+        )) {
+          if (publicCharacterAtLoss(context, character)?.status === "dead") {
+            causes.set(`${character}:factor`, { character, role: "factor" });
+          }
+        }
+      }
+    }
+
+    if (!nonRoleCauseExists && causes.size === 1) {
+      const cause = [...causes.values()][0];
+      if (cause !== undefined) inferred.push({ ...cause, observation });
+    }
+  }
+  return inferred;
+}
+
 function observedRoleExclusionReason(
   observations: readonly ProtagonistObservation[],
   character: CharacterId,
@@ -1551,19 +1918,38 @@ export function buildRolePossibilityTable(
     (constraint): constraint is AbilityLocationRoleConstraint =>
       constraint !== undefined,
   );
-  const inferredAbilities = abilityConstraints.flatMap((constraint) =>
+  const abilityInferences = abilityConstraints.flatMap((constraint) =>
     constraint.candidates.size === 1
       ? [{
         character: [...constraint.candidates][0],
         role: constraint.role,
-        observations: constraint.observations,
+        reason: {
+          code: "abilityLocationIntersection" as const,
+          observations: constraint.observations,
+        },
       }]
       : []
+  );
+  const lossInferences = lossRoleCauseCandidates(
+    tragedySet,
+    combinations,
+    publicCast,
+    observations,
+  ).map(({ character, role, observation }) => ({
+    character,
+    role,
+    reason: { code: "lossConditionOnlyCandidate" as const, observation },
+  }));
+  const rawInferences = [...abilityInferences, ...lossInferences];
+  const inferredRoles = rawInferences.filter((inferred) =>
+    !rawInferences.some((other) =>
+      other.character === inferred.character && other.role !== inferred.role
+    )
   );
   const confirmedRoles = new Set(
     [...confirmed.values()].map(({ role }) => role),
   );
-  for (const inferred of inferredAbilities) confirmedRoles.add(inferred.role);
+  for (const inferred of inferredRoles) confirmedRoles.add(inferred.role);
   const roles = tragedySetRoles.filter((role) =>
     roleColumnAppears(role, combinations) || confirmedRoles.has(role)
   );
@@ -1609,17 +1995,13 @@ export function buildRolePossibilityTable(
         continue;
       }
 
-      const inferred = inferredAbilities.find((candidate) =>
+      const inferred = inferredRoles.find((candidate) =>
         candidate.character === character
       );
       if (inferred !== undefined) {
-        const reason: RolePossibilityReason = {
-          code: "abilityLocationIntersection",
-          observations: inferred.observations,
-        };
         row[role] = role === inferred.role
-          ? { character, role, status: "confirmed", reasons: [reason] }
-          : { character, role, status: "impossible", reasons: [reason] };
+          ? { character, role, status: "confirmed", reasons: [inferred.reason] }
+          : { character, role, status: "impossible", reasons: [inferred.reason] };
         continue;
       }
 
@@ -1900,6 +2282,41 @@ function observationKey(observation: ProtagonistObservation): string {
   return JSON.stringify(observation);
 }
 
+function publicLossObservationContext(
+  state: GameState,
+  loop: LoopState,
+): PublicLossObservationContext {
+  const startingLocations: Partial<Record<CharacterId, Location>> = {};
+  for (const character of Object.keys(state.scenario.cast)) {
+    startingLocations[character] =
+      loop.loopStartTraitLocationChoices?.[character] ??
+      startLocationOf(character, state.scenario);
+  }
+
+  const firedIncidents = (loop.phaseLog ?? []).flatMap((entry) =>
+    entry.kind === "incidentJudged" && entry.fired
+      ? [{ day: entry.day, incident: entry.incident }]
+      : []
+  );
+  for (const occurrence of loop.incidentOccurrencesFiredThisLoop ?? []) {
+    if (!firedIncidents.some(({ day, incident }) =>
+      day === occurrence.day && incident === occurrence.incident
+    )) {
+      firedIncidents.push({
+        day: occurrence.day,
+        incident: occurrence.incident,
+      });
+    }
+  }
+  return {
+    ...snapshotPublicContext(loop),
+    phase: loop.phase,
+    lastDay: loop.day === state.scenario.daysPerLoop,
+    startingLocations,
+    firedIncidents,
+  };
+}
+
 /** 산재한 공개 이력을 중복 없는 단일 관측 목록으로 정규화한다. */
 export function collectProtagonistObservations(
   state: GameState,
@@ -2063,11 +2480,17 @@ export function collectProtagonistObservations(
 
   for (const outcome of state.loopOutcomes) {
     if (outcome.result !== "protagonistsLost") continue;
+    const completedLoop = state.history.find(({ loop }) =>
+      loop === outcome.loop
+    );
     observations.push({
       kind: "lossObserved",
       loop: outcome.loop,
       day: outcome.day,
       timing: outcome.reason,
+      ...(completedLoop === undefined
+        ? {}
+        : { context: publicLossObservationContext(state, completedLoop) }),
     });
   }
 

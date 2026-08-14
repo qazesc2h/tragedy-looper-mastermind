@@ -550,6 +550,65 @@
           failures.push(`입문편 룰 후보 전체 목록: ${JSON.stringify(firstStepsReport)}`);
         }
 
+        await selectScenario("basicTragedy:8");
+        mutateActiveState((state) => {
+          delete state.scenario.cast.shrineMaiden;
+          state.scenario.mainPlot = "sealedItem";
+          state.scenario.subPlots = ["unsettlingRumor", "threadsFate"];
+          state.loop.day = state.scenario.daysPerLoop;
+          state.loop.phase = "P9_ROUND_END";
+          state.loop.locIntrigue = {
+            Hospital: 0,
+            Shrine: 2,
+            City: 0,
+            School: 0,
+          };
+          state.loop.phaseLog = [];
+          state.loop.incidentsFiredThisLoop = [];
+          state.loop.incidentOccurrencesFiredThisLoop = [];
+          state.loop.revealedRoleCharacters = ["shrineMaiden"];
+          state.loop.publicInformationThisLoop = [{
+            kind: "roleReveal",
+            character: "shrineMaiden",
+            role: "person",
+            loop: state.loop.loop,
+            day: state.loop.day,
+          }];
+          for (const character of Object.keys(state.scenario.cast)) {
+            const counters = state.loop.charCounters[character];
+            counters.goodwill = 3;
+            counters.paranoia = 0;
+            counters.intrigue = 0;
+          }
+          state.history = [structuredClone(state.loop)];
+          state.loopOutcomes = [{
+            loop: state.loop.loop,
+            day: state.loop.day,
+            reason: "lastDay",
+            result: "protagonistsLost",
+            losses: [{
+              key: "plot:sealedItem",
+              id: "sealedItem",
+              ko: "봉인된 것",
+              label: "hidden exact cause",
+            }],
+          }];
+        });
+        await reloadApp("loss-deduction-alert");
+        document = frameDocument();
+        const lossAlert = document.querySelector(".loss-deduction-alert");
+        const lossAlertReport = {
+          text: lossAlert?.textContent.replace(/\s+/g, " ").trim() ?? "",
+          horizontal: horizontalOverflow(),
+        };
+        reports.push({ label: "패배 조건 확정 경고", ...lossAlertReport });
+        if (
+          !lossAlertReport.text.includes("이번 패배로 봉인된 것 확정됨") ||
+          lossAlertReport.horizontal.scrollWidth > WIDTH
+        ) {
+          failures.push(`패배 조건 확정 경고: ${JSON.stringify(lossAlertReport)}`);
+        }
+
         await selectScenario("basicTragedy:1");
         mutateActiveState((state) => {
           state.history = [];
@@ -846,11 +905,14 @@
           scrollHeight: detailBody.scrollHeight,
           headerBefore: detailHeaderBefore.top,
           headerAfter: detailHeaderAfter.top,
+          tags: [...detail.querySelectorAll(".character-tag-information li")]
+            .map((element) => element.textContent.trim()),
         };
         reports.push({ label: "캐릭터 상세 모달", ...detailReport });
         if (
           detailReport.overflowY !== "auto" ||
-          Math.abs(detailHeaderBefore.top - detailHeaderAfter.top) > 0.5
+          Math.abs(detailHeaderBefore.top - detailHeaderAfter.top) > 0.5 ||
+          detailReport.tags.join(" / ") !== "학생 / 소녀"
         ) {
           failures.push(`캐릭터 상세 스크롤 경계: ${JSON.stringify(detailReport)}`);
         }
