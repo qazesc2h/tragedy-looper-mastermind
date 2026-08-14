@@ -23,6 +23,12 @@ function createState(): GameState {
       girlStudent: "friend",
       officeWorker: "killer",
       nurse: "person",
+      boyStudent: "person",
+      classRep: "person",
+      shrineMaiden: "person",
+      doctor: "person",
+      patient: "person",
+      informer: "person",
     },
     incidents: [
       { day: 1, incident: "foulEvil", culprit: "girlStudent" },

@@ -2507,6 +2507,8 @@ function hypothesisObservationLabel(
   switch (observation.kind) {
     case "roleRevealed":
       return `${characterName(observation.character)} = ${roleName(observation.role)} 공개`;
+    case "deadAtLoopEndWithoutRoleReveal":
+      return `${observation.loop}루프 종료 · ${characterName(observation.character)} 사망 · 역할 공개 없음`;
     case "goodwillRefused":
       return `${characterName(observation.character)} 우호 능력 거부`;
     case "goodwillAccepted":
@@ -2617,6 +2619,9 @@ function roleCellReasonLabel(code: string): string {
   switch (code) {
     case "roleRevealed": return "역할 공개";
     case "otherRoleConfirmed": return "다른 역할 확정";
+    case "otherRoleInferred": return "다른 역할 추론 확정";
+    case "onlyRemainingRole": return "유일 역할 후보";
+    case "requiredRoleForcedCandidate": return "필수 역할 남은 후보";
     case "roleMaximumReached": return "최대 인원 도달";
     case "outsiderConstraint": return "아웃사이더 제약";
     case "characterConstraint": return "캐릭터 제약";
@@ -2624,6 +2629,7 @@ function roleCellReasonLabel(code: string): string {
     case "goodwillRefusalRequired": return "우호 거부 관측";
     case "mandatoryGoodwillRefusalMissing": return "절대 우호 거부 없음";
     case "abilityLocationIntersection": return "능력 위치 교집합";
+    case "loopEndRoleRevealMissing": return "루프 종료 역할 공개 없음";
     default: return code;
   }
 }

@@ -3,6 +3,7 @@ import { PLOT_IMPL } from "../impl/plots";
 import { ROLE_IMPL } from "../impl/roles";
 import {
   effectiveRole,
+  isCharacterDead,
   type CharacterId,
   type GameState,
   type HookPoint,
@@ -40,6 +41,11 @@ export type ProtagonistObservation =
     role: RoleId;
     /** false면 공개 순간 역할이 없는 구 저장을 루프 스냅샷으로 복원한 값이다. */
     confirmed?: boolean;
+  }
+  | {
+    kind: "deadAtLoopEndWithoutRoleReveal";
+    loop: number;
+    character: CharacterId;
   }
   | {
     kind: "goodwillRefused";
@@ -156,6 +162,17 @@ export type RolePossibilityReason =
     observation: Extract<ProtagonistObservation, { kind: "roleRevealed" }>;
   }
   | {
+    code: "otherRoleInferred";
+    role: RoleId;
+  }
+  | {
+    code: "onlyRemainingRole";
+  }
+  | {
+    code: "requiredRoleForcedCandidate";
+    minimum: number;
+  }
+  | {
     code: "roleMaximumReached";
     maximum: number;
     confirmedCharacters: CharacterId[];
@@ -184,6 +201,13 @@ export type RolePossibilityReason =
       ProtagonistObservation,
       { kind: "mastermindAbilityResult" }
     >[];
+  }
+  | {
+    code: "loopEndRoleRevealMissing";
+    observation: Extract<
+      ProtagonistObservation,
+      { kind: "deadAtLoopEndWithoutRoleReveal" }
+    >;
   };
 
 export interface RolePossibilityCell {
@@ -1158,6 +1182,9 @@ function contradictionsForCombination(
           ranges,
         );
         break;
+      case "deadAtLoopEndWithoutRoleReveal":
+        // 역할표에서 친구 후보만 배제한다. 다른 캐릭터가 친구일 수 있다.
+        break;
       case "goodwillRefused":
         contradiction = refusalObservationContradiction(
           observation,
@@ -1313,12 +1340,41 @@ function maximumRoleCapacity(
 }
 
 interface AbilityLocationRoleConstraint {
-  role: "brain";
+  role: "brain" | "conspiracyTheorist";
   candidates: Set<CharacterId>;
   observations: Extract<
     ProtagonistObservation,
     { kind: "mastermindAbilityResult" }
   >[];
+}
+
+function observationTargetLocation(
+  observation: Extract<
+    ProtagonistObservation,
+    { kind: "mastermindAbilityResult" }
+  >,
+  target: Target,
+): string | undefined {
+  return target.kind === "location"
+    ? target.at
+    : observation.context?.characters?.[target.id]?.status === "alive"
+    ? observation.context.characters[target.id]?.location
+    : undefined;
+}
+
+function livingActorsAtObservedLocation(
+  publicCast: readonly CharacterId[],
+  observation: Extract<
+    ProtagonistObservation,
+    { kind: "mastermindAbilityResult" }
+  >,
+  location: string,
+): Set<CharacterId> {
+  return new Set(publicCast.filter((character) => {
+    const state = observation.context?.characters?.[character];
+    return state?.status === "alive" &&
+      observedAbilityLocations(state).includes(location);
+  }));
 }
 
 function brainLocationConstraint(
@@ -1378,12 +1434,81 @@ function brainLocationConstraint(
     : { role: "brain", candidates, observations: evidence };
 }
 
-function goodwillRoleExclusionReason(
+function conspiracyTheoristLocationConstraint(
+  tragedySet: string,
+  combinations: readonly RuleCombination[],
+  publicCast: readonly CharacterId[],
+  observations: readonly ProtagonistObservation[],
+): AbilityLocationRoleConstraint | undefined {
+  if (combinations.length === 0) return undefined;
+
+  const tragedySetRoles = rolesForTragedySet(tragedySet);
+  let candidates: Set<CharacterId> | undefined;
+  const evidence: Extract<
+    ProtagonistObservation,
+    { kind: "mastermindAbilityResult" }
+  >[] = [];
+  for (const observation of observations) {
+    if (
+      observation.kind !== "mastermindAbilityResult" ||
+      observation.timing !== "P5_MASTERMIND_ABILITY" ||
+      observation.context?.characters === undefined
+    ) continue;
+
+    for (const change of observation.changes) {
+      if (
+        change.kind !== "counter" ||
+        change.counter !== "paranoia" ||
+        change.delta <= 0 ||
+        change.target.kind !== "character"
+      ) continue;
+      const location = observationTargetLocation(observation, change.target);
+      if (location === undefined) continue;
+
+      const factorCanExplain =
+        observation.context.locationIntrigue.School >= 2 &&
+        combinations.some((combination) =>
+          roleCouldAppear(
+            tragedySetRoles,
+            roleRanges(combination),
+            "factor",
+            publicCast,
+          )
+        );
+      // 변수가 같은 공개 결과를 낼 수 있으면 선동가의 위치를 단정하지 않는다.
+      if (factorCanExplain) continue;
+
+      const atLocation = livingActorsAtObservedLocation(
+        publicCast,
+        observation,
+        location,
+      );
+      candidates = candidates === undefined
+        ? atLocation
+        : new Set([...candidates].filter((character) =>
+          atLocation.has(character)
+        ));
+      if (!evidence.includes(observation)) evidence.push(observation);
+    }
+  }
+  return candidates === undefined
+    ? undefined
+    : { role: "conspiracyTheorist", candidates, observations: evidence };
+}
+
+function observedRoleExclusionReason(
   observations: readonly ProtagonistObservation[],
   character: CharacterId,
   role: RoleId,
 ): RolePossibilityReason | undefined {
   for (const observation of observations) {
+    if (
+      observation.kind === "deadAtLoopEndWithoutRoleReveal" &&
+      observation.character === character &&
+      role === "friend"
+    ) {
+      return { code: "loopEndRoleRevealMissing", observation };
+    }
     if (
       observation.kind === "goodwillRefused" &&
       observation.character === character &&
@@ -1414,35 +1539,36 @@ export function buildRolePossibilityTable(
 ): RolePossibilityTable {
   const tragedySetRoles = rolesForTragedySet(tragedySet);
   const confirmed = confirmedRoleObservations(observations);
-  const abilityConstraint = brainLocationConstraint(
-    combinations,
-    publicCast,
-    observations,
+  const abilityConstraints = [
+    brainLocationConstraint(combinations, publicCast, observations),
+    conspiracyTheoristLocationConstraint(
+      tragedySet,
+      combinations,
+      publicCast,
+      observations,
+    ),
+  ].filter(
+    (constraint): constraint is AbilityLocationRoleConstraint =>
+      constraint !== undefined,
   );
-  const inferredBrain = abilityConstraint?.candidates.size === 1
-    ? [...abilityConstraint.candidates][0]
-    : undefined;
+  const inferredAbilities = abilityConstraints.flatMap((constraint) =>
+    constraint.candidates.size === 1
+      ? [{
+        character: [...constraint.candidates][0],
+        role: constraint.role,
+        observations: constraint.observations,
+      }]
+      : []
+  );
   const confirmedRoles = new Set(
     [...confirmed.values()].map(({ role }) => role),
   );
-  if (inferredBrain !== undefined) confirmedRoles.add("brain");
+  for (const inferred of inferredAbilities) confirmedRoles.add(inferred.role);
   const roles = tragedySetRoles.filter((role) =>
     roleColumnAppears(role, combinations) || confirmedRoles.has(role)
   );
   for (const role of confirmedRoles) {
     if (!roles.includes(role)) roles.push(role);
-  }
-
-  const confirmedCharactersByRole = new Map<RoleId, CharacterId[]>();
-  for (const [character, observation] of confirmed) {
-    const characters = confirmedCharactersByRole.get(observation.role) ?? [];
-    characters.push(character);
-    confirmedCharactersByRole.set(observation.role, characters);
-  }
-  if (inferredBrain !== undefined && !confirmed.has(inferredBrain)) {
-    const characters = confirmedCharactersByRole.get("brain") ?? [];
-    characters.push(inferredBrain);
-    confirmedCharactersByRole.set("brain", characters);
   }
 
   const maximumByRole = new Map<RoleId, number>();
@@ -1483,43 +1609,47 @@ export function buildRolePossibilityTable(
         continue;
       }
 
-      if (inferredBrain === character) {
+      const inferred = inferredAbilities.find((candidate) =>
+        candidate.character === character
+      );
+      if (inferred !== undefined) {
         const reason: RolePossibilityReason = {
           code: "abilityLocationIntersection",
-          observations: abilityConstraint?.observations ?? [],
+          observations: inferred.observations,
         };
-        row[role] = role === "brain"
+        row[role] = role === inferred.role
           ? { character, role, status: "confirmed", reasons: [reason] }
           : { character, role, status: "impossible", reasons: [reason] };
         continue;
       }
 
-      const goodwillReason = goodwillRoleExclusionReason(
+      const observationReason = observedRoleExclusionReason(
         observations,
         character,
         role,
       );
-      if (goodwillReason !== undefined) {
+      if (observationReason !== undefined) {
         row[role] = {
           character,
           role,
           status: "impossible",
-          reasons: [goodwillReason],
+          reasons: [observationReason],
         };
         continue;
       }
 
-      if (
-        role === abilityConstraint?.role &&
-        !abilityConstraint.candidates.has(character)
-      ) {
+      const excludingAbilityConstraint = abilityConstraints.find(
+        (constraint) =>
+          role === constraint.role && !constraint.candidates.has(character),
+      );
+      if (excludingAbilityConstraint !== undefined) {
         row[role] = {
           character,
           role,
           status: "impossible",
           reasons: [{
             code: "abilityLocationIntersection",
-            observations: abilityConstraint.observations,
+            observations: excludingAbilityConstraint.observations,
           }],
         };
         continue;
@@ -1550,22 +1680,92 @@ export function buildRolePossibilityTable(
         continue;
       }
 
-      const confirmedCharacters = confirmedCharactersByRole.get(role) ?? [];
+      row[role] = { character, role, status: "possible", reasons: [] };
+    }
+    cells[character] = row;
+  }
+
+  const minimumByRole = new Map<RoleId, number>();
+  for (const role of roles) {
+    minimumByRole.set(
+      role,
+      combinations.length === 0
+        ? 0
+        : Math.min(...combinations.map((combination) =>
+          roleRanges(combination).get(role)?.min ?? 0
+        )),
+    );
+  }
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+
+    for (const character of publicCast) {
+      const row = cells[character];
+      const confirmedRole = roles.find((role) =>
+        row?.[role]?.status === "confirmed"
+      );
+      if (confirmedRole !== undefined) {
+        for (const role of roles) {
+          const cell = row?.[role];
+          if (role === confirmedRole || cell?.status !== "possible") continue;
+          cell.status = "impossible";
+          cell.reasons.push({ code: "otherRoleInferred", role: confirmedRole });
+          changed = true;
+        }
+        continue;
+      }
+
+      const candidates = roles.filter((role) =>
+        row?.[role]?.status === "possible"
+      );
+      if (candidates.length === 1) {
+        const onlyRole = candidates[0];
+        const cell = onlyRole === undefined ? undefined : row?.[onlyRole];
+        if (cell !== undefined) {
+          cell.status = "confirmed";
+          cell.reasons.push({ code: "onlyRemainingRole" });
+          changed = true;
+        }
+      }
+    }
+
+    for (const role of roles) {
+      const confirmedCharacters = publicCast.filter((character) =>
+        cells[character]?.[role]?.status === "confirmed"
+      );
       const maximum = maximumByRole.get(role) ?? 0;
-      row[role] = maximum > 0 && confirmedCharacters.length >= maximum
-        ? {
-          character,
-          role,
-          status: "impossible",
-          reasons: [{
+      if (maximum > 0 && confirmedCharacters.length >= maximum) {
+        for (const character of publicCast) {
+          const cell = cells[character]?.[role];
+          if (cell?.status !== "possible") continue;
+          cell.status = "impossible";
+          cell.reasons.push({
             code: "roleMaximumReached",
             maximum,
             confirmedCharacters: [...confirmedCharacters],
-          }],
+          });
+          changed = true;
         }
-        : { character, role, status: "possible", reasons: [] };
+      }
+
+      const minimum = minimumByRole.get(role) ?? 0;
+      const requiredCandidates = minimum - confirmedCharacters.length;
+      if (requiredCandidates <= 0) continue;
+      const candidates = publicCast.filter((character) =>
+        cells[character]?.[role]?.status === "possible"
+      );
+      if (candidates.length === requiredCandidates) {
+        for (const character of candidates) {
+          const cell = cells[character]?.[role];
+          if (cell === undefined) continue;
+          cell.status = "confirmed";
+          cell.reasons.push({ code: "requiredRoleForcedCandidate", minimum });
+          changed = true;
+        }
+      }
     }
-    cells[character] = row;
   }
 
   return { characters: [...publicCast], roles, cells };
@@ -1610,15 +1810,16 @@ function tableContradictionsForCombination(
 
   for (const [role, range] of ranges) {
     if (range.min === 0) continue;
-    const available = table.characters.some((character) => {
+    const available = table.characters.filter((character) => {
       const cell = table.cells[character]?.[role];
       return cell !== undefined && cell.status !== "impossible";
-    });
-    if (!available) {
+    }).length;
+    if (available < range.min) {
       contradictions.push({
         code: "requiredRoleUnavailable",
         role,
-        reason: `${role} 역할이 필요한 조합이지만 가능한 캐릭터가 없습니다.`,
+        reason: `${role} 역할이 ${range.min}명 필요한 조합이지만 ` +
+          `가능한 캐릭터는 ${available}명입니다.`,
       });
     }
   }
@@ -1868,6 +2069,26 @@ export function collectProtagonistObservations(
       day: outcome.day,
       timing: outcome.reason,
     });
+  }
+
+  const completedLoops = new Set(state.loopOutcomes.map(({ loop }) => loop));
+  for (const loop of state.history) {
+    if (!completedLoops.has(loop.loop)) continue;
+    const revealed = new Set(loop.revealedRoleCharacters ?? []);
+    for (const information of loop.publicInformationThisLoop ?? []) {
+      if (information.kind === "roleReveal") {
+        revealed.add(information.character);
+      }
+    }
+    for (const [character, position] of Object.entries(loop.board)) {
+      if (isCharacterDead(position) && !revealed.has(character)) {
+        observations.push({
+          kind: "deadAtLoopEndWithoutRoleReveal",
+          loop: loop.loop,
+          character,
+        });
+      }
+    }
   }
 
   const seen = new Set<string>();
