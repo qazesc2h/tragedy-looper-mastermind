@@ -535,6 +535,133 @@
         }
       }
 
+      async function inspectP9DisclosurePreview() {
+        await selectScenario("basicTragedy:8");
+        mutateActiveState((state) => {
+          state.gamePhase = "ROUND";
+          state.loop.phase = "P9_ROUND_END";
+          state.loop.day = 3;
+          state.loop.roundEndMandatoryResolved = true;
+          state.loop.locIntrigue = {
+            Hospital: 0,
+            Shrine: 2,
+            City: 0,
+            School: 0,
+          };
+          state.loop.phaseLog = [];
+          state.loop.publicInformationThisLoop = [];
+          state.history = [];
+          state.loopOutcomes = [];
+          state.loop.loopStartTraitLocationChoices = {};
+          for (const character of Object.keys(state.scenario.cast)) {
+            state.loop.board[character] = { status: "alive", at: "Hospital" };
+            state.loop.loopStartTraitLocationChoices[character] = "School";
+            const counters = state.loop.charCounters[character];
+            counters.goodwill = 3;
+            counters.paranoia = 0;
+            counters.intrigue = 0;
+          }
+        });
+        await reloadApp("p9-disclosure-preview-fixed");
+        let preview = await waitFor(
+          () => frameDocument().querySelector(
+            ".mastermind-overlay > .p9-disclosure-preview",
+          ),
+          "P9 상시 노출 예고",
+        );
+        const alwaysText = preview.textContent.replace(/\s+/g, " ").trim();
+        const alwaysRect = preview.getBoundingClientRect();
+        click("[data-action='toggle-operation-sheet']");
+        const phasePreview = await waitFor(
+          () => frameDocument().querySelector(
+            ".operation-sheet .p9-disclosure-preview",
+          ),
+          "P9 단계 노출 예고",
+        );
+        const phaseText = phasePreview.textContent.replace(/\s+/g, " ").trim();
+        if (frameDocument().querySelector(".operation-sheet")) {
+          click("[data-action='close-operation-sheet']");
+          await pause();
+        }
+
+        mutateActiveState((state) => {
+          state.loop.board.girlStudent = { status: "dead", at: "Hospital" };
+        });
+        await reloadApp("p9-disclosure-preview-decoy");
+        preview = await waitFor(
+          () => frameDocument().querySelector(
+            ".mastermind-overlay > .p9-disclosure-preview",
+          ),
+          "P9 미끼 조건 노출 예고",
+        );
+        const decoyText = preview.textContent.replace(/\s+/g, " ").trim();
+
+        mutateActiveState((state) => {
+          state.loop.locIntrigue = {
+            Hospital: 0,
+            Shrine: 0,
+            City: 0,
+            School: 0,
+          };
+          for (const character of Object.keys(state.scenario.cast)) {
+            state.loop.board[character] = { status: "alive", at: "Hospital" };
+            state.loop.charCounters[character].intrigue = 0;
+            state.loop.charCounters[character].paranoia = 0;
+          }
+          state.scenario.cast.boyStudent = "keyPerson";
+          state.scenario.cast.officeWorker = "killer";
+          state.loop.board.boyStudent = { status: "alive", at: "City" };
+          state.loop.board.officeWorker = { status: "alive", at: "City" };
+          state.loop.charCounters.boyStudent.intrigue = 2;
+          state.loop.charCounters.officeWorker.intrigue = 4;
+        });
+        await reloadApp("p9-disclosure-preview-immediate");
+        click("[data-action='toggle-operation-sheet']");
+        const killerHook = await waitFor(
+          () => [...frameDocument().querySelectorAll(".hook-card")].find(
+            (card) => card.textContent.includes("회사원") &&
+              card.querySelector(".p9-disclosure-preview"),
+          ),
+          "살인 청부업자 핵심 인물 사망 예고",
+        );
+        const killerLoss = await waitFor(
+          () => [...frameDocument().querySelectorAll(".loss-card")].find(
+            (card) => card.querySelector("[data-action='optional-loss']") &&
+              card.querySelector(".p9-disclosure-preview"),
+          ),
+          "살인 청부업자 주인공 사망 예고",
+        );
+        const hookText = killerHook.textContent.replace(/\s+/g, " ").trim();
+        const optionalLossText = killerLoss.textContent.replace(/\s+/g, " ").trim();
+        const report = {
+          alwaysText,
+          phaseText,
+          decoyText,
+          hookText,
+          optionalLossText,
+          alwaysRect: { left: alwaysRect.left, right: alwaysRect.right },
+          horizontal: horizontalOverflow(),
+        };
+        reports.push({ label: "P9 정보 누출 예고", ...report });
+        if (
+          !alwaysText.includes("현재 상태로 루프가 끝나면") ||
+          !alwaysText.includes("이 상태로 패배하면 봉인된 것 확정") ||
+          !alwaysText.includes("위험") ||
+          !phaseText.includes("이 상태로 패배하면 봉인된 것 확정") ||
+          !decoyText.includes("룰 노출 없음") ||
+          !decoyText.includes("설명 가능한 조건 3개") ||
+          !hookText.includes("발동 뒤 즉시 종료 예고") ||
+          !hookText.includes("핵심 인물 확정") ||
+          !optionalLossText.includes("발동 뒤 즉시 종료 예고") ||
+          !optionalLossText.includes("회사원 = 살인 청부업자 확정") ||
+          alwaysRect.left < -0.5 ||
+          alwaysRect.right > WIDTH + 0.5 ||
+          report.horizontal.scrollWidth > WIDTH
+        ) {
+          failures.push(`P9 정보 누출 예고: ${JSON.stringify(report)}`);
+        }
+      }
+
       async function inspectRuleHypothesisPanels() {
         let document = frameDocument();
         let panel = document.querySelector(".rule-hypothesis-information");
@@ -1103,6 +1230,7 @@
         await inspectDockAndToast();
         await inspectOpenCardPanel();
         await inspectP5DisclosurePreview();
+        await inspectP9DisclosurePreview();
         await selectScenario("basicTragedy:5");
         await inspectScrollableModalBodies();
 

@@ -5,9 +5,15 @@ import {
 } from "../engine/goodwill";
 import { withDeathBatch } from "../engine/death";
 import {
+  previewCurrentLossDisclosure,
   previewP5Disclosure,
+  previewP6GoodwillRefusal,
+  previewP9HookDisclosure,
+  previewP9OptionalLossDisclosure,
   type DisclosureRisk,
   type P5DisclosurePreview,
+  type P6DisclosurePreview,
+  type P9DisclosurePreview,
 } from "../engine/disclosure-preview";
 import {
   advanceGame,
@@ -1583,6 +1589,112 @@ function renderDisclosureResult(preview: P5DisclosurePreview): string {
     </section>`;
 }
 
+function renderP6RefusalPreview(preview: P6DisclosurePreview): string {
+  const family = preview.goodwillIgnoreFamilyConfirmed
+    ? `${characterName(preview.character)} = 우호 무시 계열 확정`
+    : "우호 무시 계열 후보로 좁혀짐";
+  return `<small class="goodwill-disclosure-preview risk-${preview.risk}">
+    <b>${escapeHtml(disclosureRiskLabel(preview.risk))}</b>
+    <span>${escapeHtml(family)}</span>
+    <span>후보 ${preview.roleCandidatesBefore.length} → ${preview.roleCandidatesAfter.length}</span>
+  </small>`;
+}
+
+function explainableLossConditionLabel(
+  condition: P9DisclosurePreview["explainableConditions"][number],
+): string {
+  switch (condition.kind) {
+    case "plot": return plotName(condition.plot);
+    case "role": return `${roleName(condition.role)} 조건`;
+    case "incident": return `${incidentName(condition.incident)} 조건`;
+  }
+}
+
+function renderP9DisclosurePreview(
+  preview: P9DisclosurePreview,
+  headingText: string,
+): string {
+  let summary: string;
+  if (preview.explainableConditions.length === 0) {
+    summary = "이 상태로는 설명 가능한 패배 조건 없음";
+  } else if (preview.newlyConfirmedRoles.length > 0) {
+    summary = "이 상태로 패배하면 역할 확정 발생";
+  } else if (preview.newlyFixedPlots.length > 0) {
+    summary = `이 상태로 패배하면 ${preview.newlyFixedPlots.map(plotName).join(" / ")} 확정`;
+  } else {
+    summary = `이 상태로 패배하면 룰 노출 없음 (설명 가능한 조건 ${preview.explainableConditions.length}개)`;
+  }
+  const roleFacts = preview.newlyConfirmedRoles.map(
+    ({ character, role }) => `${characterName(character)} = ${roleName(role)} 확정`,
+  );
+  const conditionLabels = preview.explainableConditions.map(
+    explainableLossConditionLabel,
+  );
+  return `<section class="disclosure-preview p9-disclosure-preview risk-${preview.risk}" aria-live="polite">
+    <header>
+      <b>${escapeHtml(headingText)}</b>
+      <span>${escapeHtml(disclosureRiskLabel(preview.risk))}</span>
+    </header>
+    <p>${escapeHtml(summary)}</p>
+    ${preview.before.ruleCombinations === preview.after.ruleCombinations
+      ? ""
+      : `<small>룰 후보 ${preview.before.ruleCombinations} → ${preview.after.ruleCombinations}</small>`}
+    ${roleFacts.length === 0
+      ? ""
+      : `<ul>${roleFacts.map((fact) => `<li>${escapeHtml(fact)}</li>`).join("")}</ul>`}
+    ${conditionLabels.length === 0
+      ? ""
+      : `<details><summary>설명 가능한 조건 ${conditionLabels.length}개</summary>
+          <ul>${conditionLabels.map((label) => `<li>${escapeHtml(label)}</li>`).join("")}</ul>
+        </details>`}
+  </section>`;
+}
+
+function renderP9HookDisclosurePreview(
+  state: GameState,
+  hook: Hook,
+  self: CharacterId,
+  selection: OptionalHookSelection | undefined,
+  targets: readonly Target[],
+): string {
+  const baseline = `<div class="disclosure-baseline">
+    <b>미발동</b><span>변화 없음 · 안전</span>
+  </div>`;
+  const selectedTarget = decodeTarget(selection?.target);
+  if (targets.length > 0 && selectedTarget === undefined) {
+    return `${baseline}<p class="disclosure-pending">대상 선택 후 노출 계산</p>`;
+  }
+  return `${baseline}${renderP9DisclosurePreview(
+    previewP9HookDisclosure(state, hook, self, selectedTarget),
+    "발동 뒤 즉시 종료 예고",
+  )}`;
+}
+
+let currentLossDisclosureCache:
+  | { state: GameState; preview: P9DisclosurePreview }
+  | undefined;
+
+function currentLossDisclosure(state: GameState): P9DisclosurePreview {
+  if (currentLossDisclosureCache?.state !== state) {
+    currentLossDisclosureCache = {
+      state,
+      preview: previewCurrentLossDisclosure(state),
+    };
+  }
+  return currentLossDisclosureCache.preview;
+}
+
+function renderCurrentLossDisclosure(state: GameState): string {
+  if (
+    state.gamePhase !== "ROUND" ||
+    !loopStartTraitChoicesComplete(state)
+  ) return "";
+  return renderP9DisclosurePreview(
+    currentLossDisclosure(state),
+    "현재 상태로 루프가 끝나면",
+  );
+}
+
 function renderHookList(
   state: GameState,
   phase: "P4_RESOLVE" | "P5_MASTERMIND_ABILITY" | "P9_ROUND_END",
@@ -1611,6 +1723,14 @@ function renderHookList(
     const activationSummary = cultistIgnoreSummary(state, self, hook);
     const disclosurePreview = phase === "P5_MASTERMIND_ABILITY"
       ? renderP5DisclosurePreview(state, hook, self, selection, targets)
+      : phase === "P9_ROUND_END" && optional
+      ? renderP9HookDisclosurePreview(
+        state,
+        hook,
+        self,
+        selection,
+        targets,
+      )
       : "";
     return `
       <article class="hook-card ${selection?.selected ? "is-selected" : ""}">
@@ -1964,6 +2084,21 @@ function renderGoodwillAbilities(state: GameState): string {
         : "";
     const resolveDisabledReason = disabled ? reason : resolveRuleTitle;
     const refuseDisabledReason = disabled ? reason : refuseRuleTitle;
+    const refusalPreview = !disabled && availability.refuseAllowed
+      ? previewP6GoodwillRefusal(state, {
+        user: character,
+        rank: schema.rank,
+        abilityIndex,
+      })
+      : undefined;
+    const resolveChoiceText = availability.refusalKind === "mandatory"
+      ? "선택 불가 · 반드시 거부"
+      : "변화 없음 · 안전";
+    const refuseChoiceText = availability.refusalKind === "mandatory"
+      ? "선택 불가 · 반드시 거부"
+      : schema.immuneToGoodwillRefusel || availability.refusalKind === "none"
+      ? "선택 불가 · 거부 불가"
+      : "";
     return `
     <article class="goodwill-card ${disabled ? "is-disabled" : ""}">
       <div class="goodwill-copy">
@@ -1988,7 +2123,9 @@ function renderGoodwillAbilities(state: GameState): string {
           ${disabled || !availability.resolveAllowed ? "disabled" : ""}
           ${resolveRuleTitle ? `title="${escapeHtml(resolveRuleTitle)}"` : ""}>
           <span>${escapeHtml(misc("Resolve", "Resolve"))}</span>
-          ${resolveDisabledReason
+          ${!disabled
+            ? `<small>${escapeHtml(resolveChoiceText)}</small>`
+            : resolveDisabledReason
             ? `<small>${escapeHtml(resolveDisabledReason)}</small>`
             : ""}
         </button>
@@ -1998,9 +2135,14 @@ function renderGoodwillAbilities(state: GameState): string {
           ${disabled || !availability.refuseAllowed ? "disabled" : ""}
           ${refuseRuleTitle ? `title="${escapeHtml(refuseRuleTitle)}"` : ""}>
           <span>${escapeHtml(misc("Refuse", "Refuse"))}</span>
-          ${refuseDisabledReason
+          ${disabled && refuseDisabledReason
             ? `<small>${escapeHtml(refuseDisabledReason)}</small>`
+            : refuseChoiceText
+            ? `<small>${escapeHtml(refuseChoiceText)}</small>`
             : ""}
+          ${refusalPreview === undefined
+            ? ""
+            : renderP6RefusalPreview(refusalPreview)}
         </button>
       </div>
     </article>`;
@@ -2087,6 +2229,7 @@ function renderPhaseControls(state: GameState): string {
       return `<section class="operation-panel has-fixed-footer">
         <div class="operation-panel-scroll">
           ${heading(9, phaseName(state.loop.phase))}
+          ${renderCurrentLossDisclosure(state)}
           <div class="round-end-grid">
             <div>${renderHookList(
               state,
@@ -2402,6 +2545,19 @@ function renderLossDistance(state: GameState): string {
                 ${condition.activated ? "checked" : ""} />
               <span>이 패배 조건을 발동한다</span>
             </label>`
+          : ""}
+        ${condition.activation === "optional" &&
+            condition.met &&
+            condition.blockedBy === undefined &&
+            state.gamePhase === "ROUND" &&
+            state.loop.phase === "P9_ROUND_END" &&
+            state.loop.roundEndMandatoryResolved
+          ? `<div class="disclosure-baseline">
+              <b>미발동</b><span>변화 없음 · 안전</span>
+            </div>${renderP9DisclosurePreview(
+              previewP9OptionalLossDisclosure(state, condition.key),
+              "발동 뒤 즉시 종료 예고",
+            )}`
           : ""}
       </article>`;
   }).join("");
@@ -2867,6 +3023,7 @@ function renderMastermindOverlay(state: GameState): string {
   return `
     <aside class="mastermind-overlay" aria-label="각본가 정보">
       ${renderLoopStartInformation(state)}
+      ${renderCurrentLossDisclosure(state)}
       ${renderRuleHypotheses(state)}
       ${renderDeductionTables(state)}
       <details class="info-accordion today-information" open>
@@ -3349,6 +3506,7 @@ function renderScenarioSelection(): void {
 }
 
 function render(): void {
+  currentLossDisclosureCache = undefined;
   if (tracker.activeScenarioId === "") {
     renderScenarioSelection();
     return;

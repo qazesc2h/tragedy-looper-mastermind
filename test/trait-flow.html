@@ -128,7 +128,13 @@
       }
 
       async function openOperationSheet(label) {
-        click("[data-action='toggle-operation-sheet']");
+        const toggle = await waitFor(
+          () => frameDocument().querySelector(
+            "[data-action='toggle-operation-sheet']",
+          ),
+          `${label} 열기 버튼`,
+        );
+        toggle.click();
         await waitFor(
           () => frameDocument().querySelector(".operation-sheet"),
           label,
@@ -422,6 +428,8 @@
           resolveDisabled,
           refuseDisabled,
           expectedText,
+          expectedResolvePreview,
+          expectedRefusePreview,
         }) => {
           prepareOfficeWorker(role);
           await reloadFrame(label);
@@ -448,6 +456,16 @@
             cardText?.includes(expectedText),
             `${label} 역할 표기: ${cardText}`,
           );
+          const resolveText = resolveButton.textContent.replace(/\s+/g, " ").trim();
+          const refuseText = refuseButton.textContent.replace(/\s+/g, " ").trim();
+          assert(
+            resolveText.includes(expectedResolvePreview),
+            `${label} 해결 예고: ${resolveText}`,
+          );
+          assert(
+            refuseText.includes(expectedRefusePreview),
+            `${label} 거부 예고: ${refuseText}`,
+          );
         };
 
         await loadScenario(scenarioId, "goodwill-refusal-ui");
@@ -457,6 +475,8 @@
           resolveDisabled: false,
           refuseDisabled: true,
           expectedText: "회사원 (엑스트라)",
+          expectedResolvePreview: "변화 없음 · 안전",
+          expectedRefusePreview: "선택 불가 · 거부 불가",
         });
         await assertOfficeWorkerPolicy({
           role: "killer",
@@ -464,6 +484,8 @@
           resolveDisabled: false,
           refuseDisabled: false,
           expectedText: "회사원 (살인 청부업자 · 우호 무시)",
+          expectedResolvePreview: "변화 없음 · 안전",
+          expectedRefusePreview: "회사원 = 우호 무시 계열 확정 후보 12 → 5",
         });
         await assertOfficeWorkerPolicy({
           role: "cultist",
@@ -471,6 +493,8 @@
           resolveDisabled: true,
           refuseDisabled: false,
           expectedText: "회사원 (광신도 · 절대 우호 무시)",
+          expectedResolvePreview: "선택 불가 · 반드시 거부",
+          expectedRefusePreview: "선택 불가 · 반드시 거부",
         });
 
         mutateStoredState(scenarioId, (state) => {
@@ -497,6 +521,14 @@
         );
         assert(!nurseResolve.disabled, "간호사[2] 해결 버튼이 비활성임");
         assert(nurseRefuse.disabled, "간호사[2] 거부 버튼이 활성임");
+        assert(
+          nurseResolve.textContent.includes("변화 없음 · 안전"),
+          `간호사[2] 해결 예고: ${nurseResolve.textContent}`,
+        );
+        assert(
+          nurseRefuse.textContent.includes("선택 불가 · 거부 불가"),
+          `간호사[2] 거부 예고: ${nurseRefuse.textContent}`,
+        );
 
         prepareOfficeWorker("killer");
         await reloadFrame("우호 무시 거부 이력");
@@ -539,7 +571,7 @@
         );
 
         reports.push({
-          goodwillRefusalButtons: "none/optional/mandatory/protected",
+          goodwillRefusalButtons: "none/optional/mandatory/protected + disclosure preview",
           goodwillRefusalHistory: "2루프 3일",
         });
       }

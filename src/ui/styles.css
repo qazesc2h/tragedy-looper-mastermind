@@ -2355,6 +2355,27 @@ select {
   line-height: 1.4;
 }
 
+.p9-disclosure-preview {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.p9-disclosure-preview p {
+  margin: 0;
+  color: #eadfcf;
+  font-size: 0.76rem;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.p9-disclosure-preview details summary {
+  cursor: pointer;
+  color: #bdb09d;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
 .disclosure-preview.risk-critical {
   border-color: #b55555;
   background: #301a1a;
@@ -2423,6 +2444,24 @@ select {
   font-size: 0.6rem;
   font-weight: 600;
   line-height: 1.2;
+}
+
+.goodwill-actions .goodwill-disclosure-preview {
+  display: grid;
+  gap: 2px;
+  margin-top: 3px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  padding-top: 5px;
+  text-align: left;
+}
+
+.goodwill-disclosure-preview b {
+  color: #f0a2a2;
+  font-size: 0.62rem;
+}
+
+.goodwill-disclosure-preview span {
+  display: block;
 }
 
 .modal-layer {

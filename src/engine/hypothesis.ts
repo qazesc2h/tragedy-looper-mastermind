@@ -44,6 +44,11 @@ export interface PublicLossObservationContext extends PublicObservationContext {
   firedIncidents: { day: number; incident: IncidentId }[];
 }
 
+export type ExplainableLossCondition =
+  | { key: string; kind: "plot"; plot: PlotId }
+  | { key: string; kind: "role"; role: RoleId }
+  | { key: string; kind: "incident"; incident: IncidentId };
+
 /** 주인공이 실제 플레이에서 알게 된 사실만을 담는다. */
 export type ProtagonistObservation =
   | {
@@ -1279,11 +1284,13 @@ function plotLossCouldExplain(
 function nonDeathLossCouldExplain(
   tragedySet: string,
   combination: RuleCombination,
+  timing: LoopEndReason,
   context: PublicLossObservationContext,
   publicCast: readonly CharacterId[],
   observations: readonly ProtagonistObservation[],
 ): boolean {
-  if ([combination.mainPlot, ...combination.subPlots].some((plot) =>
+  if (timing !== "effect" &&
+    [combination.mainPlot, ...combination.subPlots].some((plot) =>
     plotLossCouldExplain(
       tragedySet,
       combination,
@@ -1318,7 +1325,7 @@ function nonDeathLossCouldExplain(
     if (factorWithKeyPersonAbilityDied) return true;
   }
 
-  const friendDied = lossRoleCandidates(
+  const friendDied = timing !== "effect" && lossRoleCandidates(
     tragedySet,
     combination,
     "friend",
@@ -1400,6 +1407,7 @@ function lossObservationContradiction(
     : nonDeathLossCouldExplain(
       tragedySet,
       combination,
+      observation.timing,
       context,
       publicCast,
       observations,
@@ -1811,7 +1819,8 @@ function lossRoleCauseCandidates(
         continue;
       }
 
-      if ([combination.mainPlot, ...combination.subPlots].some((plot) =>
+      if (observation.timing !== "effect" &&
+        [combination.mainPlot, ...combination.subPlots].some((plot) =>
         plotLossCouldExplain(
           tragedySet,
           combination,
@@ -1825,6 +1834,7 @@ function lossRoleCauseCandidates(
       }
 
       for (const role of ["keyPerson", "friend", "timeTraveler"] as const) {
+        if (role === "friend" && observation.timing === "effect") continue;
         if (role === "timeTraveler" && !context.lastDay) continue;
         for (const character of lossRoleCandidates(
           tragedySet,
@@ -2315,6 +2325,130 @@ function publicLossObservationContext(
     startingLocations,
     firedIncidents,
   };
+}
+
+/** 실제 종료 기록을 만들지 않고 현재 공개 상태의 가상 패배 관측을 만든다. */
+export function hypotheticalLossObservation(
+  state: GameState,
+  timing: LoopEndReason,
+): Extract<ProtagonistObservation, { kind: "lossObserved" }> {
+  return {
+    kind: "lossObserved",
+    loop: state.loop.loop,
+    day: state.loop.day,
+    timing,
+    context: publicLossObservationContext(state, state.loop),
+  };
+}
+
+/**
+ * 현재까지 남은 후보 전체에서 가상 패배를 설명할 수 있는 패배 조건 종류를
+ * 합집합으로 반환한다. 실제 시나리오에 조건이 여러 개라는 뜻은 아니다.
+ */
+export function explainableLossConditions(
+  state: GameState,
+  observation: Extract<ProtagonistObservation, { kind: "lossObserved" }>,
+  combinations: readonly RuleCombination[],
+  observations: readonly ProtagonistObservation[],
+): ExplainableLossCondition[] {
+  const context = observation.context;
+  if (context === undefined) return [];
+  const tragedySet = state.scenario.tragedySet;
+  const publicCast = Object.keys(state.scenario.cast);
+  const conditions = new Map<string, ExplainableLossCondition>();
+  const add = (condition: ExplainableLossCondition): void => {
+    conditions.set(condition.key, condition);
+  };
+
+  for (const combination of combinations) {
+    if (observation.timing === "protagonistDeath") {
+      if (
+        context.phase === "P7_INCIDENT" &&
+        context.locationIntrigue.Hospital >= 2 &&
+        context.firedIncidents.some(({ day, incident }) =>
+          day === observation.day && incident === "hospitalIncident"
+        )
+      ) {
+        add({
+          key: "incident:hospitalIncident",
+          kind: "incident",
+          incident: "hospitalIncident",
+        });
+      }
+      if (context.phase !== "P9_ROUND_END") continue;
+      for (const role of ["killer", "lovedOne"] as const) {
+        const met = lossRoleCandidates(
+          tragedySet,
+          combination,
+          role,
+          publicCast,
+          observations,
+        ).some((character) => {
+          const characterState = publicCharacterAtLoss(context, character);
+          return role === "killer"
+            ? (characterState?.intrigue ?? 0) >= 4
+            : (characterState?.paranoia ?? 0) >= 3 &&
+              (characterState?.intrigue ?? 0) >= 1;
+        });
+        if (met) add({ key: `role:${role}`, kind: "role", role });
+      }
+      continue;
+    }
+
+    if (observation.timing !== "effect") {
+      for (const plot of [combination.mainPlot, ...combination.subPlots]) {
+        if (plotLossCouldExplain(
+          tragedySet,
+          combination,
+          plot,
+          context,
+          publicCast,
+          observations,
+        )) {
+          add({ key: `plot:${plot}`, kind: "plot", plot });
+        }
+      }
+    }
+
+    const roleConditions: ReadonlyArray<{
+      role: "keyPerson" | "friend" | "timeTraveler" | "factor";
+      met: (character: CharacterId) => boolean;
+    }> = [
+      {
+        role: "keyPerson",
+        met: (character) =>
+          publicCharacterAtLoss(context, character)?.status === "dead",
+      },
+      {
+        role: "friend",
+        met: (character) =>
+          publicCharacterAtLoss(context, character)?.status === "dead",
+      },
+      {
+        role: "timeTraveler",
+        met: (character) => context.lastDay &&
+          (publicCharacterAtLoss(context, character)?.goodwill ?? 3) <= 2,
+      },
+      {
+        role: "factor",
+        met: (character) => context.locationIntrigue.City >= 2 &&
+          publicCharacterAtLoss(context, character)?.status === "dead",
+      },
+    ];
+    for (const { role, met } of roleConditions) {
+      if (role === "friend" && observation.timing === "effect") continue;
+      if (lossRoleCandidates(
+        tragedySet,
+        combination,
+        role,
+        publicCast,
+        observations,
+      ).some(met)) {
+        add({ key: `role:${role}`, kind: "role", role });
+      }
+    }
+  }
+  return [...conditions.values()];
 }
 
 /** 산재한 공개 이력을 중복 없는 단일 관측 목록으로 정규화한다. */
