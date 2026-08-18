@@ -1,5 +1,6 @@
 import goodwillAbilitiesJson from "../../data/goodwill-abilities.json";
 import { characterDataOf } from "../data";
+import { goodwillAbilityImplemented } from "../engine/goodwill";
 import { tragedySetDefinition } from "../tragedy-sets";
 import {
   abilityLocationsOf,
@@ -318,7 +319,9 @@ function disabledReasonFor(
   if (ability.minLoop !== undefined && state.loop.loop < ability.minLoop) {
     return "minLoop";
   }
-  if (ability.implemented === false) return "notImplemented";
+  if (!goodwillAbilityImplemented(character, ability.abilityIndex)) {
+    return "notImplemented";
+  }
   const key = `${character}:goodwill:${ability.abilityIndex}`;
   if (state.loop.abilitiesUsedThisRound.includes(key)) {
     return "usedThisRound";
@@ -378,7 +381,7 @@ function disabledDiagnosticFor(
     case "minLoop":
       return `loop=${state.loop.loop}, minLoop=${ability.minLoop}`;
     case "notImplemented":
-      return `implemented=${ability.implemented}`;
+      return "implemented=false";
     case "usedThisRound":
       return `usedThisRound=${JSON.stringify(
         state.loop.abilitiesUsedThisRound,

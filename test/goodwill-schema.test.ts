@@ -5,6 +5,8 @@ import goodwillKoJson from "../data/goodwill-ko.json";
 import koReleaseJson from "../data/ko-release.json";
 import koTranslationsJson from "../data/ko-translations.json";
 import { describe, expect, it } from "vitest";
+import { goodwillAbilityImplemented } from "../src/engine/goodwill";
+import type { CharacterId } from "../src/types";
 
 interface SourceAbility {
   rank: number | null;
@@ -238,6 +240,43 @@ describe("structured goodwill-ability data", () => {
     expect(schema.illusion).toMatchObject([
       { abilityIndex: 1, rank: 3, implemented: false },
       { abilityIndex: 2, rank: 4, implemented: false },
+    ]);
+  });
+
+  it("classifies all 35 Korean-release abilities by actual engine support", () => {
+    const inventory = koreanCharacters.flatMap((character) =>
+      schema[character].map(({ abilityIndex, rank }) => ({
+        character,
+        abilityIndex,
+        rank,
+        implemented: goodwillAbilityImplemented(
+          character as CharacterId,
+          abilityIndex,
+        ),
+      }))
+    );
+
+    expect(inventory).toHaveLength(35);
+    expect(inventory.filter(({ implemented }) => implemented)).toHaveLength(32);
+    expect(inventory.filter(({ implemented }) => !implemented)).toEqual([
+      {
+        character: "forensicSpecialist",
+        abilityIndex: 0,
+        rank: 2,
+        implemented: false,
+      },
+      {
+        character: "scientist",
+        abilityIndex: 1,
+        rank: 3,
+        implemented: false,
+      },
+      {
+        character: "illusion",
+        abilityIndex: 1,
+        rank: 3,
+        implemented: false,
+      },
     ]);
   });
 

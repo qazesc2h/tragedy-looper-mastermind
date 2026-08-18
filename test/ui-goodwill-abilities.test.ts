@@ -302,7 +302,7 @@ describe("structured goodwill ability UI", () => {
     expect(goodwillAbilityViews(state)[0].disabledReason).toBeUndefined();
   });
 
-  it("shows promotion abilities as present but not yet implemented", () => {
+  it("enables implemented illusion rank 4 while disabling unsupported abilities", () => {
     const state = createState(["scientist", "illusion"]);
     unlock(state, "scientist", 3);
     unlock(state, "illusion", 4);
@@ -333,13 +333,13 @@ describe("structured goodwill ability UI", () => {
       {
         character: "illusion",
         rank: 4,
-        disabledReason: "notImplemented",
-        disabledDiagnostic: "implemented=false",
+        disabledReason: undefined,
+        disabledDiagnostic: undefined,
       },
     ]);
   });
 
-  it("offers boss rank 5 targets in turf and diagnoses multiple-target abilities", () => {
+  it("offers boss rank 5 targets in turf and disables unsupported forensic rank 2", () => {
     const state = createState([
       "boss",
       "forensicSpecialist",
@@ -364,9 +364,8 @@ describe("structured goodwill ability UI", () => {
       ({ character, schema }) =>
         character === "forensicSpecialist" && schema.rank === 2,
     )).toMatchObject({
-      disabledReason: "multipleTargets",
-      disabledDiagnostic:
-        'required=2, candidates=[{"kind":"character","id":"boss"}]',
+      disabledReason: "notImplemented",
+      disabledDiagnostic: "implemented=false",
     });
   });
 

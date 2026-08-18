@@ -1773,7 +1773,7 @@ function goodwillDisabledMessage(
     case "minLoop":
       return `${view.schema.minLoop}번째 루프부터 사용 가능`;
     case "notImplemented":
-      return "아직 구현되지 않은 능력";
+      return "미구현";
     case "usedThisRound":
       return "오늘 이미 사용한 능력";
     case "spent":

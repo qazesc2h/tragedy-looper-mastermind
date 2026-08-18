@@ -10,8 +10,10 @@ import { resolveIncident } from "../src/engine/incident";
 import { distanceToLoss } from "../src/engine/loss";
 import {
   chooseInitialLeader,
+  continueAfterLoopJudgment,
   continueFromTimeGap,
   createGameState,
+  setLoopStartTraitCounterChoice,
   setLoopStartTraitLocationChoice,
 } from "../src/engine/game";
 import { advance } from "../src/engine/phases";
@@ -119,6 +121,9 @@ function createInformationState(
   };
   const state = createGameState(scenario);
   chooseInitialLeader(state, 0);
+  if (characters.includes("scientist")) {
+    setLoopStartTraitCounterChoice(state, "scientist", "goodwill");
+  }
   if (characters.includes("henchman")) {
     setLoopStartTraitLocationChoice(state, "henchman", "City");
   }
@@ -1114,6 +1119,54 @@ describe("boss rank 5 / reveal a role in turf", () => {
 });
 
 describe("loop-long goodwill effects", () => {
+  it.each([
+    ["forensicSpecialist", 2, 0],
+    ["scientist", 3, 1],
+    ["illusion", 3, 1],
+  ] as const)(
+    "rejects unsupported %s rank %i before entering an unresolved effect path",
+    (character, rank, abilityIndex) => {
+      const state = createInformationState([character], []);
+      state.loop.charCounters[character].goodwill = rank;
+
+      expect(() => resolveGoodwillAbility(state, {
+        user: character,
+        rank,
+        abilityIndex,
+      }, "resolve")).toThrow("goodwill effect is not implemented");
+    },
+  );
+
+  it("removes illusion for the rest of the loop and restores it next loop", () => {
+    const state = createInformationState(["illusion"], []);
+    state.loop.charCounters.illusion.goodwill = 4;
+
+    const result = resolveGoodwillAbility(state, {
+      user: "illusion",
+      rank: 4,
+      abilityIndex: 2,
+    }, "resolve");
+
+    expect(result.effectApplied).toBe(true);
+    expect(state.loop.board.illusion).toEqual({ status: "absent" });
+
+    state.gamePhase = "LOOP_JUDGMENT";
+    state.loopOutcomes.push({
+      loop: 1,
+      day: state.loop.day,
+      reason: "lastDay",
+      result: "protagonistsLost",
+      losses: [],
+    });
+    continueAfterLoopJudgment(state);
+
+    expect(state.gamePhase).toBe("LOOP_TIME_GAP");
+    expect(state.loop.board.illusion).toEqual({
+      status: "alive",
+      at: "Shrine",
+    });
+  });
+
   it("records henchman's incident suppression by culprit", () => {
     const state = createInformationState(["henchman"], []);
     state.loop.charCounters.henchman.goodwill = 3;

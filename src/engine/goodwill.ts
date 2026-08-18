@@ -69,6 +69,51 @@ interface SelectedAbility {
   index: number;
 }
 
+const IMPLEMENTED_GOODWILL_ABILITIES: ReadonlySet<string> = new Set([
+  "ai:2",
+  "alien:0",
+  "alien:1",
+  "boss:1",
+  "boyStudent:0",
+  "classRep:0",
+  "doctor:0",
+  "doctor:1",
+  "forensicSpecialist:1",
+  "girlStudent:0",
+  "godlyBeing:1",
+  "godlyBeing:2",
+  "henchman:1",
+  "illusion:2",
+  "informer:0",
+  "journalist:0",
+  "journalist:1",
+  "mysteryBoy:1",
+  "nurse:0",
+  "officeWorker:0",
+  "policeOfficer:0",
+  "policeOfficer:1",
+  "popIdol:0",
+  "popIdol:1",
+  "richStudent:0",
+  "shrineMaiden:0",
+  "shrineMaiden:1",
+  "soldier:0",
+  "soldier:1",
+  "teacher:0",
+  "teacher:1",
+  "transferStudent:1",
+]);
+
+/** UI와 엔진이 공유하는 우호 능력 처리 가능 여부. */
+export function goodwillAbilityImplemented(
+  character: CharacterId,
+  abilityIndex: number,
+): boolean {
+  return IMPLEMENTED_GOODWILL_ABILITIES.has(
+    `${character}:${abilityIndex}`,
+  );
+}
+
 function selectAbility(
   declaration: GoodwillDeclaration,
 ): SelectedAbility {
@@ -699,6 +744,10 @@ function applySimpleBaseAbility(
     case "ai:2":
       return resolveIncidentAsAi(state, declaration);
 
+    case "illusion:2":
+      state.loop.board[declaration.user] = { status: "absent" };
+      return true;
+
     default:
       return undefined;
   }
@@ -736,6 +785,12 @@ export function resolveGoodwillAbility(
   mastermindResponse: GoodwillResponse,
 ): GoodwillResult {
   const selected = selectAbility(declaration);
+  if (!goodwillAbilityImplemented(declaration.user, selected.index)) {
+    throw new Error(
+      `goodwill effect is not implemented for "${declaration.user}" ` +
+      `ability index ${selected.index}`,
+    );
+  }
   assertAbilityAvailable(state, declaration, selected);
 
   const cannotBeRefused = abilityCannotBeRefused(selected.ability);

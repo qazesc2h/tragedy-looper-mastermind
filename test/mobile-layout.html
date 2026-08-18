@@ -1537,6 +1537,84 @@
         }
       }
 
+      async function inspectGoodwillImplementationCoverage() {
+        mutateActiveState((state) => {
+          state.gamePhase = "ROUND";
+          state.loop.phase = "P6_GOODWILL";
+          state.loop.placed = [];
+          delete state.pendingLoopEnd;
+          delete state.loop.pendingImmediateLossKeys;
+          for (const character of ["forensicSpecialist", "scientist", "illusion"]) {
+            state.scenario.cast[character] = "person";
+            state.loop.board[character] = { status: "alive", at: "City" };
+            state.loop.charCounters[character] = {
+              goodwill: 4,
+              paranoia: 0,
+              intrigue: 0,
+              protection: 0,
+            };
+          }
+        });
+        await reloadApp("goodwill-implementation-coverage");
+        click("[data-action='toggle-operation-sheet']");
+
+        const unsupported = [
+          ["forensicSpecialist", "0"],
+          ["scientist", "1"],
+          ["illusion", "1"],
+        ];
+        const disabledReasons = {};
+        for (const [character, abilityIndex] of unsupported) {
+          const button = await waitFor(
+            () => frameDocument().querySelector(
+              `button[data-action='goodwill'][data-response='resolve'][data-character='${character}'][data-ability-index='${abilityIndex}']`,
+            ),
+            `미구현 우호 능력 · ${character}:${abilityIndex}`,
+          );
+          const card = button.closest(".goodwill-card");
+          disabledReasons[`${character}:${abilityIndex}`] = {
+            disabled: button.disabled,
+            reason: card?.querySelector(".goodwill-disabled-reason")
+              ?.textContent.trim() ?? "",
+          };
+        }
+
+        const illusionButton = await waitFor(
+          () => frameDocument().querySelector(
+            "button[data-action='goodwill'][data-response='resolve'][data-character='illusion'][data-ability-index='2']",
+          ),
+          "환상 우호4 해결 버튼",
+        );
+        const illusionRank4InitiallyEnabled = !illusionButton.disabled;
+        illusionButton.click();
+        await pause(300);
+        const saved = JSON.parse(
+          window.localStorage.getItem("tragedy-looper-mastermind:tracker"),
+        );
+        const current = saved.games[saved.activeScenarioId].state;
+        const report = {
+          disabledReasons,
+          illusionRank4InitiallyEnabled,
+          illusionStatusAfterResolve: current.loop.board.illusion.status,
+          illusionCardVisibleAfterResolve: Boolean(
+            frameDocument().querySelector(
+              ".goodwill-card button[data-character='illusion']",
+            ),
+          ),
+        };
+        reports.push({ label: "우호 능력 구현 경계", ...report });
+        if (
+          Object.values(disabledReasons).some(
+            ({ disabled, reason }) => !disabled || reason !== "미구현",
+          ) ||
+          !illusionRank4InitiallyEnabled ||
+          report.illusionStatusAfterResolve !== "absent" ||
+          report.illusionCardVisibleAfterResolve
+        ) {
+          failures.push(`우호 능력 구현 경계: ${JSON.stringify(report)}`);
+        }
+      }
+
       async function run() {
         await enterRound();
         await inspectRuleHypothesisPanels();
@@ -1570,6 +1648,7 @@
         await inspectP9DisclosurePreview();
         await inspectAiIncidentChoiceFields();
         await inspectIllusionActionTrait();
+        await inspectGoodwillImplementationCoverage();
         await selectScenario("basicTragedy:5");
         await inspectScrollableModalBodies();
 
