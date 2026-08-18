@@ -5,6 +5,7 @@ import {
   resolveMove,
   type MoveCard,
 } from "../engine/movement";
+import { locationCardAppliesToIllusion } from "../engine/resolve";
 import {
   abilityLocationsOf,
   characterLocation,
@@ -391,7 +392,11 @@ export function collectNoEffectCards(
       placement.card === "goodwillPlus2" ||
       placement.card === "paranoiaPlus1" ||
       placement.card === "paranoiaMinus1";
-    if (needsCharacter && placement.target.kind !== "character") {
+    if (
+      needsCharacter &&
+      placement.target.kind !== "character" &&
+      !locationCardAppliesToIllusion(before, placement)
+    ) {
       noEffects.push({ placement, reason: "ineffectiveTarget" });
     }
   }

@@ -61,6 +61,16 @@ export function validatePlacement(
   state: GameState,
   placement: PlacedCard,
 ): LegalResult {
+  if (
+    placement.target.kind === "character" &&
+    placement.target.id === "illusion"
+  ) {
+    return {
+      ok: false,
+      reason: "환상에게는 행동 카드를 직접 놓을 수 없습니다.",
+    };
+  }
+
   const conflict = conflictsWithExisting(state, placement);
   if (conflict) return conflict;
 

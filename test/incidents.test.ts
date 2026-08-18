@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveIncident } from "../src/engine/incident";
+import {
+  incidentFailureReasons,
+  resolveIncident,
+} from "../src/engine/incident";
 import { resolveGoodwillAbility } from "../src/engine/goodwill";
 import {
   chooseInitialLeader,
@@ -164,6 +167,61 @@ describe("incident resolution", () => {
     expect(state.loop.phase).toBe("P7_INCIDENT");
     expect(boardLocation(state.loop, CULPRIT)).toBe("City");
     expect(state.loop.incidentsFiredThisLoop).toBeUndefined();
+  });
+});
+
+describe("AI incident trigger check", () => {
+  it("counts goodwill, paranoia, intrigue, and protection at the exact limit", () => {
+    const state = createIncidentState(
+      "foulEvil",
+      "ai",
+      ["ai", "boyStudent"],
+    );
+    Object.assign(state.loop.charCounters.ai, {
+      goodwill: 1,
+      paranoia: 1,
+      intrigue: 1,
+      protection: 1,
+    });
+
+    expect(incidentFailureReasons(state, "ai")).toEqual([]);
+    expect(resolveIncident(state).fired).toBe(true);
+  });
+
+  it("does not fire when AI's total counters are one below its limit", () => {
+    const state = createIncidentState(
+      "foulEvil",
+      "ai",
+      ["ai", "boyStudent"],
+    );
+    Object.assign(state.loop.charCounters.ai, {
+      goodwill: 1,
+      paranoia: 1,
+      intrigue: 1,
+      protection: 0,
+    });
+
+    expect(incidentFailureReasons(state, "ai"))
+      .toContain("insufficientParanoia");
+    expect(resolveIncident(state).fired).toBe(false);
+  });
+
+  it("continues to count only paranoia for an ordinary culprit", () => {
+    const state = createIncidentState(
+      "foulEvil",
+      "boyStudent",
+      ["boyStudent", "girlStudent"],
+    );
+    Object.assign(state.loop.charCounters.boyStudent, {
+      goodwill: 10,
+      paranoia: 1,
+      intrigue: 10,
+      protection: 10,
+    });
+
+    expect(incidentFailureReasons(state, "boyStudent"))
+      .toContain("insufficientParanoia");
+    expect(resolveIncident(state).fired).toBe(false);
   });
 });
 

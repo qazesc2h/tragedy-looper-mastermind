@@ -415,6 +415,7 @@ function resolveIncidentAsAi(
     kind: "incidentEffect",
     source: "ai",
     day: scheduled.day,
+    resolvedOnDay: state.loop.day,
     incident: scheduled.incident,
     culprit: declaration.user,
     effectApplied,

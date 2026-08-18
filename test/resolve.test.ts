@@ -105,6 +105,22 @@ function createFixtureState(testCase: ManualCase): GameState {
   return { scenario, gamePhase: "ROUND", loop, history: [], loopOutcomes: [] };
 }
 
+function createIllusionState(): GameState {
+  const scenario: Scenario = {
+    tragedySet: "basicTragedy",
+    mainPlot: "",
+    subPlots: [],
+    cast: { illusion: "person", boyStudent: "person" },
+    incidents: [],
+    loops: 1,
+    daysPerLoop: 1,
+  };
+  const loop = initLoop(scenario);
+  setBoardLocation(loop, "illusion", "Shrine");
+  setBoardLocation(loop, "boyStudent", "School");
+  return { scenario, gamePhase: "ROUND", loop, history: [], loopOutcomes: [] };
+}
+
 function expectFixtureResult(
   state: GameState,
   expected: ResolveExpectation,
@@ -314,5 +330,82 @@ describe("manual resolution examples", () => {
 
     expect(state.loop.charCounters.girlStudent.goodwill).toBe(0);
     expect(state.loop.charCounters.boyStudent.paranoia).toBe(0);
+  });
+});
+
+describe("illusion action-card trait", () => {
+  it("applies location intrigue to both the location and illusion", () => {
+    const state = createIllusionState();
+    state.loop.placed = [{
+      owner: "mastermind",
+      card: "intriguePlus1",
+      target: { kind: "location", at: "Shrine" },
+    }];
+
+    resolveActions(state);
+
+    expect(state.loop.locIntrigue.Shrine).toBe(1);
+    expect(state.loop.charCounters.illusion.intrigue).toBe(1);
+  });
+
+  it("applies bluff character-counter cards placed on illusion's location", () => {
+    const state = createIllusionState();
+    state.loop.placed = [{
+      owner: "mastermind",
+      card: "paranoiaPlus1",
+      target: { kind: "location", at: "Shrine" },
+    }];
+
+    resolveActions(state);
+
+    expect(state.loop.charCounters.illusion.paranoia).toBe(1);
+  });
+
+  it("applies bluff movement cards placed on illusion's location", () => {
+    const state = createIllusionState();
+    state.loop.placed = [{
+      owner: "mastermind",
+      card: "moveHorizontal",
+      target: { kind: "location", at: "Shrine" },
+    }];
+
+    resolveActions(state);
+
+    expect(boardLocation(state.loop, "illusion")).toBe("Hospital");
+  });
+
+  it("copies a single round-wide intrigue forbid without doubling its count", () => {
+    const state = createIllusionState();
+    state.loop.placed = [
+      {
+        owner: "mastermind",
+        card: "intriguePlus1",
+        target: { kind: "location", at: "Shrine" },
+      },
+      {
+        owner: 0,
+        card: "forbidIntrigue",
+        target: { kind: "location", at: "Shrine" },
+      },
+    ];
+
+    resolveActions(state);
+
+    expect(state.loop.locIntrigue.Shrine).toBe(0);
+    expect(state.loop.charCounters.illusion.intrigue).toBe(0);
+  });
+
+  it("does not apply location cards to a dead illusion", () => {
+    const state = createIllusionState();
+    setBoardLife(state.loop, "illusion", false);
+    state.loop.placed = [{
+      owner: "mastermind",
+      card: "paranoiaPlus1",
+      target: { kind: "location", at: "Shrine" },
+    }];
+
+    resolveActions(state);
+
+    expect(state.loop.charCounters.illusion.paranoia).toBe(0);
   });
 });

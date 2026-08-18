@@ -444,7 +444,10 @@ export type PublicInformation =
   | {
     kind: "incidentEffect";
     source: "ai";
+    /** 선택한 시나리오 사건의 예정 날짜. */
     day: number;
+    /** AI 능력을 실제로 해결한 현재 날짜. 구 저장에는 없을 수 있다. */
+    resolvedOnDay?: number;
     incident: IncidentId;
     culprit: CharacterId;
     effectApplied: boolean;

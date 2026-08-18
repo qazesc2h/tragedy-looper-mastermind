@@ -154,6 +154,28 @@ describe("dead character targets", () => {
   });
 });
 
+describe("illusion targets", () => {
+  it("rejects every action card placed directly on illusion", () => {
+    const state = createState();
+    state.scenario.cast.illusion = "person";
+    state.loop.board.illusion = { status: "alive", at: "Shrine" };
+    state.loop.charCounters.illusion = {
+      goodwill: 0,
+      paranoia: 0,
+      intrigue: 0,
+      protection: 0,
+    };
+
+    expect(validatePlacement(
+      state,
+      characterPlacement("mastermind", "paranoiaPlus1", "illusion"),
+    )).toEqual({
+      ok: false,
+      reason: "환상에게는 행동 카드를 직접 놓을 수 없습니다.",
+    });
+  });
+});
+
 describe("location targets", () => {
   it("allows cards that have an effect on a location", () => {
     const state = createState();

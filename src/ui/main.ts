@@ -104,6 +104,7 @@ import {
 } from "./action-cards";
 import { APP_VERSION } from "./app-version";
 import {
+  aiIncidentChoiceFields,
   decodeIncidentSelection,
   encodeIncidentSelection,
   goodwillAbilityViews,
@@ -1823,14 +1824,48 @@ function renderGoodwillTarget(
 function renderAiIncidentChoiceFields(
   state: GameState,
   view: GoodwillAbilityView,
+  incident: string | undefined,
   disabled: boolean,
 ): string {
   if (view.schema.effect.operation !== "resolveIncidentAsSelfWithoutTrigger") {
     return "";
   }
-  const characters = Object.entries(state.loop.board)
+  if (incident === undefined) {
+    return `<p class="empty-overlay">사건을 고르면 필요한 선택만 표시합니다.</p>`;
+  }
+  const livingCharacters = Object.entries(state.loop.board)
     .filter(([, position]) => isCharacterAlive(position))
     .map(([character]) => character);
+  const aiLocation = characterLocation(state.loop.board[view.character], view.character);
+  const selectedTarget = draftValue(
+    goodwillDraftKey(view.key, "incident-target"),
+  );
+  const eligibleCharacters = (field: "target" | "otherTarget") => {
+    if (field === "otherTarget") {
+      return livingCharacters.filter((character) => character !== selectedTarget);
+    }
+    switch (incident) {
+      case "murder":
+        return livingCharacters.filter((character) =>
+          character !== view.character &&
+          characterLocation(state.loop.board[character], character) === aiLocation
+        );
+      case "butterflyEffect":
+        return livingCharacters.filter((character) =>
+          characterLocation(state.loop.board[character], character) === aiLocation
+        );
+      case "farawayMurder":
+        return livingCharacters.filter((character) =>
+          state.loop.charCounters[character].intrigue >= 2
+        );
+      case "spreading":
+        return livingCharacters.filter((character) =>
+          state.loop.charCounters[character].goodwill >= 1
+        );
+      default:
+        return livingCharacters;
+    }
+  };
   const selectCharacter = (
     field: "target" | "otherTarget",
     label: string,
@@ -1843,10 +1878,11 @@ function renderAiIncidentChoiceFields(
     <label class="goodwill-choice-field">
       <span>${escapeHtml(label)}</span>
       <select data-goodwill-incident-${field === "target" ? "target" : "other-target"}="${escapeHtml(view.key)}"
+        ${field === "target" ? `data-action="goodwill-incident-target"` : ""}
         data-ui-draft-key="${escapeHtml(draftKey)}"
         ${disabled ? "disabled" : ""}>
         <option value="">${escapeHtml(misc("Select", "Select"))}</option>
-        ${characters.map((character) => `
+        ${eligibleCharacters(field).map((character) => `
           <option value="${escapeHtml(character)}"
             ${selectedDraftOption(draftKey, character)}>${escapeHtml(characterName(character))}</option>`).join("")}
       </select>
@@ -1854,10 +1890,7 @@ function renderAiIncidentChoiceFields(
   };
   const locationDraftKey = goodwillDraftKey(view.key, "incident-location");
   const counterDraftKey = goodwillDraftKey(view.key, "incident-counter");
-  return `
-    ${selectCharacter("target", misc("Target", "Target"))}
-    ${selectCharacter("otherTarget", misc("Other target", "Other target"))}
-    <label class="goodwill-choice-field">
+  const locationField = `<label class="goodwill-choice-field">
       <span>${escapeHtml(misc("Location", "Location"))}</span>
       <select data-goodwill-incident-location="${escapeHtml(view.key)}"
         data-ui-draft-key="${escapeHtml(locationDraftKey)}"
@@ -1866,8 +1899,8 @@ function renderAiIncidentChoiceFields(
         ${LOCATIONS.map((location) => `
           <option value="${location}" ${selectedDraftOption(locationDraftKey, location)}>${escapeHtml(locationName(location))}</option>`).join("")}
       </select>
-    </label>
-    <label class="goodwill-choice-field">
+    </label>`;
+  const counterField = `<label class="goodwill-choice-field">
       <span>${escapeHtml(misc("Counter", "Counter"))}</span>
       <select data-goodwill-incident-counter="${escapeHtml(view.key)}"
         data-ui-draft-key="${escapeHtml(counterDraftKey)}"
@@ -1883,6 +1916,33 @@ function renderAiIncidentChoiceFields(
           ))}</option>`).join("")}
       </select>
     </label>`;
+  const fieldHtml = aiIncidentChoiceFields(incident).map((field) => {
+    switch (field) {
+      case "location":
+        return locationField;
+      case "counter":
+        return counterField;
+      case "target":
+        return selectCharacter(
+          "target",
+          incident === "spreading"
+            ? "우호 제거 대상"
+            : incident === "increasingUnease"
+            ? "불안 +2 대상"
+            : incident === "butterflyEffect"
+            ? "카운터 대상"
+            : "사망 대상",
+        );
+      case "otherTarget":
+        return selectCharacter(
+          "otherTarget",
+          incident === "spreading" ? "우호 추가 대상" : "음모 +1 대상",
+        );
+    }
+  });
+  return fieldHtml.length === 0
+    ? `<p class="empty-overlay">추가 선택 없이 해결합니다.</p>`
+    : fieldHtml.join("");
 }
 
 function renderGoodwillChoice(
@@ -1920,8 +1980,12 @@ function renderGoodwillChoice(
     case "incident":
     case "pastIncident": {
       const draftKey = goodwillDraftKey(key, "choice");
+      const selectedIncident = choice.options.find((selection) =>
+        encodeIncidentSelection(selection) === draftValue(draftKey)
+      );
       return `
         <select data-goodwill-choice="${escapeHtml(key)}"
+          ${choice.kind === "incident" ? `data-action="goodwill-incident-selection" data-goodwill-key="${escapeHtml(key)}"` : ""}
           data-ui-draft-key="${escapeHtml(draftKey)}"
           ${disabled ? "disabled" : ""}>
           <option value="">${escapeHtml(misc("Select", "Select"))}</option>
@@ -1932,7 +1996,12 @@ function renderGoodwillChoice(
             </option>`).join("")}
         </select>
         ${choice.kind === "incident"
-          ? renderAiIncidentChoiceFields(state, view, disabled)
+          ? renderAiIncidentChoiceFields(
+              state,
+              view,
+              selectedIncident?.incident,
+              disabled,
+            )
           : ""}`;
     }
     case "subplot": {
@@ -2700,7 +2769,11 @@ function renderIncidentSchedule(state: GameState): string {
               }</td>
               <td>${row.timing === "past"
                 ? ""
-                : `<strong>불안 ${row.paranoia}/${row.paranoiaLimit}</strong>`}<span>${escapeHtml(status)}</span></td>
+                : `<strong>${row.allCountersCountAsParanoia ? "판정 불안" : "불안"} ${row.paranoia}/${row.paranoiaLimit}</strong>`}<span>${escapeHtml(status)}</span>${
+                  row.aiEffectResolvedOnDays.map((day) =>
+                    `<small class="incident-advance-effect">└ ${day}일차에 AI 능력으로 효과 선행 해결됨</small>`
+                  ).join("")
+                }</td>
             </tr>`;
           }).join("")}</tbody>
         </table></div>`}
@@ -3070,6 +3143,21 @@ function renderMastermindOverlay(state: GameState): string {
     </aside>`;
 }
 
+function renderCollapsedMastermindOverlay(
+  state: GameState,
+  purpose: "finalGuess" | "review",
+): string {
+  const overlay = renderMastermindOverlay(state);
+  if (overlay === "") return "";
+  return `<details class="mastermind-archive-information">
+    <summary>
+      <strong>각본가 정보 보기</strong>
+      <span>${purpose === "finalGuess" ? "역할 선언 대조" : "게임 복기"}</span>
+    </summary>
+    ${overlay}
+  </details>`;
+}
+
 function renderPublicInformation(state: GameState): string {
   const exactRoleReveals = (state.loop.publicInformationThisLoop ?? []).filter(
     (information) => information.kind === "roleReveal",
@@ -3100,8 +3188,8 @@ function renderPublicInformation(state: GameState): string {
           return [`리더 선언: ${plotName(information.declaredSubplot)} / ` +
             `각본가 공개: ${plotName(information.revealedSubplot)}`];
         case "incidentEffect":
-          return [`${misc("Day")} ${information.day} · ${incidentName(information.incident)}를 ` +
-            `${characterName(information.culprit)}이(가) 범인인 것으로 효과 해결` +
+          return [`${information.resolvedOnDay ?? information.day}일차에 AI 능력으로 ` +
+            `${misc("Day")} ${information.day} · ${incidentName(information.incident)} 효과 선행 해결` +
             (information.effectApplied ? "" : " (적용된 효과 없음)")];
       }
     },
@@ -3277,6 +3365,7 @@ function renderFinalGuess(state: GameState): string {
       </div>
       ${renderFinalGuessAttempts(state)}
     </section>
+    ${renderCollapsedMastermindOverlay(state, "finalGuess")}
   </main>`;
 }
 
@@ -3334,6 +3423,7 @@ function renderGameOver(state: GameState): string {
         <button type="button" class="next-phase" data-action="new-game">새 게임</button>
       </div>
     </section>
+    ${renderCollapsedMastermindOverlay(state, "review")}
   </main>`;
 }
 
@@ -4279,6 +4369,32 @@ root.addEventListener("change", (event) => {
     }
     if (action === "goodwill-subplot-declaration") {
       syncGoodwillSubplotRevealOptions(control as HTMLSelectElement);
+    }
+    if (action === "goodwill-incident-selection") {
+      const key = control.dataset.goodwillKey;
+      if (key !== undefined) {
+        for (const field of [
+          "incident-target",
+          "incident-other-target",
+          "incident-location",
+          "incident-counter",
+        ] as const) {
+          uiInputDrafts.delete(goodwillDraftKey(key, field));
+        }
+      }
+      render();
+      return;
+    }
+    if (action === "goodwill-incident-target") {
+      const key = control.dataset.goodwillIncidentTarget;
+      if (key !== undefined) {
+        const otherKey = goodwillDraftKey(key, "incident-other-target");
+        if (uiInputDrafts.get(otherKey) === control.value) {
+          uiInputDrafts.delete(otherKey);
+        }
+      }
+      render();
+      return;
     }
     return;
   }

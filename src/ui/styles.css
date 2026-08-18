@@ -842,6 +842,40 @@ select {
   gap: 7px;
 }
 
+.mastermind-archive-information {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #5f4c2e;
+  border-radius: 10px;
+  background: linear-gradient(145deg, #272016, #1b1813);
+}
+
+.mastermind-archive-information > summary {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 11px;
+  color: var(--gold);
+  cursor: pointer;
+  list-style: none;
+}
+
+.mastermind-archive-information > summary::-webkit-details-marker {
+  display: none;
+}
+
+.mastermind-archive-information > summary span {
+  color: var(--ink-muted);
+  font-size: 0.7rem;
+}
+
+.mastermind-archive-information > .mastermind-overlay {
+  border-top: 1px solid #4b402f;
+  padding: 8px;
+}
+
 .info-accordion,
 .mastermind-overlay > section {
   overflow: hidden;
@@ -1520,6 +1554,15 @@ select {
 .incident-schedule td span {
   color: #9d917e;
   font-size: 0.68rem;
+}
+
+.incident-schedule .incident-advance-effect {
+  display: block;
+  margin-top: 4px;
+  color: #d7b978;
+  font-size: 0.62rem;
+  line-height: 1.35;
+  white-space: normal;
 }
 
 .incident-schedule tr.is-today td {

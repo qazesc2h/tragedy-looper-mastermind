@@ -42,6 +42,33 @@ function characterCounters(state: GameState, character: CharacterId) {
   return counters;
 }
 
+/** 살아 있는 환상의 장소에 놓인 카드는 종류와 진영에 관계없이 환상에도 적용된다. */
+export function locationCardAppliesToIllusion(
+  state: GameState,
+  placedCard: PlacedCard,
+): boolean {
+  const illusion = state.loop.board.illusion;
+  return placedCard.target.kind === "location" &&
+    illusion !== undefined &&
+    isCharacterAlive(illusion) &&
+    illusion.at === placedCard.target.at;
+}
+
+function placementsWithIllusionCopies(
+  state: GameState,
+  placed: readonly PlacedCard[],
+): PlacedCard[] {
+  return [
+    ...placed,
+    ...placed.filter((placedCard) =>
+      locationCardAppliesToIllusion(state, placedCard)
+    ).map((placedCard): PlacedCard => ({
+      ...placedCard,
+      target: { kind: "character", id: "illusion" },
+    })),
+  ];
+}
+
 export function resolveMovement(
   state: GameState,
   placed: readonly PlacedCard[],
@@ -198,6 +225,7 @@ function resolveCounterCard(
 function resolveCounters(
   state: GameState,
   placed: readonly PlacedCard[],
+  played: readonly PlacedCard[] = placed,
 ): void {
   const goodwillForbidden = forbiddenTargets(placed, "forbidGoodwill");
   for (const ignored of timeTravelerIgnoredGoodwillTargets(state)) {
@@ -205,10 +233,15 @@ function resolveCounters(
   }
   const paranoiaForbidden = forbiddenTargets(placed, "forbidParanoia");
 
+  // 환상에게 복사된 금지 카드는 적용 대상을 늘릴 뿐, 실제로 낸 카드 수를
+  // 늘리지 않는다. 라운드 단위 상쇄 판정은 원래 배치만 센다.
+  const playedIntrigueForbids = played.filter(
+    (placedCard) => placedCard.card === "forbidIntrigue",
+  );
   const intrigueForbids = placed.filter(
     (placedCard) => placedCard.card === "forbidIntrigue",
   );
-  const intrigueForbidIsActive = intrigueForbidActive(intrigueForbids);
+  const intrigueForbidIsActive = intrigueForbidActive(playedIntrigueForbids);
   const intrigueForbidden = new Set<string>();
   if (intrigueForbidIsActive) {
     const ignoredTargets = cultistIgnoredIntrigueTargets(state);
@@ -268,9 +301,10 @@ function recordSpentCards(
 /** P4 행동 해결: 이동 → 나머지 효과 → 카드 회수 순으로 상태를 갱신한다. */
 export function resolveActions(state: GameState): GameState {
   const placed = [...state.loop.placed];
+  const applied = placementsWithIllusionCopies(state, placed);
 
-  resolveMovement(state, placed);
-  resolveCounters(state, placed);
+  resolveMovement(state, applied);
+  resolveCounters(state, applied, placed);
   recordSpentCards(state, placed);
   state.loop.placed = [];
   delete state.loop.cultistsIgnoringForbidIntrigue;

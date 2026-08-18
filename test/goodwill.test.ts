@@ -7,6 +7,7 @@ import {
 } from "../src/engine/goodwill";
 import type { GoodwillUse } from "../src/engine/goodwill";
 import { resolveIncident } from "../src/engine/incident";
+import { distanceToLoss } from "../src/engine/loss";
 import {
   chooseInitialLeader,
   continueFromTimeGap,
@@ -820,6 +821,7 @@ describe("ai rank 3 / resolve an incident effect as AI", () => {
       kind: "incidentEffect",
       source: "ai",
       day: 2,
+      resolvedOnDay: 1,
       incident: "murder",
       culprit: "ai",
       effectApplied: true,
@@ -863,6 +865,187 @@ describe("ai rank 3 / resolve an incident effect as AI", () => {
     }, "resolve")).toThrow("requires a location target");
     expect(boardLocation(state.loop, "ai")).toBe(before);
     expect(state.loop.publicInformationThisLoop).toBeUndefined();
+  });
+
+  it("applies butterflyEffect with the selected counter and target", () => {
+    const state = createInformationState(
+      ["ai", "boyStudent"],
+      [{ day: 6, incident: "butterflyEffect", culprit: "boyStudent" }],
+    );
+    state.loop.charCounters.ai.goodwill = 3;
+    setBoardLocation(state.loop, "ai", "City");
+    setBoardLocation(state.loop, "boyStudent", "City");
+
+    resolveGoodwillAbility(state, {
+      user: "ai",
+      rank: 3,
+      abilityIndex: 2,
+      incident: { day: 6, incident: "butterflyEffect" },
+      incidentChoice: { target: "boyStudent", counter: "intrigue" },
+    }, "resolve");
+
+    expect(state.loop.charCounters.boyStudent.intrigue).toBe(1);
+    expect(state.loop.incidentsFiredThisLoop).toBeUndefined();
+  });
+
+  it("applies farawayMurder to the selected eligible target", () => {
+    const state = createInformationState(
+      ["ai", "boyStudent"],
+      [{ day: 5, incident: "farawayMurder", culprit: "boyStudent" }],
+    );
+    state.loop.charCounters.ai.goodwill = 3;
+    state.loop.charCounters.boyStudent.intrigue = 2;
+
+    resolveGoodwillAbility(state, {
+      user: "ai",
+      rank: 3,
+      abilityIndex: 2,
+      incident: { day: 5, incident: "farawayMurder" },
+      incidentChoice: { target: "boyStudent" },
+    }, "resolve");
+
+    expect(boardIsAlive(state.loop, "boyStudent")).toBe(false);
+  });
+
+  it("applies spreading with separate removal and addition targets", () => {
+    const state = createInformationState(
+      ["ai", "boyStudent", "girlStudent"],
+      [{ day: 2, incident: "spreading", culprit: "boyStudent" }],
+    );
+    state.loop.charCounters.ai.goodwill = 3;
+    state.loop.charCounters.boyStudent.goodwill = 1;
+
+    resolveGoodwillAbility(state, {
+      user: "ai",
+      rank: 3,
+      abilityIndex: 2,
+      incident: { day: 2, incident: "spreading" },
+      incidentChoice: { target: "boyStudent", otherTarget: "girlStudent" },
+    }, "resolve");
+
+    expect(state.loop.charCounters.boyStudent.goodwill).toBe(0);
+    expect(state.loop.charCounters.girlStudent.goodwill).toBe(2);
+  });
+
+  it("applies increasingUnease with two distinct targets", () => {
+    const state = createInformationState(
+      ["ai", "boyStudent", "girlStudent"],
+      [{ day: 3, incident: "increasingUnease", culprit: "boyStudent" }],
+    );
+    state.loop.charCounters.ai.goodwill = 3;
+
+    resolveGoodwillAbility(state, {
+      user: "ai",
+      rank: 3,
+      abilityIndex: 2,
+      incident: { day: 3, incident: "increasingUnease" },
+      incidentChoice: { target: "boyStudent", otherTarget: "girlStudent" },
+    }, "resolve");
+
+    expect(state.loop.charCounters.boyStudent.paranoia).toBe(2);
+    expect(state.loop.charCounters.girlStudent.intrigue).toBe(1);
+  });
+
+  it("kills AI itself when resolving suicide", () => {
+    const state = createInformationState(
+      ["ai", "boyStudent"],
+      [{ day: 4, incident: "suicide", culprit: "boyStudent" }],
+    );
+    state.loop.charCounters.ai.goodwill = 3;
+
+    resolveGoodwillAbility(state, {
+      user: "ai",
+      rank: 3,
+      abilityIndex: 2,
+      incident: { day: 4, incident: "suicide" },
+    }, "resolve");
+
+    expect(boardIsAlive(state.loop, "ai")).toBe(false);
+    expect(boardIsAlive(state.loop, "boyStudent")).toBe(true);
+  });
+
+  it("applies hospitalIncident independently of the substituted culprit", () => {
+    const state = createInformationState(
+      ["ai", "boyStudent"],
+      [{ day: 4, incident: "hospitalIncident", culprit: "boyStudent" }],
+    );
+    state.loop.charCounters.ai.goodwill = 3;
+    state.loop.locIntrigue.Hospital = 1;
+    setBoardLocation(state.loop, "ai", "City");
+    setBoardLocation(state.loop, "boyStudent", "Hospital");
+
+    resolveGoodwillAbility(state, {
+      user: "ai",
+      rank: 3,
+      abilityIndex: 2,
+      incident: { day: 4, incident: "hospitalIncident" },
+    }, "resolve");
+
+    expect(boardIsAlive(state.loop, "boyStudent")).toBe(false);
+    expect(boardIsAlive(state.loop, "ai")).toBe(true);
+  });
+
+  it("applies foulEvil independently of the substituted culprit", () => {
+    const state = createInformationState(
+      ["ai", "boyStudent"],
+      [{ day: 4, incident: "foulEvil", culprit: "boyStudent" }],
+    );
+    state.loop.charCounters.ai.goodwill = 3;
+
+    resolveGoodwillAbility(state, {
+      user: "ai",
+      rank: 3,
+      abilityIndex: 2,
+      incident: { day: 4, incident: "foulEvil" },
+    }, "resolve");
+
+    expect(state.loop.locIntrigue.Shrine).toBe(2);
+  });
+
+  it("does not satisfy changeOfFuture when AI resolves butterflyEffect", () => {
+    const state = createInformationState(
+      ["ai", "boyStudent"],
+      [{ day: 4, incident: "butterflyEffect", culprit: "boyStudent" }],
+    );
+    state.scenario.mainPlot = "changeOfFuture";
+    state.loop.charCounters.ai.goodwill = 3;
+
+    resolveGoodwillAbility(state, {
+      user: "ai",
+      rank: 3,
+      abilityIndex: 2,
+      incident: { day: 4, incident: "butterflyEffect" },
+      incidentChoice: { target: "ai", counter: "intrigue" },
+    }, "resolve");
+
+    expect(distanceToLoss(state)).toContainEqual(expect.objectContaining({
+      plot: "changeOfFuture",
+      met: false,
+    }));
+    expect(state.loop.incidentsFiredThisLoop).toBeUndefined();
+  });
+
+  it("does satisfy giantTimeBomb when an AI-resolved effect adds Place X intrigue", () => {
+    const state = createInformationState(
+      ["ai", "shrineMaiden", "boyStudent"],
+      [{ day: 4, incident: "foulEvil", culprit: "boyStudent" }],
+    );
+    state.scenario.mainPlot = "giantTimeBomb";
+    state.scenario.cast.shrineMaiden = "witch";
+    state.loop.charCounters.ai.goodwill = 3;
+
+    resolveGoodwillAbility(state, {
+      user: "ai",
+      rank: 3,
+      abilityIndex: 2,
+      incident: { day: 4, incident: "foulEvil" },
+    }, "resolve");
+
+    expect(distanceToLoss(state)).toContainEqual(expect.objectContaining({
+      plot: "giantTimeBomb",
+      met: true,
+    }));
+    expect(state.loop.incidentsFiredThisLoop).toBeUndefined();
   });
 });
 

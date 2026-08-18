@@ -99,6 +99,36 @@ export interface GoodwillRefusalHistoryEntry {
   occurrences: Array<{ loop: number; day: number }>;
 }
 
+export type AiIncidentChoiceField =
+  | "target"
+  | "otherTarget"
+  | "location"
+  | "counter";
+
+/** AI [우호3]으로 사건 효과를 해결할 때 사건 원문이 요구하는 추가 선택. */
+export function aiIncidentChoiceFields(
+  incident: string,
+): readonly AiIncidentChoiceField[] {
+  switch (incident) {
+    case "murder":
+    case "farawayMurder":
+      return ["target"];
+    case "missingPerson":
+      return ["location"];
+    case "butterflyEffect":
+      return ["counter", "target"];
+    case "spreading":
+    case "increasingUnease":
+      return ["target", "otherTarget"];
+    case "suicide":
+    case "hospitalIncident":
+    case "foulEvil":
+      return [];
+    default:
+      throw new Error(`unknown AI incident choice fields for "${incident}"`);
+  }
+}
+
 const GOODWILL_ABILITIES = goodwillAbilitiesJson as unknown as Readonly<
   Record<CharacterId, readonly StructuredGoodwillAbility[]>
 >;

@@ -9,6 +9,7 @@ import {
 import { validatePlacement } from "../src/engine/legal";
 import { initLoop } from "../src/engine/setup";
 import {
+  aiIncidentChoiceFields,
   decodeIncidentSelection,
   encodeIncidentSelection,
   goodwillAbilityViews,
@@ -60,6 +61,22 @@ function createState(characters: readonly CharacterId[]): GameState {
 function unlock(state: GameState, character: CharacterId, goodwill: number): void {
   state.loop.charCounters[character].goodwill = goodwill;
 }
+
+describe("AI incident choice fields", () => {
+  it.each([
+    ["murder", ["target"]],
+    ["missingPerson", ["location"]],
+    ["butterflyEffect", ["counter", "target"]],
+    ["farawayMurder", ["target"]],
+    ["spreading", ["target", "otherTarget"]],
+    ["increasingUnease", ["target", "otherTarget"]],
+    ["suicide", []],
+    ["hospitalIncident", []],
+    ["foulEvil", []],
+  ] as const)("maps %s to only its required selections", (incident, fields) => {
+    expect(aiIncidentChoiceFields(incident)).toEqual(fields);
+  });
+});
 
 function resolveLeaderCardThroughP4(
   state: GameState,

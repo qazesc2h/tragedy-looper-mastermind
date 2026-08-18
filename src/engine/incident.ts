@@ -10,6 +10,20 @@ import type {
 } from "../types";
 import { withDeathBatch } from "./death";
 
+/** AI만 사건 발생 판정에서 캐릭터 위의 모든 카운터를 불안으로 센다. */
+export function incidentParanoia(
+  state: GameState,
+  culprit: CharacterId,
+): number {
+  const counters = state.loop.charCounters[culprit];
+  if (!counters) {
+    throw new Error(`incident culprit "${culprit}" has no counters`);
+  }
+  if (culprit !== "ai") return counters.paranoia;
+  return counters.goodwill + counters.paranoia + counters.intrigue +
+    counters.protection;
+}
+
 /** 예정 사건이 발생하지 않는 이유를 각본가 화면에 표시한다. */
 export function incidentFailureReasons(
   state: GameState,
@@ -24,7 +38,7 @@ export function incidentFailureReasons(
   const reasons: IncidentFailureReason[] = [];
   if (!isCharacterPresent(position)) return ["culpritAbsent"];
   if (!isCharacterAlive(position)) reasons.push("culpritDead");
-  if (counters.paranoia < characterDataOf(culprit).paranoiaLimit) {
+  if (incidentParanoia(state, culprit) < characterDataOf(culprit).paranoiaLimit) {
     reasons.push("insufficientParanoia");
   }
   if (state.loop.incidentCulpritSuppressedFor?.includes(culprit)) {

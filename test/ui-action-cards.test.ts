@@ -279,6 +279,29 @@ describe("UI card-resolution report", () => {
     expect(collectNoEffectCards(before, after, placed)).toEqual([]);
   });
 
+  it("does not call a bluff location card ineffective when it applies to illusion", () => {
+    const before = createState();
+    before.scenario.cast.illusion = "person";
+    before.loop.board.illusion = { status: "alive", at: "Shrine" };
+    before.loop.charCounters.illusion = {
+      goodwill: 0,
+      paranoia: 0,
+      intrigue: 0,
+      protection: 0,
+    };
+    const placed: PlacedCard[] = [{
+      owner: "mastermind",
+      card: "paranoiaPlus1",
+      target: { kind: "location", at: "Shrine" },
+    }];
+
+    expect(collectNoEffectCards(
+      before,
+      structuredClone(before),
+      placed,
+    )).toEqual([]);
+  });
+
   it("orders changes before publicly reported no-effects", () => {
     const before = createState();
     const [counterCharacter, movingCharacter] = Object.keys(before.loop.board);

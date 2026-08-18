@@ -184,7 +184,8 @@ export const TRAIT_IMPL: Record<CharacterId, {
           timing: "Incident Trigger Check",
           description: `When determining wether an Incident triggers, to which this character is the culprit, all conters on this character conut as :paranoia: conuters.`,
         },
-        // TODO(구현): AI가 범인일 때 발생 조건에서 모든 카운터를 불안으로 센다.
+        // IMPLEMENTED_ELSEWHERE: src/engine/incident.ts incidentParanoia()
+        // 사건 공통 발생 판정의 AI 전용 분기이므로 여기로 옮기지 않는다.
         when: () => false,
         effect: () => {},
       },
@@ -199,7 +200,8 @@ export const TRAIT_IMPL: Record<CharacterId, {
         timing: "Action Card Placement / Card Resolve",
         description: `No action cards can be placed on this characte. All cards palced on this location are also applied to this character.`,
       },
-      // TODO(구현): 직접 배치를 금지하고 장소 카드 효과를 환상에도 적용한다.
+      // IMPLEMENTED_ELSEWHERE: src/engine/legal.ts validatePlacement(),
+      // src/engine/resolve.ts placementsWithIllusionCopies()
       when: () => false,
       effect: () => {},
     }],

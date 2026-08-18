@@ -131,6 +131,52 @@ describe("mastermind incident schedule", () => {
       ]);
   });
 
+  it("shows an AI effect resolution beside the still-pending scheduled incident", () => {
+    const state = createState();
+    state.loop.day = 2;
+    state.loop.publicInformationThisLoop = [{
+      kind: "incidentEffect",
+      source: "ai",
+      day: 4,
+      resolvedOnDay: 2,
+      incident: "murder",
+      culprit: "ai",
+      effectApplied: true,
+    }];
+
+    expect(incidentScheduleRows(state).find(({ day }) => day === 4))
+      .toMatchObject({
+        timing: "future",
+        outcome: undefined,
+        aiEffectResolvedOnDays: [2],
+      });
+  });
+
+  it("labels AI's all-counter value separately from ordinary paranoia", () => {
+    const state = createState();
+    state.scenario.cast.ai = "killer";
+    state.scenario.incidents.push({
+      day: 5,
+      incident: "murder",
+      culprit: "ai",
+    });
+    state.loop.board.ai = { status: "alive", at: "City" };
+    state.loop.charCounters.ai = {
+      goodwill: 1,
+      paranoia: 1,
+      intrigue: 1,
+      protection: 1,
+    };
+
+    expect(incidentScheduleRows(state).find(({ culprit }) => culprit === "ai"))
+      .toMatchObject({
+        paranoia: 4,
+        paranoiaLimit: 4,
+        allCountersCountAsParanoia: true,
+        conditionMet: true,
+      });
+  });
+
   it("shows a delayed culprit's entry timing in the mastermind schedule", () => {
     const state = createState();
     state.scenario.cast.transferStudent = "person";

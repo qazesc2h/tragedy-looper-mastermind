@@ -21,7 +21,7 @@ import {
   type ProtagonistDeathResult,
 } from "./death";
 import { requestLoopEnd } from "./flow";
-import { incidentFires } from "./incident";
+import { incidentFires, incidentParanoia } from "./incident";
 
 export type LossCategory =
   | "plot"
@@ -531,13 +531,15 @@ function incidentLossDistance(
   }
 
   const culpritPosition = state.loop.board[scheduled.culprit];
-  const culpritCounters = state.loop.charCounters[scheduled.culprit];
   const paranoiaNeeded = characterDataOf(scheduled.culprit).paranoiaLimit;
   const alive = isCharacterAlive(culpritPosition) ? 1 : 0;
-  const paranoia = culpritCounters.paranoia;
+  const paranoia = incidentParanoia(state, scheduled.culprit);
+  const paranoiaLabel = scheduled.culprit === "ai"
+    ? "범인 판정 불안"
+    : "범인 불안";
   const hospitalIntrigue = state.loop.locIntrigue.Hospital;
   const label = `${scheduled.day}일 ${impl.ko}: ` +
-    `범인 생존 ${alive}/1 · 범인 불안 ${paranoia}/${paranoiaNeeded} · ` +
+    `범인 생존 ${alive}/1 · ${paranoiaLabel} ${paranoia}/${paranoiaNeeded} · ` +
     `병원 음모 ${hospitalIntrigue}/2`;
 
   return [distance({

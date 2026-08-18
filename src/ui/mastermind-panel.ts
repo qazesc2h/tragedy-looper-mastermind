@@ -12,7 +12,11 @@ import {
   type IncidentHypothesisColumn,
   type IncidentPossibilityTable,
 } from "../engine/incident-hypothesis";
-import { incidentFailureReasons, incidentFires } from "../engine/incident";
+import {
+  incidentFailureReasons,
+  incidentFires,
+  incidentParanoia,
+} from "../engine/incident";
 import { distanceToLoss } from "../engine/loss";
 import { tragedySetDefinition } from "../tragedy-sets";
 import { characterEntryTiming } from "../types";
@@ -34,6 +38,8 @@ export interface IncidentScheduleRow extends ScheduledIncident {
   paranoia: number;
   paranoiaLimit: number;
   paranoiaNeeded: number;
+  /** AI면 우호·불안·음모·보호를 합산한 사건 판정값이다. */
+  allCountersCountAsParanoia: boolean;
   conditionMet: boolean;
   currentFailureReasons: IncidentFailureReason[];
   outcome?: IncidentScheduleOutcome;
@@ -43,6 +49,8 @@ export interface IncidentScheduleRow extends ScheduledIncident {
   judgmentRecorded: boolean;
   /** FAQ Q5의 비공개 등장 정보를 각본가에게만 보여 주는 표기. */
   culpritEntryLabel?: string;
+  /** 같은 사건 회차를 AI 우호 능력으로 미리 해결한 실제 날짜. */
+  aiEffectResolvedOnDays: number[];
 }
 
 export interface RuleHypothesisObservationImpact {
@@ -246,7 +254,7 @@ export function incidentScheduleRows(
       left.scheduled.day - right.scheduled.day || left.index - right.index
     )
     .map(({ scheduled }) => {
-      const paranoia = state.loop.charCounters[scheduled.culprit].paranoia;
+      const paranoia = incidentParanoia(state, scheduled.culprit);
       const paranoiaLimit = characterDataOf(scheduled.culprit).paranoiaLimit;
       const daysUntil = scheduled.day - state.loop.day;
       const timing: IncidentScheduleTiming = daysUntil < 0
@@ -265,6 +273,14 @@ export function incidentScheduleRows(
         entry.incident === scheduled.incident &&
         entry.culprit === scheduled.culprit
       );
+      const aiEffectResolvedOnDays = (state.loop.publicInformationThisLoop ?? [])
+        .flatMap((information) =>
+          information.kind === "incidentEffect" &&
+            information.day === scheduled.day &&
+            information.incident === scheduled.incident
+            ? [information.resolvedOnDay ?? information.day]
+            : []
+        );
 
       let outcome: IncidentScheduleOutcome | undefined;
       let effectApplied: boolean | undefined;
@@ -286,6 +302,7 @@ export function incidentScheduleRows(
         paranoia,
         paranoiaLimit,
         paranoiaNeeded: Math.max(0, paranoiaLimit - paranoia),
+        allCountersCountAsParanoia: scheduled.culprit === "ai",
         conditionMet: incidentFires(state, scheduled.culprit),
         currentFailureReasons,
         outcome,
@@ -295,6 +312,7 @@ export function incidentScheduleRows(
         culpritEntryLabel: entry === undefined
           ? undefined
           : `${entry.value}${entry.kind === "day" ? "일" : "루프"} 등장`,
+        aiEffectResolvedOnDays,
       };
     });
 }
