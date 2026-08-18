@@ -3230,6 +3230,7 @@ function renderTimeGap(state: GameState): string {
         ? `<p class="flow-warning">⚠ 남은 루프를 진행하지 않으므로 주인공 측이 더 불리해집니다.</p>`
         : ""}
     </section>
+    ${renderMastermindOverlay(state)}
   </main>`;
 }
 

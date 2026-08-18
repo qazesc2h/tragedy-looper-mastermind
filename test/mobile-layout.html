@@ -77,15 +77,15 @@
         window.localStorage.setItem(storageKey, JSON.stringify(tracker));
       }
 
-      async function reloadApp(label) {
+      async function reloadApp(label, expectedSelector = ".game-board") {
         const loaded = new Promise((resolve) => {
           frame.addEventListener("load", resolve, { once: true });
         });
         frame.src = `/?mobile-layout-case=${encodeURIComponent(label)}`;
         await loaded;
         await waitFor(
-          () => frameDocument().querySelector(".game-board"),
-          `${label} 게임판`,
+          () => frameDocument().querySelector(expectedSelector),
+          `${label} ${expectedSelector}`,
         );
         await frameDocument().fonts.ready;
       }
@@ -991,6 +991,38 @@
         roleScroll.scrollLeft = roleScroll.scrollWidth;
         incidentScroll.scrollLeft = incidentScroll.scrollWidth;
         await pause(100);
+        const roleGridSummary = roleGridDetails.querySelector(":scope > summary");
+        const incidentGridSummary = incidentGridDetails.querySelector(
+          ":scope > summary",
+        );
+        const roleStickyHeader = roleGridDetails.querySelector(
+          ".deduction-grid thead th:first-child",
+        );
+        const incidentStickyHeader = incidentGridDetails.querySelector(
+          ".deduction-grid thead th:first-child",
+        );
+        if (
+          !roleGridSummary ||
+          !incidentGridSummary ||
+          !roleStickyHeader ||
+          !incidentStickyHeader
+        ) {
+          throw new Error("격자 summary 또는 sticky 헤더를 찾을 수 없습니다.");
+        }
+        const stacking = [
+          [roleGridSummary, roleStickyHeader],
+          [incidentGridSummary, incidentStickyHeader],
+        ].map(([summary, header]) => ({
+          summaryPosition: frameWindow().getComputedStyle(summary).position,
+          summaryZIndex: Number.parseInt(
+            frameWindow().getComputedStyle(summary).zIndex,
+            10,
+          ),
+          headerZIndex: Number.parseInt(
+            frameWindow().getComputedStyle(header).zIndex,
+            10,
+          ),
+        }));
         const report = {
           roleSummaryHeight: roleSummaryRect.height,
           incidentSummaryHeight: incidentSummaryRect.height,
@@ -1017,6 +1049,7 @@
             scrollWidth: incidentScroll.scrollWidth,
             scrollLeft: incidentScroll.scrollLeft,
           },
+          stacking,
           roleText: rolePanel.textContent.replace(/\s+/g, " ").trim(),
           incidentText: incidentPanel.textContent.replace(/\s+/g, " ").trim(),
           horizontal: horizontalOverflow(),
@@ -1032,12 +1065,72 @@
           report.incidentCells === 0 ||
           report.roleScroll.scrollWidth <= report.roleScroll.clientWidth ||
           report.roleScroll.scrollLeft <= 0 ||
+          report.stacking.some(
+            ({ summaryPosition, summaryZIndex, headerZIndex }) =>
+              summaryPosition !== "relative" || summaryZIndex <= headerZIndex,
+          ) ||
           !report.roleText.includes("확정") ||
           !report.incidentText.includes("확정") ||
           report.horizontal.scrollWidth > WIDTH
         ) {
           failures.push(`역할·범인 추리표: ${JSON.stringify(report)}`);
         }
+      }
+
+      async function inspectLoopPreparationInformation() {
+        const phases = [
+          "LOOP_TIME_GAP",
+          "LOOP_CHARACTER_PLACEMENT",
+          "LOOP_COUNTER_SETUP",
+          "LOOP_CARD_DISTRIBUTION",
+        ];
+        for (const phase of phases) {
+          mutateActiveState((state) => {
+            state.gamePhase = phase;
+          });
+          await reloadApp(`loop-preparation-${phase}`, ".time-gap-card");
+          const document = frameDocument();
+          const overlay = document.querySelector(".mastermind-overlay");
+          const report = {
+            phase,
+            timeGapVisible: Boolean(document.querySelector(".time-gap-card")),
+            overlayVisible: Boolean(overlay),
+            scenario: Boolean(overlay?.querySelector(".scenario-information-panel")),
+            ruleCandidates: Boolean(
+              overlay?.querySelector(".rule-hypothesis-information"),
+            ),
+            roleCandidates: Boolean(
+              overlay?.querySelector(".role-deduction-information"),
+            ),
+            culpritCandidates: Boolean(
+              overlay?.querySelector(".incident-deduction-information"),
+            ),
+            incidentSchedule: Boolean(
+              overlay?.querySelector(".incident-schedule-panel"),
+            ),
+            lossProgress: Boolean(overlay?.querySelector(".loss-list")),
+            horizontal: horizontalOverflow(),
+          };
+          reports.push({ label: `루프 준비 정보 · ${phase}`, ...report });
+          if (
+            !report.timeGapVisible ||
+            !report.overlayVisible ||
+            !report.scenario ||
+            !report.ruleCandidates ||
+            !report.roleCandidates ||
+            !report.culpritCandidates ||
+            !report.incidentSchedule ||
+            !report.lossProgress ||
+            report.horizontal.scrollWidth > WIDTH
+          ) {
+            failures.push(`루프 준비 정보 · ${phase}: ${JSON.stringify(report)}`);
+          }
+        }
+
+        mutateActiveState((state) => {
+          state.gamePhase = "ROUND";
+        });
+        await reloadApp("round-after-loop-preparation-information");
       }
 
       async function inspectScrollableModalBodies() {
@@ -1206,6 +1299,7 @@
         await enterRound();
         await inspectRuleHypothesisPanels();
         await inspectDeductionTables();
+        await inspectLoopPreparationInformation();
 
         const starts = {
           patient: "Hospital",

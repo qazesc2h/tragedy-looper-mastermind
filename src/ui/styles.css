@@ -1191,6 +1191,11 @@ select {
   background: #191713;
 }
 
+.deduction-grid-details > summary {
+  position: relative;
+  z-index: 4;
+}
+
 .info-accordion.compact-information .deduction-grid-details > summary {
   display: flex;
   min-height: 44px;
