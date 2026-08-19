@@ -1,0 +1,317 @@
+import { describe, expect, it } from "vitest";
+
+import { collectProtagonistObservations } from "../src/engine/hypothesis";
+import { validatePlacement } from "../src/engine/legal";
+import { initLoop } from "../src/engine/setup";
+import type {
+  CharacterId,
+  GameState,
+  Phase,
+  PlacedCard,
+  RoleId,
+  Scenario,
+} from "../src/types";
+import {
+  enumerateP2Transitions,
+  enumerateP3Transitions,
+  enumerateP5Transitions,
+  enumerateP6Transitions,
+  enumerateP7Transitions,
+  enumerateP9Transitions,
+  headlessNode,
+  type HeadlessTransition,
+} from "../tools/phase5-feasibility/headless-transitions";
+import {
+  PublicEventCollector,
+  canonicalizePublicEventTrace,
+} from "../tools/phase5-feasibility/public-events";
+
+function stateFor(
+  cast: Record<CharacterId, RoleId>,
+  phase: Phase,
+  options: {
+    incidents?: Scenario["incidents"];
+    daysPerLoop?: number;
+  } = {},
+): GameState {
+  const scenario: Scenario = {
+    tragedySet: "basicTragedy",
+    mainPlot: "",
+    subPlots: [],
+    cast,
+    incidents: options.incidents ?? [],
+    loops: 3,
+    daysPerLoop: options.daysPerLoop ?? 3,
+  };
+  const loop = initLoop(scenario);
+  loop.phase = phase;
+  return {
+    scenario,
+    gamePhase: "ROUND",
+    loop,
+    history: [],
+    loopOutcomes: [],
+  };
+}
+
+function countTransitions(
+  transitions: Generator<HeadlessTransition>,
+): { count: number; first: HeadlessTransition | undefined } {
+  let count = 0;
+  let first: HeadlessTransition | undefined;
+  for (const transition of transitions) {
+    first ??= transition;
+    count += 1;
+  }
+  return { count, first };
+}
+
+describe("Phase 5 gate 2-A public event trace", () => {
+  it("masks face-down identities, reveals cards later, and preserves repeats", () => {
+    const state = stateFor({}, "P2_MASTERMIND_ACTION");
+    const placement: PlacedCard = {
+      owner: "mastermind",
+      card: "intriguePlus2",
+      target: { kind: "location", at: "School" },
+    };
+    const collector = new PublicEventCollector();
+    collector.recordCardPlacement(state, placement);
+    collector.recordCardPlacement(state, placement);
+    state.loop.phase = "P4_RESOLVE";
+    collector.recordCardsRevealed(state, [placement]);
+
+    expect(collector.trace.map(({ sequence }) => sequence)).toEqual([0, 1, 2]);
+    expect(collector.trace[0]).toMatchObject({
+      visibility: "public-card-identity-masked",
+      payload: {
+        kind: "cardPlaced",
+        owner: "mastermind",
+        target: { kind: "location", at: "School" },
+      },
+    });
+    expect(JSON.stringify(collector.trace[0])).not.toContain("intriguePlus2");
+    expect(collector.trace[2]).toMatchObject({
+      visibility: "public",
+      payload: {
+        kind: "cardsRevealed",
+        placements: [{ card: "intriguePlus2" }],
+      },
+    });
+
+    expect(canonicalizePublicEventTrace([
+      collector.trace[0],
+      structuredClone(collector.trace[0]),
+      collector.trace[1],
+    ])).toHaveLength(2);
+  });
+
+  it("records public board results and exact role-reveal time without a cause", () => {
+    const before = stateFor({ girlStudent: "person" }, "P6_GOODWILL");
+    const after = structuredClone(before);
+    after.loop.charCounters.girlStudent.paranoia += 1;
+    after.loop.publicInformationThisLoop = [{
+      kind: "roleReveal",
+      character: "girlStudent",
+      role: "person",
+      loop: 1,
+      day: 1,
+    }];
+
+    const collector = new PublicEventCollector();
+    collector.recordStateDelta(
+      before,
+      after,
+      "public-cause-masked",
+      "P6_GOODWILL",
+    );
+
+    expect(collector.trace).toHaveLength(2);
+    expect(collector.trace[0]).toMatchObject({
+      loop: 1,
+      day: 1,
+      phase: "P6_GOODWILL",
+      visibility: "public-cause-masked",
+      payload: {
+        kind: "boardChanged",
+        changes: [{ kind: "counter", counter: "paranoia", delta: 1 }],
+      },
+    });
+    expect(collector.trace[1]).toMatchObject({
+      sequence: 1,
+      visibility: "public",
+      payload: {
+        kind: "publicInformation",
+        information: {
+          kind: "roleReveal",
+          character: "girlStudent",
+          role: "person",
+          day: 1,
+        },
+      },
+    });
+
+    const compatibilityState = structuredClone(after);
+    compatibilityState.loop.day = 2;
+    const oldObservation = collectProtagonistObservations(
+      compatibilityState,
+    ).find(({ kind }) => kind === "roleRevealed");
+    expect(oldObservation).toBeDefined();
+    expect(oldObservation).not.toHaveProperty("day");
+  });
+});
+
+describe("Phase 5 gate 2-B headless placement enumeration", () => {
+  it("streams every semantic P2 profile through legal.ts", () => {
+    const state = stateFor({}, "P2_MASTERMIND_ACTION");
+    const { count, first } = countTransitions(
+      enumerateP2Transitions(headlessNode(state)),
+    );
+
+    // 카드 순서 528개 × 서로 다른 장소 대상 순열 P(4, 3)=24.
+    expect(count).toBe(528 * 24);
+    expect(first?.action.kind).toBe("P2_PROFILE");
+    expect(first?.node.state.loop.phase).toBe("P3_PROTAGONIST_ACTION");
+    expect(first?.node.publicTrace).toHaveLength(3);
+
+    const replay = structuredClone(state);
+    if (first?.action.kind !== "P2_PROFILE") {
+      throw new Error("missing first P2 profile");
+    }
+    for (const placement of first.action.placements) {
+      expect(validatePlacement(replay, placement)).toEqual({ ok: true });
+      replay.loop.placed.push(structuredClone(placement));
+    }
+  });
+
+  it("streams every P3 profile in leader order through legal.ts", () => {
+    const state = stateFor({}, "P3_PROTAGONIST_ACTION");
+    state.loop.leader = 1;
+    state.loop.placed = [
+      {
+        owner: "mastermind",
+        card: "paranoiaPlus1",
+        target: { kind: "location", at: "Hospital" },
+      },
+      {
+        owner: "mastermind",
+        card: "intriguePlus1",
+        target: { kind: "location", at: "Shrine" },
+      },
+      {
+        owner: "mastermind",
+        card: "moveVertical",
+        target: { kind: "location", at: "City" },
+      },
+    ];
+    const { count, first } = countTransitions(
+      enumerateP3Transitions(headlessNode(state)),
+    );
+
+    // 세 주인공의 카드 8^3 × 서로 다른 장소 대상 순열 P(4, 3)=24.
+    expect(count).toBe(8 ** 3 * 24);
+    expect(first?.action).toMatchObject({
+      kind: "P3_PROFILE",
+      placements: [{ owner: 1 }, { owner: 2 }, { owner: 0 }],
+    });
+    expect(first?.node.state.loop.phase).toBe("P4_RESOLVE");
+  });
+});
+
+describe("Phase 5 gate 2-B headless follow-up choices", () => {
+  it("enumerates P5 skip and actual optional hook targets", () => {
+    const state = stateFor({ doctor: "brain" }, "P5_MASTERMIND_ABILITY");
+    state.loop.board.doctor = { status: "alive", at: "Hospital" };
+    const transitions = [...enumerateP5Transitions(headlessNode(state))];
+
+    expect(transitions[0]?.action).toEqual({
+      kind: "P5_SEQUENCE",
+      hooks: [],
+    });
+    const activated = transitions.find(
+      ({ action }) => action.kind === "P5_SEQUENCE" && action.hooks.length === 1,
+    );
+    expect(activated).toBeDefined();
+    expect(activated?.node.publicTrace.some(({ payload, visibility }) =>
+      payload.kind === "boardChanged" &&
+      visibility === "public-cause-masked"
+    )).toBe(true);
+    expect(JSON.stringify(activated?.node.publicTrace)).not.toContain("brain");
+  });
+
+  it("enumerates P6 declaration order and only engine-allowed responses", () => {
+    const state = stateFor({ henchman: "killer" }, "P6_GOODWILL");
+    state.loop.board.henchman = { status: "alive", at: "City" };
+    state.loop.charCounters.henchman.goodwill = 3;
+    const transitions = [...enumerateP6Transitions(headlessNode(state))];
+
+    expect(transitions).toHaveLength(3);
+    expect(transitions.map(({ action }) =>
+      action.kind === "P6_SEQUENCE"
+        ? action.uses.map(({ mastermindResponse }) => mastermindResponse)
+        : []
+    )).toEqual([[], ["resolve"], ["refuse"]]);
+    const resolved = transitions[1];
+    expect(resolved?.node.state.loop.incidentCulpritSuppressedFor).toEqual([
+      "henchman",
+    ]);
+    expect(resolved?.node.publicTrace).toHaveLength(1);
+    expect(resolved?.node.publicTrace[0]?.payload.kind).toBe(
+      "goodwillDeclared",
+    );
+  });
+
+  it("enumerates only P7 choices accepted by the actual incident transition", () => {
+    const state = stateFor(
+      {
+        boyStudent: "person",
+        girlStudent: "person",
+        policeOfficer: "person",
+      },
+      "P7_INCIDENT",
+      {
+        incidents: [{ day: 1, incident: "murder", culprit: "boyStudent" }],
+      },
+    );
+    for (const character of Object.keys(state.loop.board)) {
+      state.loop.board[character] = { status: "alive", at: "City" };
+    }
+    state.loop.charCounters.boyStudent.paranoia = 10;
+    const transitions = [...enumerateP7Transitions(headlessNode(state))];
+
+    expect(transitions).toHaveLength(2);
+    expect(transitions.map(({ action }) =>
+      action.kind === "P7_INCIDENT" ? action.choice?.target : undefined
+    ).sort()).toEqual(["girlStudent", "policeOfficer"]);
+    expect(transitions.every(({ node }) =>
+      node.publicTrace[0]?.payload.kind === "incidentOutcome"
+    )).toBe(true);
+    expect(JSON.stringify(transitions[0]?.node.publicTrace)).not.toContain(
+      "boyStudent",
+    );
+  });
+
+  it("resolves P9 mandatory effects first, then branches optional hooks", () => {
+    const state = stateFor(
+      { boyStudent: "killer", girlStudent: "keyPerson" },
+      "P9_ROUND_END",
+    );
+    state.loop.board.boyStudent = { status: "alive", at: "City" };
+    state.loop.board.girlStudent = { status: "alive", at: "City" };
+    state.loop.charCounters.girlStudent.intrigue = 2;
+    const transitions = [...enumerateP9Transitions(headlessNode(state))];
+
+    expect(transitions.some(({ action }) =>
+      action.kind === "P9_SEQUENCE" && action.hooks.length === 0
+    )).toBe(true);
+    const activated = transitions.find(({ action }) =>
+      action.kind === "P9_SEQUENCE" && action.hooks.length === 1
+    );
+    expect(activated?.node.state.loop.board.girlStudent.status).toBe("dead");
+    expect(activated?.node.publicTrace.map(({ payload }) => payload.kind)).toEqual(
+      ["boardChanged", "lossObserved"],
+    );
+    expect(activated?.node.publicTrace.every(({ payload }) =>
+      !("description" in payload) && !("character" in payload)
+    )).toBe(true);
+  });
+});

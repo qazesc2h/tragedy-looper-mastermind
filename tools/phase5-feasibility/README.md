@@ -144,8 +144,109 @@
 - 가설 표 단독 키: 기각
 - raw `GameState`/raw `phaseLog` 키: 기각
 - 채택: 현재 전이 상태 + 과거 전이 충분통계 + canonical 공개 이벤트 trace
-- Section 2 진입 전 남은 구현 게이트: 모든 결정 노드의 공개 이벤트 마스크와
-  sequence를 보존하는 수집기, headless 합법 전이 열거기
+- Section 2 진입 전 구현 게이트: 아래 Section 2-A 공개 이벤트 수집기와
+  Section 2-B headless 합법 전이 열거기
 
 측정 프로필은 사용자 승인 전 적용하지 않으며, 이 커밋에서는 상태·전이 수를 세지
 않는다.
+
+## Section 2-A — 공개 이벤트 수집기
+
+`public-events.ts`의 `PublicEventCollector`가 새 headless 실행에서
+`(loop, day, phase, sequence, visibility, payload)`를 authoritative trace로 쌓는다.
+`sequence`는 trace 전체에서 단조 증가한다. 서로 다른 시점에 같은 변화가 반복되면
+서로 다른 sequence이므로 둘 다 남는다. `canonicalizePublicEventTrace()`는 객체 키
+순서를 무시한 **완전히 같은 이벤트**만 첫 등장 하나로 합치며 배열과 사건 순서는
+정렬하지 않는다.
+
+기존 저장 상태에서 이 trace를 역복원하지 않는다. 현재 `phaseLog`에는 P2/P3의 장별
+배치 순서가 없고 여러 저장 원천 사이의 총순서도 없기 때문이다. Section 2 계측은 새
+게임을 이 수집기와 함께 처음부터 실행해야 한다.
+
+### 주인공 가시성 마스크
+
+근거는 각본가 설명서 11p 「각본가의 효과 처리 전달 방법」의 게임판 변동만 전달한다는
+원칙과, 7p의 효과 없는 장소 카드도 블러핑으로 놓을 수 있다는 설명이다. 전자는 결과와
+숨은 원인을 분리하고, 후자는 뒷면 카드의 대상 자체가 공개 신호임을 확인한다.
+
+| 공개 사건 | trace payload | visibility | 제외하는 비공개 값 |
+|---|---|---|---|
+| P2/P3 뒷면 배치 | 소유자, 대상, 배치 순서 | `public-card-identity-masked` | 카드 종류 |
+| P4 공개 | 소유자, 대상, 카드 종류, 공개 순서 | `public` | 없음 |
+| 카운터·이동·생사 | `PublicBoardChange[]` | 일반 효과는 `public`, 각본가 능력은 `public-cause-masked` | 역할명, 룰명, 훅 설명, 발동자 추정 |
+| 사건 | 사건 종류와 발생 여부, 뒤따른 공개 보드 변화 | `public` | 범인, 미발생 원인, 하수인 억제 여부 |
+| P6 선언·결과 | 주인공이 선언한 능력과 선택, 공개 변화·공개 정보 | `public` | 없음 |
+| 역할 공개·우호 거부·정보 공개형 우호 결과 | 기존 `PublicInformation`의 공개 필드 | `public` | 시나리오의 다른 비공개 정보 |
+| 패배 | 발생 사실과 `lastDay/effect/protagonistDeath` 시점 | `public-cause-masked` | 실제 `lossKeys`, 역할·룰 원인 |
+
+각본가가 능력을 발동하지 않은 사실, 발동했지만 공개 변화가 전혀 없는 선택, 광신도나
+하수인의 내부 선택은 이벤트를 만들지 않는다. P5/P9 효과는 `phaseLog`의 `character`,
+`description`, 사건의 `culprit/failureReasons`를 trace 원천으로 쓰지 않는다. 카드가
+공개된 뒤 변화가 없었다는 사실은 공개 카드와 전후 공개 보드로 표현되며 숨은 무효
+원인을 별도 payload로 만들지 않는다.
+
+프로덕션 UI의 `placedCardShowsName()`은 각본가 혼자 쓰는 화면에서 각본가 자신의 카드
+이름을 보여주는 계약이다. 이것은 주인공 정보가 아니므로 canonical 공개 trace에서는
+P4 전까지 각본가 카드 종류도 마스킹한다.
+
+### 기존 ProtagonistObservation과 순서의 영향
+
+순서 정보로 더 좁힐 수 있는 관측이 **있다**. 구체적인 반례는 망상 확대 바이러스다.
+공개 불안이 3 이상이 된 뒤 어떤 캐릭터의 역할이 `person`으로 공개되면, 그 캐릭터를
+엑스트라로 두는 `paranoiaVirus` 세계에서는 공개 순간 `serialKiller`여야 하므로
+모순이다. 반대로 `person` 공개가 먼저이고 불안 증가가 나중이면 모순이 아니다.
+
+현재 `collectProtagonistObservations()`는 `roleReveal`을 `loop`만 있는
+`roleRevealed`로 바꾸면서 `day`와 공개 순간 보드를 버린다. 또한 한 루프에서
+`publicInformationThisLoop`를 전부 읽은 뒤 `phaseLog`를 읽으므로 실제 총순서가
+아니다. 따라서 위 두 이력을 구별해 역할표와 룰 조합을 추가로 줄일 수 없다.
+`incidentEffect`도 실제 해결일 `resolvedOnDay` 대신 예정일만 호환 관측에 남긴다.
+
+이것은 기존 가설 필터의 후속 개선 대상이다. 이번 게이트에서는 필터를 바꾸지 않았고,
+새 trace가 정확한 day/phase/sequence와 모든 공개 보드 변화를 보존하게만 했다.
+
+## Section 2-B — headless 합법 전이 열거기
+
+`headless-transitions.ts`는 `HeadlessNode { state, publicTrace }`를 받아
+`Generator<HeadlessTransition>`을 반환한다. 결과 배열을 만들지 않으므로 첫날의 거대한
+공동 행동 프로필도 한 건씩 소비할 수 있다. 각 자식은 `structuredClone()`한 상태에서
+실제 엔진을 실행하며 입력 상태를 변경하지 않는다.
+
+- P2: UI와 같은 `MASTERMIND_HAND`의 물리 카드 수량을 쓰고, 카드 한 장마다
+  `validatePlacement()`를 호출한다. 의미가 같은 불안 +1 두 장의 물리 복사본만
+  중복 제거하고 배치 순서는 보존한다. 정확히 3장 뒤 `advanceGame()`을 호출한다.
+- P3: `PROTAGONIST_HAND`과 `nextProtagonist()`로 리더부터 1→2→3 순서를 강제하고,
+  매 배치를 `validatePlacement()`로 검증한다. 세 명이 한 장씩 놓은 뒤 실제 P4로
+  진행한다.
+- P5: 현재 `collectHooks()`가 돌려주는 선택 훅을 매 발동 뒤 다시 수집한다.
+  미발동, 모든 `selectableTargets`, 훅 발동 순열을 열거하고
+  `withDeathBatch() + applyHookEffect() + advanceGame()`을 사용한다.
+- P6: `goodwillAbilityViews()`의 현재 구조화 선택 필드로 후보를 만들고,
+  `goodwillResponseAvailability()`가 허용한 해결/거부만 실제
+  `resolveGoodwillAbility()`에 넣는다. 한 선언의 결과가 다음 선언 후보에 반영되며
+  어느 시점에서든 더 선언하지 않는 분기를 낸다. AI 사건 선택은 사건 계약의 모든
+  필드 조합을 실제 해결기로 검증한다.
+- P7: 사건이 발생할 때 필요한 선택 필드를 스트리밍하고, 불완전·부적격 조합은 실제
+  `advanceGame(state, choice)`가 거부한다. 사건이 발생하지 않으면 UI처럼 선택 없는
+  한 분기만 낸다.
+- P9: 먼저 실제 `advanceGame()`으로 동시 강제 훅을 해결한다. 그 뒤 미발동,
+  선택 훅의 대상·순열과 `setOptionalLossActivation()`의 선택 패배 조건을 열거한다.
+  시간 여행자의 동일한 “Loop ends” 입력은 UI와 같이 선택 패배 컨트롤 한 곳에서만
+  센다.
+
+P2/P3의 대상·카드 제약은 도구에 복제하지 않고 `legal.ts`를 합법성의 최종 판정으로
+쓴다. P5~P9의 대상·효과·후속 종료도 `source`를 다시 해석하지 않고 기존 훅·우호·사건·
+패배 엔진을 호출한다. UI에만 있던 손패 수량, 주인공 순서, 구조화 입력 스키마는 같은
+export를 재사용한다.
+
+테스트의 최소 보드에서는 P2가 `528 × P(4,3) = 12,672`, P3가
+`8^3 × P(4,3) = 12,288`개의 순서 있는 프로필을 정확히 스트리밍한다. 이 수는 게이트
+완전성 검사용 작은 합성 상태의 결과일 뿐이며, 승인 전 실제 입문편/기본편 계측으로
+사용하지 않는다.
+
+## 게이트 종료 상태
+
+- 2-A 공개 trace와 가시성 마스크: 구현
+- 2-B P2/P3/P5/P6/P7/P9 스트리밍 실제 전이: 구현
+- 기존 가설 필터의 시간 순서 활용: 개선 필요, 이번 범위에서는 미수정
+- Section 2 상태공간 계측과 측정 프로필: 시작하지 않음
