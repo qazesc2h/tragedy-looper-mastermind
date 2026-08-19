@@ -392,15 +392,15 @@ describe("goodwill availability and refusal", () => {
     expect(state.loop.abilitiesUsedThisLoop).toEqual([
       "classRep:goodwill:0",
     ]);
-    expect(state.loop.publicInformationThisLoop).toEqual([{
+    expect(state.loop.publicInformationThisLoop).toEqual([expect.objectContaining({
       kind: "goodwillRefusal",
       character: "classRep",
       rank: 2,
       abilityIndex: 0,
       loop: 1,
       day: 1,
-    }]);
-    expect(state.loop.phaseLog).toContainEqual({
+    })]);
+    expect(state.loop.phaseLog).toContainEqual(expect.objectContaining({
       loop: 1,
       day: 1,
       phase: "P6_GOODWILL",
@@ -410,7 +410,7 @@ describe("goodwill availability and refusal", () => {
       abilityIndex: 0,
       response: "refuse",
       effectApplied: false,
-    });
+    }));
     expect(() => resolveGoodwillAbility(state, {
       user: "classRep",
       rank: 2,
@@ -466,14 +466,14 @@ describe("goodwill availability and refusal", () => {
     expect(result.response).toBe("refuse");
     expect(result.effectApplied).toBe(false);
     expect(state.loop.charCounters.boyStudent.paranoia).toBe(2);
-    expect(state.loop.publicInformationThisLoop).toEqual([{
+    expect(state.loop.publicInformationThisLoop).toEqual([expect.objectContaining({
       kind: "goodwillRefusal",
       character: "girlStudent",
       rank: 2,
       abilityIndex: 0,
       loop: 1,
       day: 1,
-    }]);
+    })]);
   });
 
   it("lets mysteryBoy's protected ability resolve through mandatory refusal", () => {
@@ -633,13 +633,13 @@ describe("godlyBeing rank 3 / reveal an incident culprit", () => {
     }, "resolve");
 
     expect(result.effectApplied).toBe(true);
-    expect(state.loop.publicInformationThisLoop).toEqual([{
+    expect(state.loop.publicInformationThisLoop).toEqual([expect.objectContaining({
       kind: "incidentCulprit",
       source: "godlyBeing",
       day: 5,
       incident: "missingPerson",
       culprit: "alien",
-    }]);
+    })]);
     expect(state.loop.incidentOccurrencesFiredThisLoop).toBeUndefined();
   });
 
@@ -684,13 +684,13 @@ describe("policeOfficer rank 4 / reveal a fired incident culprit", () => {
       incident: { day: 1, incident: "suicide" },
     }, "resolve");
 
-    expect(state.loop.publicInformationThisLoop).toEqual([{
+    expect(state.loop.publicInformationThisLoop).toEqual([expect.objectContaining({
       kind: "incidentCulprit",
       source: "policeOfficer",
       day: 1,
       incident: "suicide",
       culprit: "boyStudent",
-    }]);
+    })]);
   });
 
   it("rejects a scheduled occurrence that did not fire", () => {
@@ -760,12 +760,12 @@ describe("informer rank 5 / name another active subplot", () => {
       revealedSubplot: "threadsFate",
     }, "resolve");
 
-    expect(state.loop.publicInformationThisLoop).toEqual([{
+    expect(state.loop.publicInformationThisLoop).toEqual([expect.objectContaining({
       kind: "subplot",
       source: "informer",
       declaredSubplot: "circleFriends",
       revealedSubplot: "threadsFate",
-    }]);
+    })]);
   });
 
   it("allows an inactive declaration and either active subplot as the reveal", () => {
@@ -822,7 +822,7 @@ describe("ai rank 3 / resolve an incident effect as AI", () => {
     expect(boardIsAlive(state.loop, "girlStudent")).toBe(false);
     expect(state.loop.incidentsFiredThisLoop).toBeUndefined();
     expect(state.loop.incidentOccurrencesFiredThisLoop).toBeUndefined();
-    expect(state.loop.publicInformationThisLoop).toEqual([{
+    expect(state.loop.publicInformationThisLoop).toEqual([expect.objectContaining({
       kind: "incidentEffect",
       source: "ai",
       day: 2,
@@ -830,7 +830,7 @@ describe("ai rank 3 / resolve an incident effect as AI", () => {
       incident: "murder",
       culprit: "ai",
       effectApplied: true,
-    }]);
+    })]);
   });
 
   it("uses the leader's incident choice for an effect that needs a location", () => {

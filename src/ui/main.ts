@@ -2944,6 +2944,7 @@ function roleCellReasonLabel(code: string): string {
   switch (code) {
     case "roleRevealed": return "역할 공개";
     case "otherRoleConfirmed": return "다른 역할 확정";
+    case "effectiveRoleRevealed": return "공개 시점 유효 역할";
     case "otherRoleInferred": return "다른 역할 추론 확정";
     case "onlyRemainingRole": return "유일 역할 후보";
     case "requiredRoleForcedCandidate": return "필수 역할 남은 후보";

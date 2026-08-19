@@ -415,7 +415,7 @@ describe("automatic empty round phases", () => {
     advanceGame(state);
 
     expect(state.loop.phase).toBe("P3_PROTAGONIST_ACTION");
-    expect(state.loop.phaseLog).toContainEqual({
+    expect(state.loop.phaseLog).toContainEqual(expect.objectContaining({
       loop: 1,
       day: 1,
       phase: "P2_MASTERMIND_ACTION",
@@ -425,7 +425,7 @@ describe("automatic empty round phases", () => {
         card: "intriguePlus1",
         target: { kind: "character", id: "boyStudent" },
       }],
-    });
+    }));
 
     state.loop.placed.push({
       owner: 0,
@@ -435,7 +435,7 @@ describe("automatic empty round phases", () => {
     advanceGame(state);
 
     expect(state.loop.phase).toBe("P4_RESOLVE");
-    expect(state.loop.phaseLog).toContainEqual({
+    expect(state.loop.phaseLog).toContainEqual(expect.objectContaining({
       loop: 1,
       day: 1,
       phase: "P3_PROTAGONIST_ACTION",
@@ -445,7 +445,7 @@ describe("automatic empty round phases", () => {
         card: "goodwillPlus1",
         target: { kind: "character", id: "boyStudent" },
       }],
-    });
+    }));
   });
 
   it("keeps the resolved result in P4, then skips an unavailable P5", () => {
@@ -507,20 +507,20 @@ describe("automatic empty round phases", () => {
     });
     expect(state.loop.leader).toBe(1);
     expect(state.loop.phaseLog).toEqual(expect.arrayContaining([
-      {
+      expect.objectContaining({
         loop: 1,
         day: 1,
         phase: "P7_INCIDENT",
         kind: "notApplicable",
-      },
-      {
+      }),
+      expect.objectContaining({
         loop: 1,
         day: 1,
         phase: "P8_LEADER_PASS",
         kind: "leaderPassed",
         from: 0,
         to: 1,
-      },
+      }),
       {
         loop: 1,
         day: 1,

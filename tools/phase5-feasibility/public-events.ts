@@ -194,7 +194,7 @@ export class PublicEventCollector {
     for (const information of appendedPublicInformation(before, after)) {
       this.append(context, "public", {
         kind: "publicInformation",
-        information,
+        information: publicInformationPayload(information),
       });
     }
 
@@ -241,6 +241,15 @@ export class PublicEventCollector {
       );
     }
   }
+}
+
+function publicInformationPayload(
+  information: PublicInformation,
+): PublicInformation {
+  const payload = structuredClone(information);
+  // trace 바깥의 호환 관측 순번은 authoritative trace sequence와 중복 저장하지 않는다.
+  delete payload.observedAt;
+  return payload;
 }
 
 function appendedPublicInformation(

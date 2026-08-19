@@ -84,6 +84,8 @@ export interface LoopOutcome {
   reason: LoopEndReason;
   result: "protagonistsWon" | "protagonistsLost";
   losses: RecordedLoss[];
+  /** 루프 판정 결과가 공개된 시점. 구 저장에는 없을 수 있다. */
+  observedAt?: PublicObservationAt;
 }
 
 export interface FinalGuessAttempt {
@@ -288,6 +290,14 @@ export interface PublicObservationContext {
   }>;
 }
 
+/** 서로 다른 공개 기록 저장소 사이에서도 비교할 수 있는 실제 관측 시점. */
+export interface PublicObservationAt {
+  loop: number;
+  day: number;
+  phase: HookPoint;
+  sequence: number;
+}
+
 /** 능력의 정체를 밝히지 않고 공개된 직전 사건만 보존한다. */
 export type PublicAbilityTrigger = {
   kind: "death";
@@ -301,7 +311,7 @@ export type IncidentFailureReason =
   | "culpritSuppressed";
 
 /** 자동 통과와 판정 결과를 각본가가 나중에도 확인할 수 있는 라운드 기록. */
-export type PhaseLogEntry =
+export type PhaseLogEntry = (
   | {
     loop: number;
     day: number;
@@ -409,16 +419,22 @@ export type PhaseLogEntry =
     phase: "P9_ROUND_END";
     kind: "roundEnded";
     loopEnded: boolean;
-  };
+  }
+) & {
+  /** 새 기록에만 존재한다. 구 저장은 정확한 총순서를 복원하지 않는다. */
+  observedAt?: PublicObservationAt;
+};
 
 /** 이번 루프에 각본가가 주인공에게 전달해야 하는 공개·해결 결과. */
-export type PublicInformation =
+export type PublicInformation = (
   | {
     kind: "roleReveal";
     character: CharacterId;
     role: RoleId;
     loop: number;
     day: number;
+    /** 공개 순간의 게임판. 없으면 동적 역할 판정에 쓰지 않는다. */
+    context?: PublicObservationContext;
   }
   | {
     kind: "goodwillRefusal";
@@ -451,7 +467,11 @@ export type PublicInformation =
     incident: IncidentId;
     culprit: CharacterId;
     effectApplied: boolean;
-  };
+  }
+) & {
+  /** 새 기록에만 존재한다. 구 저장은 정확한 총순서를 복원하지 않는다. */
+  observedAt?: PublicObservationAt;
+};
 
 export interface LoopState {
   loop: number;
@@ -510,6 +530,9 @@ export interface LoopState {
 
   /** 이번 루프에 우호 능력으로 공개했거나 별도로 해결한 정보. */
   publicInformationThisLoop?: PublicInformation[];
+
+  /** phaseLog와 PublicInformation이 공유하는 다음 공개 관측 순번. */
+  nextPublicObservationSequence?: number;
 
   /** 현재 라운드에 각본가가 발동하기로 한 [선택] 패배 조건 */
   optionalLossActivations?: Record<string, boolean>;

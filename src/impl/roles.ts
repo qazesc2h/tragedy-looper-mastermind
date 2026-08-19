@@ -19,6 +19,8 @@ import type {
 } from "../types";
 import { killCharacter } from "../engine/death";
 import { requestLoopEnd } from "../engine/flow";
+import { recordPublicInformation } from "../engine/public-information";
+import { publicObservationContext } from "../engine/public-observation";
 
 function isLastDay(state: GameState): boolean {
   return state.loop.day === state.scenario.daysPerLoop;
@@ -163,14 +165,14 @@ function revealRole(state: GameState, self: CharacterId): void {
   const revealed = state.loop.revealedRoleCharacters ??= [];
   if (!revealed.includes(self)) {
     revealed.push(self);
-    const information = state.loop.publicInformationThisLoop ??= [];
-    information.push({
+    recordPublicInformation(state, {
       kind: "roleReveal",
       character: self,
       role: effectiveRole(state, self),
       loop: state.loop.loop,
       day: state.loop.day,
-    });
+      context: publicObservationContext(state.loop),
+    }, "LOOP_END");
   }
 }
 

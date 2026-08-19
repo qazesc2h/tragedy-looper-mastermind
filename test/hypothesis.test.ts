@@ -483,20 +483,120 @@ describe("observation model", () => {
       target: "shrineMaiden",
     }, "resolve");
 
-    expect(state.loop.publicInformationThisLoop).toContainEqual({
+    expect(state.loop.publicInformationThisLoop).toContainEqual(expect.objectContaining({
       kind: "roleReveal",
       character: "shrineMaiden",
       role: "serialKiller",
       loop: 1,
       day: 1,
-    });
-    expect(collectProtagonistObservations(state)).toContainEqual({
+      observedAt: {
+        loop: 1,
+        day: 1,
+        phase: "P6_GOODWILL",
+        sequence: 0,
+      },
+    }));
+    const observations = collectProtagonistObservations(state);
+    expect(observations).toContainEqual(expect.objectContaining({
       kind: "roleRevealed",
       loop: 1,
       character: "shrineMaiden",
       role: "serialKiller",
       confirmed: true,
+      context: expect.objectContaining({
+        characters: expect.objectContaining({
+          shrineMaiden: expect.objectContaining({ paranoia: 0 }),
+        }),
+      }),
+      observedAt: expect.objectContaining({ sequence: 0 }),
+    }));
+    expect(observations.filter(({ kind }) =>
+      kind === "roleRevealed" || kind === "goodwillAccepted"
+    ).map(({ kind, observedAt }) => ({
+      kind,
+      sequence: observedAt?.sequence,
+    }))).toEqual([
+      { kind: "roleRevealed", sequence: 0 },
+      { kind: "goodwillAccepted", sequence: 1 },
+    ]);
+  });
+
+  it("uses the exact reveal-time paranoia for paranoiaVirus filtering", () => {
+    const revealAt = (paranoia: number): ProtagonistObservation => ({
+      kind: "roleRevealed",
+      loop: 1,
+      character: "officeWorker",
+      role: "person",
+      confirmed: true,
+      context: boardObservationContext({
+        officeWorker: publicCharacter("City", 0, paranoia),
+      }),
+      observedAt: {
+        loop: 1,
+        day: 2,
+        phase: "P6_GOODWILL",
+        sequence: 4,
+      },
     });
+    const virusCombination = (observation: ProtagonistObservation) =>
+      evaluateRuleHypotheses("basicTragedy", [observation], {
+        publicCast: ["officeWorker"],
+      }).combinations.find(({ combination }) =>
+        combination.mainPlot === "murderPlan" &&
+        combination.subPlots.includes("paranoiaVirus") &&
+        combination.subPlots.includes("unknownFactor")
+      );
+
+    expect(virusCombination(revealAt(2))?.excluded).toBe(false);
+    expect(virusCombination(revealAt(3))?.contradictions).toContainEqual(
+      expect.objectContaining({ code: "revealedDynamicRoleMismatch" }),
+    );
+    const legacy = { ...revealAt(3), context: undefined, observedAt: undefined };
+    expect(virusCombination(legacy)?.excluded).toBe(false);
+  });
+
+  it("keeps an actual bundled paranoiaVirus script after a transformed role reveal", () => {
+    const state = basicState("basicTragedy:4");
+    state.gamePhase = "ROUND";
+    state.loop.phase = "P6_GOODWILL";
+    state.loop.charCounters.officeWorker.goodwill = 3;
+    state.loop.charCounters.officeWorker.paranoia = 3;
+
+    resolveGoodwillAbility(state, {
+      user: "officeWorker",
+      rank: 3,
+      abilityIndex: 0,
+    }, "resolve");
+
+    expect(collectProtagonistObservations(state)).toContainEqual(
+      expect.objectContaining({
+        kind: "roleRevealed",
+        character: "officeWorker",
+        role: "serialKiller",
+        context: expect.objectContaining({
+          characters: expect.objectContaining({
+            officeWorker: expect.objectContaining({ paranoia: 3 }),
+          }),
+        }),
+      }),
+    );
+    state.scenario.scriptSpecified = {
+      ...state.scenario.scriptSpecified,
+      "startLocation:henchman": "Hospital",
+    };
+    setBoardLife(state.loop, "informer", false);
+    requestLoopEnd(state, "effect", ["role:keyPerson:informer"]);
+    finishLoop(state);
+
+    expect(actualCombinationRemains(state)).toBe(true);
+    expect(evaluateStateRoleTableHypotheses(state).remaining.some(
+      (combination) =>
+        combination.mainPlot === state.scenario.mainPlot &&
+        combination.subPlots.length === state.scenario.subPlots.length &&
+        combination.subPlots.every((plot) =>
+          state.scenario.subPlots.includes(plot)
+        ),
+    )).toBe(true);
   });
 
   it("marks loop-snapshot role restoration as unconfirmed", () => {
@@ -511,6 +611,28 @@ describe("observation model", () => {
       role: "keyPerson",
       confirmed: false,
     });
+  });
+
+  it("uses an AI incident effect's actual resolution day", () => {
+    const state = firstStepsState();
+    state.loop.day = 2;
+    state.loop.publicInformationThisLoop = [{
+      kind: "incidentEffect",
+      source: "ai",
+      day: 4,
+      resolvedOnDay: 2,
+      incident: "murder",
+      culprit: "ai",
+      effectApplied: true,
+    }];
+
+    expect(collectProtagonistObservations(state)).toContainEqual(
+      expect.objectContaining({
+        kind: "goodwillIncidentEffect",
+        day: 2,
+        incident: "murder",
+      }),
+    );
   });
 
   it("normalizes scattered public history without copying hidden causes", () => {

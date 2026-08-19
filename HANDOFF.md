@@ -65,6 +65,24 @@
 - **미끼 전략 지원**: 여러 패배 조건을 동시에 성립시켜 주인공의 가설을 분산시키는
   선택지와 노출 위험 비교
 
+#### 상태공간 feasibility 게이트
+
+전략 UI보다 canonical 상태공간 feasibility 계측을 먼저 한다. 현재 상태 키는 raw
+`GameState`나 가설표만 쓰지 않고, 현재 전이 상태·과거 전이 요약·완전한 공개 이벤트
+trace를 사용한다. `tools/phase5-feasibility/`에 프로덕션 번들과 분리된 수집기와
+headless 전이 열거기가 있다.
+
+새 공개 기록은 `PublicInformation`과 공개 `PhaseLogEntry`가 공유하는
+`(loop, day, phase, sequence)`를 가진다. 역할 공개 순간 공개 보드도 저장해 불안 3
+이상에서 `person`이 공개되면 `paranoiaVirus` 조합을 배제한다. 같은 시점의
+`serialKiller` 공개는 기본 `person` 변이일 수 있으므로 배정 역할로 과잉 확정하지
+않는다. 시점 상태가 없는 구 저장은 새 배제에 쓰지 않는다. 전수 감사 결과는
+`tools/phase5-feasibility/observation-order-audit.md`에 있다.
+
+Section 2 측정은 아직 승인 전이다. 대상 순서와 자원·중단 상한은
+`tools/phase5-feasibility/measurement-profile-proposal.md`의 미승인 제안이며, 사용자
+승인 전에는 자동 적용하거나 계측하지 않는다.
+
 ---
 
 ## 4. 엔진 구조를 결정한 세 가지

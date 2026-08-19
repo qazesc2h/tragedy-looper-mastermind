@@ -17,6 +17,7 @@ import {
   type PublicAbilityTrigger,
   type PublicBoardChange,
   type PublicObservationContext,
+  type PublicObservationAt,
   type RoleId,
   type Target,
 } from "../types";
@@ -50,7 +51,7 @@ export type ExplainableLossCondition =
   | { key: string; kind: "incident"; incident: IncidentId };
 
 /** 주인공이 실제 플레이에서 알게 된 사실만을 담는다. */
-export type ProtagonistObservation =
+export type ProtagonistObservation = (
   | {
     kind: "roleRevealed";
     loop: number;
@@ -58,6 +59,8 @@ export type ProtagonistObservation =
     role: RoleId;
     /** false면 공개 순간 역할이 없는 구 저장을 루프 스냅샷으로 복원한 값이다. */
     confirmed?: boolean;
+    /** 역할 공개 순간의 게임판. 없으면 동적 역할 판정에 쓰지 않는다. */
+    context?: PublicObservationContext;
   }
   | {
     kind: "deadAtLoopEndWithoutRoleReveal";
@@ -132,10 +135,15 @@ export type ProtagonistObservation =
     day: number;
     target: Target;
     context?: PublicObservationContext;
-  };
+  }
+) & {
+  /** 서로 다른 공개 기록 저장소를 가로지르는 실제 관측 시점. */
+  observedAt?: PublicObservationAt;
+};
 
 export type RuleContradictionCode =
   | "revealedRoleUnavailable"
+  | "revealedDynamicRoleMismatch"
   | "outsiderRoleAssociated"
   | "goodwillRefusalUnavailable"
   | "revealedSubplotMissing"
@@ -179,6 +187,10 @@ export type RolePossibilityReason =
   }
   | {
     code: "otherRoleConfirmed";
+    observation: Extract<ProtagonistObservation, { kind: "roleRevealed" }>;
+  }
+  | {
+    code: "effectiveRoleRevealed";
     observation: Extract<ProtagonistObservation, { kind: "roleRevealed" }>;
   }
   | {
@@ -443,15 +455,40 @@ function roleAbilityCouldAppear(
 
 function roleObservationContradiction(
   observation: Extract<ProtagonistObservation, { kind: "roleRevealed" }>,
+  combination: RuleCombination,
   tragedySetRoles: readonly RoleId[],
   ranges: ReadonlyMap<RoleId, RoleRange>,
 ): RuleContradiction | undefined {
   // 공개 순간 역할이 없는 구 저장의 복원값은 확정 증거로 쓰지 않는다.
   if (observation.confirmed === false) return undefined;
   const plotLessRole = characterDataOf(observation.character).plotLessRole;
+  const paranoia = observation.context?.characters?.[observation.character]
+    ?.paranoia;
+  const paranoiaVirusActive = !plotLessRole &&
+    combination.subPlots.includes("paranoiaVirus");
+  if (
+    observation.role === "person" &&
+    paranoiaVirusActive &&
+    paranoia !== undefined &&
+    paranoia >= 3
+  ) {
+    return {
+      code: "revealedDynamicRoleMismatch",
+      observation,
+      reason: `${observation.character}는 역할 공개 시 불안이 ${paranoia}이므로 ` +
+        "망상 확대 바이러스 아래에서는 연쇄 살인마여야 합니다.",
+    };
+  }
+  // 연쇄 살인마 공개는 배정 역할이 아니라 공개 순간의 유효 역할일 수 있다.
+  // 구 저장처럼 시점 상태가 없으면 바이러스 변이를 보수적으로 허용한다.
+  const mutatedPersonCouldExplain = observation.role === "serialKiller" &&
+    paranoiaVirusActive &&
+    (paranoia === undefined || paranoia >= 3) &&
+    activeRoleIsPossible(ranges, "person");
   const compatible = plotLessRole
     ? inactiveSetRoleIsPossible(tragedySetRoles, ranges, observation.role)
-    : activeRoleIsPossible(ranges, observation.role);
+    : activeRoleIsPossible(ranges, observation.role) ||
+      mutatedPersonCouldExplain;
   if (compatible) return undefined;
 
   return {
@@ -521,6 +558,7 @@ interface ObservationCauseClause {
 
 function confirmedRoleByCharacter(
   observations: readonly ProtagonistObservation[],
+  combination: RuleCombination,
 ): Map<CharacterId, RoleId> {
   const roles = new Map<CharacterId, RoleId>();
   for (const observation of observations) {
@@ -528,7 +566,23 @@ function confirmedRoleByCharacter(
       observation.kind === "roleRevealed" &&
       observation.confirmed !== false
     ) {
-      roles.set(observation.character, observation.role);
+      const paranoia = observation.context?.characters?.[observation.character]
+        ?.paranoia;
+      const mutatedPerson = observation.role === "serialKiller" &&
+        !characterDataOf(observation.character).plotLessRole &&
+        combination.subPlots.includes("paranoiaVirus") &&
+        (paranoia === undefined || paranoia >= 3);
+      if (
+        mutatedPerson &&
+        activeRoleIsPossible(roleRanges(combination), "serialKiller")
+      ) {
+        // 공개된 유효 역할만으로 기본 person/serialKiller를 구별할 수 없다.
+        continue;
+      }
+      roles.set(
+        observation.character,
+        mutatedPerson ? "person" : observation.role,
+      );
     }
   }
   return roles;
@@ -968,7 +1022,7 @@ function crossObservationRoleContradiction(
     const observation = observations[index];
     if (observation === undefined) continue;
     const prefix = observations.slice(0, index + 1);
-    const confirmedRoles = confirmedRoleByCharacter(prefix);
+    const confirmedRoles = confirmedRoleByCharacter(prefix, combination);
     const contextCharacters = prefix.flatMap((candidate) =>
       candidate.kind === "mastermindAbilityResult"
         ? Object.keys(candidate.context?.characters ?? {})
@@ -1205,7 +1259,7 @@ function lossRoleCandidates(
 ): CharacterId[] {
   const tragedySetRoles = rolesForTragedySet(tragedySet);
   const ranges = roleRanges(combination);
-  const confirmed = confirmedRoleByCharacter(observations);
+  const confirmed = confirmedRoleByCharacter(observations, combination);
   return publicCast.filter((character) => {
     const confirmedRole = confirmed.get(character);
     if (confirmedRole !== undefined && confirmedRole !== role) return false;
@@ -1439,6 +1493,7 @@ function contradictionsForCombination(
       case "roleRevealed":
         contradiction = roleObservationContradiction(
           observation,
+          combination,
           tragedySetRoles,
           ranges,
         );
@@ -1545,6 +1600,8 @@ export function evaluateRuleHypotheses(
 
 function confirmedRoleObservations(
   observations: readonly ProtagonistObservation[],
+  tragedySetRoles: readonly RoleId[],
+  combinations: readonly RuleCombination[],
 ): Map<
   CharacterId,
   Extract<ProtagonistObservation, { kind: "roleRevealed" }>
@@ -1558,10 +1615,48 @@ function confirmedRoleObservations(
       observation.kind === "roleRevealed" &&
       observation.confirmed !== false
     ) {
-      confirmed.set(observation.character, observation);
+      const baseRoles = revealedBaseRoleCandidates(
+        observation,
+        tragedySetRoles,
+        combinations,
+      );
+      const onlyRole = [...baseRoles][0];
+      if (baseRoles.size === 1 && onlyRole === observation.role) {
+        confirmed.set(observation.character, observation);
+      }
     }
   }
   return confirmed;
+}
+
+function revealedBaseRoleCandidates(
+  observation: Extract<ProtagonistObservation, { kind: "roleRevealed" }>,
+  tragedySetRoles: readonly RoleId[],
+  combinations: readonly RuleCombination[],
+): Set<RoleId> {
+  const candidates = new Set<RoleId>();
+  for (const combination of combinations) {
+    const ranges = roleRanges(combination);
+    if (roleCouldBelongToCharacter(
+      tragedySetRoles,
+      ranges,
+      observation.role,
+      observation.character,
+    )) {
+      candidates.add(observation.role);
+    }
+    const paranoia = observation.context?.characters?.[observation.character]
+      ?.paranoia;
+    if (
+      observation.role === "serialKiller" &&
+      !characterDataOf(observation.character).plotLessRole &&
+      combination.subPlots.includes("paranoiaVirus") &&
+      (paranoia === undefined || paranoia >= 3)
+    ) {
+      candidates.add("person");
+    }
+  }
+  return candidates;
 }
 
 function roleColumnAppears(
@@ -1877,8 +1972,24 @@ function observedRoleExclusionReason(
   observations: readonly ProtagonistObservation[],
   character: CharacterId,
   role: RoleId,
+  tragedySetRoles?: readonly RoleId[],
+  combinations?: readonly RuleCombination[],
 ): RolePossibilityReason | undefined {
   for (const observation of observations) {
+    if (
+      observation.kind === "roleRevealed" &&
+      observation.confirmed !== false &&
+      observation.character === character &&
+      tragedySetRoles !== undefined &&
+      combinations !== undefined &&
+      !revealedBaseRoleCandidates(
+        observation,
+        tragedySetRoles,
+        combinations,
+      ).has(role)
+    ) {
+      return { code: "effectiveRoleRevealed", observation };
+    }
     if (
       observation.kind === "deadAtLoopEndWithoutRoleReveal" &&
       observation.character === character &&
@@ -1915,7 +2026,11 @@ export function buildRolePossibilityTable(
   observations: readonly ProtagonistObservation[],
 ): RolePossibilityTable {
   const tragedySetRoles = rolesForTragedySet(tragedySet);
-  const confirmed = confirmedRoleObservations(observations);
+  const confirmed = confirmedRoleObservations(
+    observations,
+    tragedySetRoles,
+    combinations,
+  );
   const abilityConstraints = [
     brainLocationConstraint(combinations, publicCast, observations),
     conspiracyTheoristLocationConstraint(
@@ -2019,6 +2134,8 @@ export function buildRolePossibilityTable(
         observations,
         character,
         role,
+        tragedySetRoles,
+        combinations,
       );
       if (observationReason !== undefined) {
         row[role] = {
@@ -2475,6 +2592,12 @@ export function collectProtagonistObservations(
             character: information.character,
             role: information.role,
             confirmed: true,
+            ...(information.context === undefined
+              ? {}
+              : { context: information.context }),
+            ...(information.observedAt === undefined
+              ? {}
+              : { observedAt: information.observedAt }),
           });
           break;
         case "goodwillRefusal":
@@ -2485,6 +2608,9 @@ export function collectProtagonistObservations(
             character: information.character,
             rank: information.rank,
             abilityIndex: information.abilityIndex,
+            ...(information.observedAt === undefined
+              ? {}
+              : { observedAt: information.observedAt }),
           });
           break;
         case "incidentCulprit":
@@ -2494,6 +2620,9 @@ export function collectProtagonistObservations(
             day: information.day,
             incident: information.incident,
             culprit: information.culprit,
+            ...(information.observedAt === undefined
+              ? {}
+              : { observedAt: information.observedAt }),
           });
           break;
         case "subplot":
@@ -2502,15 +2631,21 @@ export function collectProtagonistObservations(
             loop: loop.loop,
             declaredSubplot: information.declaredSubplot,
             revealedSubplot: information.revealedSubplot,
+            ...(information.observedAt === undefined
+              ? {}
+              : { observedAt: information.observedAt }),
           });
           break;
         case "incidentEffect":
           observations.push({
             kind: "goodwillIncidentEffect",
             loop: loop.loop,
-            day: information.day,
+            day: information.resolvedOnDay ?? information.day,
             incident: information.incident,
             effectApplied: information.effectApplied,
+            ...(information.observedAt === undefined
+              ? {}
+              : { observedAt: information.observedAt }),
           });
           break;
       }
@@ -2539,6 +2674,9 @@ export function collectProtagonistObservations(
             character: entry.character,
             rank: entry.rank,
             abilityIndex: entry.abilityIndex,
+            ...(entry.observedAt === undefined
+              ? {}
+              : { observedAt: entry.observedAt }),
           });
         }
       } else if (entry.kind === "incidentJudged") {
@@ -2552,6 +2690,9 @@ export function collectProtagonistObservations(
             ? {}
             : { context: entry.publicContext }),
           ...(entry.deaths === undefined ? {} : { deaths: [...entry.deaths] }),
+          ...(entry.observedAt === undefined
+            ? {}
+            : { observedAt: entry.observedAt }),
         });
       } else if (
         entry.kind === "actionResolved" &&
@@ -2586,6 +2727,9 @@ export function collectProtagonistObservations(
                 ...(entry.publicContext === undefined
                   ? {}
                   : { context: entry.publicContext }),
+                ...(entry.observedAt === undefined
+                  ? {}
+                  : { observedAt: entry.observedAt }),
               });
             }
           }
@@ -2607,6 +2751,9 @@ export function collectProtagonistObservations(
           ...(entry.publicContext === undefined
             ? {}
             : { context: entry.publicContext }),
+          ...(entry.observedAt === undefined
+            ? {}
+            : { observedAt: entry.observedAt }),
         });
       }
     }
@@ -2625,12 +2772,18 @@ export function collectProtagonistObservations(
       ...(completedLoop === undefined
         ? {}
         : { context: publicLossObservationContext(state, completedLoop) }),
+      ...(outcome.observedAt === undefined
+        ? {}
+        : { observedAt: outcome.observedAt }),
     });
   }
 
   const completedLoops = new Set(state.loopOutcomes.map(({ loop }) => loop));
   for (const loop of state.history) {
     if (!completedLoops.has(loop.loop)) continue;
+    const completedOutcome = state.loopOutcomes.find((outcome) =>
+      outcome.loop === loop.loop
+    );
     const revealed = new Set(loop.revealedRoleCharacters ?? []);
     for (const information of loop.publicInformationThisLoop ?? []) {
       if (information.kind === "roleReveal") {
@@ -2643,13 +2796,29 @@ export function collectProtagonistObservations(
           kind: "deadAtLoopEndWithoutRoleReveal",
           loop: loop.loop,
           character,
+          ...(completedOutcome?.observedAt === undefined
+            ? {}
+            : { observedAt: completedOutcome.observedAt }),
         });
       }
     }
   }
 
+  // 구 저장 관측이 하나라도 섞이면 서로의 총순서를 복원할 수 없다. 새 메타데이터가
+  // 완전한 경우에만 정렬하고, 혼합 저장은 기존 수집 순서를 유지한다.
+  const ordered = observations.every(({ observedAt }) =>
+      observedAt !== undefined
+    )
+    ? [...observations].sort((left, right) => {
+      const leftAt = left.observedAt;
+      const rightAt = right.observedAt;
+      if (leftAt === undefined || rightAt === undefined) return 0;
+      return leftAt.loop - rightAt.loop ||
+        leftAt.sequence - rightAt.sequence;
+    })
+    : observations;
   const seen = new Set<string>();
-  return observations.filter((observation) => {
+  return ordered.filter((observation) => {
     const key = observationKey(observation);
     if (seen.has(key)) return false;
     seen.add(key);

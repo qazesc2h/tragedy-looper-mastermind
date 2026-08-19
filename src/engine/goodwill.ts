@@ -12,7 +12,6 @@ import {
   type IncidentChoice,
   type IncidentSelection,
   type PlotId,
-  type PublicInformation,
   type RoleId,
   type ScheduledIncident,
   type Target,
@@ -24,6 +23,7 @@ import {
   publicBoardChanges,
   publicObservationContext,
 } from "./public-observation";
+import { recordPublicInformation } from "./public-information";
 
 export type GoodwillResponse = "resolve" | "refuse";
 export type GoodwillRefusalKind = "none" | "optional" | "mandatory";
@@ -323,6 +323,7 @@ function revealRole(state: GameState, character: CharacterId): boolean {
     role: effectiveRole(state, character),
     loop: state.loop.loop,
     day: state.loop.day,
+    context: publicObservationContext(state.loop),
   });
   return true;
 }
@@ -352,14 +353,6 @@ function requireScenarioIncident(
     throw new Error("chosen incident is not in the scenario");
   }
   return scheduled;
-}
-
-function recordPublicInformation(
-  state: GameState,
-  information: PublicInformation,
-): void {
-  const records = state.loop.publicInformationThisLoop ??= [];
-  records.push(information);
 }
 
 function addCharacterOnce(

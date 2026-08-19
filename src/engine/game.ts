@@ -20,6 +20,7 @@ import { incidentFailureReasons } from "./incident";
 import { evaluateLoss, type LossCondition } from "./loss";
 import { advance, collectHooks, resolveHooks } from "./phases";
 import { recordPhaseLog } from "./phase-log";
+import { nextPublicObservationAt } from "./public-information";
 import { publicObservationContext } from "./public-observation";
 import { initLoop } from "./setup";
 
@@ -226,6 +227,8 @@ export function finishLoop(state: GameState): LoopOutcome {
   delete state.pendingLoopEnd;
   delete state.timeGapTimer;
 
+  const outcomeObservedAt = nextPublicObservationAt(state, "LOOP_END");
+
   if (!state.history.some(({ loop }) => loop === state.loop.loop)) {
     state.history.push(structuredClone(state.loop));
   }
@@ -236,6 +239,7 @@ export function finishLoop(state: GameState): LoopOutcome {
     reason: request.reason,
     result: losses.length > 0 ? "protagonistsLost" : "protagonistsWon",
     losses: losses.map(recordedLoss),
+    observedAt: outcomeObservedAt,
   };
   state.loopOutcomes.push(outcome);
 

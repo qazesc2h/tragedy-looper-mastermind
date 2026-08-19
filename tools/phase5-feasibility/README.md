@@ -110,10 +110,11 @@
 이 값들은 같은 결과라도 원인 가능성과 후속 결합 추론을 바꾼다. P4 프로필은 가설
 수를 즉시 줄이지 않아도 시그널링 이력이므로 삭제하지 않는다.
 
-현재의 `ProtagonistObservation`은 이 trace가 아니다. 예를 들어 `roleReveal`의 원본
-`PublicInformation`에는 day가 있지만 `roleRevealed` 관측으로 바꿀 때 day를 잃고,
-관측 수집 순서도 실제 시간순이 아니라 저장 원천별 순서다. P2에서 주인공이 보는
-각본가의 뒷면 카드 **대상**도 별도 공개 이벤트가 아니다.
+`ProtagonistObservation`은 이 trace 전체가 아니라 가설 필터용 파생 투영이다.
+새 기록은 `PublicInformation`과 공개 `PhaseLogEntry`가 공유하는
+`(loop, day, phase, sequence)`를 보존하고 실제 시간순으로 투영한다. 역할 공개는
+공개 순간 보드도 함께 보존한다. 다만 P2에서 주인공이 보는 각본가의 뒷면 카드
+**대상**과 모든 시그널링 이력은 여전히 완전 trace에만 있다.
 
 `projectCurrentKnowledgeProbe()`는 현재 보존되는 관측과 P4 공개 프로필만 뽑는
 불완전 probe이며 `complete: false`를 반환한다. 완전 공개 이벤트 수집기가 모든 결정
@@ -196,14 +197,13 @@ P4 전까지 각본가 카드 종류도 마스킹한다.
 엑스트라로 두는 `paranoiaVirus` 세계에서는 공개 순간 `serialKiller`여야 하므로
 모순이다. 반대로 `person` 공개가 먼저이고 불안 증가가 나중이면 모순이 아니다.
 
-현재 `collectProtagonistObservations()`는 `roleReveal`을 `loop`만 있는
-`roleRevealed`로 바꾸면서 `day`와 공개 순간 보드를 버린다. 또한 한 루프에서
-`publicInformationThisLoop`를 전부 읽은 뒤 `phaseLog`를 읽으므로 실제 총순서가
-아니다. 따라서 위 두 이력을 구별해 역할표와 룰 조합을 추가로 줄일 수 없다.
-`incidentEffect`도 실제 해결일 `resolvedOnDay` 대신 예정일만 호환 관측에 남긴다.
+`collectProtagonistObservations()`도 같은 공유 순번과 역할 공개 순간 보드를 보존한다.
+따라서 불안 3 이상에서 일반 캐릭터의 `person`이 공개되면 `paranoiaVirus` 조합을
+배제한다. 반대로 불안 3 이상에서 공개된 `serialKiller`는 기본 `person`의 변이일 수
+있으므로 정적 배정 역할로 과잉 확정하지 않는다. 공개 순간 상태가 없는 구 저장은 새
+배제에 쓰지 않는다. `incidentEffect`는 실제 해결일 `resolvedOnDay`를 우선한다.
 
-이것은 기존 가설 필터의 후속 개선 대상이다. 이번 게이트에서는 필터를 바꾸지 않았고,
-새 trace가 정확한 day/phase/sequence와 모든 공개 보드 변화를 보존하게만 했다.
+전 관측 유형 감사와 회귀 범위는 `observation-order-audit.md`에 기록했다.
 
 ## Section 2-B — headless 합법 전이 열거기
 

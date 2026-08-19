@@ -641,11 +641,11 @@ describe("loop-end friend non-reveal observations", () => {
     expect(attemptProtagonistDeath(state)).toEqual({ died: true });
     finishLoop(state);
 
-    expect(collectProtagonistObservations(state)).toContainEqual({
+    expect(collectProtagonistObservations(state)).toContainEqual(expect.objectContaining({
       kind: "deadAtLoopEndWithoutRoleReveal",
       loop: 1,
       character: "doctor",
-    });
+    }));
   });
 
   it("still reveals a dead friend when protagonist death ended the loop", () => {
