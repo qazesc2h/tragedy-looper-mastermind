@@ -76,9 +76,9 @@ function contextMultiplicitySummary(countsByEngineState) {
       Math.floor((counts.length - 1) * fraction),
     )];
   return {
-    physicalStates: counts.length,
-    informationContexts: total,
-    meanContextsPerPhysicalState: counts.length === 0
+    groups: counts.length,
+    distinctRelations: total,
+    meanRelatedKeysPerGroup: counts.length === 0
       ? 0
       : total / counts.length,
     minimum: counts[0] ?? 0,
@@ -87,6 +87,18 @@ function contextMultiplicitySummary(countsByEngineState) {
     p99: quantile(0.99),
     maximum: counts.at(-1) ?? 0,
   };
+}
+
+function addRelation(relations, key, value) {
+  const values = relations.get(key) ?? new Set();
+  values.add(value);
+  relations.set(key, values);
+}
+
+function relationMultiplicitySummary(relations) {
+  return contextMultiplicitySummary(new Map(
+    [...relations].map(([key, values]) => [key, values.size]),
+  ));
 }
 
 function terminalReason(state) {
@@ -314,6 +326,7 @@ function measureFirstStepsPilot(scenarioId, outputDirectory) {
     if (sample === undefined) throw new Error("missing P2 sample");
     const hashes = new Set();
     const policyHashes = new Set();
+    const pendingEnginesByPolicyContext = new Map();
     const resolvedHashes = new Set();
     const resolvedPolicyHashes = new Set();
     const resolvedContextsByEngineState = new Map();
@@ -387,7 +400,13 @@ function measureFirstStepsPilot(scenarioId, outputDirectory) {
       if (pendingPolicyKey === undefined) {
         throw new Error("perfect-recall policy state is missing");
       }
-      policyHashes.add(sha256(pendingPolicyKey));
+      const pendingPolicyHash = sha256(pendingPolicyKey);
+      policyHashes.add(pendingPolicyHash);
+      addRelation(
+        pendingEnginesByPolicyContext,
+        pendingPolicyHash,
+        pendingEngineHash,
+      );
 
       const resolved = resolveP4Transition(transition.node).node;
       totals.transitions += 1;
@@ -403,9 +422,10 @@ function measureFirstStepsPilot(scenarioId, outputDirectory) {
       }
       const resolvedPolicyHash = sha256(resolvedPolicyKey);
       resolvedPolicyHashes.add(resolvedPolicyHash);
-      resolvedContextsByEngineState.set(
+      addRelation(
+        resolvedContextsByEngineState,
         resolvedEngineHash,
-        (resolvedContextsByEngineState.get(resolvedEngineHash) ?? 0) + 1,
+        resolvedPolicyHash,
       );
       addTerminal(terminals, resolved.state);
       if (generated % 50_000 === 0) {
@@ -423,9 +443,6 @@ function measureFirstStepsPilot(scenarioId, outputDirectory) {
     }
     const seconds = elapsedSeconds(leaderStartedAt);
     totals.uniqueStates += hashes.size + resolvedHashes.size;
-    if (policyHashes.size !== generated || resolvedPolicyHashes.size !== generated) {
-      throw new Error("perfect-recall contexts unexpectedly merged");
-    }
     p3Probe.push({
       leader,
       generatedTransitions: generated,
@@ -436,6 +453,8 @@ function measureFirstStepsPilot(scenarioId, outputDirectory) {
       terminals,
       stateHash: digestHashes(hashes),
       perfectRecallInformationContexts: policyHashes.size,
+      pendingEngineMultiplicityPerInformationContext:
+        relationMultiplicitySummary(pendingEnginesByPolicyContext),
       resolvedP4: {
         generatedTransitions: generated,
         uniquePhysicalStates: resolvedHashes.size,
@@ -447,7 +466,7 @@ function measureFirstStepsPilot(scenarioId, outputDirectory) {
         perfectRecallInformationContexts: resolvedPolicyHashes.size,
         contextHash: digestHashes(resolvedPolicyHashes),
         contextMultiplicity:
-          contextMultiplicitySummary(resolvedContextsByEngineState),
+          relationMultiplicitySummary(resolvedContextsByEngineState),
       },
       actionSetAudit: {
         uniqueOwnerCardTargetSets: actionSetHashes.size,
