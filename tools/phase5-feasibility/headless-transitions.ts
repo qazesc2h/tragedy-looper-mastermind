@@ -61,6 +61,7 @@ export interface OptionalHookChoice {
 export type HeadlessAction =
   | { kind: "P2_PROFILE"; placements: PlacedCard[] }
   | { kind: "P3_PROFILE"; placements: PlacedCard[] }
+  | { kind: "P4_RESOLVE"; placements: PlacedCard[] }
   | { kind: "P5_SEQUENCE"; hooks: OptionalHookChoice[] }
   | { kind: "P6_SEQUENCE"; uses: GoodwillUse[] }
   | {
@@ -248,6 +249,36 @@ function* enumerateP3Placements(
       yield* enumerateP3Placements(next);
     }
   }
+}
+
+/** P4의 공개·행동 해결과 P5 진입을 실제 엔진 두 입력으로 완료한다. */
+export function resolveP4Transition(input: HeadlessNode): HeadlessTransition {
+  assertRoundPhase(input.state, "P4_RESOLVE");
+  const next = cloneNode(input);
+  const placements = structuredClone(next.state.loop.placed);
+  const collector = new PublicEventCollector(next.publicTrace);
+  collector.recordCardsRevealed(next.state, placements);
+
+  const beforeResolution = structuredClone(next.state);
+  advanceGame(next.state, undefined, { deferSettlement: true });
+  collector.recordStateDelta(
+    beforeResolution,
+    next.state,
+    "public",
+    "P4_RESOLVE",
+  );
+  if (
+    next.state.gamePhase === "ROUND" &&
+    next.state.loop.phase === "P4_RESOLVE" &&
+    next.state.loop.actionResolutionComplete
+  ) {
+    advanceGame(next.state, undefined, { deferSettlement: true });
+  }
+  next.publicTrace = collector.trace;
+  return {
+    action: { kind: "P4_RESOLVE", placements },
+    node: next,
+  };
 }
 
 interface AvailableHook {

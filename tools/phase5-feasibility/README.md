@@ -216,8 +216,8 @@ P4 전까지 각본가 카드 종류도 마스킹한다.
 
 승인된 자원·중단 프로필은 `measurement-profile-proposal.md`에 있다.
 `measure-scenario.mjs`는 새 프로세스와 독립 출력 디렉터리 하나에서 계층별 canonical
-상태·전이·종결·병합률, 처리량, RSS·디스크와 결정적 SHA-256을 기록한다. 현재 첫
-게이트인 `firstSteps:2`만 허용하며, 이후 시나리오는 직전 결과를 보고한 뒤 확장한다.
+상태·전이·종결·병합률, 처리량, RSS·디스크와 결정적 SHA-256을 기록한다. 승인된
+`firstSteps:2`와 다음 세트 capped diagnostic인 `basicTragedy:3`만 허용한다.
 
 ```bash
 npx vite-node tools/phase5-feasibility/measure-scenario.mjs \
@@ -228,8 +228,9 @@ npx vite-node tools/phase5-feasibility/measure-scenario.mjs \
 `deterministicHash`만 재현성 판정에 쓰고 시간·RSS 같은 성능값은 별도로 비교한다.
 
 - P2: UI와 같은 `MASTERMIND_HAND`의 물리 카드 수량을 쓰고, 카드 한 장마다
-  `validatePlacement()`를 호출한다. 의미가 같은 불안 +1 두 장의 물리 복사본만
-  중복 제거하고 배치 순서는 보존한다. 정확히 3장 뒤 `advanceGame()`을 호출한다.
+  `validatePlacement()`를 호출한다. 의미가 같은 불안 +1 두 장의 물리 수량을
+  보존하면서 완성 `(카드, 대상)` 집합을 한 번만 생성한다. 정확히 3장 뒤
+  `advanceGame()`을 호출한다.
 - P3: `PROTAGONIST_HAND`과 `nextProtagonist()`로 리더부터 1→2→3 순서를 강제하고,
   매 배치를 `validatePlacement()`로 검증한다. 세 명이 한 장씩 놓은 뒤 실제 P4로
   진행한다.
@@ -254,8 +255,8 @@ P2/P3의 대상·카드 제약은 도구에 복제하지 않고 `legal.ts`를 �
 패배 엔진을 호출한다. UI에만 있던 손패 수량, 주인공 순서, 구조화 입력 스키마는 같은
 export를 재사용한다.
 
-테스트의 최소 보드에서는 P2가 `528 × P(4,3) = 12,672`, P3가
-`8^3 × P(4,3) = 12,288`개의 순서 있는 프로필을 정확히 스트리밍한다. 이 수는 게이트
+테스트의 최소 보드에서는 P2가 `528 × C(4,3) = 2,112`, P3가
+`8^3 × P(4,3) = 12,288`개의 owner-preserving 프로필을 정확히 스트리밍한다. 이 수는 게이트
 완전성 검사용 작은 합성 상태의 결과일 뿐이며, 승인 전 실제 입문편/기본편 계측으로
 사용하지 않는다.
 

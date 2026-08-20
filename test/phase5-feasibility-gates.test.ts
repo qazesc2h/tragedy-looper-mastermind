@@ -25,6 +25,7 @@ import {
   enumerateP7Transitions,
   enumerateP9Transitions,
   headlessNode,
+  resolveP4Transition,
   type HeadlessTransition,
 } from "../tools/phase5-feasibility/headless-transitions";
 import {
@@ -189,6 +190,26 @@ describe("Phase 5 gate 2-B headless placement enumeration", () => {
       expect(validatePlacement(replay, placement)).toEqual({ ok: true });
       replay.loop.placed.push(structuredClone(placement));
     }
+  });
+
+  it("resolves and reveals P4 through the actual two-step engine path", () => {
+    const state = stateFor({}, "P4_RESOLVE");
+    state.loop.placed = [{
+      owner: "mastermind",
+      card: "intriguePlus1",
+      target: { kind: "location", at: "Hospital" },
+    }];
+
+    const transition = resolveP4Transition(headlessNode(state));
+
+    expect(transition.action.kind).toBe("P4_RESOLVE");
+    expect(transition.node.state.loop.locIntrigue.Hospital).toBe(1);
+    expect(transition.node.state.loop.placed).toEqual([]);
+    expect(transition.node.state.loop.phase).toBe("P6_GOODWILL");
+    expect(transition.node.publicTrace.map(({ payload }) => payload.kind)).toEqual([
+      "cardsRevealed",
+      "boardChanged",
+    ]);
   });
 
   it("streams every P3 profile in leader order through legal.ts", () => {

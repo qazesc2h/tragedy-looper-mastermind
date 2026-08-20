@@ -292,21 +292,28 @@ function measureFirstStepsPilot(scenarioId, outputDirectory) {
     const ownerlessActionSetHashes = new Set();
     const protagonistEffectCapablePlacements = new Map();
     let effectCapableProfiles = 0;
+    const exampleCharacters = Object.keys(sample.state.loop.board).slice(0, 3);
+    const [exampleA, exampleB, exampleC] = exampleCharacters;
+    if (
+      exampleA === undefined ||
+      exampleB === undefined ||
+      exampleC === undefined
+    ) throw new Error("P3 example requires three characters");
     const exampleProfile = [
       {
         owner: 0,
         card: "goodwillPlus1",
-        target: { kind: "character", id: "shrineMaiden" },
+        target: { kind: "character", id: exampleA },
       },
       {
         owner: 1,
         card: "paranoiaMinus1",
-        target: { kind: "character", id: "doctor" },
+        target: { kind: "character", id: exampleB },
       },
       {
         owner: 2,
         card: "forbidIntrigue",
-        target: { kind: "character", id: "popIdol" },
+        target: { kind: "character", id: exampleC },
       },
     ];
     const exampleProfileKey = placementSetKey(exampleProfile, true);
@@ -567,7 +574,9 @@ const [scenarioId, outputDirectory] = process.argv.slice(2);
 if (scenarioId === undefined || outputDirectory === undefined) {
   throw new Error("usage: vite-node measure-scenario.mjs <scenario-id> <output-directory>");
 }
-if (scenarioId !== "firstSteps:2") {
-  throw new Error("current runner gate supports firstSteps:2 only");
+if (!["firstSteps:2", "basicTragedy:3"].includes(scenarioId)) {
+  throw new Error(
+    "current runner gate supports firstSteps:2 and basicTragedy:3 only",
+  );
 }
 measureFirstStepsPilot(scenarioId, outputDirectory);
