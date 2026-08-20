@@ -8,12 +8,14 @@ import {
 } from "../../src/engine/game";
 import { distanceToLoss } from "../../src/engine/loss";
 import { loadScenarioCatalog } from "../../src/scenario-catalog";
-import type { PlacedCard } from "../../src/types";
-import { canonicalStringify } from "./canonical-state";
+import type { GameState, PlacedCard } from "../../src/types";
+import { canonicalStringify, engineStateKey } from "./canonical-state";
 import {
+  advancePassPathToNextDay,
   applyJointAction,
   closedSuccessorKey,
   decisionContext,
+  deterministicResponse,
   mastermindActions,
   protagonistResponses,
   sha256,
@@ -38,6 +40,15 @@ interface CandidateMeasurement {
   distinctEvaluationVectors: number;
   responseChangesEvaluation: boolean;
   axisRanges: AxisRange[];
+}
+
+interface RepresentativePathStep {
+  fromDay: number;
+  mastermindActionHash: string;
+  protagonistResponseHash: string;
+  nextStateHash: string;
+  survivingCandidates: number;
+  nextDistanceVector: Array<{ key: string; remaining: number }>;
 }
 
 function elapsedMilliseconds(started: bigint): number {
@@ -76,8 +87,34 @@ function stratifiedCandidates(
   });
 }
 
+function evaluationVector(state: GameState) {
+  return distanceToLoss(state).map((condition) => ({
+    key: condition.key,
+    ko: condition.ko,
+    remaining: condition.remaining,
+  })).sort((left, right) => left.key.localeCompare(right.key));
+}
+
+function compareEvaluationVectors(
+  left: ReturnType<typeof evaluationVector>,
+  right: ReturnType<typeof evaluationVector>,
+): number {
+  for (let index = 0; index < Math.max(left.length, right.length); index += 1) {
+    const leftAxis = left[index];
+    const rightAxis = right[index];
+    if (leftAxis === undefined) return -1;
+    if (rightAxis === undefined) return 1;
+    const keyOrder = leftAxis.key.localeCompare(rightAxis.key);
+    if (keyOrder !== 0) return keyOrder;
+    if (leftAxis.remaining !== rightAxis.remaining) {
+      return leftAxis.remaining - rightAxis.remaining;
+    }
+  }
+  return 0;
+}
+
 function measureCandidate(
-  state: Parameters<typeof decisionContext>[0],
+  state: GameState,
   candidate: ReturnType<typeof stratifiedCandidates>[number],
   sampleIndex: number,
 ): CandidateMeasurement {
@@ -103,11 +140,7 @@ function measureCandidate(
       response,
       true,
     );
-    const vector = distanceToLoss(successor).map((condition) => ({
-      key: condition.key,
-      ko: condition.ko,
-      remaining: condition.remaining,
-    })).sort((left, right) => left.key.localeCompare(right.key));
+    const vector = evaluationVector(successor);
     evaluationVectors.add(canonicalStringify(vector.map(({ key, remaining }) =>
       [key, remaining]
     )));
@@ -145,20 +178,126 @@ function measureCandidate(
   };
 }
 
+function representativeStateForDay(
+  initial: GameState,
+  targetDay: number,
+): { state: GameState; path: RepresentativePathStep[] } {
+  let state = structuredClone(initial);
+  const path: RepresentativePathStep[] = [];
+  while (state.loop.day < targetDay) {
+    const context = decisionContext(state);
+    const candidates = stratifiedCandidates(mastermindActions(context));
+    let selected:
+      | {
+        state: GameState;
+        candidateHash: string;
+        responseHash: string;
+        stateHash: string;
+        vector: ReturnType<typeof evaluationVector>;
+      }
+      | undefined;
+    let survivingCandidates = 0;
+    for (const candidate of candidates) {
+      const response = deterministicResponse(context, candidate.hash);
+      const afterP4 = applyJointAction(
+        state,
+        candidate.placements,
+        response,
+        false,
+      );
+      const nextDay = advancePassPathToNextDay(afterP4);
+      if (nextDay === undefined) continue;
+      survivingCandidates += 1;
+      const next = {
+        state: nextDay,
+        candidateHash: candidate.hash,
+        responseHash: sha256(canonicalStringify(response)),
+        stateHash: sha256(engineStateKey(nextDay)),
+        vector: evaluationVector(nextDay),
+      };
+      if (
+        selected === undefined ||
+        compareEvaluationVectors(next.vector, selected.vector) < 0 ||
+        (compareEvaluationVectors(next.vector, selected.vector) === 0 &&
+          next.stateHash.localeCompare(selected.stateHash) < 0)
+      ) selected = next;
+    }
+    if (selected === undefined) {
+      throw new Error(`no deterministic surviving path from day ${state.loop.day}`);
+    }
+    path.push({
+      fromDay: state.loop.day,
+      mastermindActionHash: selected.candidateHash,
+      protagonistResponseHash: selected.responseHash,
+      nextStateHash: selected.stateHash,
+      survivingCandidates,
+      nextDistanceVector: selected.vector.map(({ key, remaining }) => ({
+        key,
+        remaining,
+      })),
+    });
+    state = selected.state;
+  }
+  if (
+    state.loop.day !== targetDay ||
+    state.loop.phase !== "P2_MASTERMIND_ACTION"
+  ) {
+    throw new Error(`failed to reach day ${targetDay} P2 decision`);
+  }
+  return { state, path };
+}
+
+function representativeStateSummary(
+  state: GameState,
+  path: readonly RepresentativePathStep[],
+) {
+  return {
+    loop: state.loop.loop,
+    day: state.loop.day,
+    phase: state.loop.phase,
+    leader: state.loop.leader,
+    stateHash: sha256(engineStateKey(state)),
+    characters: Object.keys(state.loop.board).sort().map((character) => ({
+      character,
+      board: state.loop.board[character],
+      counters: state.loop.charCounters[character],
+    })),
+    locationIntrigue: state.loop.locIntrigue,
+    spentOncePerLoop: state.loop.spentOncePerLoop,
+    path,
+  };
+}
+
 function main(): void {
-  const [outputDirectory] = process.argv.slice(2);
+  const [outputDirectory, dayArgument, mode] = process.argv.slice(2);
   if (outputDirectory === undefined) {
-    throw new Error("usage: vite-node measure-evaluation-variance.ts OUTPUT_DIR");
+    throw new Error(
+      "usage: vite-node measure-evaluation-variance.ts OUTPUT_DIR [DAY] [--representative-only]",
+    );
+  }
+  const targetDay = dayArgument === undefined ? 1 : Number(dayArgument);
+  if (!Number.isInteger(targetDay) || targetDay < 1 || targetDay > 3) {
+    throw new Error(`DAY must be 1, 2, or 3; received ${dayArgument}`);
   }
   mkdirSync(outputDirectory, { recursive: true });
   const entry = loadScenarioCatalog().find(({ id }) => id === "firstSteps:2");
   if (entry === undefined) throw new Error("missing firstSteps:2");
-  const state = createGameState(structuredClone(entry.scenario));
-  chooseInitialLeader(state, 0);
-  continueFromTimeGap(state);
-  const candidates = stratifiedCandidates(
-    mastermindActions(decisionContext(state)),
-  );
+  const initial = createGameState(structuredClone(entry.scenario));
+  chooseInitialLeader(initial, 0);
+  continueFromTimeGap(initial);
+  const representative = representativeStateForDay(initial, targetDay);
+  const state = representative.state;
+  if (mode === "--representative-only") {
+    process.stdout.write(`${JSON.stringify(
+      representativeStateSummary(state, representative.path),
+      null,
+      2,
+    )}\n`);
+    return;
+  }
+  if (mode !== undefined) throw new Error(`unknown mode: ${mode}`);
+  const population = mastermindActions(decisionContext(state));
+  const candidates = stratifiedCandidates(population);
 
   const started = process.hrtime.bigint();
   const measurements: CandidateMeasurement[] = [];
@@ -200,9 +339,17 @@ function main(): void {
   const deterministic = {
     schema: "phase5-evaluation-variance-v1",
     scenario: "firstSteps:2",
-    state: "loop 1 day 1 initial P2 decision, leader 0",
+    state: `loop ${state.loop.loop} day ${state.loop.day} P2 decision, leader ${state.loop.leader}`,
+    ...(targetDay === 1 ? {} : {
+      representativeState: {
+        rule:
+          "from each previous day, enumerate the same 100 inclusive SHA-256 P2 quantiles with SHA-derived legal P3 responses; among pass-optional survivors choose the lexicographically smallest sorted distanceToLoss remaining vector, then the smallest engine-state SHA-256",
+        stateHash: sha256(engineStateKey(state)),
+        path: representative.path,
+      },
+    }),
     candidateSelection: {
-      population: 63_360,
+      population: population.length,
       sampleSize: SAMPLE_SIZE,
       rule:
         "sort all canonical P2 placement SHA-256 values, then select inclusive equal-index quantiles",

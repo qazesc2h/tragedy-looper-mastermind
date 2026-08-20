@@ -524,7 +524,9 @@ export function applyJointAction(
   return result;
 }
 
-function advancePassPathToNextDay(state: GameState): GameState | undefined {
+export function advancePassPathToNextDay(
+  state: GameState,
+): GameState | undefined {
   const result = structuredClone(state);
   const startingDay = result.loop.day;
   let guard = 0;
@@ -544,7 +546,7 @@ function advancePassPathToNextDay(state: GameState): GameState | undefined {
     : undefined;
 }
 
-function deterministicResponse(
+export function deterministicResponse(
   context: DecisionContext,
   seed: string,
 ): PlacedCard[] {

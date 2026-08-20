@@ -300,13 +300,19 @@ npx vite-node tools/phase5-feasibility/measure-one-ply-search.ts \
 ```
 
 P2 후보별로 P3 대응이 `distanceToLoss` 벡터를 실제로 바꾸는 빈도는 전체 P2 hash
-공간의 결정론적 분위 표본으로 잰다.
+공간의 결정론적 분위 표본으로 잰다. 두 번째 인수로 날짜를 주면 이전 날짜마다 같은
+분위 표본에서 `distanceToLoss` 벡터가 사전식으로 가장 작은 생존 상태를 골라 임계값
+스트레스 경로를 만든다.
 
 ```bash
 npx vite-node tools/phase5-feasibility/measure-evaluation-variance.ts \
   /tmp/phase5-evaluation-variance-a
 npx vite-node tools/phase5-feasibility/measure-evaluation-variance.ts \
   /tmp/phase5-evaluation-variance-b
+npx vite-node tools/phase5-feasibility/measure-evaluation-variance.ts \
+  /tmp/phase5-evaluation-variance-day2 2
+npx vite-node tools/phase5-feasibility/measure-evaluation-variance.ts \
+  /tmp/phase5-evaluation-variance-day3 3
 ```
 
 두 실행은 출력 디렉터리와 프로세스를 공유하지 않는다. `manifest.json`의
@@ -373,11 +379,15 @@ export를 재사용한다.
   폰 즉시 비교 범위가 아니다.
 - P2 결정론적 분위 표본 100개: 대응별 `distanceToLoss` 벡터가 89개 후보에서
   완전히 같고 11개에서만 갈렸다. 핵심 인물 축은 0/100, 살인 청부업자 축은
-  11/100에서 변했고 폭은 1~2였다. 다음 게이트는 근사 조기 종료가 아니라 축별 정확
-  관련성 분석이다.
+  11/100에서 변했고 폭은 1~2였다.
+- 같은 100개 표본의 임계값 스트레스 대표 상태: 2일차와 3일차 모두 94개 후보에서
+  불변, 6개에서 가변이었다. 3일차 가변 후보는 청부업자 거리 0/1을 갈랐다. 빈도는
+  후반에 폭발하지 않았지만 마지막 날의 드문 차이는 결정적이므로 근사 조기 종료는
+  쓰지 않는다. 다음 게이트는 축별 정확 관련성 분석이다.
 - `6,182`와 P2 100개 93% 주장은 생성 코드·상태 키가 없어 재현 불가로 폐기했다.
 - 상세 결과: `results/firstSteps-2-engine-state.md`,
   `results/firstSteps-2-p4-destinations.md`,
   `results/firstSteps-2-action-equivalence.md`,
   `results/firstSteps-2-one-ply-search.md`,
-  `results/firstSteps-2-evaluation-variance.md`
+  `results/firstSteps-2-evaluation-variance.md`,
+  `results/firstSteps-2-evaluation-variance-by-day.md`

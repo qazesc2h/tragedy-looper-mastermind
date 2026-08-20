@@ -1,0 +1,30 @@
+{
+  "deterministicHash": "50941a13b3226ca69af9105094528dd0793195e6e29547bb3c3c98091511c83c",
+  "stateHash": "03cb93d881030d6f1fb8b83a653da787fbe685686ad06cb81d752f7dd4d9f33c",
+  "candidatePopulation": 42840,
+  "candidateSample": 100,
+  "candidatesInvariant": 94,
+  "candidatesVarying": 6,
+  "p4ClosedResponseClasses": {
+    "minimum": 7037,
+    "median": 9992,
+    "maximum": 12411,
+    "mean": 9913.16
+  },
+  "distinctEvaluationVectors": {
+    "minimum": 1,
+    "median": 1,
+    "maximum": 2,
+    "mean": 1.06
+  },
+  "varyingAxes": {
+    "role:keyPerson:girlStudent": 0,
+    "role:killer:officeWorker": 6
+  },
+  "axisDistinctValues": {
+    "role:keyPerson:girlStudent": [1],
+    "role:killer:officeWorker": [1, 2]
+  },
+  "milliseconds": 250898.301958,
+  "rssBytes": 251052032
+}
