@@ -1,0 +1,17 @@
+{
+  "deterministicHash": "c54d3df6023403d4058809e1351e12cd7e3e3913b00109663a992b7ec3c0f018",
+  "candidateHash": "0005930f56af6d5a1ca841fc466b581bc8af8827a07eab7debb3f2863b3918de",
+  "rawResponses": 368640,
+  "p4ClosedResponseClasses": 10567,
+  "actualEngineSuccessorStates": 10567,
+  "actualStateDigest": "ddedda4f99ef1f37492c8c19286dd61219f58a37208e9de1b89208816b3d4d17",
+  "performance": {
+    "classBuildMilliseconds": 1206.144625,
+    "expandAndEvaluateMilliseconds": 1332.106833,
+    "transitionMilliseconds": 1049.35826,
+    "lossEvaluationMilliseconds": 83.681535,
+    "totalMilliseconds": 2538.265292,
+    "projectedTenCandidatesMilliseconds": 25382.65292,
+    "rssBytes": 312918016
+  }
+}

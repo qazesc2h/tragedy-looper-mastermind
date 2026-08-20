@@ -3,6 +3,26 @@
 이 디렉터리는 프로덕션 번들에 연결하지 않는 feasibility 계측 전용 코드다. 이 문서는
 `seed_73bb8e3ed023` v1.1.0의 feasibility 게이트를 다룬다.
 
+## 명세 exit condition — `feasibility_gated`
+
+```yaml
+exit_conditions:
+  feasibility_gated:
+    status: satisfied
+    benchmark: failed
+    complete_opening_book: infeasible
+    whole_state_space_precomputation: infeasible
+    single_state_search: one_ply_desktop_background_only
+    mobile_interactive: not_demonstrated
+    heuristic_removal: forbidden_before_a_passing_benchmark
+    research_hypothesis_retained: true
+```
+
+완전 opening book과 전체 상태 공간 사전 열거는 승인된 자원 프로필에서 불가로
+확정한다. 연구 가설은 명세에 남기되, 벤치마크가 실패했으므로 현재 휴리스틱을 제거하지
+않는다. 이후 feasibility 작업은 현재 한 상태에서 후보 몇 개를 비교하는 전경 탐색의
+깊이·시간을 별도로 재는 범위다.
+
 ## 현재 결정: 전이와 정책 기억을 분리한다
 
 검색 상태를 다음 두 키로 나눈다.
@@ -270,6 +290,15 @@ npx vite-node tools/phase5-feasibility/measure-action-equivalence.ts \
   /tmp/phase5-action-equivalence-b
 ```
 
+고정 P2 하나의 P3 동치류 전개와 P4 최악 거리 평가는 다음처럼 잰다.
+
+```bash
+npx vite-node tools/phase5-feasibility/measure-one-ply-search.ts \
+  /tmp/phase5-one-ply-a
+npx vite-node tools/phase5-feasibility/measure-one-ply-search.ts \
+  /tmp/phase5-one-ply-b
+```
+
 두 실행은 출력 디렉터리와 프로세스를 공유하지 않는다. `manifest.json`의
 `deterministicHash`만 재현성 판정에 쓰고 시간·RSS 같은 성능값은 별도로 비교한다.
 
@@ -325,9 +354,15 @@ export를 재사용한다.
 - 행동 동치류: 초기 P2 63,360→15,558 함수류, 고정 P2의 P3
   368,640→9,308~12,504 P4류. 2일차 대표 9상태도 각각 4,795~16,513,
   P3 표본은 3,559~12,504로 수천~만 단위다.
-- 행동 동치류만 곱한 명시적 전이 관계: 여전히 큼. 다음 계측은 대상별 국소 관계나
-  목적지 CSP/DP로 전이를 분해한 뒤 2일차 표본을 수행한다.
+- 행동 동치류만 곱한 명시적 전이 관계: 여전히 큼. 전체 상태의 2일차 표본 계획은
+  종료하고, 대상별 국소 관계·목적지 직접 평가를 한 상태 전경 탐색에만 적용한다.
+- `feasibility_gated`: 벤치마크 실패로 종료. 완전 opening book·전체 상태 사전 열거
+  불가, 휴리스틱 유지, 한 상태 전경 탐색만 별도 계측한다.
+- 1수 앞 전경 탐색: P2 하나에서 P3 368,640→10,567 P4류, 실제 전이와
+  `distanceToLoss` 축별 최악값까지 2.53초. 후보 10개 선형 환산 25.3초로 현재 구현은
+  폰 즉시 비교 범위가 아니다.
 - `6,182`와 P2 100개 93% 주장은 생성 코드·상태 키가 없어 재현 불가로 폐기했다.
 - 상세 결과: `results/firstSteps-2-engine-state.md`,
   `results/firstSteps-2-p4-destinations.md`,
-  `results/firstSteps-2-action-equivalence.md`
+  `results/firstSteps-2-action-equivalence.md`,
+  `results/firstSteps-2-one-ply-search.md`

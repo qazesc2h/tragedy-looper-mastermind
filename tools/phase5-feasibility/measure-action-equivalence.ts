@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 
 import { characterDataOf } from "../../src/data";
 import {
@@ -35,7 +36,7 @@ const CHARACTER_BITS = 16n;
 const LOCATION_BITS = 4n;
 const RESOURCE_SHIFT = CHARACTER_BITS * 6n + LOCATION_BITS * 4n;
 
-interface DecisionContext {
+export interface DecisionContext {
   state: GameState;
   characters: string[];
   targets: Target[];
@@ -88,7 +89,7 @@ interface ActionEquivalenceMeasurement {
   };
 }
 
-function sha256(value: string): string {
+export function sha256(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
@@ -126,7 +127,7 @@ function availableTargets(state: GameState): Target[] {
   ];
 }
 
-function decisionContext(state: GameState): DecisionContext {
+export function decisionContext(state: GameState): DecisionContext {
   const characters = Object.keys(state.loop.board);
   if (characters.length !== 6) {
     throw new Error("firstSteps:2 action model expects six characters");
@@ -176,7 +177,7 @@ function targetCombinations(targets: readonly Target[]): Target[][] {
   return result;
 }
 
-function mastermindActions(context: DecisionContext): PlacedCard[][] {
+export function mastermindActions(context: DecisionContext): PlacedCard[][] {
   const cards = mastermindCards(context.state);
   const capacities = semanticHandCapacities(MASTERMIND_HAND);
   const result: PlacedCard[][] = [];
@@ -205,7 +206,7 @@ function mastermindActions(context: DecisionContext): PlacedCard[][] {
   return result;
 }
 
-function protagonistResponses(
+export function protagonistResponses(
   context: DecisionContext,
 ): Generator<PlacedCard[]> {
   const owners = protagonistOrder(context.state.loop.leader);
@@ -372,7 +373,7 @@ function resourceBits(
   return result;
 }
 
-function closedSuccessorKey(
+export function closedSuccessorKey(
   context: DecisionContext,
   mastermind: readonly PlacedCard[],
   protagonists: readonly PlacedCard[],
@@ -495,7 +496,7 @@ function summary(values: readonly number[]) {
   };
 }
 
-function applyJointAction(
+export function applyJointAction(
   state: GameState,
   mastermind: readonly PlacedCard[],
   protagonists: readonly PlacedCard[],
@@ -735,4 +736,8 @@ function main(): void {
   process.stdout.write(`${JSON.stringify(manifest, null, 2)}\n`);
 }
 
-main();
+const invokedPath = process.argv[1];
+if (
+  invokedPath !== undefined &&
+  import.meta.url === pathToFileURL(invokedPath).href
+) main();
