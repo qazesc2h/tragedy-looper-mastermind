@@ -79,9 +79,12 @@ headless 전이 열거기가 있다.
 않는다. 시점 상태가 없는 구 저장은 새 배제에 쓰지 않는다. 전수 감사 결과는
 `tools/phase5-feasibility/observation-order-audit.md`에 있다.
 
-Section 2 측정은 아직 승인 전이다. 대상 순서와 자원·중단 상한은
-`tools/phase5-feasibility/measurement-profile-proposal.md`의 미승인 제안이며, 사용자
-승인 전에는 자동 적용하거나 계측하지 않는다.
+Section 2 측정 프로필은 2026-08-20에 승인되었다. 첫 대상 `firstSteps:2`는 P2 1,140,480개가
+전부 고유했고, P3 다음 계층이 420,426,547,200개·병합률 0%로 확정되어 1억 하한
+중단 조건에 걸렸다. 독립 두 실행의 최종 SHA-256이 일치했다. 결과는
+`tools/phase5-feasibility/results/firstSteps-2.md`에 있다. 가장 작은 입문편이 실패했으므로
+승인 규칙상 더 큰 입문편 두 개는 완전 열거하지 않고, 다음 대상은 사용자 판단 뒤
+`basicTragedy:3` capped diagnostic이다.
 
 ---
 
