@@ -292,5 +292,9 @@ export를 재사용한다.
 
 - 2-A 공개 trace와 가시성 마스크: 구현
 - 2-B P2/P3/P5/P6/P7/P9 스트리밍 실제 전이: 구현
-- 기존 가설 필터의 시간 순서 활용: 개선 필요, 이번 범위에서는 미수정
-- Section 2 상태공간 계측과 측정 프로필: 시작하지 않음
+- 기존 가설 필터의 시간 순서 활용: 구현·회귀 검증
+- 2계층 캐시: `engineStateKey` + 정책별 선택 키 구현
+- 기본 검색 정책: `worst-legal-response`, 정책 키 없음
+- `firstSteps:2` P4 후 물리 병합 probe: 368,640 → 12,062, 96.728%
+- `firstSteps:2` 완전 opening book: 23,357,030,400 합법 간선 중단 조건으로 미지원
+- 상세 결과: `results/firstSteps-2-engine-state.md`

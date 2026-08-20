@@ -104,6 +104,14 @@ owner를 지울 때만 61,440개로 6배 축약됐다. 그 6배는 시간 순서
 `tools/phase5-feasibility/results/firstSteps-2.md`에 있다. 다른 시나리오 계측은
 중단된 상태다.
 
+2계층 재계측에서는 한 P2 부모의 합법 P3 368,640개를 P4까지 전부 실제 해결했다.
+`engineStateKey` 물리 후속 상태는 12,062개로 병합률 96.728%였고, 물리 상태당
+perfect-recall 정보 문맥은 평균 30.56개·중앙값 6개·최대 13,584개였다. 독립 두 실행
+SHA-256 `9abab4a7...993db`가 일치했다. 다만 전체 P2×P3의 해결 전 합법 간선
+23,357,030,400개는 그대로여서 1억 생성 전 중단 조건을 넘는다. 따라서 물리 전이 캐시
+병합은 유효하지만 현재 명시적 열거기로 `firstSteps:2` 완전 opening book은 미지원이다.
+상세 결과는 `tools/phase5-feasibility/results/firstSteps-2-engine-state.md`에 있다.
+
 ---
 
 ## 4. 엔진 구조를 결정한 세 가지
