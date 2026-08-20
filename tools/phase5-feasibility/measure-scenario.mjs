@@ -11,7 +11,10 @@ import {
 import { validatePlacement } from "../../src/engine/legal.ts";
 import { resolveActions } from "../../src/engine/resolve.ts";
 import { loadScenarioCatalog } from "../../src/scenario-catalog.ts";
-import { PROTAGONIST_HAND } from "../../src/ui/action-cards.ts";
+import {
+  MASTERMIND_HAND,
+  PROTAGONIST_HAND,
+} from "../../src/ui/action-cards.ts";
 import {
   canonicalDecisionStateKey,
   canonicalStringify,
@@ -155,6 +158,43 @@ function effectCapableMastermindPlacement(root, placement) {
   return false;
 }
 
+function effectCapableProtagonistPlacement(root, placement) {
+  const emptyOutcome = resolvedOutcome(root.state, []);
+  const protagonistOnly = resolvedOutcome(root.state, [placement]);
+  if (protagonistOnly !== undefined && protagonistOnly !== emptyOutcome) {
+    return true;
+  }
+
+  const seenCards = new Set();
+  for (const { card } of MASTERMIND_HAND) {
+    if (seenCards.has(card)) continue;
+    seenCards.add(card);
+    const mastermind = {
+      owner: "mastermind",
+      card,
+      target: structuredClone(placement.target),
+    };
+    const mastermindOnly = resolvedOutcome(root.state, [mastermind]);
+    const combined = resolvedOutcome(root.state, [mastermind, placement]);
+    if (
+      mastermindOnly !== undefined &&
+      combined !== undefined &&
+      mastermindOnly !== combined
+    ) return true;
+  }
+  return false;
+}
+
+function placementSetKey(placements, includeOwner) {
+  return canonicalStringify(placements.map(({ owner, card, target }) =>
+    includeOwner
+      ? { owner, card, target }
+      : { card, target }
+  ).sort((left, right) => canonicalStringify(left).localeCompare(
+    canonicalStringify(right),
+  )));
+}
+
 function measureFirstStepsPilot(scenarioId, outputDirectory) {
   mkdirSync(outputDirectory, { recursive: true });
   const runStartedAt = process.hrtime.bigint();
@@ -248,12 +288,59 @@ function measureFirstStepsPilot(scenarioId, outputDirectory) {
     const sample = sampleP2State;
     if (sample === undefined) throw new Error("missing P2 sample");
     const hashes = new Set();
+    const actionSetHashes = new Set();
+    const ownerlessActionSetHashes = new Set();
+    const protagonistEffectCapablePlacements = new Map();
+    let effectCapableProfiles = 0;
+    const exampleProfile = [
+      {
+        owner: 0,
+        card: "goodwillPlus1",
+        target: { kind: "character", id: "shrineMaiden" },
+      },
+      {
+        owner: 1,
+        card: "paranoiaMinus1",
+        target: { kind: "character", id: "doctor" },
+      },
+      {
+        owner: 2,
+        card: "forbidIntrigue",
+        target: { kind: "character", id: "popIdol" },
+      },
+    ];
+    const exampleProfileKey = placementSetKey(exampleProfile, true);
+    let exampleMultiplicity = 0;
     const terminals = {};
     let generated = 0;
     const leaderStartedAt = process.hrtime.bigint();
     for (const transition of enumerateP3Transitions(sample)) {
       generated += 1;
       totals.transitions += 1;
+      if (transition.action.kind !== "P3_PROFILE") {
+        throw new Error("P3 enumerator returned a non-P3 action");
+      }
+      const actionSetKey = placementSetKey(
+        transition.action.placements,
+        true,
+      );
+      actionSetHashes.add(sha256(actionSetKey));
+      ownerlessActionSetHashes.add(sha256(placementSetKey(
+        transition.action.placements,
+        false,
+      )));
+      if (actionSetKey === exampleProfileKey) exampleMultiplicity += 1;
+      if (transition.action.placements.some((placement) => {
+        const placementKey = canonicalStringify({
+          card: placement.card,
+          target: placement.target,
+        });
+        const cached = protagonistEffectCapablePlacements.get(placementKey);
+        if (cached !== undefined) return cached;
+        const result = effectCapableProtagonistPlacement(root, placement);
+        protagonistEffectCapablePlacements.set(placementKey, result);
+        return result;
+      })) effectCapableProfiles += 1;
       hashes.add(sha256(canonicalDecisionStateKey(
         transition.node.state,
         transition.node.publicTrace,
@@ -283,6 +370,25 @@ function measureFirstStepsPilot(scenarioId, outputDirectory) {
       terminalChildren: Object.values(terminals).reduce((sum, count) => sum + count, 0),
       terminals,
       stateHash: digestHashes(hashes),
+      actionSetAudit: {
+        uniqueOwnerCardTargetSets: actionSetHashes.size,
+        duplicateOwnerCardTargetSets: generated - actionSetHashes.size,
+        uniqueCardTargetSetsWithoutOwner: ownerlessActionSetHashes.size,
+        duplicatesIfOwnerIsErased:
+          generated - ownerlessActionSetHashes.size,
+        ownerErasureFactor:
+          ownerlessActionSetHashes.size === 0
+            ? 0
+            : generated / ownerlessActionSetHashes.size,
+        exampleProfile,
+        exampleMultiplicity,
+      },
+      actionClassification: {
+        N_allLegalProfiles: generated,
+        M_effectCapableUnderAtLeastOneLegalP2Profile:
+          effectCapableProfiles,
+        whollyEffectIncapableProfiles: generated - effectCapableProfiles,
+      },
       seconds,
       transitionsPerSecond: rate(generated, seconds),
       statesPerSecond: rate(hashes.size, seconds),
@@ -389,6 +495,8 @@ function measureFirstStepsPilot(scenarioId, outputDirectory) {
             terminalChildren: sample.terminalChildren,
             terminals: sample.terminals,
             stateHash: sample.stateHash,
+            actionSetAudit: sample.actionSetAudit,
+            actionClassification: sample.actionClassification,
           })),
         },
       },

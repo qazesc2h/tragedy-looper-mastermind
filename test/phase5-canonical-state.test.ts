@@ -217,6 +217,54 @@ describe("Phase 5 canonical state Section 1", () => {
     );
   });
 
+  it("retains an owner swap when the first-day action creates different spent resources", () => {
+    const left = firstStepsState();
+    left.loop.leader = 0;
+    left.loop.placed = [
+      {
+        owner: 0,
+        card: "goodwillPlus1",
+        target: { kind: "character", id: "shrineMaiden" },
+      },
+      {
+        owner: 1,
+        card: "paranoiaMinus1",
+        target: { kind: "character", id: "doctor" },
+      },
+      {
+        owner: 2,
+        card: "forbidIntrigue",
+        target: { kind: "character", id: "popIdol" },
+      },
+    ];
+    const right = structuredClone(left);
+    right.loop.placed = right.loop.placed.map((placement) => ({
+      ...placement,
+      owner: placement.owner === 0
+        ? 1
+        : placement.owner === 1
+        ? 0
+        : placement.owner,
+    }));
+
+    resolveActions(left);
+    resolveActions(right);
+
+    expect(left.loop.spentOncePerLoop.protagonists).toEqual([
+      [],
+      ["paranoiaMinus1"],
+      [],
+    ]);
+    expect(right.loop.spentOncePerLoop.protagonists).toEqual([
+      ["paranoiaMinus1"],
+      [],
+      [],
+    ]);
+    expect(canonicalDecisionStateKey(left, [])).not.toBe(
+      canonicalDecisionStateKey(right, []),
+    );
+  });
+
   it("removes exact duplicates but preserves distinct observation order", () => {
     const role: ProtagonistObservation = {
       kind: "roleRevealed",
