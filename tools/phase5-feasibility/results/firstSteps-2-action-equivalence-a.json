@@ -1,0 +1,24 @@
+{
+  "deterministicHash": "ecb71ce6e9268de93c7f25a90b69a62a6b6c3182036f3b336b8cbee13ac0cb9e",
+  "representativeStates": 10,
+  "engineJointActionsChecked": 1000,
+  "day1Initial": {
+    "mastermindRawActions": 63360,
+    "mastermindLiteralSuccessorClasses": 63360,
+    "mastermindP4ClosedFunctionalClasses": 15558,
+    "protagonistRawResponses": 368640,
+    "protagonistP4ClosedClassesMinimum": 9308,
+    "protagonistP4ClosedClassesMedian": 10567,
+    "protagonistP4ClosedClassesMaximum": 12504
+  },
+  "day2Representatives": {
+    "mastermindP4ClosedClassesMinimum": 4795,
+    "mastermindP4ClosedClassesMedian": 10131,
+    "mastermindP4ClosedClassesMaximum": 16513,
+    "protagonistP4ClosedClassesMinimum": 3559,
+    "protagonistP4ClosedClassesMedian": 8501,
+    "protagonistP4ClosedClassesMaximum": 12504
+  },
+  "seconds": 154.730919167,
+  "rssBytes": 295256064
+}

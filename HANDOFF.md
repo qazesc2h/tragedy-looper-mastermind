@@ -123,6 +123,16 @@ SHA-256 `9abab4a7...993db`가 일치했다. 다만 전체 P2×P3의 해결 전 �
 상세 결과는 `tools/phase5-feasibility/results/firstSteps-2-engine-state.md`와
 `tools/phase5-feasibility/results/firstSteps-2-p4-destinations.md`에 있다.
 
+행동 동치류 게이트를 재현 가능한 코드로 계측했다. 해결 전 `placed`를 포함하는 문자적
+후속 상태에서는 P2 63,360개와 고정 P2의 P3 368,640개가 전부 구분된다. P4까지 닫고
+소유자별 소진 자원을 보존하면 초기 P2는 15,558 함수류이고, 고정한 P2 10개의 P3는
+9,308~12,504류다. 실제 엔진으로 만든 2일차 대표 9상태에서도 P2 4,795~16,513류,
+상태별 P2 10개에서 P3 3,559~12,504류였다. 동치류는 수백 개가 아니라 수천~만
+단위이므로 둘의 곱을 명시적 간선으로 만들지 않는다. 다음 2일차 100상태 표본 전에
+대상별 국소 효과나 목적지 CSP/DP로 상징적 전이를 더 분해한다. 독립 두 실행 hash는
+`ecb71ce6...0cb9e`로 일치했다. 상세 결과는
+`tools/phase5-feasibility/results/firstSteps-2-action-equivalence.md`에 있다.
+
 ---
 
 ## 4. 엔진 구조를 결정한 세 가지

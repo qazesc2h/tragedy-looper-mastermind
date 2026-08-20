@@ -259,6 +259,17 @@ npx vite-node tools/phase5-feasibility/measure-p4-destinations.ts \
   /tmp/phase5-p4-destinations-reverse --reverse
 ```
 
+P4 목적지 투영을 보존하는 행동 동치류는 초기 상태 1개와 실제 엔진으로 만든 2일차
+결정 상태 9개에서 잰다. 각본가 행동은 모든 합법 P3 대응에 대한 P4 후속 함수가 같을
+때만 합치고, 주인공 대응은 고정 P2에서 P4 후속 투영이 같을 때 합친다.
+
+```bash
+npx vite-node tools/phase5-feasibility/measure-action-equivalence.ts \
+  /tmp/phase5-action-equivalence-a
+npx vite-node tools/phase5-feasibility/measure-action-equivalence.ts \
+  /tmp/phase5-action-equivalence-b
+```
+
 두 실행은 출력 디렉터리와 프로세스를 공유하지 않는다. `manifest.json`의
 `deterministicHash`만 재현성 판정에 쓰고 시간·RSS 같은 성능값은 별도로 비교한다.
 
@@ -311,6 +322,12 @@ export를 재사용한다.
   소유자별 정확 엔진 투영 34,516,856개
 - 명시적 경로 opening book: 전이 상한으로 미지원
 - 목적지 CSP/DP 상태 열거: 지원 근거 확보. 다음 게이트는 행동 동치류 전이 관계다.
+- 행동 동치류: 초기 P2 63,360→15,558 함수류, 고정 P2의 P3
+  368,640→9,308~12,504 P4류. 2일차 대표 9상태도 각각 4,795~16,513,
+  P3 표본은 3,559~12,504로 수천~만 단위다.
+- 행동 동치류만 곱한 명시적 전이 관계: 여전히 큼. 다음 계측은 대상별 국소 관계나
+  목적지 CSP/DP로 전이를 분해한 뒤 2일차 표본을 수행한다.
 - `6,182`와 P2 100개 93% 주장은 생성 코드·상태 키가 없어 재현 불가로 폐기했다.
 - 상세 결과: `results/firstSteps-2-engine-state.md`,
-  `results/firstSteps-2-p4-destinations.md`
+  `results/firstSteps-2-p4-destinations.md`,
+  `results/firstSteps-2-action-equivalence.md`
