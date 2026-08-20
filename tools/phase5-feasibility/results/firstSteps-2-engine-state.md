@@ -1,5 +1,9 @@
 # Section 2 engineStateKey 재계측 — `firstSteps:2`
 
+> 후속 목적지 계측이 전체 P2의 P4 상태 수를 확정했다. 이 문서의 12,062개는 한 P2
+> 부모의 probe이며 전체 상태 수가 아니다. 전체 수치와 갱신 판정은
+> `firstSteps-2-p4-destinations.md`를 따른다.
+
 - 실행일: 2026-08-20
 - 각본: The First Script (NT), 3일 × 3루프, 캐스트 6명
 - 기준 커밋: `892f9bf`
@@ -86,5 +90,6 @@ P3 배치 시점에는 주인공에게 소유자와 대상만 보이고 카드 �
 - `engineStateKey` 기반 물리 전이 캐시: **지원 근거 확보**
 - `worst-legal-response`에서 정책 키 생략: **충분성 근거 확보**
 - 한 P2 후보의 모든 P3 대응을 P4까지 스트리밍 비교: **약 156초, 게임 전/백그라운드용**
-- `firstSteps:2` 전체 완전 opening book: **현재 열거 방식 미지원**
-- 전체 P2×P3의 exact symbolic quotient: **미구현 연구 과제**
+- `firstSteps:2` 명시적 원시 경로 opening book: **현재 열거 방식 미지원**
+- 전체 P2×P3 목적지 상태 quotient: **완전 열거됨**
+- 행동 동치류를 보존한 symbolic transition relation: **미구현 연구 과제**

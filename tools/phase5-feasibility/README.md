@@ -249,6 +249,16 @@ npx vite-node tools/phase5-feasibility/measure-scenario.mjs \
   firstSteps:2 /tmp/phase5-firstSteps-2-run-a
 ```
 
+전체 P2의 1일차 P4 목적지는 원시 P2×P3 간선을 만들지 않는 별도 CSP/DP 계측기로
+정방향·역방향 두 번 실행한다.
+
+```bash
+npx vite-node tools/phase5-feasibility/measure-p4-destinations.ts \
+  /tmp/phase5-p4-destinations-forward
+npx vite-node tools/phase5-feasibility/measure-p4-destinations.ts \
+  /tmp/phase5-p4-destinations-reverse --reverse
+```
+
 두 실행은 출력 디렉터리와 프로세스를 공유하지 않는다. `manifest.json`의
 `deterministicHash`만 재현성 판정에 쓰고 시간·RSS 같은 성능값은 별도로 비교한다.
 
@@ -296,5 +306,11 @@ export를 재사용한다.
 - 2계층 캐시: `engineStateKey` + 정책별 선택 키 구현
 - 기본 검색 정책: `worst-legal-response`, 정책 키 없음
 - `firstSteps:2` P4 후 물리 병합 probe: 368,640 → 12,062, 96.728%
-- `firstSteps:2` 완전 opening book: 23,357,030,400 합법 간선 중단 조건으로 미지원
-- 상세 결과: `results/firstSteps-2-engine-state.md`
+- 전체 P2×P3 원시 간선: 23,357,030,400개. 상태 수와 구분한다.
+- P4 목적지 완전 열거: 물리 6,632,690개, 잔량 통합 근사 12,594,452개,
+  소유자별 정확 엔진 투영 34,516,856개
+- 명시적 경로 opening book: 전이 상한으로 미지원
+- 목적지 CSP/DP 상태 열거: 지원 근거 확보. 다음 게이트는 행동 동치류 전이 관계다.
+- `6,182`와 P2 100개 93% 주장은 생성 코드·상태 키가 없어 재현 불가로 폐기했다.
+- 상세 결과: `results/firstSteps-2-engine-state.md`,
+  `results/firstSteps-2-p4-destinations.md`

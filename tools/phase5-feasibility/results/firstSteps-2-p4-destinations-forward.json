@@ -1,0 +1,24 @@
+{
+  "deterministicHash": "8420ca87419f27da2598a8de7d7f54eae441416e0cf041430438314e763afc6f",
+  "targetOrder": "forward",
+  "p2Profiles": 63360,
+  "rawP2P3Edges": 23357030400,
+  "physicalOnly": 6632690,
+  "aggregatedRemainingApproximation": 12594452,
+  "ownerSpecificEngineProjection": 34516856,
+  "validation": {
+    "checkedEngineTransitions": 1000,
+    "firstP2OwnerSpecificStates": 12062,
+    "firstP2PhysicalStates": 2885
+  },
+  "p2Sample100": {
+    "sampleSelection": "lowest SHA-256 of canonical P2 placements",
+    "requested": 100,
+    "selected": 100,
+    "physicalStates": 158478,
+    "physicalCoverage": 0.023893473085580662,
+    "physicalDigest": "644a41182b199d10a2612dae44e1acc7ab573783ef8419eb630b267632257a89"
+  },
+  "seconds": 263.724681334,
+  "rssBytes": 1434042368
+}
