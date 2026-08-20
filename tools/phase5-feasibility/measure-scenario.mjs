@@ -8,7 +8,10 @@ import {
   continueFromTimeGap,
   createGameState,
 } from "../../src/engine/game.ts";
+import { validatePlacement } from "../../src/engine/legal.ts";
+import { resolveActions } from "../../src/engine/resolve.ts";
 import { loadScenarioCatalog } from "../../src/scenario-catalog.ts";
+import { PROTAGONIST_HAND } from "../../src/ui/action-cards.ts";
 import {
   canonicalDecisionStateKey,
   canonicalStringify,
@@ -100,7 +103,7 @@ function scenarioEntry(id) {
   return entry;
 }
 
-function initialRoots(entry) {
+function symmetricInitialRoots(entry) {
   return [0, 1, 2].map((leader) => {
     const state = createGameState(structuredClone(entry.scenario));
     chooseInitialLeader(state, leader);
@@ -112,6 +115,46 @@ function initialRoots(entry) {
   });
 }
 
+function physicalOutcome(state) {
+  return canonicalStringify({
+    board: state.loop.board,
+    charCounters: state.loop.charCounters,
+    locIntrigue: state.loop.locIntrigue,
+    specialGauge: state.loop.specialGauge,
+  });
+}
+
+function resolvedOutcome(state, placements) {
+  const candidate = structuredClone(state);
+  candidate.loop.placed = [];
+  for (const placement of placements) {
+    const legal = validatePlacement(candidate, placement);
+    if (!legal.ok) return undefined;
+    candidate.loop.placed.push(structuredClone(placement));
+  }
+  resolveActions(candidate);
+  return physicalOutcome(candidate);
+}
+
+/** 실제 엔진으로 "어떤 합법 P3 대응에서라도 결과에 관여 가능한가"를 증명한다. */
+function effectCapableMastermindPlacement(root, placement) {
+  const emptyOutcome = resolvedOutcome(root.state, []);
+  const mastermindOnly = resolvedOutcome(root.state, [placement]);
+  if (mastermindOnly !== undefined && mastermindOnly !== emptyOutcome) return true;
+
+  for (const { card } of PROTAGONIST_HAND) {
+    const response = { owner: 0, card, target: structuredClone(placement.target) };
+    const responseOnly = resolvedOutcome(root.state, [response]);
+    const combined = resolvedOutcome(root.state, [placement, response]);
+    if (
+      responseOnly !== undefined &&
+      combined !== undefined &&
+      responseOnly !== combined
+    ) return true;
+  }
+  return false;
+}
+
 function measureFirstStepsPilot(scenarioId, outputDirectory) {
   mkdirSync(outputDirectory, { recursive: true });
   const runStartedAt = process.hrtime.bigint();
@@ -119,14 +162,25 @@ function measureFirstStepsPilot(scenarioId, outputDirectory) {
     encoding: "utf8",
   }).trim();
   const entry = scenarioEntry(scenarioId);
-  const roots = initialRoots(entry);
-  const peak = { rssBytes: process.memoryUsage().rss, diskBytes: 0 };
-  const totals = { uniqueStates: 0, transitions: 0 };
-  const sampleStateByLeader = new Map();
-
-  const rootHashes = new Set(roots.map((node) =>
+  const symmetricRoots = symmetricInitialRoots(entry);
+  const symmetricRootHashes = new Set(symmetricRoots.map((node) =>
     sha256(canonicalDecisionStateKey(node.state, node.publicTrace))
   ));
+  if (symmetricRootHashes.size !== 1) {
+    throw new Error("cyclic initial-leader symmetry did not canonicalize to one root");
+  }
+  const root = symmetricRoots[0];
+  if (root === undefined) throw new Error("missing initial root");
+  const roots = [root];
+  const peak = { rssBytes: process.memoryUsage().rss, diskBytes: 0 };
+  const totals = { uniqueStates: 0, transitions: 0 };
+  let sampleP2State;
+  const effectCapablePlacements = new Map();
+  const semanticMastermindPlacements = new Map();
+  let p2ImmediateEffectProfiles = 0;
+  let p2EffectCapableProfiles = 0;
+
+  const rootHashes = symmetricRootHashes;
   totals.uniqueStates += rootHashes.size;
 
   const p2StartedAt = process.hrtime.bigint();
@@ -134,7 +188,6 @@ function measureFirstStepsPilot(scenarioId, outputDirectory) {
   const p2Terminals = {};
   let p2Generated = 0;
   for (const root of roots) {
-    const leader = root.state.loop.leader;
     for (const transition of enumerateP2Transitions(root)) {
       p2Generated += 1;
       totals.transitions += 1;
@@ -144,8 +197,32 @@ function measureFirstStepsPilot(scenarioId, outputDirectory) {
       ));
       p2Hashes.add(stateHash);
       addTerminal(p2Terminals, transition.node.state);
-      if (!sampleStateByLeader.has(leader)) {
-        sampleStateByLeader.set(leader, transition.node);
+      sampleP2State ??= transition.node;
+      if (transition.action.kind !== "P2_PROFILE") {
+        throw new Error("P2 enumerator returned a non-P2 action");
+      }
+      let immediateEffect = false;
+      const resolved = structuredClone(transition.node.state);
+      const beforeOutcome = physicalOutcome(resolved);
+      resolveActions(resolved);
+      immediateEffect = physicalOutcome(resolved) !== beforeOutcome;
+      if (immediateEffect) p2ImmediateEffectProfiles += 1;
+
+      const effectCapable = transition.action.placements.some((placement) => {
+        const key = canonicalStringify(placement);
+        semanticMastermindPlacements.set(key, structuredClone(placement));
+        const cached = effectCapablePlacements.get(key);
+        if (cached !== undefined) return cached;
+        const result = effectCapableMastermindPlacement(root, placement);
+        effectCapablePlacements.set(key, result);
+        return result;
+      });
+      if (effectCapable) {
+        p2EffectCapableProfiles += 1;
+      }
+      for (const placement of transition.action.placements) {
+        const key = canonicalStringify(placement);
+        semanticMastermindPlacements.set(key, structuredClone(placement));
       }
       if (p2Generated % 50_000 === 0) {
         const usage = requireWithinLimits("P2", {
@@ -166,9 +243,10 @@ function measureFirstStepsPilot(scenarioId, outputDirectory) {
 
   const p3ProbeStartedAt = process.hrtime.bigint();
   const p3Probe = [];
-  for (const leader of [0, 1, 2]) {
-    const sample = sampleStateByLeader.get(leader);
-    if (sample === undefined) throw new Error(`missing P2 sample for leader ${leader}`);
+  {
+    const leader = 0;
+    const sample = sampleP2State;
+    if (sample === undefined) throw new Error("missing P2 sample");
     const hashes = new Set();
     const terminals = {};
     let generated = 0;
@@ -211,6 +289,19 @@ function measureFirstStepsPilot(scenarioId, outputDirectory) {
     });
   }
   const p3ProbeSeconds = elapsedSeconds(p3ProbeStartedAt);
+  for (const [key, placement] of semanticMastermindPlacements) {
+    if (effectCapablePlacements.has(key)) continue;
+    effectCapablePlacements.set(
+      key,
+      effectCapableMastermindPlacement(root, placement),
+    );
+  }
+  const incapableSemanticPlacements = [...effectCapablePlacements.entries()]
+    .filter(([, capable]) => !capable)
+    .map(([key]) => JSON.parse(key))
+    .sort((left, right) => canonicalStringify(left).localeCompare(
+      canonicalStringify(right),
+    ));
   const branchCounts = new Set(p3Probe.map(({ generatedTransitions }) =>
     generatedTransitions
   ));
@@ -244,7 +335,22 @@ function measureFirstStepsPilot(scenarioId, outputDirectory) {
     },
     canonicalVersion: CANONICAL_DECISION_STATE_VERSION,
     engineTransitionVersion: ENGINE_TRANSITION_VERSION,
-    leaders: [0, 1, 2],
+    leaders: {
+      generatedForSymmetryProof: [0, 1, 2],
+      enumeratedRepresentative: 0,
+      canonicalRoots: rootHashes.size,
+    },
+    actionClassification: {
+      scope: "first-day mastermind P2 unordered profiles",
+      N_allLegalProfiles: p2Generated,
+      M_effectCapableUnderAtLeastOneLegalP3Response: p2EffectCapableProfiles,
+      immediateBoardEffectWithoutP3Response: p2ImmediateEffectProfiles,
+      K_includingConservativeBluffValue: p2Generated,
+      semanticPlacementCount: semanticMastermindPlacements.size,
+      effectIncapableSemanticPlacements: incapableSemanticPlacements,
+      bluffRule: "No legal profile can be removed without an opponent-belief model: a distinct face-down target profile and later revealed card profile can be a signal.",
+      effectProof: "For each semantic mastermind card-target placement, compare actual resolveActions outcomes without it and with it, both alone and paired with every legal protagonist card on the same target.",
+    },
     layers: [
       {
         id: "root",
@@ -272,7 +378,7 @@ function measureFirstStepsPilot(scenarioId, outputDirectory) {
         exactMergeRate: 0,
         terminalChildren: 0,
         branchProof: {
-          method: "actual-enumerator-one-parent-per-leader; legal.ts ignores opposite-side target conflicts; canonical key retains ordered six-card placed profile",
+          method: "actual-enumerator on one symmetry-representative parent; legal.ts rejects only same-side target conflicts; canonical key retains owner/card/target sets but not submission order",
           perParent: p3PerParent,
           samples: p3Probe.map((sample) => ({
             leader: sample.leader,

@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import { collectProtagonistObservations } from "../src/engine/hypothesis";
+import {
+  chooseInitialLeader,
+  continueFromTimeGap,
+  createGameState,
+} from "../src/engine/game";
 import { validatePlacement } from "../src/engine/legal";
 import { initLoop } from "../src/engine/setup";
+import { loadScenarioCatalog } from "../src/scenario-catalog";
 import type {
   CharacterId,
   GameState,
@@ -67,7 +73,7 @@ function countTransitions(
 }
 
 describe("Phase 5 gate 2-A public event trace", () => {
-  it("masks face-down identities, reveals cards later, and preserves repeats", () => {
+  it("records each simultaneous face-down profile without an internal order", () => {
     const state = stateFor({}, "P2_MASTERMIND_ACTION");
     const placement: PlacedCard = {
       owner: "mastermind",
@@ -75,22 +81,23 @@ describe("Phase 5 gate 2-A public event trace", () => {
       target: { kind: "location", at: "School" },
     };
     const collector = new PublicEventCollector();
-    collector.recordCardPlacement(state, placement);
-    collector.recordCardPlacement(state, placement);
+    collector.recordFaceDownPlacements(state, [placement]);
     state.loop.phase = "P4_RESOLVE";
     collector.recordCardsRevealed(state, [placement]);
 
-    expect(collector.trace.map(({ sequence }) => sequence)).toEqual([0, 1, 2]);
+    expect(collector.trace.map(({ sequence }) => sequence)).toEqual([0, 1]);
     expect(collector.trace[0]).toMatchObject({
       visibility: "public-card-identity-masked",
       payload: {
-        kind: "cardPlaced",
-        owner: "mastermind",
-        target: { kind: "location", at: "School" },
+        kind: "cardsPlacedFaceDown",
+        placements: [{
+          owner: "mastermind",
+          target: { kind: "location", at: "School" },
+        }],
       },
     });
     expect(JSON.stringify(collector.trace[0])).not.toContain("intriguePlus2");
-    expect(collector.trace[2]).toMatchObject({
+    expect(collector.trace[1]).toMatchObject({
       visibility: "public",
       payload: {
         kind: "cardsRevealed",
@@ -167,11 +174,12 @@ describe("Phase 5 gate 2-B headless placement enumeration", () => {
       enumerateP2Transitions(headlessNode(state)),
     );
 
-    // 카드 순서 528개 × 서로 다른 장소 대상 순열 P(4, 3)=24.
-    expect(count).toBe(528 * 24);
+    // 의미가 다른 카드 멀티셋/대상 배정 528개 × 대상 집합 C(4, 3).
+    // 예전 순차 생성의 528 × P(4, 3)는 같은 완성 집합을 3!번 셌다.
+    expect(count).toBe(528 * 4);
     expect(first?.action.kind).toBe("P2_PROFILE");
     expect(first?.node.state.loop.phase).toBe("P3_PROTAGONIST_ACTION");
-    expect(first?.node.publicTrace).toHaveLength(3);
+    expect(first?.node.publicTrace).toHaveLength(1);
 
     const replay = structuredClone(state);
     if (first?.action.kind !== "P2_PROFILE") {
@@ -209,12 +217,86 @@ describe("Phase 5 gate 2-B headless placement enumeration", () => {
 
     // 세 주인공의 카드 8^3 × 서로 다른 장소 대상 순열 P(4, 3)=24.
     expect(count).toBe(8 ** 3 * 24);
-    expect(first?.action).toMatchObject({
-      kind: "P3_PROFILE",
-      placements: [{ owner: 1 }, { owner: 2 }, { owner: 0 }],
-    });
+    expect(first?.action.kind).toBe("P3_PROFILE");
+    if (first?.action.kind !== "P3_PROFILE") {
+      throw new Error("missing first P3 profile");
+    }
+    expect(first.action.placements.map(({ owner }) => owner)).toEqual([0, 1, 2]);
+    expect(first.node.publicTrace).toHaveLength(1);
     expect(first?.node.state.loop.phase).toBe("P4_RESOLVE");
   });
+
+  it("counts firstSteps:2 P3 constraints without submission-order duplicates", () => {
+    const entry = loadScenarioCatalog().find(({ id }) => id === "firstSteps:2");
+    if (entry === undefined) throw new Error("missing firstSteps:2");
+    const state = createGameState(structuredClone(entry.scenario));
+    chooseInitialLeader(state, 0);
+    continueFromTimeGap(state);
+    state.loop.placed = [
+      {
+        owner: "mastermind",
+        card: "paranoiaPlus1",
+        target: { kind: "location", at: "Hospital" },
+      },
+      {
+        owner: "mastermind",
+        card: "intriguePlus1",
+        target: { kind: "location", at: "Shrine" },
+      },
+      {
+        owner: "mastermind",
+        card: "moveVertical",
+        target: { kind: "location", at: "City" },
+      },
+    ];
+    state.loop.phase = "P3_PROTAGONIST_ACTION";
+
+    const initial = countTransitions(enumerateP3Transitions(headlessNode(state)));
+    // 카드 8^3 × 세 소유자의 서로 다른 대상 P(10, 3).
+    expect(initial.count).toBe(8 ** 3 * 10 * 9 * 8);
+
+    const constrained = structuredClone(state);
+    const firstCharacter = Object.keys(constrained.loop.board)[0];
+    if (firstCharacter === undefined) throw new Error("missing cast");
+    const firstPosition = constrained.loop.board[firstCharacter];
+    if (firstPosition === undefined || firstPosition.status === "absent") {
+      throw new Error("missing initial character position");
+    }
+    constrained.loop.board[firstCharacter] = {
+      status: "dead",
+      at: firstPosition.at,
+    };
+    expect(validatePlacement(constrained, {
+      owner: 0,
+      card: "goodwillPlus1",
+      target: { kind: "character", id: firstCharacter },
+    }).ok).toBe(false);
+
+    constrained.loop.spentOncePerLoop.protagonists[0].push("goodwillPlus2");
+    expect(validatePlacement(constrained, {
+      owner: 0,
+      card: "goodwillPlus2",
+      target: { kind: "location", at: "School" },
+    }).ok).toBe(false);
+
+    constrained.loop.placed.push({
+      owner: 1,
+      card: "goodwillPlus1",
+      target: { kind: "location", at: "School" },
+    });
+    expect(validatePlacement(constrained, {
+      owner: 2,
+      card: "goodwillPlus1",
+      target: { kind: "location", at: "School" },
+    }).ok).toBe(false);
+
+    const overlapsMastermind = validatePlacement(state, {
+      owner: 0,
+      card: "goodwillPlus1",
+      target: { kind: "location", at: "Hospital" },
+    });
+    expect(overlapsMastermind).toEqual({ ok: true });
+  }, 30_000);
 });
 
 describe("Phase 5 gate 2-B headless follow-up choices", () => {

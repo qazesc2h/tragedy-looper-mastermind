@@ -111,7 +111,7 @@ function assertRoundPhase(state: GameState, phase: Phase): void {
   }
 }
 
-/** P2의 완성된 3장 프로필을 순서대로 스트리밍한다. */
+/** P2의 순서 없는 완성 3장 프로필을 스트리밍한다. */
 export function* enumerateP2Transitions(
   input: HeadlessNode,
 ): Generator<HeadlessTransition> {
@@ -124,17 +124,25 @@ export function* enumerateP2Transitions(
 
 function* enumerateP2Placements(
   node: HeadlessNode,
+  minimumPlacementKey?: string,
 ): Generator<HeadlessTransition> {
   const currentCount = placementsForOwner(node.state, "mastermind").length;
   if (currentCount === 3) {
     const completed = cloneNode(node);
+    const placements = placementsForOwner(completed.state, "mastermind")
+      .map((placement) => structuredClone(placement))
+      .sort((left, right) => canonicalStringify(left).localeCompare(
+        canonicalStringify(right),
+      ));
+    completed.state.loop.placed = placements;
+    const collector = new PublicEventCollector(completed.publicTrace);
+    collector.recordFaceDownPlacements(completed.state, placements);
+    completed.publicTrace = collector.trace;
     advanceGame(completed.state, undefined, { deferSettlement: true });
     yield {
       action: {
         kind: "P2_PROFILE",
-        placements: structuredClone(
-          placementsForOwner(completed.state, "mastermind"),
-        ),
+        placements: structuredClone(placements),
       },
       node: completed,
     };
@@ -162,6 +170,11 @@ function* enumerateP2Placements(
         card: handCard.card,
         target,
       };
+      const placementKey = canonicalStringify(placement);
+      if (
+        minimumPlacementKey !== undefined &&
+        placementKey <= minimumPlacementKey
+      ) continue;
       if (!validatePlacement(node.state, placement).ok) continue;
       const next = cloneNode(node);
       const legal = validatePlacement(next.state, placement);
@@ -169,10 +182,7 @@ function* enumerateP2Placements(
         throw new Error(legal.reason ?? "P2 placement became illegal after clone");
       }
       next.state.loop.placed.push(structuredClone(placement));
-      const collector = new PublicEventCollector(next.publicTrace);
-      collector.recordCardPlacement(next.state, placement);
-      next.publicTrace = collector.trace;
-      yield* enumerateP2Placements(next);
+      yield* enumerateP2Placements(next, placementKey);
     }
   }
 }
@@ -194,15 +204,26 @@ function* enumerateP3Placements(
   const owner = nextProtagonist(node.state);
   if (owner === undefined) {
     const completed = cloneNode(node);
+    const protagonistPlacements = completed.state.loop.placed
+      .filter((placement) => placement.owner !== "mastermind")
+      .map((placement) => structuredClone(placement))
+      .sort((left, right) => canonicalStringify(left).localeCompare(
+        canonicalStringify(right),
+      ));
+    completed.state.loop.placed = [
+      ...completed.state.loop.placed.filter(
+        (placement) => placement.owner === "mastermind",
+      ),
+      ...protagonistPlacements,
+    ];
+    const collector = new PublicEventCollector(completed.publicTrace);
+    collector.recordFaceDownPlacements(completed.state, protagonistPlacements);
+    completed.publicTrace = collector.trace;
     advanceGame(completed.state, undefined, { deferSettlement: true });
     yield {
       action: {
         kind: "P3_PROFILE",
-        placements: structuredClone(
-          completed.state.loop.placed.filter(
-            (placement) => placement.owner !== "mastermind",
-          ),
-        ),
+        placements: structuredClone(protagonistPlacements),
       },
       node: completed,
     };
@@ -224,9 +245,6 @@ function* enumerateP3Placements(
         throw new Error(legal.reason ?? "P3 placement became illegal after clone");
       }
       next.state.loop.placed.push(structuredClone(placement));
-      const collector = new PublicEventCollector(next.publicTrace);
-      collector.recordCardPlacement(next.state, placement);
-      next.publicTrace = collector.trace;
       yield* enumerateP3Placements(next);
     }
   }

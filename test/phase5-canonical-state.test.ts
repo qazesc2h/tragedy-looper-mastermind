@@ -18,6 +18,7 @@ import {
   projectHypothesisSupport,
 } from "../tools/phase5-feasibility/canonical-state";
 import type { ProtagonistObservation } from "../src/engine/hypothesis";
+import { PublicEventCollector } from "../tools/phase5-feasibility/public-events";
 
 function firstStepsState(): GameState {
   const entry = loadFirstStepsScenarioCatalog()[0];
@@ -156,20 +157,63 @@ describe("Phase 5 canonical state Section 1", () => {
       canonicalDecisionStateKey(placedVariant, []),
     );
 
-    const traceVariant = [{
-      loop: 1,
-      day: 1,
-      phase: "P2_MASTERMIND_ACTION" as const,
-      sequence: 0,
-      visibility: "public-card-identity-masked" as const,
-      payload: {
-        kind: "cardPlaced" as const,
-        owner: "mastermind" as const,
-        target: { kind: "location" as const, at: "School" as const },
-      },
-    }];
+    const collector = new PublicEventCollector();
+    const firstPlacement = mastermindProfileA[0];
+    if (firstPlacement === undefined) throw new Error("missing placement");
+    collector.recordFaceDownPlacements(base, [firstPlacement]);
+    const traceVariant = collector.trace;
     expect(canonicalDecisionStateKey(base, [])).not.toBe(
       canonicalDecisionStateKey(base, traceVariant),
+    );
+  });
+
+  it("quotients cyclic leader labels and P2/P3 placement order only", () => {
+    const left = firstStepsState();
+    left.loop.leader = 0;
+    left.loop.placed = [
+      ...structuredClone(mastermindProfileA),
+      ...structuredClone(protagonistPlacements),
+    ];
+    left.loop.spentOncePerLoop.protagonists = [
+      ["goodwillPlus2"],
+      ["forbidMove"],
+      ["paranoiaMinus1"],
+    ];
+
+    const right = structuredClone(left);
+    right.loop.leader = 1;
+    right.loop.placed = [
+      ...structuredClone(left.loop.placed).reverse().map((placement) => ({
+        ...placement,
+        owner: placement.owner === "mastermind"
+          ? placement.owner
+          : ((placement.owner + 1) % 3) as 0 | 1 | 2,
+      })),
+    ];
+    right.loop.spentOncePerLoop.protagonists = [
+      ["paranoiaMinus1"],
+      ["goodwillPlus2"],
+      ["forbidMove"],
+    ];
+
+    const leftTrace = new PublicEventCollector();
+    leftTrace.recordFaceDownPlacements(left, left.loop.placed);
+    const rightTrace = new PublicEventCollector();
+    rightTrace.recordFaceDownPlacements(right, right.loop.placed);
+    expect(canonicalDecisionStateKey(left, leftTrace.trace)).toBe(
+      canonicalDecisionStateKey(right, rightTrace.trace),
+    );
+
+    const differentOwner = structuredClone(right);
+    const protagonist = differentOwner.loop.placed.find(
+      ({ owner }) => owner !== "mastermind",
+    );
+    if (protagonist === undefined || protagonist.owner === "mastermind") {
+      throw new Error("missing protagonist placement");
+    }
+    protagonist.owner = ((protagonist.owner + 1) % 3) as 0 | 1 | 2;
+    expect(canonicalDecisionStateKey(left, leftTrace.trace)).not.toBe(
+      canonicalDecisionStateKey(differentOwner, rightTrace.trace),
     );
   });
 
@@ -217,6 +261,16 @@ describe("Phase 5 canonical state Section 1", () => {
     expect(knowledgeA.observations).toEqual(knowledgeB.observations);
     expect(knowledgeA.publicActionProfiles).not.toEqual(
       knowledgeB.publicActionProfiles,
+    );
+
+    const traceA = new PublicEventCollector();
+    traceA.recordFaceDownPlacements(stateA, mastermindProfileA);
+    traceA.recordCardsRevealed(stateA, mastermindProfileA);
+    const traceB = new PublicEventCollector();
+    traceB.recordFaceDownPlacements(stateB, mastermindProfileB);
+    traceB.recordCardsRevealed(stateB, mastermindProfileB);
+    expect(canonicalDecisionStateKey(stateA, traceA.trace)).not.toBe(
+      canonicalDecisionStateKey(stateB, traceB.trace),
     );
   });
 });

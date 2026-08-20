@@ -21,8 +21,8 @@ import type { PublicEvent } from "./public-events";
  * Phase 5 상태 키 계약의 버전이다. 이 값을 바꾸지 않고 필드를 더하거나 빼면
  * 서로 다른 계측 결과가 같은 캐시를 공유하게 되므로 반드시 명시적으로 올린다.
  */
-export const CANONICAL_DECISION_STATE_VERSION = "phase5-decision-v1" as const;
-export const ENGINE_TRANSITION_VERSION = "headless-transition-v1" as const;
+export const CANONICAL_DECISION_STATE_VERSION = "phase5-decision-v2" as const;
+export const ENGINE_TRANSITION_VERSION = "headless-transition-v2" as const;
 
 /**
  * Section 1에서 확정한 상태 분할. 실제 열거기는 이 목록의 각 항목을 투영한 뒤
@@ -172,6 +172,55 @@ function currentLoopOutcome(state: GameState): LoopOutcome | undefined {
   return state.loopOutcomes.find(({ loop }) => loop === state.loop.loop);
 }
 
+type ProtagonistOwner = 0 | 1 | 2;
+
+function canonicalOwner(
+  owner: PlacedCard["owner"],
+  leader: ProtagonistOwner,
+): PlacedCard["owner"] {
+  if (owner === "mastermind") return owner;
+  return ((owner - leader + 3) % 3) as ProtagonistOwner;
+}
+
+function canonicalPlacements(
+  placements: readonly PlacedCard[],
+  leader: ProtagonistOwner,
+): PlacedCard[] {
+  return placements.map((placement): PlacedCard => ({
+    ...structuredClone(placement),
+    owner: canonicalOwner(placement.owner, leader),
+  })).sort((left, right) => compareCanonicalKeys(
+    canonicalStringify(left),
+    canonicalStringify(right),
+  ));
+}
+
+function canonicalPublicTrace(
+  trace: readonly PublicEvent[],
+  leader: ProtagonistOwner,
+): PublicEvent[] {
+  return trace.map((event): PublicEvent => {
+    const result = structuredClone(event);
+    if (result.payload.kind === "cardsPlacedFaceDown") {
+      result.payload.placements = result.payload.placements.map(
+        (placement) => ({
+          ...placement,
+          owner: canonicalOwner(placement.owner, leader),
+        }),
+      ).sort((left, right) => compareCanonicalKeys(
+        canonicalStringify(left),
+        canonicalStringify(right),
+      ));
+    } else if (result.payload.kind === "cardsRevealed") {
+      result.payload.placements = canonicalPlacements(
+        result.payload.placements,
+        leader,
+      );
+    }
+    return result;
+  });
+}
+
 /**
  * Section 1에서 확정한 충분통계만 실제 값으로 투영한다. raw history/phaseLog/
  * PublicInformation과 세 가설 표는 키에 직접 넣지 않는다.
@@ -180,6 +229,7 @@ export function projectCanonicalDecisionState(
   state: GameState,
   publicTrace: readonly PublicEvent[],
 ): unknown {
+  const leader = state.loop.leader;
   return {
     provenance: {
       canonicalVersion: CANONICAL_DECISION_STATE_VERSION,
@@ -191,8 +241,10 @@ export function projectCanonicalDecisionState(
       loop: state.loop.loop,
       day: state.loop.day,
       phase: state.loop.phase,
-      leader: state.loop.leader,
-      placed: state.loop.placed,
+      // 주인공 번호는 현재 리더를 0으로 둔 상대 좌표다. 전역 순환 치환은
+      // 같은 상태지만, 리더 대비 누가 어떤 카드를 소진했는지는 유지한다.
+      leader: 0,
+      placed: canonicalPlacements(state.loop.placed, leader),
       actionResolutionComplete: state.loop.actionResolutionComplete,
       pendingLoopEnd: state.pendingLoopEnd,
       optionalLossActivations: state.loop.optionalLossActivations,
@@ -209,7 +261,16 @@ export function projectCanonicalDecisionState(
       specialGauge: state.loop.specialGauge,
     },
     resourcesAndEffects: {
-      spentOncePerLoop: state.loop.spentOncePerLoop,
+      spentOncePerLoop: {
+        mastermind: [...state.loop.spentOncePerLoop.mastermind].sort(
+          compareCanonicalKeys,
+        ),
+        protagonists: [0, 1, 2].map((offset) =>
+          [...state.loop.spentOncePerLoop.protagonists[
+            ((leader + offset) % 3) as ProtagonistOwner
+          ]].sort(compareCanonicalKeys)
+        ),
+      },
       abilitiesUsedThisLoop: state.loop.abilitiesUsedThisLoop,
       abilitiesUsedThisRound: state.loop.abilitiesUsedThisRound,
       locationRestrictionsRemoved: state.loop.locationRestrictionsRemoved,
@@ -234,7 +295,7 @@ export function projectCanonicalDecisionState(
       currentLoopOutcome: currentLoopOutcome(state),
     },
     knowledge: {
-      publicTrace,
+      publicTrace: canonicalPublicTrace(publicTrace, leader),
     },
   };
 }

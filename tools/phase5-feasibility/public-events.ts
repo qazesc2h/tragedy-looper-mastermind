@@ -10,7 +10,6 @@ import type {
   PlacedCard,
   PublicBoardChange,
   PublicInformation,
-  Target,
 } from "../../src/types";
 import { canonicalStringify } from "./canonical-state";
 
@@ -27,9 +26,8 @@ export type PublicEventPhase = Phase | HookPoint | GamePhase;
 
 export type PublicEventPayload =
   | {
-    kind: "cardPlaced";
-    owner: PlacedCard["owner"];
-    target: Target;
+    kind: "cardsPlacedFaceDown";
+    placements: Array<Pick<PlacedCard, "owner" | "target">>;
   }
   | {
     kind: "cardsRevealed";
@@ -125,14 +123,21 @@ export class PublicEventCollector {
     return event;
   }
 
-  recordCardPlacement(state: GameState, placement: PlacedCard): PublicEvent {
+  recordFaceDownPlacements(
+    state: GameState,
+    placements: readonly PlacedCard[],
+  ): PublicEvent {
     return this.append(
       eventContext(state),
       "public-card-identity-masked",
       {
-        kind: "cardPlaced",
-        owner: placement.owner,
-        target: structuredClone(placement.target),
+        kind: "cardsPlacedFaceDown",
+        placements: placements.map(({ owner, target }) => ({
+          owner,
+          target: structuredClone(target),
+        })).sort((left, right) => canonicalStringify(left).localeCompare(
+          canonicalStringify(right),
+        )),
       },
     );
   }
@@ -143,7 +148,9 @@ export class PublicEventCollector {
   ): PublicEvent {
     return this.append(eventContext(state, "P4_RESOLVE"), "public", {
       kind: "cardsRevealed",
-      placements: structuredClone([...placements]),
+      placements: structuredClone([...placements]).sort((left, right) =>
+        canonicalStringify(left).localeCompare(canonicalStringify(right))
+      ),
     });
   }
 
