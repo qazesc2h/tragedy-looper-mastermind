@@ -67,10 +67,18 @@
 
 #### 상태공간 feasibility 게이트
 
-전략 UI보다 canonical 상태공간 feasibility 계측을 먼저 한다. 현재 상태 키는 raw
-`GameState`나 가설표만 쓰지 않고, 현재 전이 상태·과거 전이 요약·완전한 공개 이벤트
-trace를 사용한다. `tools/phase5-feasibility/`에 프로덕션 번들과 분리된 수집기와
-headless 전이 열거기가 있다.
+전략 UI보다 canonical 상태공간 feasibility 계측을 먼저 한다. 검색 키는
+`engineStateKey`와 `protagonistPolicyStateKey`의 두 계층이다. 전자는 현재 전이
+상태·과거 전이 요약만 가지며 물리 전이를 공유한다. 후자는 공개 이력을 읽는 정책에만
+붙는다. 기본 정책은 현재 모든 합법 대응 중 각본가에게 가장 불리한 결과를 비교하는
+`worst-legal-response`라서 정책 키가 없다. 완전 공개 trace는 `perfect-recall` 진단과
+정보 누출 평가에만 남긴다. `tools/phase5-feasibility/`에 프로덕션 번들과 분리된
+수집기와 headless 전이 열거기가 있다.
+
+이 선택은 명세의 최악 기준 비교와 맞고 확률·승률·몬테카를로·대표 대응·숨은 가중치를
+쓰지 않는다. 얻는 것은 물리 상태와 전이 캐시의 병합 및 모든 합법 대응에 대한 보수적
+관계다. 잃는 것은 실제 주인공 대응 예측과 시그널링 효과 평가다. 후자는
+`disclosure-preview` 기반 별도 축으로 표시하고 물리 탐색 점수에 섞지 않는다.
 
 새 공개 기록은 `PublicInformation`과 공개 `PhaseLogEntry`가 공유하는
 `(loop, day, phase, sequence)`를 가진다. 역할 공개 순간 공개 보드도 저장해 불안 3
@@ -78,6 +86,10 @@ headless 전이 열거기가 있다.
 `serialKiller` 공개는 기본 `person` 변이일 수 있으므로 배정 역할로 과잉 확정하지
 않는다. 시점 상태가 없는 구 저장은 새 배제에 쓰지 않는다. 전수 감사 결과는
 `tools/phase5-feasibility/observation-order-audit.md`에 있다.
+
+Section 1의 full-trace 판정은 정책이 정해지지 않은 `perfect-recall` 범위에서는 여전히
+유효하다. 제한된 2일 36경로 감사에서 full trace 병합률은 0%, trace 없는 물리 상태
+병합률은 97.22%였다. 이것이 2계층 전환의 근거다.
 
 Section 2 측정 프로필은 2026-08-20에 승인되었다. `firstSteps:2` 최초 계측은 초기
 리더 3배와 P2 제출 순서 6배를 잘못 canonical 분기로 보아 폐기했다. v2 재검증은

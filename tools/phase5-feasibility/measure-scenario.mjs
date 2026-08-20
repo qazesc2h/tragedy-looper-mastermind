@@ -16,15 +16,18 @@ import {
   PROTAGONIST_HAND,
 } from "../../src/ui/action-cards.ts";
 import {
-  canonicalDecisionStateKey,
   canonicalStringify,
-  CANONICAL_DECISION_STATE_VERSION,
+  CANONICAL_ENGINE_STATE_VERSION,
+  DEFAULT_PROTAGONIST_POLICY_MODEL,
   ENGINE_TRANSITION_VERSION,
+  engineStateKey,
+  protagonistPolicyStateKey,
 } from "./canonical-state.ts";
 import {
   enumerateP2Transitions,
   enumerateP3Transitions,
   headlessNode,
+  resolveP4Transition,
 } from "./headless-transitions.ts";
 
 const PILOT_LIMITS = {
@@ -59,6 +62,31 @@ function elapsedSeconds(startedAt) {
 
 function rate(count, seconds) {
   return seconds === 0 ? 0 : count / seconds;
+}
+
+function contextMultiplicitySummary(countsByEngineState) {
+  const counts = [...countsByEngineState.values()].sort((left, right) =>
+    left - right
+  );
+  const total = counts.reduce((sum, count) => sum + count, 0);
+  const quantile = (fraction) => counts.length === 0
+    ? 0
+    : counts[Math.min(
+      counts.length - 1,
+      Math.floor((counts.length - 1) * fraction),
+    )];
+  return {
+    physicalStates: counts.length,
+    informationContexts: total,
+    meanContextsPerPhysicalState: counts.length === 0
+      ? 0
+      : total / counts.length,
+    minimum: counts[0] ?? 0,
+    p50: quantile(0.5),
+    p95: quantile(0.95),
+    p99: quantile(0.99),
+    maximum: counts.at(-1) ?? 0,
+  };
 }
 
 function terminalReason(state) {
@@ -204,7 +232,7 @@ function measureFirstStepsPilot(scenarioId, outputDirectory) {
   const entry = scenarioEntry(scenarioId);
   const symmetricRoots = symmetricInitialRoots(entry);
   const symmetricRootHashes = new Set(symmetricRoots.map((node) =>
-    sha256(canonicalDecisionStateKey(node.state, node.publicTrace))
+    sha256(engineStateKey(node.state))
   ));
   if (symmetricRootHashes.size !== 1) {
     throw new Error("cyclic initial-leader symmetry did not canonicalize to one root");
@@ -231,10 +259,7 @@ function measureFirstStepsPilot(scenarioId, outputDirectory) {
     for (const transition of enumerateP2Transitions(root)) {
       p2Generated += 1;
       totals.transitions += 1;
-      const stateHash = sha256(canonicalDecisionStateKey(
-        transition.node.state,
-        transition.node.publicTrace,
-      ));
+      const stateHash = sha256(engineStateKey(transition.node.state));
       p2Hashes.add(stateHash);
       addTerminal(p2Terminals, transition.node.state);
       sampleP2State ??= transition.node;
@@ -288,6 +313,10 @@ function measureFirstStepsPilot(scenarioId, outputDirectory) {
     const sample = sampleP2State;
     if (sample === undefined) throw new Error("missing P2 sample");
     const hashes = new Set();
+    const policyHashes = new Set();
+    const resolvedHashes = new Set();
+    const resolvedPolicyHashes = new Set();
+    const resolvedContextsByEngineState = new Map();
     const actionSetHashes = new Set();
     const ownerlessActionSetHashes = new Set();
     const protagonistEffectCapablePlacements = new Map();
@@ -348,14 +377,40 @@ function measureFirstStepsPilot(scenarioId, outputDirectory) {
         protagonistEffectCapablePlacements.set(placementKey, result);
         return result;
       })) effectCapableProfiles += 1;
-      hashes.add(sha256(canonicalDecisionStateKey(
+      const pendingEngineHash = sha256(engineStateKey(transition.node.state));
+      hashes.add(pendingEngineHash);
+      const pendingPolicyKey = protagonistPolicyStateKey(
+        "perfect-recall",
         transition.node.state,
         transition.node.publicTrace,
-      )));
-      addTerminal(terminals, transition.node.state);
+      );
+      if (pendingPolicyKey === undefined) {
+        throw new Error("perfect-recall policy state is missing");
+      }
+      policyHashes.add(sha256(pendingPolicyKey));
+
+      const resolved = resolveP4Transition(transition.node).node;
+      totals.transitions += 1;
+      const resolvedEngineHash = sha256(engineStateKey(resolved.state));
+      resolvedHashes.add(resolvedEngineHash);
+      const resolvedPolicyKey = protagonistPolicyStateKey(
+        "perfect-recall",
+        resolved.state,
+        resolved.publicTrace,
+      );
+      if (resolvedPolicyKey === undefined) {
+        throw new Error("perfect-recall resolved policy state is missing");
+      }
+      const resolvedPolicyHash = sha256(resolvedPolicyKey);
+      resolvedPolicyHashes.add(resolvedPolicyHash);
+      resolvedContextsByEngineState.set(
+        resolvedEngineHash,
+        (resolvedContextsByEngineState.get(resolvedEngineHash) ?? 0) + 1,
+      );
+      addTerminal(terminals, resolved.state);
       if (generated % 50_000 === 0) {
         const usage = requireWithinLimits(`P3-probe-leader-${leader}`, {
-          uniqueStates: totals.uniqueStates + hashes.size,
+          uniqueStates: totals.uniqueStates + hashes.size + resolvedHashes.size,
           transitions: totals.transitions,
         }, runStartedAt, outputDirectory);
         peak.rssBytes = Math.max(peak.rssBytes, usage.rssBytes);
@@ -367,7 +422,10 @@ function measureFirstStepsPilot(scenarioId, outputDirectory) {
       }
     }
     const seconds = elapsedSeconds(leaderStartedAt);
-    totals.uniqueStates += hashes.size;
+    totals.uniqueStates += hashes.size + resolvedHashes.size;
+    if (policyHashes.size !== generated || resolvedPolicyHashes.size !== generated) {
+      throw new Error("perfect-recall contexts unexpectedly merged");
+    }
     p3Probe.push({
       leader,
       generatedTransitions: generated,
@@ -377,6 +435,20 @@ function measureFirstStepsPilot(scenarioId, outputDirectory) {
       terminalChildren: Object.values(terminals).reduce((sum, count) => sum + count, 0),
       terminals,
       stateHash: digestHashes(hashes),
+      perfectRecallInformationContexts: policyHashes.size,
+      resolvedP4: {
+        generatedTransitions: generated,
+        uniquePhysicalStates: resolvedHashes.size,
+        duplicatePhysicalChildren: generated - resolvedHashes.size,
+        physicalMergeRate: generated === 0
+          ? 0
+          : 1 - resolvedHashes.size / generated,
+        physicalStateHash: digestHashes(resolvedHashes),
+        perfectRecallInformationContexts: resolvedPolicyHashes.size,
+        contextHash: digestHashes(resolvedPolicyHashes),
+        contextMultiplicity:
+          contextMultiplicitySummary(resolvedContextsByEngineState),
+      },
       actionSetAudit: {
         uniqueOwnerCardTargetSets: actionSetHashes.size,
         duplicateOwnerCardTargetSets: generated - actionSetHashes.size,
@@ -436,7 +508,7 @@ function measureFirstStepsPilot(scenarioId, outputDirectory) {
   peak.rssBytes = Math.max(peak.rssBytes, finalUsage.rssBytes);
   peak.diskBytes = Math.max(peak.diskBytes, finalUsage.diskBytes);
   const deterministic = {
-    schema: "phase5-measurement-v1",
+    schema: "phase5-measurement-v2",
     commit,
     scenario: {
       id: entry.id,
@@ -446,8 +518,13 @@ function measureFirstStepsPilot(scenarioId, outputDirectory) {
       daysPerLoop: entry.scenario.daysPerLoop,
       cast: Object.keys(entry.scenario.cast).sort(),
     },
-    canonicalVersion: CANONICAL_DECISION_STATE_VERSION,
+    canonicalEngineVersion: CANONICAL_ENGINE_STATE_VERSION,
     engineTransitionVersion: ENGINE_TRANSITION_VERSION,
+    protagonistPolicyModel: {
+      searchDefault: DEFAULT_PROTAGONIST_POLICY_MODEL,
+      searchPolicyStateKey: "omitted",
+      diagnosticContext: "perfect-recall",
+    },
     leaders: {
       generatedForSymmetryProof: [0, 1, 2],
       enumeratedRepresentative: 0,
@@ -487,8 +564,9 @@ function measureFirstStepsPilot(scenarioId, outputDirectory) {
         inputStates: p2Hashes.size,
         enumeration: "stopped-before-full-generation",
         exactTransitionsFromInvariant: p3ProjectedTransitions,
-        exactUniqueChildrenFromInjectivePlacedProfiles: p3ProjectedTransitions,
-        exactMergeRate: 0,
+        exactPendingP4EngineStatesFromInjectivePlacedProfiles:
+          p3ProjectedTransitions,
+        exactPendingP4MergeRate: 0,
         terminalChildren: 0,
         branchProof: {
           method: "actual-enumerator on one symmetry-representative parent; legal.ts rejects only same-side target conflicts; canonical key retains owner/card/target sets but not submission order",
@@ -502,10 +580,20 @@ function measureFirstStepsPilot(scenarioId, outputDirectory) {
             terminalChildren: sample.terminalChildren,
             terminals: sample.terminals,
             stateHash: sample.stateHash,
+            perfectRecallInformationContexts:
+              sample.perfectRecallInformationContexts,
+            resolvedP4: sample.resolvedP4,
             actionSetAudit: sample.actionSetAudit,
             actionClassification: sample.actionClassification,
           })),
         },
+      },
+      {
+        id: "loop-1/day-1/after-P4-one-parent-complete-probe",
+        scope: "all legal P3 responses for one fully enumerated P2 parent",
+        inferenceBoundary:
+          "diagnostic only; no extrapolation to the other P2 parents",
+        ...(p3Probe[0]?.resolvedP4 ?? {}),
       },
     ],
     stop: {
@@ -534,7 +622,14 @@ function measureFirstStepsPilot(scenarioId, outputDirectory) {
         p3Probe.reduce((sum, sample) => sum + sample.generatedTransitions, 0),
         p3ProbeSeconds,
       ),
-      samples: p3Probe.map(({ stateHash: _stateHash, ...sample }) => sample),
+      samples: p3Probe.map(({ stateHash: _stateHash, resolvedP4, ...sample }) => ({
+        ...sample,
+        resolvedP4: {
+          ...resolvedP4,
+          physicalStateHash: undefined,
+          contextHash: undefined,
+        },
+      })),
     },
     sampledPeakRssBytes: peak.rssBytes,
     outputDiskBytesBeforeManifest: peak.diskBytes,

@@ -14,8 +14,12 @@ import {
   canonicalStringify,
   canonicalDecisionStateKey,
   canonicalizeProtagonistObservations,
+  DEFAULT_PROTAGONIST_POLICY_MODEL,
+  engineStateKey,
+  protagonistPolicyStateKey,
   projectCurrentKnowledgeProbe,
   projectHypothesisSupport,
+  strategySearchCacheKeys,
 } from "../tools/phase5-feasibility/canonical-state";
 import type { ProtagonistObservation } from "../src/engine/hypothesis";
 import { PublicEventCollector } from "../tools/phase5-feasibility/public-events";
@@ -165,6 +169,46 @@ describe("Phase 5 canonical state Section 1", () => {
     expect(canonicalDecisionStateKey(base, [])).not.toBe(
       canonicalDecisionStateKey(base, traceVariant),
     );
+  });
+
+  it("separates the engine cache from policy-dependent public memory", () => {
+    const state = firstStepsState();
+    const collector = new PublicEventCollector();
+    const firstPlacement = mastermindProfileA[0];
+    if (firstPlacement === undefined) throw new Error("missing placement");
+    collector.recordFaceDownPlacements(state, [firstPlacement]);
+
+    expect(engineStateKey(state)).toBe(engineStateKey(structuredClone(state)));
+    expect(protagonistPolicyStateKey(
+      "perfect-recall",
+      state,
+      [],
+    )).not.toBe(protagonistPolicyStateKey(
+      "perfect-recall",
+      state,
+      collector.trace,
+    ));
+    expect(DEFAULT_PROTAGONIST_POLICY_MODEL).toBe("worst-legal-response");
+    expect(protagonistPolicyStateKey(
+      DEFAULT_PROTAGONIST_POLICY_MODEL,
+      state,
+      collector.trace,
+    )).toBeUndefined();
+    expect(strategySearchCacheKeys(state, collector.trace)).toEqual({
+      engineStateKey: engineStateKey(state),
+    });
+    expect(strategySearchCacheKeys(
+      state,
+      collector.trace,
+      "perfect-recall",
+    )).toEqual({
+      engineStateKey: engineStateKey(state),
+      protagonistPolicyStateKey: protagonistPolicyStateKey(
+        "perfect-recall",
+        state,
+        collector.trace,
+      ),
+    });
   });
 
   it("quotients cyclic leader labels and P2/P3 placement order only", () => {

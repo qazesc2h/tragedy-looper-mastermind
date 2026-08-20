@@ -21,20 +21,27 @@ import type { PublicEvent } from "./public-events";
  * Phase 5 상태 키 계약의 버전이다. 이 값을 바꾸지 않고 필드를 더하거나 빼면
  * 서로 다른 계측 결과가 같은 캐시를 공유하게 되므로 반드시 명시적으로 올린다.
  */
-export const CANONICAL_DECISION_STATE_VERSION = "phase5-decision-v2" as const;
+export const CANONICAL_ENGINE_STATE_VERSION = "phase5-engine-v1" as const;
+export const PROTAGONIST_POLICY_STATE_VERSION = "phase5-policy-v1" as const;
+export const CANONICAL_DECISION_STATE_VERSION = "phase5-decision-v3" as const;
 export const ENGINE_TRANSITION_VERSION = "headless-transition-v2" as const;
+
+export type ProtagonistPolicyModel =
+  | "worst-legal-response"
+  | "perfect-recall";
+
+export const DEFAULT_PROTAGONIST_POLICY_MODEL: ProtagonistPolicyModel =
+  "worst-legal-response";
 
 /**
  * Section 1에서 확정한 상태 분할. 실제 열거기는 이 목록의 각 항목을 투영한 뒤
  * canonical JSON으로 직렬화해야 한다. 가설 표는 knowledge에서 파생되는 캐시다.
  */
 export const CANONICAL_DECISION_STATE_PARTITIONS = {
-  provenance: [
-    "canonicalVersion",
+  engineStateKey: [
+    "canonicalEngineVersion",
     "scenarioFingerprint",
     "engineTransitionVersion",
-  ],
-  decisionControl: [
     "gamePhase",
     "loop",
     "day",
@@ -48,15 +55,11 @@ export const CANONICAL_DECISION_STATE_PARTITIONS = {
     "pendingImmediateLossKeys",
     "finalGuess",
     "result",
-  ],
-  physical: [
     "board",
     "turfLocations",
     "charCounters",
     "locIntrigue",
     "specialGauge",
-  ],
-  resourcesAndEffects: [
     "spentOncePerLoop",
     "abilitiesUsedThisLoop",
     "abilitiesUsedThisRound",
@@ -70,15 +73,14 @@ export const CANONICAL_DECISION_STATE_PARTITIONS = {
     "loopStartTraitCounterChoices",
     "loopStartTraitLocationChoices",
     "extraLoopsPlayed",
-  ],
-  carryover: [
     "previousLoopAliveGoodwill",
     "revealedRoleEver",
     "currentLoopCompletedPhaseKeys",
     "currentLoopOutcome",
   ],
-  knowledge: [
-    "canonicalPublicEventTrace(loop/day/phase/sequence/visibility/payload)",
+  protagonistPolicyStateKey: [
+    "worst-legal-response: omitted",
+    "perfect-recall: canonicalPublicEventTrace(loop/day/phase/sequence/visibility/payload)",
   ],
   derivedCompatibilityCaches: [
     "ProtagonistObservation[]",
@@ -86,11 +88,13 @@ export const CANONICAL_DECISION_STATE_PARTITIONS = {
     "rolePossibilityTable",
     "incidentPossibilityTable",
   ],
-  evaluationOnly: [
+  evaluationOnlyNotSearchState: [
     "targetLossCondition",
     "searchHorizon",
     "metricPreferenceVersion",
     "metricFormulaVersion",
+    "disclosure-preview",
+    "signaling analysis",
   ],
   excludedRawOrDerived: [
     "GameState.history",
@@ -222,17 +226,14 @@ function canonicalPublicTrace(
 }
 
 /**
- * Section 1에서 확정한 충분통계만 실제 값으로 투영한다. raw history/phaseLog/
- * PublicInformation과 세 가설 표는 키에 직접 넣지 않는다.
+ * 실제 엔진 전이의 Markov 충분통계만 투영한다. 공개 trace와 그 파생 가설 표는
+ * 엔진의 합법 행동·효과를 바꾸지 않으므로 이 키에 넣지 않는다.
  */
-export function projectCanonicalDecisionState(
-  state: GameState,
-  publicTrace: readonly PublicEvent[],
-): unknown {
+export function projectCanonicalEngineState(state: GameState): unknown {
   const leader = state.loop.leader;
   return {
     provenance: {
-      canonicalVersion: CANONICAL_DECISION_STATE_VERSION,
+      canonicalEngineVersion: CANONICAL_ENGINE_STATE_VERSION,
       scenarioFingerprint: canonicalStringify(state.scenario),
       engineTransitionVersion: ENGINE_TRANSITION_VERSION,
     },
@@ -294,9 +295,65 @@ export function projectCanonicalDecisionState(
       currentLoopCompletedPhaseKeys: currentLoopCompletedPhaseKeys(state),
       currentLoopOutcome: currentLoopOutcome(state),
     },
-    knowledge: {
-      publicTrace: canonicalPublicTrace(publicTrace, leader),
-    },
+  };
+}
+
+export function engineStateKey(state: GameState): string {
+  return canonicalStringify(projectCanonicalEngineState(state));
+}
+
+/**
+ * 정책이 공개 이력을 읽는 경우에만 필요한 두 번째 키다. 기본 최악 대응 모델은
+ * 현재 상태의 모든 합법 대응을 비교하므로 과거 이력을 읽지 않고 키가 없다.
+ */
+export function protagonistPolicyStateKey(
+  model: ProtagonistPolicyModel,
+  state: GameState,
+  publicTrace: readonly PublicEvent[],
+): string | undefined {
+  if (model === "worst-legal-response") return undefined;
+  return canonicalStringify({
+    policyVersion: PROTAGONIST_POLICY_STATE_VERSION,
+    model,
+    publicTrace: canonicalPublicTrace(publicTrace, state.loop.leader),
+  });
+}
+
+export interface StrategySearchCacheKeys {
+  engineStateKey: string;
+  protagonistPolicyStateKey?: string;
+}
+
+export function strategySearchCacheKeys(
+  state: GameState,
+  publicTrace: readonly PublicEvent[],
+  model: ProtagonistPolicyModel = DEFAULT_PROTAGONIST_POLICY_MODEL,
+): StrategySearchCacheKeys {
+  const policyKey = protagonistPolicyStateKey(model, state, publicTrace);
+  return {
+    engineStateKey: engineStateKey(state),
+    ...(policyKey === undefined
+      ? {}
+      : { protagonistPolicyStateKey: policyKey }),
+  };
+}
+
+/**
+ * Section 1의 정책 미지정 판정을 보존하는 perfect-recall 복합 상태다. 새 기본 검색은
+ * 이 키가 아니라 strategySearchCacheKeys()의 worst-legal-response 결과를 사용한다.
+ */
+export function projectCanonicalDecisionState(
+  state: GameState,
+  publicTrace: readonly PublicEvent[],
+): unknown {
+  return {
+    canonicalDecisionVersion: CANONICAL_DECISION_STATE_VERSION,
+    engineState: projectCanonicalEngineState(state),
+    protagonistPolicyState: protagonistPolicyStateKey(
+      "perfect-recall",
+      state,
+      publicTrace,
+    ),
   };
 }
 
