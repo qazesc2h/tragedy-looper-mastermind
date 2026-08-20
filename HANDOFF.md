@@ -141,6 +141,14 @@ SHA-256 `9abab4a7...993db`가 일치했다. 다만 전체 P2×P3의 해결 전 �
 평가에 그대로 쓰지 않는다. 상세 결과는
 `tools/phase5-feasibility/results/firstSteps-2-one-ply-search.md`에 있다.
 
+전체 P2 hash 공간의 균등 인덱스 분위 100개를 재측정하니 89개 후보에서는 모든 P3
+대응의 `distanceToLoss` 벡터가 같았고 11개에서만 갈렸다. 핵심 인물 축은 0/100,
+살인 청부업자 축은 11/100에서 변했으며 후보 안의 폭은 1~2였다. 평균 11,005.63개
+P4 동치류를 평가해도 고유 평가 벡터는 평균 1.11개뿐이었다. 근사 표본 조기 종료는
+쓰지 않고, 다음 단계에서 축별 의존 필드와 그 필드를 바꿀 수 있는 대응을 정적으로
+증명해 정확히 줄인다. 상세 결과는
+`tools/phase5-feasibility/results/firstSteps-2-evaluation-variance.md`에 있다.
+
 ---
 
 ## 4. 엔진 구조를 결정한 세 가지

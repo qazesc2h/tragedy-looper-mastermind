@@ -299,6 +299,16 @@ npx vite-node tools/phase5-feasibility/measure-one-ply-search.ts \
   /tmp/phase5-one-ply-b
 ```
 
+P2 후보별로 P3 대응이 `distanceToLoss` 벡터를 실제로 바꾸는 빈도는 전체 P2 hash
+공간의 결정론적 분위 표본으로 잰다.
+
+```bash
+npx vite-node tools/phase5-feasibility/measure-evaluation-variance.ts \
+  /tmp/phase5-evaluation-variance-a
+npx vite-node tools/phase5-feasibility/measure-evaluation-variance.ts \
+  /tmp/phase5-evaluation-variance-b
+```
+
 두 실행은 출력 디렉터리와 프로세스를 공유하지 않는다. `manifest.json`의
 `deterministicHash`만 재현성 판정에 쓰고 시간·RSS 같은 성능값은 별도로 비교한다.
 
@@ -361,8 +371,13 @@ export를 재사용한다.
 - 1수 앞 전경 탐색: P2 하나에서 P3 368,640→10,567 P4류, 실제 전이와
   `distanceToLoss` 축별 최악값까지 2.53초. 후보 10개 선형 환산 25.3초로 현재 구현은
   폰 즉시 비교 범위가 아니다.
+- P2 결정론적 분위 표본 100개: 대응별 `distanceToLoss` 벡터가 89개 후보에서
+  완전히 같고 11개에서만 갈렸다. 핵심 인물 축은 0/100, 살인 청부업자 축은
+  11/100에서 변했고 폭은 1~2였다. 다음 게이트는 근사 조기 종료가 아니라 축별 정확
+  관련성 분석이다.
 - `6,182`와 P2 100개 93% 주장은 생성 코드·상태 키가 없어 재현 불가로 폐기했다.
 - 상세 결과: `results/firstSteps-2-engine-state.md`,
   `results/firstSteps-2-p4-destinations.md`,
   `results/firstSteps-2-action-equivalence.md`,
-  `results/firstSteps-2-one-ply-search.md`
+  `results/firstSteps-2-one-ply-search.md`,
+  `results/firstSteps-2-evaluation-variance.md`
