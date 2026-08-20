@@ -10,16 +10,19 @@ import {
 } from "../../src/engine/incident-hypothesis";
 import type {
   GameState,
+  LoopOutcome,
   PlacedCard,
   PublicBoardChange,
   PublicObservationContext,
 } from "../../src/types";
+import type { PublicEvent } from "./public-events";
 
 /**
  * Phase 5 상태 키 계약의 버전이다. 이 값을 바꾸지 않고 필드를 더하거나 빼면
  * 서로 다른 계측 결과가 같은 캐시를 공유하게 되므로 반드시 명시적으로 올린다.
  */
 export const CANONICAL_DECISION_STATE_VERSION = "phase5-decision-v1" as const;
+export const ENGINE_TRANSITION_VERSION = "headless-transition-v1" as const;
 
 /**
  * Section 1에서 확정한 상태 분할. 실제 열거기는 이 목록의 각 항목을 투영한 뒤
@@ -133,6 +136,114 @@ function canonicalJson(value: unknown): CanonicalJson {
 /** 객체 키 순서와 무관한 계측용 직렬화. 배열 순서는 호출자가 의미를 정규화한다. */
 export function canonicalStringify(value: unknown): string {
   return JSON.stringify(canonicalJson(value));
+}
+
+function sortedUnique(values: readonly string[]): string[] {
+  return [...new Set(values)].sort(compareCanonicalKeys);
+}
+
+function currentLoopCompletedPhaseKeys(state: GameState): string[] {
+  return sortedUnique((state.loop.phaseLog ?? []).map((entry) =>
+    `${entry.loop}:${entry.day}:${entry.phase}`
+  ));
+}
+
+function revealedRoleEver(state: GameState): string[] {
+  return sortedUnique([...state.history, state.loop].flatMap((loop) => [
+    ...(loop.revealedRoleCharacters ?? []),
+    ...(loop.publicInformationThisLoop ?? []).flatMap((information) =>
+      information.kind === "roleReveal" ? [information.character] : []
+    ),
+  ]));
+}
+
+function previousLoopAliveGoodwill(state: GameState): string[] {
+  const previous = state.history.at(-1);
+  if (previous === undefined) return [];
+  return Object.entries(previous.charCounters).flatMap(
+    ([character, counters]) =>
+      previous.board[character]?.status === "alive" && counters.goodwill >= 1
+        ? [character]
+        : [],
+  ).sort(compareCanonicalKeys);
+}
+
+function currentLoopOutcome(state: GameState): LoopOutcome | undefined {
+  return state.loopOutcomes.find(({ loop }) => loop === state.loop.loop);
+}
+
+/**
+ * Section 1에서 확정한 충분통계만 실제 값으로 투영한다. raw history/phaseLog/
+ * PublicInformation과 세 가설 표는 키에 직접 넣지 않는다.
+ */
+export function projectCanonicalDecisionState(
+  state: GameState,
+  publicTrace: readonly PublicEvent[],
+): unknown {
+  return {
+    provenance: {
+      canonicalVersion: CANONICAL_DECISION_STATE_VERSION,
+      scenarioFingerprint: canonicalStringify(state.scenario),
+      engineTransitionVersion: ENGINE_TRANSITION_VERSION,
+    },
+    decisionControl: {
+      gamePhase: state.gamePhase,
+      loop: state.loop.loop,
+      day: state.loop.day,
+      phase: state.loop.phase,
+      leader: state.loop.leader,
+      placed: state.loop.placed,
+      actionResolutionComplete: state.loop.actionResolutionComplete,
+      pendingLoopEnd: state.pendingLoopEnd,
+      optionalLossActivations: state.loop.optionalLossActivations,
+      roundEndMandatoryResolved: state.loop.roundEndMandatoryResolved,
+      pendingImmediateLossKeys: state.loop.pendingImmediateLossKeys,
+      finalGuess: state.finalGuess,
+      result: state.result,
+    },
+    physical: {
+      board: state.loop.board,
+      turfLocations: state.loop.turfLocations,
+      charCounters: state.loop.charCounters,
+      locIntrigue: state.loop.locIntrigue,
+      specialGauge: state.loop.specialGauge,
+    },
+    resourcesAndEffects: {
+      spentOncePerLoop: state.loop.spentOncePerLoop,
+      abilitiesUsedThisLoop: state.loop.abilitiesUsedThisLoop,
+      abilitiesUsedThisRound: state.loop.abilitiesUsedThisRound,
+      locationRestrictionsRemoved: state.loop.locationRestrictionsRemoved,
+      cultistsIgnoringForbidIntrigue:
+        state.loop.cultistsIgnoringForbidIntrigue,
+      timeTravelersIgnoringForbidGoodwill:
+        state.loop.timeTravelersIgnoringForbidGoodwill,
+      incidentsFiredThisLoop: state.loop.incidentsFiredThisLoop,
+      incidentOccurrencesFiredThisLoop:
+        state.loop.incidentOccurrencesFiredThisLoop,
+      incidentCulpritSuppressedFor:
+        state.loop.incidentCulpritSuppressedFor,
+      protagonistDeathPreventedBy: state.loop.protagonistDeathPreventedBy,
+      loopStartTraitCounterChoices: state.loop.loopStartTraitCounterChoices,
+      loopStartTraitLocationChoices: state.loop.loopStartTraitLocationChoices,
+      extraLoopsPlayed: state.extraLoopsPlayed,
+    },
+    carryover: {
+      previousLoopAliveGoodwill: previousLoopAliveGoodwill(state),
+      revealedRoleEver: revealedRoleEver(state),
+      currentLoopCompletedPhaseKeys: currentLoopCompletedPhaseKeys(state),
+      currentLoopOutcome: currentLoopOutcome(state),
+    },
+    knowledge: {
+      publicTrace,
+    },
+  };
+}
+
+export function canonicalDecisionStateKey(
+  state: GameState,
+  publicTrace: readonly PublicEvent[],
+): string {
+  return canonicalStringify(projectCanonicalDecisionState(state, publicTrace));
 }
 
 function compareCanonicalKeys(left: string, right: string): number {
@@ -265,9 +376,7 @@ export function projectHypothesisSupport(
 
 export const CURRENT_KNOWLEDGE_PROBE_MISSING = [
   "P2 visible target with card identity masked",
-  "public event sequence within a phase",
-  "role reveal day retained from PublicInformation",
-  "goodwill incident effect actual resolution day",
+  "public phase events outside ProtagonistObservation",
 ] as const;
 
 export interface CurrentKnowledgeProbe {

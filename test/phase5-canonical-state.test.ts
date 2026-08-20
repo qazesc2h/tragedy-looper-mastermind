@@ -12,6 +12,7 @@ import type {
 } from "../src/types";
 import {
   canonicalStringify,
+  canonicalDecisionStateKey,
   canonicalizeProtagonistObservations,
   projectCurrentKnowledgeProbe,
   projectHypothesisSupport,
@@ -127,6 +128,51 @@ function nextLoopStateWithPublicProfile(
 }
 
 describe("Phase 5 canonical state Section 1", () => {
+  it("keys sufficient transition state and public trace but not raw log text", () => {
+    const base = firstStepsState();
+    const rawLogVariant = structuredClone(base);
+    base.loop.phaseLog = [{
+      loop: 1,
+      day: 1,
+      phase: "P5_MASTERMIND_ABILITY",
+      kind: "abilityActivated",
+      description: "hidden source A",
+    }];
+    rawLogVariant.loop.phaseLog = [{
+      loop: 1,
+      day: 1,
+      phase: "P5_MASTERMIND_ABILITY",
+      kind: "abilityActivated",
+      description: "hidden source B",
+    }];
+
+    expect(canonicalDecisionStateKey(base, [])).toBe(
+      canonicalDecisionStateKey(rawLogVariant, []),
+    );
+
+    const placedVariant = structuredClone(base);
+    placedVariant.loop.placed = structuredClone(mastermindProfileA);
+    expect(canonicalDecisionStateKey(base, [])).not.toBe(
+      canonicalDecisionStateKey(placedVariant, []),
+    );
+
+    const traceVariant = [{
+      loop: 1,
+      day: 1,
+      phase: "P2_MASTERMIND_ACTION" as const,
+      sequence: 0,
+      visibility: "public-card-identity-masked" as const,
+      payload: {
+        kind: "cardPlaced" as const,
+        owner: "mastermind" as const,
+        target: { kind: "location" as const, at: "School" as const },
+      },
+    }];
+    expect(canonicalDecisionStateKey(base, [])).not.toBe(
+      canonicalDecisionStateKey(base, traceVariant),
+    );
+  });
+
   it("removes exact duplicates but preserves distinct observation order", () => {
     const role: ProtagonistObservation = {
       kind: "roleRevealed",

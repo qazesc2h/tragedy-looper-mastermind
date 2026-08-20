@@ -212,6 +212,21 @@ P4 전까지 각본가 카드 종류도 마스킹한다.
 공동 행동 프로필도 한 건씩 소비할 수 있다. 각 자식은 `structuredClone()`한 상태에서
 실제 엔진을 실행하며 입력 상태를 변경하지 않는다.
 
+### Section 2 계측 실행
+
+승인된 자원·중단 프로필은 `measurement-profile-proposal.md`에 있다.
+`measure-scenario.mjs`는 새 프로세스와 독립 출력 디렉터리 하나에서 계층별 canonical
+상태·전이·종결·병합률, 처리량, RSS·디스크와 결정적 SHA-256을 기록한다. 현재 첫
+게이트인 `firstSteps:2`만 허용하며, 이후 시나리오는 직전 결과를 보고한 뒤 확장한다.
+
+```bash
+npx vite-node tools/phase5-feasibility/measure-scenario.mjs \
+  firstSteps:2 /tmp/phase5-firstSteps-2-run-a
+```
+
+두 실행은 출력 디렉터리와 프로세스를 공유하지 않는다. `manifest.json`의
+`deterministicHash`만 재현성 판정에 쓰고 시간·RSS 같은 성능값은 별도로 비교한다.
+
 - P2: UI와 같은 `MASTERMIND_HAND`의 물리 카드 수량을 쓰고, 카드 한 장마다
   `validatePlacement()`를 호출한다. 의미가 같은 불안 +1 두 장의 물리 복사본만
   중복 제거하고 배치 순서는 보존한다. 정확히 3장 뒤 `advanceGame()`을 호출한다.
