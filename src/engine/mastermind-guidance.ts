@@ -18,6 +18,13 @@ export interface GuidanceActions {
   abilityLabels: string[];
 }
 
+/** E가 A의 목표를 문자열 재해석 없이 카드 배치 후보로 옮기기 위한 계약. */
+export interface GuidancePlacementNeed {
+  resource: string;
+  label: string;
+  targetKey: string;
+}
+
 export type InterferenceDifficulty = "낮음" | "보통" | "높음" | "해당 없음";
 
 export interface MastermindGuidanceRoute {
@@ -33,6 +40,7 @@ export interface MastermindGuidanceRoute {
   interferenceDifficulty: InterferenceDifficulty;
   interference: string;
   resources: string[];
+  placementNeeds: GuidancePlacementNeed[];
   warning?: string;
 }
 
@@ -46,6 +54,7 @@ export interface MastermindGuidance {
 
 interface MutablePlan {
   cards: string[];
+  cardNeeds: GuidancePlacementNeed[];
   abilities: string[];
   targetCardCounts: Map<string, number>;
   targetAbilityCounts: Map<string, number>;
@@ -73,6 +82,7 @@ function addCard(
   target: string,
 ): void {
   plan.cards.push(`${resource}\t${label}`);
+  plan.cardNeeds.push({ resource, label, targetKey: target });
   plan.targetCardCounts.set(target, (plan.targetCardCounts.get(target) ?? 0) + 1);
 }
 
@@ -207,6 +217,7 @@ function planForRoute(
 
   const plan: MutablePlan = {
     cards: [],
+    cardNeeds: [],
     abilities: [],
     targetCardCounts: new Map(),
     targetAbilityCounts: new Map(),
@@ -460,6 +471,7 @@ function guidanceRoute(
     interferenceDifficulty: interference.difficulty,
     interference: interference.text,
     resources: [...new Set([...cards.resources, ...abilities.resources])],
+    placementNeeds: planned.plan.cardNeeds,
     ...(warning === undefined ? {} : { warning }),
   };
 }

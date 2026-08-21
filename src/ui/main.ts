@@ -61,6 +61,11 @@ import {
   type MastermindCoverGuidance,
   type RoleCoverCandidate,
 } from "../engine/mastermind-cover";
+import {
+  mastermindOpeningGuidance,
+  type MastermindOpeningGuidance,
+  type OpeningProfile,
+} from "../engine/mastermind-opening";
 import { intrigueForbidActive } from "../engine/movement";
 import { type ProtagonistObservation } from "../engine/hypothesis";
 import { applyHookEffect, collectHooks } from "../engine/phases";
@@ -2926,6 +2931,63 @@ function renderMastermindCover(cover: MastermindCoverGuidance): string {
   </section>`;
 }
 
+function renderOpeningProgress(profile: OpeningProfile): string {
+  return `1순위 ${profile.guaranteed.primary}/${profile.unopposed.primary} · ` +
+    `대안 ${profile.guaranteed.alternatives}/${profile.unopposed.alternatives} · ` +
+    `미끼 ${profile.guaranteed.decoys}/${profile.unopposed.decoys}`;
+}
+
+function renderOpeningProfile(profile: OpeningProfile, rank?: string): string {
+  return `<article class="opening-profile">
+    <div class="opening-profile-heading">
+      <strong>${escapeHtml(rank ?? "후보 배치")}</strong>
+      <span>최악 대응 보장 / 무대응 · ${escapeHtml(renderOpeningProgress(profile))}</span>
+    </div>
+    <ol class="opening-placement-list">${profile.placements.map((placement) => {
+      const reasons = [...new Set(placement.contributions.map(({ reason }) => reason))];
+      return `<li>
+        <div><strong>${escapeHtml(placement.targetLabel)}에 ${escapeHtml(placement.cardLabel)}</strong>
+          <span class="opening-target-kind target-${placement.targetKind}">${placement.targetKind === "location" ? "장소" : "캐릭터"}</span>
+        </div>
+        ${reasons.map((reason) => `<p>${escapeHtml(reason)}</p>`).join("")}
+        <small>대응 · ${escapeHtml(placement.protagonistResponse)}</small>
+      </li>`;
+    }).join("")}</ol>
+    <p class="opening-worst-response">최악 대응 · ${escapeHtml(profile.worstResponse)}</p>
+    <p class="opening-concealment">은폐 교환 · ${escapeHtml(profile.concealment)}</p>
+  </article>`;
+}
+
+function renderMastermindOpening(opening: MastermindOpeningGuidance): string {
+  const first = opening.recommendations[0];
+  return `<section class="mastermind-opening" aria-label="1일차 개시 배치">
+    <div class="mastermind-cautions-heading">
+      <span class="eyebrow">E. 1일차 개시 배치</span>
+      <h3>기여 배치 전수 평가</h3>
+      <p>전체 ${opening.allP2Count.toLocaleString("ko-KR")}개 대신 기여 배치 ${opening.contributingPlacementCount}개와 합법 조합 ${opening.candidateProfileCount.toLocaleString("ko-KR")}개만 계산했습니다.</p>
+    </div>
+    <p class="opening-axis-contract">${escapeHtml(opening.axisContract)}</p>
+    ${first === undefined
+      ? `<p class="empty-overlay">세 장으로 완성되는 기여 배치가 없습니다.</p>`
+      : renderOpeningProfile(first, "정적 1순위")}
+    ${opening.recommendations.length <= 1 ? "" : `<details class="guidance-caution-category opening-alternatives">
+      <summary><strong>다른 개시 배치</strong><span>${opening.recommendations.length - 1}개</span></summary>
+      <div class="guidance-caution-list">${opening.recommendations.slice(1).map((profile, index) =>
+        renderOpeningProfile(profile, `대안 ${index + 1}`)
+      ).join("")}</div>
+    </details>`}
+    <details class="guidance-caution-category opening-method">
+      <summary><strong>계산 범위와 제외</strong><span>미끼 ${opening.eligibleDecoyCount} / 제외 ${opening.excludedDecoys.length}</span></summary>
+      <div class="guidance-caution-list">
+        <p>${escapeHtml(opening.horizonReason)}</p>
+        ${opening.excludedDecoys.length === 0 ? "" : `<ul>${opening.excludedDecoys.map((decoy) =>
+          `<li><strong>${escapeHtml(decoy.title)}</strong><span>${escapeHtml(decoy.reason)}</span></li>`
+        ).join("")}</ul>`}
+      </div>
+    </details>
+  </section>`;
+}
+
 function renderMastermindGuidance(
   state: GameState,
   context: "beforeStart" | "panel",
@@ -2934,6 +2996,7 @@ function renderMastermindGuidance(
   const cautions = mastermindCautions(state);
   const decoys = mastermindDecoyGuidance(state);
   const cover = mastermindCoverGuidance(state);
+  const opening = mastermindOpeningGuidance(state);
   const primary = guidance.primary;
   const primaryResources = new Set(primary?.resources ?? []);
   const body = `
@@ -2968,7 +3031,8 @@ function renderMastermindGuidance(
       ${renderCautionCategory("주인공이 쓸 수 있는 수단", cautions.protagonistTools)}
     </section>
     ${renderMastermindDecoys(decoys)}
-    ${renderMastermindCover(cover)}`;
+    ${renderMastermindCover(cover)}
+    ${renderMastermindOpening(opening)}`;
 
   if (context === "beforeStart") {
     return `<section class="pre-game-guidance" aria-label="각본가 시작 지침">
@@ -2983,7 +3047,7 @@ function renderMastermindGuidance(
   return `<details class="info-accordion mastermind-guidance-information">
     <summary>
       <span><small>정적 지침</small><strong>각본가 시작 지침</strong></span>
-      <span class="accordion-summary-value">${guidance.routes.length}개 경로 · 주의 ${cautions.total}건 · 미끼 ${decoys.total}건 · 은폐 ${cover.recommendation === undefined ? "없음" : escapeHtml(cover.recommendation.characterName)}</span>
+      <span class="accordion-summary-value">${guidance.routes.length}개 경로 · 주의 ${cautions.total}건 · 미끼 ${decoys.total}건 · 은폐 ${cover.recommendation === undefined ? "없음" : escapeHtml(cover.recommendation.characterName)} · 개시 ${opening.candidateProfileCount.toLocaleString("ko-KR")}</span>
       <i aria-hidden="true"></i>
     </summary>
     <div class="info-accordion-body mastermind-guidance-body">${body}</div>
