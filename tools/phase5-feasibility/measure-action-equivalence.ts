@@ -47,6 +47,7 @@ export interface DecisionContext {
 export interface ClosedCharacterProjection {
   character: string;
   location: Location;
+  paranoia: number;
   intrigue: number;
 }
 
@@ -480,6 +481,7 @@ export function closedCharacterProjections(
     return {
       character,
       location,
+      paranoia: (outcome >> 6) & 15,
       intrigue: (outcome >> 10) & 15,
     };
   });

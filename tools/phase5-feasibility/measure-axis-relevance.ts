@@ -157,6 +157,7 @@ function actualProjection(
     return {
       character,
       location: characterLocation(position, character),
+      paranoia: counters.paranoia,
       intrigue: counters.intrigue,
     };
   });

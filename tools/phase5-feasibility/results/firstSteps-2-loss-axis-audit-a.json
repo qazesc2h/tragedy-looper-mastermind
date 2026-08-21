@@ -1,0 +1,4091 @@
+{
+  "deterministic": {
+    "schema": "phase5-loss-axis-audit-v1",
+    "scenario": "firstSteps:2",
+    "comparison": "literal distanceToLoss requirements versus source-complete First Steps 2 loss routes",
+    "stateSelection": "reuse the exact previously reported day-1/2/3 state hashes to isolate the axis-definition change; day 2/3 were selected by the now-invalid literal distanceToLoss ordering and are not claimed to be corrected stress representatives",
+    "correctedAxes": {
+      "endpoint": "key-person current death status",
+      "killerKillsKeyPerson": "key-person intrigue>=2 and key-person/killer co-location",
+      "serialKillerKillsKeyPerson": "key-person co-location and exactly one other living character with serial killer",
+      "suicideKillsKeyPerson": "scheduled day-3 culprit paranoia reaches printed limit",
+      "killerKillsProtagonists": "killer intrigue>=4"
+    },
+    "responseCompactionProof": "P4 route fields read only character movement, forbid-move, intrigue-forbid, paranoia +/- and the round-wide exactly-one intrigue-forbid flag; owner/resource identity and other cards cannot change these fields",
+    "days": [
+      {
+        "day": 1,
+        "stateHash": "181d82057c4c0591e3e3730f199c2c8bd65ed6fcb364bca9da61b17f000fe783",
+        "representativePath": [],
+        "p2Population": 63360,
+        "p2Sample": 100,
+        "rawProtagonistResponses": 368640,
+        "exactResponseEffectClasses": 5459,
+        "literalDistanceToLoss": {
+          "invariantCandidates": 89,
+          "invariantPercent": 0.89
+        },
+        "correctedCompleteLossRoutes": {
+          "invariantCandidates": 0,
+          "invariantPercent": 0,
+          "varyingCandidates": 100,
+          "axisVaryingCounts": {
+            "killerKillsKeyPerson.keyPersonIntrigueRemaining": 3,
+            "killerKillsKeyPerson.sameLocation": 100,
+            "killerKillsProtagonists.killerIntrigueRemaining": 11,
+            "serialKillerKillsKeyPerson.conditionMet": 100,
+            "serialKillerKillsKeyPerson.keyPersonSameLocation": 100,
+            "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation": 100,
+            "suicideKillsKeyPerson.paranoiaRemaining": 96
+          }
+        },
+        "verification": {
+          "signatureExhaustiveRawResponsesChecked": 368640,
+          "signatureMismatches": 0,
+          "closedProjectionEngineChecks": 100,
+          "closedProjectionMismatches": 0
+        },
+        "candidates": [
+          {
+            "sampleIndex": 0,
+            "candidateHash": "00006713797098dd42d3a8a8429c5bfe0ca26126cacdcd2dc4d04c28a6172d5a",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 1,
+            "candidateHash": "02939061b7b8f60b91c96a1c61f7db09a67334915491f0211a2793931515e203",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 19,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 2,
+            "candidateHash": "056a3582942a1a61186a28ab42e2f6521c8a36c4ec3f15073606819ae8d893d4",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 3,
+            "candidateHash": "07f4be83c97051cbcdf2c96a59e7bd567472ae010644e2f0dbd46792922f0e6f",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 4,
+            "candidateHash": "0a8232d3589433c3b957e5a90bfda878d72b826c3ed8eeefdf933d6e8becde60",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 5,
+            "candidateHash": "0d09004ce91b3beef8252b6cf31637ccc5e878b4ade96c9db903c860b3faf0d1",
+            "literalDistanceVectors": 2,
+            "correctedLossRouteVectors": 27,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining",
+              "killerKillsProtagonists.killerIntrigueRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 6,
+            "candidateHash": "0f6a5a7bcb18763475b0eaee30641da05cba5f2ece2571043892617f150b47ba",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 22,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 7,
+            "candidateHash": "1210c2d904c1d4c2259bf072d08cebc6b2b826b9248fa5804e07ebe290dc2651",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 22,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 8,
+            "candidateHash": "14a2b1c14704e5e10da6dd432899729746434225edb477cd757aabd121278371",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 9,
+            "candidateHash": "171f024340a787852bf6e4feaede21989987a202fdc17129295a4e05b54bdd3b",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 10,
+            "candidateHash": "19d65188b97ff8edf64dc746afb66d8579ff80c5c13639b3a1fc9a179ac05af4",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 11,
+            "candidateHash": "1c896e4c393e875c07aa9a44512409a17193b2936430ff4466d9849261cdd084",
+            "literalDistanceVectors": 2,
+            "correctedLossRouteVectors": 27,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining",
+              "killerKillsProtagonists.killerIntrigueRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 12,
+            "candidateHash": "1f02b5c007a883e4fd941e2219672876b7b43565cfcbde0d9c1a670ee808e654",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 15,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 13,
+            "candidateHash": "219a550324f8293c51a7751e3605d9f1d57850b5fc7981e87139c39d8925da72",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 17,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 14,
+            "candidateHash": "242b8e7ee0ac3af3e28cd176b4da5b23016045bcbdac767065db9f6a784ebfc2",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 15,
+            "candidateHash": "26b773f91fe21bc8517297b1b85c495d0f6a8fa5774318c2dac2cd94094ce02c",
+            "literalDistanceVectors": 2,
+            "correctedLossRouteVectors": 27,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining",
+              "killerKillsProtagonists.killerIntrigueRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 16,
+            "candidateHash": "2941922208183971e90079d69b89c982d2647be3196ba82ee5d3dfca454415c3",
+            "literalDistanceVectors": 2,
+            "correctedLossRouteVectors": 27,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining",
+              "killerKillsProtagonists.killerIntrigueRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 17,
+            "candidateHash": "2bc768fbea7bfd33e1c17745e02c2fd5d2ee1d3cf5abdda3207c4bc4b0bf3f59",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 18,
+            "candidateHash": "2e515cb6350677d252fa9e9dbaf65e8ac51486e0306d0717e1f795b08403e2fb",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 19,
+            "candidateHash": "30e9ece85f45c8384bf74ea6fc747fcc43cf1b1baa80db7a03a47733a3d692d3",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 20,
+            "candidateHash": "339235dac633fe46b89324883ab0604e0fa744b9510a011a719ee39dcfce2e65",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 21,
+            "candidateHash": "363693d8086497fade85abd446e9b2cde81c83b93f4abf399ac7509621bf7b0c",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 22,
+            "candidateHash": "38ac5d480dc9e57ef22e4216880c0253c882c7c05a6bed3a381d800e748c0b5d",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 10,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet"
+            ]
+          },
+          {
+            "sampleIndex": 23,
+            "candidateHash": "3b27f222855c995d54eb9a9d53e3f6d9766bacd9defd227ffd6fc7e06b442b8e",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 24,
+            "candidateHash": "3d7d1e4606a2cc1e0622f288d214c1e43f03f3430531e72756ff743f57cc9c60",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 21,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 25,
+            "candidateHash": "403f77ac177d8410da98f8c6c0e0159f05d1b1726f1703481cdc740324c4f7f1",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 26,
+            "candidateHash": "42cd714f38efda313e3788fa5db0b6403d623be6d443db5b440f0fb199b6d17f",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 27,
+            "candidateHash": "45403a8297c2cd328fe83c7063ea82734a6b3755456a9dd20155c5228ee4bbf6",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 21,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 28,
+            "candidateHash": "47e6813189cf1db98fc3a636f80d682abe91e82ab534d86abb62ebd21c9be8a5",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 14,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 29,
+            "candidateHash": "4a70b271c0cbe9123b992762e3c155ce57a4fce11b6c5f7a9f818fea7c00f696",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 30,
+            "candidateHash": "4d0b1d9a91378296cd941aedc00c3bddd56ab5f4ff4744a7b069382afa831b41",
+            "literalDistanceVectors": 2,
+            "correctedLossRouteVectors": 27,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining",
+              "killerKillsProtagonists.killerIntrigueRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 31,
+            "candidateHash": "4faed1438bfc9c09ed865af757fa4bda6512210921f878d406c268a0875bf09c",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 32,
+            "candidateHash": "52096fb12fafaa2dacd35764845f24b92149e91027e67419dbc0e46b73f47fc7",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 22,
+            "varyingAxes": [
+              "killerKillsKeyPerson.keyPersonIntrigueRemaining",
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 33,
+            "candidateHash": "547855ed4ed9659761b1c67f0f212188a3617670ea497295a08351afccbb5af8",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 17,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 34,
+            "candidateHash": "570e6789b618f76a7fcfd429217dfcda6cf8776f35c0d2f917b7ea597cd467e2",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 35,
+            "candidateHash": "59705ad80c1f4496603e6bceae6242c3f85f48b11bac6f255a16660d5e53b4b2",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 36,
+            "candidateHash": "5c0ade1a24393df7d1153b86e9461d4a5997aa6e9ca0a84a64b7eb4c7b6a5a5d",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 37,
+            "candidateHash": "5e8326652be881dbcfe2e592e1130b968633f1e52a5e8ca49a706cbe5edea2ae",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 38,
+            "candidateHash": "6148b8dc808fbd6480a5acac838a6ac7803a2395cf878fa4aebc1d6d883d3d17",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 18,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 39,
+            "candidateHash": "63b70c4c026428c0b5051e5f4fc306923d91a4ed3eee4d644eeb46df179972aa",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 18,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 40,
+            "candidateHash": "66273b7245830598c036ccacb3fe51c18feb9d2930e9accf4291093ca740376c",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 41,
+            "candidateHash": "68be153b168c3fa52ae82fd1dc536b9be8132fa7a8e1651917e95ed7366495e5",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 42,
+            "candidateHash": "6b5e84889d3bdd4c06d39dd4447ec763810eee8ce1e7f4444475ca21d0c386e4",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 43,
+            "candidateHash": "6e2149f46bcf16af49e95234b8d46567a089f5bdd088badaa1fdf9c9c198cd74",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 44,
+            "candidateHash": "70f09d530c5e9c0c946ba07fdb3a6dc5b22a0e13d0802366ea8efdd0ef766112",
+            "literalDistanceVectors": 2,
+            "correctedLossRouteVectors": 27,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining",
+              "killerKillsProtagonists.killerIntrigueRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 45,
+            "candidateHash": "73964e112e9c9af4e79457bd8c9ef6a78b5ff20822c8bfdda4fac29aaab3bfc5",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 46,
+            "candidateHash": "7619b9be71ff78a3d71e748067fcfed467563ab551ca6eace0883d8f5d89b59e",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 47,
+            "candidateHash": "78c5319fcd379e7815116e0cad0c844cb8526fdaefbe045f2ef36708be9fc666",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 22,
+            "varyingAxes": [
+              "killerKillsKeyPerson.keyPersonIntrigueRemaining",
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 48,
+            "candidateHash": "7b6cefede78cf31379c591478a065f358790c872f6675421fe58e9614362b223",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 19,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 49,
+            "candidateHash": "7def7bc39b1ca9e247ecf996e70d83097aae424bb5d2583b741543ed16803bb5",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 13,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 50,
+            "candidateHash": "809d26052316430cab08d31fe07bd4dde32c55a8b8c66a2491f9d40e7794119f",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 51,
+            "candidateHash": "834ba84431bc45c997e91f21025b09b299e829135e58a839a6769a6df6be2582",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 15,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 52,
+            "candidateHash": "85e7cc1ac4b3282a7b21583c12911a6e3eba91bcc10085770dd4f61683ac22c1",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 53,
+            "candidateHash": "8894673ffa0ce50698862c77567131f7244a5ecf6a45656e0ba117dad413e2e4",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 54,
+            "candidateHash": "8b2a2911bc4d18c9a3902b0567ca41777d70077fc39141393956c189706a670c",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 18,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 55,
+            "candidateHash": "8dd47b55ed753e0fa99ba85653f53e67ef8f64fd9d947f600d324f9497bd952a",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 21,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 56,
+            "candidateHash": "90d4f8e19013e56b8b2c8b003f5f58bab7585a41ca0562bf79bb54c6c8a926b4",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 57,
+            "candidateHash": "93692293ab656e6b0766d54b9146db1da2c66a0f81aaa6af55492d8147d74682",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 9,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet"
+            ]
+          },
+          {
+            "sampleIndex": 58,
+            "candidateHash": "961e385735c43d87aac4fb14c128875fbe8c5a6b9b29921bc8c1cf51adb1beb7",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 59,
+            "candidateHash": "98b15b10d8450e1a9b4f76388cf66f9d66a870e7bff09e6c4d0f22dd97d786cb",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 60,
+            "candidateHash": "9b4beab67418b29fe56a2baad56a7c9aa12bd87d3e073a473b09bd7ac72987fe",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 20,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 61,
+            "candidateHash": "9e069c667787c2443ff4c10bc36fe8376e6ad52874239846bc6331bbe1e51292",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 62,
+            "candidateHash": "a0ba4f24ba5226427b7a808311c1903b0b4479e648f24e0d99f81829bd879946",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 63,
+            "candidateHash": "a3634c96253e2cb0af62e946aee19b138f8e428b9f2b615fc0bcd175fa0916c1",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 64,
+            "candidateHash": "a5daf88ba20927a7c1f97bd25b2bc1003779ba82ce67176900b2122c918b0110",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 65,
+            "candidateHash": "a84cac0cc211529b4b9f8cfb6337cf4dd1f200287fff748687da795bf86f3df6",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 66,
+            "candidateHash": "aade25f914c1ca2c7a8a0f37239e1f925f2a00bc779f5ec5a50598b8f38df5d7",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 23,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 67,
+            "candidateHash": "ad6a49dc80cb880548d3caf24926edc2bed1b2f92c2c1860a5656fca3ba56b55",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 14,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 68,
+            "candidateHash": "b01ac6153e2e814e02c7559bee6ca0577b183af9cd984f6efc67c0f3d0837919",
+            "literalDistanceVectors": 2,
+            "correctedLossRouteVectors": 33,
+            "varyingAxes": [
+              "killerKillsKeyPerson.keyPersonIntrigueRemaining",
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining",
+              "killerKillsProtagonists.killerIntrigueRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 69,
+            "candidateHash": "b2d0e4d9efa822c20adc9712be7f3dd09b7eef8a3bbf8a41dde1f73de83a1730",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 10,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet"
+            ]
+          },
+          {
+            "sampleIndex": 70,
+            "candidateHash": "b55daf3975d4a5c99ddcc737936842ba2ce6c3552cd76205e925faadfbee5469",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 15,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 71,
+            "candidateHash": "b80dbef93540f02e2330bb5f93fcc050eb48d62842d5aff0bfb510500519c8a0",
+            "literalDistanceVectors": 2,
+            "correctedLossRouteVectors": 32,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining",
+              "killerKillsProtagonists.killerIntrigueRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 72,
+            "candidateHash": "ba70245ba9a83d59cf2ddf1dbff6e290415d565e4b49925bf7cee0907221789d",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 73,
+            "candidateHash": "bd2c2911f686480aa05a7e406737f0e4d2289eb73b25261b6050009713741ac8",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 74,
+            "candidateHash": "bfa479f6f676cd3541bc244be28ee59d77885e6de4652ff9189dd8ced64c703a",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 75,
+            "candidateHash": "c21a696fc31a001c0d8bcbe0d64f3e45708403cc098007ea87d813c9bce6d5f1",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 76,
+            "candidateHash": "c4b5c422704a6389eb531d3888e5642666d5aaa89dd3a2df9699bff65a08d11b",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 77,
+            "candidateHash": "c74a5a1a35690bf618a88e8402115d92028f42288d6e351976b39592f567455f",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 18,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 78,
+            "candidateHash": "c9afb2b0fb4f2ede13c85dd2c6a5397fa58577ca70501eb0963068363a62443c",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 79,
+            "candidateHash": "cc4d3a6673af7b11ae7438ac6172dbf2bf1975dc753244d9035f2b141cd7ea75",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 80,
+            "candidateHash": "cf10a5a6a9bd05776aa8556656b40d9db35fa2071be8102157d081cf4dd8bf5b",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 18,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 81,
+            "candidateHash": "d1c7a865fec56750955d389273d8cef66c02ccb899058fbd40a2cb6a289c4e16",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 15,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 82,
+            "candidateHash": "d452ff04826a892aca3797d65232c3ed252c77984e99fc920345a70d310df5a4",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 12,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 83,
+            "candidateHash": "d707ba57b7d80193a587cdf0fcae60a6fc090fdb4d5e865028e473e98ef04552",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 84,
+            "candidateHash": "d9a8d09dc9d88a956af48f1db4dfabe41a39bed20bec4372786c90770641f975",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 85,
+            "candidateHash": "dc3afead6fe582d22eff5475fc8c0a3d671ca589d66f58d0d47685f9e2c90db3",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 13,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 86,
+            "candidateHash": "deaa01e85fe6c1a8323e35b46cfbfc4337e0d117f6df1b17b0a00f0f6929fd92",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 22,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 87,
+            "candidateHash": "e143f7e0bc5d3786819c0f326a720f6fd16d7f24ac9dae81eebaf830f0e183f4",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 13,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 88,
+            "candidateHash": "e3b9a61cec096f25d533d42c841b9f2c350743670c3f3857a9602fbd5afc80a2",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 20,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 89,
+            "candidateHash": "e632721437357f49d0d035c7aaad98c4cb209a62c454e5e36b6640a9faef2cd9",
+            "literalDistanceVectors": 2,
+            "correctedLossRouteVectors": 27,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining",
+              "killerKillsProtagonists.killerIntrigueRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 90,
+            "candidateHash": "e8c424467bd35a2d6f440cf1a13141531a2f4012cbc5ba14e91db2828445d097",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 15,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 91,
+            "candidateHash": "eb55bb1bf5a884b8c5a12580d0f29f7c7def5b297f2b6fa1b9a835a07a88e945",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 92,
+            "candidateHash": "edc865c1c009a94c4495216562f775196bc5af98feedb04d39008dc73bb04d9f",
+            "literalDistanceVectors": 2,
+            "correctedLossRouteVectors": 27,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining",
+              "killerKillsProtagonists.killerIntrigueRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 93,
+            "candidateHash": "f050a8b1dd368b30df751e605007eaa09ee0d446db0b56293f0c8704931eb4ad",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 20,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 94,
+            "candidateHash": "f2fcda64706883313aa182ee48d2e972a846279641f36955676719caa638d24d",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 95,
+            "candidateHash": "f590088fc4d771b9c1b7b8e4550241128d9bee1efd1fa46ea5a3334e2a795f94",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 96,
+            "candidateHash": "f841d12093082f3c84ba7f12fe19f5c0b503e764ab1d8e96f82e3c3d4d837679",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 12,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet"
+            ]
+          },
+          {
+            "sampleIndex": 97,
+            "candidateHash": "fae4e46a9a80b7262104e15534629c438359ec0a2f792c764c3a0f0b9d0e3c73",
+            "literalDistanceVectors": 2,
+            "correctedLossRouteVectors": 27,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining",
+              "killerKillsProtagonists.killerIntrigueRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 98,
+            "candidateHash": "fd6a9e6dbc49da72db21d6dd7eda3d837172fb19a7c6fd4540fb5e26339cccff",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 99,
+            "candidateHash": "fffdc2fa1144e4cf112f79424d14e197dbad03e4d7882a663ed5ed880a43551f",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 17,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          }
+        ]
+      },
+      {
+        "day": 2,
+        "stateHash": "03cb93d881030d6f1fb8b83a653da787fbe685686ad06cb81d752f7dd4d9f33c",
+        "representativePath": [
+          {
+            "fromDay": 1,
+            "mastermindActionHash": "1c896e4c393e875c07aa9a44512409a17193b2936430ff4466d9849261cdd084",
+            "protagonistResponseHash": "b7455712c32e56cd70dc95fc7761369ea70ad190343b7b18aa37db3934f07f80",
+            "nextStateHash": "03cb93d881030d6f1fb8b83a653da787fbe685686ad06cb81d752f7dd4d9f33c",
+            "survivingCandidates": 97,
+            "nextDistanceVector": [
+              {
+                "key": "role:keyPerson:girlStudent",
+                "remaining": 1
+              },
+              {
+                "key": "role:killer:officeWorker",
+                "remaining": 2
+              }
+            ]
+          }
+        ],
+        "p2Population": 42840,
+        "p2Sample": 100,
+        "rawProtagonistResponses": 322560,
+        "exactResponseEffectClasses": 5439,
+        "literalDistanceToLoss": {
+          "invariantCandidates": 94,
+          "invariantPercent": 0.94
+        },
+        "correctedCompleteLossRoutes": {
+          "invariantCandidates": 0,
+          "invariantPercent": 0,
+          "varyingCandidates": 100,
+          "axisVaryingCounts": {
+            "killerKillsKeyPerson.sameLocation": 100,
+            "killerKillsProtagonists.killerIntrigueRemaining": 6,
+            "serialKillerKillsKeyPerson.conditionMet": 100,
+            "serialKillerKillsKeyPerson.keyPersonSameLocation": 100,
+            "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation": 100,
+            "suicideKillsKeyPerson.paranoiaRemaining": 95
+          }
+        },
+        "verification": {
+          "signatureExhaustiveRawResponsesChecked": 322560,
+          "signatureMismatches": 0,
+          "closedProjectionEngineChecks": 100,
+          "closedProjectionMismatches": 0
+        },
+        "candidates": [
+          {
+            "sampleIndex": 0,
+            "candidateHash": "00006713797098dd42d3a8a8429c5bfe0ca26126cacdcd2dc4d04c28a6172d5a",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 1,
+            "candidateHash": "028f9552b122f408d26230b38c609a101a14451f2b0217956d22415fd3881ed1",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 2,
+            "candidateHash": "0577076692dbcae67d16cf835784033714015c8a6786a4a69a14249ca118f98a",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 12,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet"
+            ]
+          },
+          {
+            "sampleIndex": 3,
+            "candidateHash": "07eaa6d026e67c45065afd2d085e16ed68a514ccb08cf3b251df304ee26a5e73",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 4,
+            "candidateHash": "0a415dfcfef8120dd26295943602ea9ce154ef76fe52ea35b3ac81fc7b1ff12e",
+            "literalDistanceVectors": 2,
+            "correctedLossRouteVectors": 33,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining",
+              "killerKillsProtagonists.killerIntrigueRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 5,
+            "candidateHash": "0cd910419be1a9aac250ef411bae26ba51eb3e2a854625c41c49ca6e1f2d5ca8",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 9,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet"
+            ]
+          },
+          {
+            "sampleIndex": 6,
+            "candidateHash": "0f514b47abf873b83032815abee0c4bd03ecea544c34689eace4c46bb02db86b",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 18,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 7,
+            "candidateHash": "1200a3aef09c3af44866272c5ce2d7e9c84e9529bf6bdb7ae783b32b97c27940",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 8,
+            "candidateHash": "149369f0d22bd2a5cd6b4a5d78afee933e68e30ce6160d3dc1c39a024560ab9b",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 15,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 9,
+            "candidateHash": "170eb3b2483a577f50f445cebdf864d850b057bf42c77ed720bab0c61a5bbe9f",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 15,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 10,
+            "candidateHash": "19a71ad1692cab8e3dd508380b62dea9a01b6a3d413da59475a9d86543932f70",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 11,
+            "candidateHash": "1c5efca53469ae9ef6d1d01bd89fd169461182b025f69957ad06ca965e82ac92",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 13,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 12,
+            "candidateHash": "1ed5b667cae9b1ecbbe81f407093b39ae256b7f906b1e278a3ed4a6c299524dd",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 21,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 13,
+            "candidateHash": "218197e70ee6b004af31555422a4b579eb2818c1e124f27201f6192a2d774ada",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 14,
+            "candidateHash": "241daa9becde9a4884ca001afa38143136d8a0deb339ce4bd47ce68dbac25037",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 21,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 15,
+            "candidateHash": "26a07597823cecd28f969bfdaed34da0d06a0d2a554862bd88fad53999d1ec75",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 16,
+            "candidateHash": "2937be1391b4b8a47ff2e67b5c7d0fba339d8c9345953c00113721c81eaccb01",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 17,
+            "candidateHash": "2ba2d4bef71e3da3e418858896a6c73558f793244c96abf361ce782aca007b04",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 18,
+            "candidateHash": "2e355169fe36296ba87b5ce6ced207675ff71fdee9b408999c9261ba1d3b5795",
+            "literalDistanceVectors": 2,
+            "correctedLossRouteVectors": 27,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining",
+              "killerKillsProtagonists.killerIntrigueRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 19,
+            "candidateHash": "30de234d3b43a6ed16b0ed430c19033814363adc06ac00c5e66424310291d74b",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 20,
+            "candidateHash": "338167d785c9046491037e20d4ff8c52147f416f8724caa54e8aa03fb2cc7673",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 21,
+            "candidateHash": "3607fd558997d1da9b8531822ae58d19a588b24030624bdd2d2562cc1abeeb0b",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 21,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 22,
+            "candidateHash": "387f801b2f34a336471c2565f60d3a6cf0725f31f6c796a02748fa2b75253380",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 21,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 23,
+            "candidateHash": "3aefe0e3dbce074cf56286ab6570341fd72d9be7a6c66ccc8d399f7bcec20734",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 20,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 24,
+            "candidateHash": "3d42d1bae59f22fb2352a6a995434d4c78cb1a0fde9f8efc0a09fb2baef94d9d",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 22,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 25,
+            "candidateHash": "4007b8c8a743ab1da20352813b23b4d65f48b03c62fbf7e099d824659536f658",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 26,
+            "candidateHash": "4296eb114b724e6156466721d0eee3152e32953d598095805061ffb7c0a04a87",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 27,
+            "candidateHash": "44e6e02e31484b34667c62a9bd79cc93d61b307e7651c4c94711fee696acf82d",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 28,
+            "candidateHash": "478ebbdaa572fd96ff2479840cc9edf7283bc3923f866a47d226d4c8986273bc",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 29,
+            "candidateHash": "4a27578239b9e88faba657f50389700ef9199be77332de83378bd0075b9aaa4f",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 30,
+            "candidateHash": "4cc275ddd8504618a517be30afafeae638200fa2599281348c3e9cde009749c0",
+            "literalDistanceVectors": 2,
+            "correctedLossRouteVectors": 27,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining",
+              "killerKillsProtagonists.killerIntrigueRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 31,
+            "candidateHash": "4f8391ecc70be3457f3adb4d82c3ee656c2b42615fade59fa2a8da393ccd800a",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 32,
+            "candidateHash": "51eb991a06c821db8faab0dce1f3362d066898b77c628f69653c6102f718fa61",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 17,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 33,
+            "candidateHash": "5455bfd9e1f768c53068edd747bf3d8008838bb824e674374ec9bab6ea1a410d",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 34,
+            "candidateHash": "5702b31d3827a1fe350b97f2a9121bfe47d93e14d24746dcc469d0b993d52dbb",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 35,
+            "candidateHash": "59770991c1a27391925d14f1d254a73918036d24b7ac8b966070b86ab5206cff",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 20,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 36,
+            "candidateHash": "5c047ff5172f40ddc22ed79bb46b71ad928a7435b8b4e0bd7f13694dff0ee854",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 10,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet"
+            ]
+          },
+          {
+            "sampleIndex": 37,
+            "candidateHash": "5e7e552ef09b669708d8e5151088723a9e466dcfef08d3e051c7559f7c54c268",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 18,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 38,
+            "candidateHash": "6151ec6d7d710964378eb55118608f5750a8c27e483fc347fc46f58c57e0a64b",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 39,
+            "candidateHash": "63bddc330bbe8b001344f23952b1b16a8bff73facfe1f5e3afd3b44b3d9bc433",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 40,
+            "candidateHash": "662d976a6f8db55109a05a4b7442a47dfe9992bebeef4120a0c3535b0bd27c00",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 18,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 41,
+            "candidateHash": "68ec6ff6a347312a514909958fd75fb6dcbe89e350df8582b9adb76d91d35daa",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 42,
+            "candidateHash": "6b7e50a19aca9ca662d29286e6bad17a75332d71c498a032ba1f9e5e11c65949",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 43,
+            "candidateHash": "6e2d510638cb440882f9fc5fa27b07d789b12de83f1a0422b3c73a04ce1b8b9c",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 13,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 44,
+            "candidateHash": "70f5bfde4fcb6b99cc172ff3253fe38fb18e5ea9745adbe90565fc2d91f08030",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 15,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 45,
+            "candidateHash": "73bb0c3a2cf67de5ca5d5bb7aed024fb0823d89eee9c96730f0038e4ec5ca37e",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 46,
+            "candidateHash": "767260ca6989d1c77146a2c1ddab1e11ab4ae79c40de678b51898db2c9fc2604",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 47,
+            "candidateHash": "7931c20c9b4e499d58c066a91a2b07405c314c914e2e5d550fb19984d933e2c0",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 48,
+            "candidateHash": "7be2465af16cbbbf6df6979f21540bd39d0a3aba71d872a5357560c8120fe1f3",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 15,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 49,
+            "candidateHash": "7e609e7713643d54645a53f4a057d075408cf27786bfc1b2cb1819dd4477aa05",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 18,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 50,
+            "candidateHash": "810f2019d2036f52d928af0dc2b711141a9160bdbc724b5d7383446188e43360",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 14,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 51,
+            "candidateHash": "83cc38793ebff171b333fe517baa0b7f766339460bc469892cbf5b4b99186aca",
+            "literalDistanceVectors": 2,
+            "correctedLossRouteVectors": 27,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining",
+              "killerKillsProtagonists.killerIntrigueRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 52,
+            "candidateHash": "868568b7a9f494de0eb090ced206d982bf934e7cc4a927309893441993a7df2f",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 53,
+            "candidateHash": "89112ddae974106b8656cf232d826edcf678bcc9a1ad313c36c2006e6c2d7e42",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 15,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 54,
+            "candidateHash": "8bc1d8a78c3fd365baee483d83e3c262e9f128f25ecdf52545d86aa2996be70d",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 15,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 55,
+            "candidateHash": "8e7284f19ee02f660eea7d940dae8e4c13d8d6bb6f646b3d14df0692d1f9a34a",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 15,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 56,
+            "candidateHash": "91688cb585a9dc3cf2fc3560be542bfa9f11ada0b5b5d71522ae75055c36e96f",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 57,
+            "candidateHash": "94157d819c546f4fd9565cacecabd3d1fcb6e9e5379f83293667127b66cbae4a",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 15,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 58,
+            "candidateHash": "96d9eab30ad9ea4a5ca8c32d96ca3e3f3b99fb3b928ba49ab0407e8ef7ccf153",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 14,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 59,
+            "candidateHash": "9966f75259e01bdbc8db608f983998360d4f97cb73d4c77de6d9e39f4e7b064f",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 60,
+            "candidateHash": "9c32f1f406fc8667e94fcc5892a1c7be9a06e3d4e3672faa48bf4f3ecaeba517",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 17,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 61,
+            "candidateHash": "9eb99293b37e6a4cdb0116f438615a18be6c746b51a12797c31110e5fa42fe4f",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 15,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 62,
+            "candidateHash": "a1aae5d5bfe1ef88f1441f98fd67e67178dc8abded1285fb4929215bb59b5298",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 19,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 63,
+            "candidateHash": "a43565f466baa9b8fc8483d29dad8dfddf354ee7cc9a387b86da39c9369fbc37",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 21,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 64,
+            "candidateHash": "a6947c1784d69fde0298f0802edb1b62233a58ba2280715b00e27ad0f7ff0704",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 10,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet"
+            ]
+          },
+          {
+            "sampleIndex": 65,
+            "candidateHash": "a91e3447d517715225db9bdd0d251040692a693ed020c30a1311f91727a67591",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 18,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 66,
+            "candidateHash": "abac4e09762f2326dbc3275ba3f4dddff47c519fe7e491544c0e535cb4783764",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 17,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 67,
+            "candidateHash": "ae3960cce8c03034609a4e6223398d9fb7c9007386a98434032a0cd7909ef298",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 68,
+            "candidateHash": "b108ef067455c48ccf921a7216f5f89a774700d30c473b14e924ea6eddd4f81e",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 20,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 69,
+            "candidateHash": "b3b3fd6029970128be0b118a3639a23185e50285616b76387ad038c20a6061c6",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 15,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 70,
+            "candidateHash": "b647bdbb06ca16c853e93ae0727fe9052648740ecc11ccfb876d5e06e897ad0b",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 71,
+            "candidateHash": "b8d7636610472550817abfc0dd782587740bde8aa1baf6ee56e27ee19bb8273e",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 72,
+            "candidateHash": "bb410a7bca0d80a9d11056af4319c6a799a264cb1544d490e7e6893e05d5dcfa",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 12,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet"
+            ]
+          },
+          {
+            "sampleIndex": 73,
+            "candidateHash": "bde0aebfa7dcf90576cbd8fc2a5f8d14a2ce115c7727024cc16491ba2a558683",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 12,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 74,
+            "candidateHash": "c05df644d83cc7192e36d610fd8c1ce6f79ba9fd958c66555494704b8276e69f",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 15,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 75,
+            "candidateHash": "c2d66546492c1d18d75644863f8354adb2e512461d25adea570b3651c60d051c",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 76,
+            "candidateHash": "c564cdc2215222e2adfc6b219e8924b970046e4d6247f5ec6fb2f52f4d1929c1",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 19,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 77,
+            "candidateHash": "c7f2b5d366f422b595bf6b69ec4a104763a5166b868b70dc6d97ef66152eb89b",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 78,
+            "candidateHash": "ca4adb604df0e51c67eb34a1a027ef9387b3673001629e8d82c47a804bebccf7",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 17,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 79,
+            "candidateHash": "ccff2f0071d699fc7f78d841bf91bb481896365610e97578914a2a9a25fcd20a",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 19,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 80,
+            "candidateHash": "cfb523d08c0dcd97b28e2b8ef22dc744536d0fe80e1aae1443a3c9d7ceb5500d",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 81,
+            "candidateHash": "d25348cdb087a7e0e854a757868973db7361a9033b2688cf0aed6c05b9df75f3",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 82,
+            "candidateHash": "d4d63dfa47e9c37739fb6b1bc5bc1aac9f0d0913f1ba810226911594ecc68f99",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 83,
+            "candidateHash": "d799f252eb36a126f2dc9d76c68100158a5937a98d406acf9e82ca22453ada66",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 22,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 84,
+            "candidateHash": "da13e05778a5d5aaba74792224580ffb9ad1a09a500540266ef054ca9631ffe1",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 17,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 85,
+            "candidateHash": "dc9fa614c54d65ce68976f8f1c54e970162c87b237eee61cb2e5cd6f4989c29e",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 86,
+            "candidateHash": "defc6d0bb7e11ceedfb93730b66788757da0240b2372aa1ea8f00253011cca74",
+            "literalDistanceVectors": 2,
+            "correctedLossRouteVectors": 27,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining",
+              "killerKillsProtagonists.killerIntrigueRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 87,
+            "candidateHash": "e18bab2b17aa0761f3ff10d1dce13e0ceee943ef5e6a294f537540d8a77256b7",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 88,
+            "candidateHash": "e4035abe791b3ce20d0f32222bd3e38f121efcc52eb6d1d2279abed07f53ae9a",
+            "literalDistanceVectors": 2,
+            "correctedLossRouteVectors": 27,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining",
+              "killerKillsProtagonists.killerIntrigueRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 89,
+            "candidateHash": "e65b73480e8fb61dad2101c41de207a16c8be50ec9e450234f55ed4258b9ad48",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 18,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 90,
+            "candidateHash": "e8f154dce3074c204be0896f63516377af45a222357069ddd0c18aa8b78d1e80",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 15,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 91,
+            "candidateHash": "eb8343bb7979c86c04bb9cac4f161472c3e858a82d9b6d8ccc3434d59a7a90d0",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 92,
+            "candidateHash": "ede421be29237e898f4d295039d9871928576d38d6fee349d57820ae65d359b4",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 22,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 93,
+            "candidateHash": "f059eec09cb5dce515af2909f2a84f0bdb7e676900b3b78aa5522ca1de969648",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 18,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 94,
+            "candidateHash": "f3004e5d64852f8014d7205e27c5426df42e5b92d0f9f67c3e38125eecc12515",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 13,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 95,
+            "candidateHash": "f57d10a547d1293582f324e85768fdb7c34e76e581fc41d3f2847c207b7c02e8",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 15,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 96,
+            "candidateHash": "f8344fa241811acbe8f88bf6211735236e851203f37c8fab97e205b69d8b09af",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 97,
+            "candidateHash": "faee07d30804097051992355454a932b0b95aeb13973474a01b2752d70caadd0",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 21,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 98,
+            "candidateHash": "fd7514cf874bb9e2fd7d0b31e11b1bbadc2e81d15f6dba7321cd4a8930ca1d35",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 99,
+            "candidateHash": "fff8d831343eddade0875c02c9dc8851e08089fc1baa7df71aeac02e3b1e90c3",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          }
+        ]
+      },
+      {
+        "day": 3,
+        "stateHash": "3deba1c65089ab26fc17ff15470566019fc21c0c28567f79dd99f5867668e343",
+        "representativePath": [
+          {
+            "fromDay": 1,
+            "mastermindActionHash": "1c896e4c393e875c07aa9a44512409a17193b2936430ff4466d9849261cdd084",
+            "protagonistResponseHash": "b7455712c32e56cd70dc95fc7761369ea70ad190343b7b18aa37db3934f07f80",
+            "nextStateHash": "03cb93d881030d6f1fb8b83a653da787fbe685686ad06cb81d752f7dd4d9f33c",
+            "survivingCandidates": 97,
+            "nextDistanceVector": [
+              {
+                "key": "role:keyPerson:girlStudent",
+                "remaining": 1
+              },
+              {
+                "key": "role:killer:officeWorker",
+                "remaining": 2
+              }
+            ]
+          },
+          {
+            "fromDay": 2,
+            "mastermindActionHash": "e4035abe791b3ce20d0f32222bd3e38f121efcc52eb6d1d2279abed07f53ae9a",
+            "protagonistResponseHash": "6fd59e54ae48ab923bf67d1c8046c180a1a5857402c70c15313b8e2765638199",
+            "nextStateHash": "3deba1c65089ab26fc17ff15470566019fc21c0c28567f79dd99f5867668e343",
+            "survivingCandidates": 94,
+            "nextDistanceVector": [
+              {
+                "key": "role:keyPerson:girlStudent",
+                "remaining": 1
+              },
+              {
+                "key": "role:killer:officeWorker",
+                "remaining": 1
+              }
+            ]
+          }
+        ],
+        "p2Population": 42840,
+        "p2Sample": 100,
+        "rawProtagonistResponses": 246960,
+        "exactResponseEffectClasses": 5109,
+        "literalDistanceToLoss": {
+          "invariantCandidates": 94,
+          "invariantPercent": 0.94
+        },
+        "correctedCompleteLossRoutes": {
+          "invariantCandidates": 0,
+          "invariantPercent": 0,
+          "varyingCandidates": 100,
+          "axisVaryingCounts": {
+            "killerKillsKeyPerson.sameLocation": 100,
+            "killerKillsProtagonists.killerIntrigueRemaining": 6,
+            "serialKillerKillsKeyPerson.conditionMet": 100,
+            "serialKillerKillsKeyPerson.keyPersonSameLocation": 100,
+            "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation": 100,
+            "suicideKillsKeyPerson.paranoiaRemaining": 95
+          }
+        },
+        "verification": {
+          "signatureExhaustiveRawResponsesChecked": 246960,
+          "signatureMismatches": 0,
+          "closedProjectionEngineChecks": 100,
+          "closedProjectionMismatches": 0
+        },
+        "candidates": [
+          {
+            "sampleIndex": 0,
+            "candidateHash": "00006713797098dd42d3a8a8429c5bfe0ca26126cacdcd2dc4d04c28a6172d5a",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 1,
+            "candidateHash": "028f9552b122f408d26230b38c609a101a14451f2b0217956d22415fd3881ed1",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 2,
+            "candidateHash": "0577076692dbcae67d16cf835784033714015c8a6786a4a69a14249ca118f98a",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 12,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet"
+            ]
+          },
+          {
+            "sampleIndex": 3,
+            "candidateHash": "07eaa6d026e67c45065afd2d085e16ed68a514ccb08cf3b251df304ee26a5e73",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 4,
+            "candidateHash": "0a415dfcfef8120dd26295943602ea9ce154ef76fe52ea35b3ac81fc7b1ff12e",
+            "literalDistanceVectors": 2,
+            "correctedLossRouteVectors": 33,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining",
+              "killerKillsProtagonists.killerIntrigueRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 5,
+            "candidateHash": "0cd910419be1a9aac250ef411bae26ba51eb3e2a854625c41c49ca6e1f2d5ca8",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 9,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet"
+            ]
+          },
+          {
+            "sampleIndex": 6,
+            "candidateHash": "0f514b47abf873b83032815abee0c4bd03ecea544c34689eace4c46bb02db86b",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 18,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 7,
+            "candidateHash": "1200a3aef09c3af44866272c5ce2d7e9c84e9529bf6bdb7ae783b32b97c27940",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 8,
+            "candidateHash": "149369f0d22bd2a5cd6b4a5d78afee933e68e30ce6160d3dc1c39a024560ab9b",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 15,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 9,
+            "candidateHash": "170eb3b2483a577f50f445cebdf864d850b057bf42c77ed720bab0c61a5bbe9f",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 15,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 10,
+            "candidateHash": "19a71ad1692cab8e3dd508380b62dea9a01b6a3d413da59475a9d86543932f70",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 11,
+            "candidateHash": "1c5efca53469ae9ef6d1d01bd89fd169461182b025f69957ad06ca965e82ac92",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 13,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 12,
+            "candidateHash": "1ed5b667cae9b1ecbbe81f407093b39ae256b7f906b1e278a3ed4a6c299524dd",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 21,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 13,
+            "candidateHash": "218197e70ee6b004af31555422a4b579eb2818c1e124f27201f6192a2d774ada",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 14,
+            "candidateHash": "241daa9becde9a4884ca001afa38143136d8a0deb339ce4bd47ce68dbac25037",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 21,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 15,
+            "candidateHash": "26a07597823cecd28f969bfdaed34da0d06a0d2a554862bd88fad53999d1ec75",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 16,
+            "candidateHash": "2937be1391b4b8a47ff2e67b5c7d0fba339d8c9345953c00113721c81eaccb01",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 17,
+            "candidateHash": "2ba2d4bef71e3da3e418858896a6c73558f793244c96abf361ce782aca007b04",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 18,
+            "candidateHash": "2e355169fe36296ba87b5ce6ced207675ff71fdee9b408999c9261ba1d3b5795",
+            "literalDistanceVectors": 2,
+            "correctedLossRouteVectors": 27,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining",
+              "killerKillsProtagonists.killerIntrigueRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 19,
+            "candidateHash": "30de234d3b43a6ed16b0ed430c19033814363adc06ac00c5e66424310291d74b",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 20,
+            "candidateHash": "338167d785c9046491037e20d4ff8c52147f416f8724caa54e8aa03fb2cc7673",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 21,
+            "candidateHash": "3607fd558997d1da9b8531822ae58d19a588b24030624bdd2d2562cc1abeeb0b",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 21,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 22,
+            "candidateHash": "387f801b2f34a336471c2565f60d3a6cf0725f31f6c796a02748fa2b75253380",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 21,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 23,
+            "candidateHash": "3aefe0e3dbce074cf56286ab6570341fd72d9be7a6c66ccc8d399f7bcec20734",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 20,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 24,
+            "candidateHash": "3d42d1bae59f22fb2352a6a995434d4c78cb1a0fde9f8efc0a09fb2baef94d9d",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 22,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 25,
+            "candidateHash": "4007b8c8a743ab1da20352813b23b4d65f48b03c62fbf7e099d824659536f658",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 26,
+            "candidateHash": "4296eb114b724e6156466721d0eee3152e32953d598095805061ffb7c0a04a87",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 27,
+            "candidateHash": "44e6e02e31484b34667c62a9bd79cc93d61b307e7651c4c94711fee696acf82d",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 28,
+            "candidateHash": "478ebbdaa572fd96ff2479840cc9edf7283bc3923f866a47d226d4c8986273bc",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 29,
+            "candidateHash": "4a27578239b9e88faba657f50389700ef9199be77332de83378bd0075b9aaa4f",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 30,
+            "candidateHash": "4cc275ddd8504618a517be30afafeae638200fa2599281348c3e9cde009749c0",
+            "literalDistanceVectors": 2,
+            "correctedLossRouteVectors": 27,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining",
+              "killerKillsProtagonists.killerIntrigueRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 31,
+            "candidateHash": "4f8391ecc70be3457f3adb4d82c3ee656c2b42615fade59fa2a8da393ccd800a",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 32,
+            "candidateHash": "51eb991a06c821db8faab0dce1f3362d066898b77c628f69653c6102f718fa61",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 17,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 33,
+            "candidateHash": "5455bfd9e1f768c53068edd747bf3d8008838bb824e674374ec9bab6ea1a410d",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 34,
+            "candidateHash": "5702b31d3827a1fe350b97f2a9121bfe47d93e14d24746dcc469d0b993d52dbb",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 35,
+            "candidateHash": "59770991c1a27391925d14f1d254a73918036d24b7ac8b966070b86ab5206cff",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 20,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 36,
+            "candidateHash": "5c047ff5172f40ddc22ed79bb46b71ad928a7435b8b4e0bd7f13694dff0ee854",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 10,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet"
+            ]
+          },
+          {
+            "sampleIndex": 37,
+            "candidateHash": "5e7e552ef09b669708d8e5151088723a9e466dcfef08d3e051c7559f7c54c268",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 18,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 38,
+            "candidateHash": "6151ec6d7d710964378eb55118608f5750a8c27e483fc347fc46f58c57e0a64b",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 39,
+            "candidateHash": "63bddc330bbe8b001344f23952b1b16a8bff73facfe1f5e3afd3b44b3d9bc433",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 40,
+            "candidateHash": "662d976a6f8db55109a05a4b7442a47dfe9992bebeef4120a0c3535b0bd27c00",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 18,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 41,
+            "candidateHash": "68ec6ff6a347312a514909958fd75fb6dcbe89e350df8582b9adb76d91d35daa",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 42,
+            "candidateHash": "6b7e50a19aca9ca662d29286e6bad17a75332d71c498a032ba1f9e5e11c65949",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 43,
+            "candidateHash": "6e2d510638cb440882f9fc5fa27b07d789b12de83f1a0422b3c73a04ce1b8b9c",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 13,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 44,
+            "candidateHash": "70f5bfde4fcb6b99cc172ff3253fe38fb18e5ea9745adbe90565fc2d91f08030",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 15,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 45,
+            "candidateHash": "73bb0c3a2cf67de5ca5d5bb7aed024fb0823d89eee9c96730f0038e4ec5ca37e",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 46,
+            "candidateHash": "767260ca6989d1c77146a2c1ddab1e11ab4ae79c40de678b51898db2c9fc2604",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 47,
+            "candidateHash": "7931c20c9b4e499d58c066a91a2b07405c314c914e2e5d550fb19984d933e2c0",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 48,
+            "candidateHash": "7be2465af16cbbbf6df6979f21540bd39d0a3aba71d872a5357560c8120fe1f3",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 15,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 49,
+            "candidateHash": "7e609e7713643d54645a53f4a057d075408cf27786bfc1b2cb1819dd4477aa05",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 18,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 50,
+            "candidateHash": "810f2019d2036f52d928af0dc2b711141a9160bdbc724b5d7383446188e43360",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 14,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 51,
+            "candidateHash": "83cc38793ebff171b333fe517baa0b7f766339460bc469892cbf5b4b99186aca",
+            "literalDistanceVectors": 2,
+            "correctedLossRouteVectors": 27,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining",
+              "killerKillsProtagonists.killerIntrigueRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 52,
+            "candidateHash": "868568b7a9f494de0eb090ced206d982bf934e7cc4a927309893441993a7df2f",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 53,
+            "candidateHash": "89112ddae974106b8656cf232d826edcf678bcc9a1ad313c36c2006e6c2d7e42",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 15,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 54,
+            "candidateHash": "8bc1d8a78c3fd365baee483d83e3c262e9f128f25ecdf52545d86aa2996be70d",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 15,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 55,
+            "candidateHash": "8e7284f19ee02f660eea7d940dae8e4c13d8d6bb6f646b3d14df0692d1f9a34a",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 15,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 56,
+            "candidateHash": "91688cb585a9dc3cf2fc3560be542bfa9f11ada0b5b5d71522ae75055c36e96f",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 57,
+            "candidateHash": "94157d819c546f4fd9565cacecabd3d1fcb6e9e5379f83293667127b66cbae4a",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 15,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 58,
+            "candidateHash": "96d9eab30ad9ea4a5ca8c32d96ca3e3f3b99fb3b928ba49ab0407e8ef7ccf153",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 14,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 59,
+            "candidateHash": "9966f75259e01bdbc8db608f983998360d4f97cb73d4c77de6d9e39f4e7b064f",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 60,
+            "candidateHash": "9c32f1f406fc8667e94fcc5892a1c7be9a06e3d4e3672faa48bf4f3ecaeba517",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 17,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 61,
+            "candidateHash": "9eb99293b37e6a4cdb0116f438615a18be6c746b51a12797c31110e5fa42fe4f",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 15,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 62,
+            "candidateHash": "a1aae5d5bfe1ef88f1441f98fd67e67178dc8abded1285fb4929215bb59b5298",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 19,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 63,
+            "candidateHash": "a43565f466baa9b8fc8483d29dad8dfddf354ee7cc9a387b86da39c9369fbc37",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 21,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 64,
+            "candidateHash": "a6947c1784d69fde0298f0802edb1b62233a58ba2280715b00e27ad0f7ff0704",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 10,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet"
+            ]
+          },
+          {
+            "sampleIndex": 65,
+            "candidateHash": "a91e3447d517715225db9bdd0d251040692a693ed020c30a1311f91727a67591",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 18,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 66,
+            "candidateHash": "abac4e09762f2326dbc3275ba3f4dddff47c519fe7e491544c0e535cb4783764",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 17,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 67,
+            "candidateHash": "ae3960cce8c03034609a4e6223398d9fb7c9007386a98434032a0cd7909ef298",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 68,
+            "candidateHash": "b108ef067455c48ccf921a7216f5f89a774700d30c473b14e924ea6eddd4f81e",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 20,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 69,
+            "candidateHash": "b3b3fd6029970128be0b118a3639a23185e50285616b76387ad038c20a6061c6",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 15,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 70,
+            "candidateHash": "b647bdbb06ca16c853e93ae0727fe9052648740ecc11ccfb876d5e06e897ad0b",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 71,
+            "candidateHash": "b8d7636610472550817abfc0dd782587740bde8aa1baf6ee56e27ee19bb8273e",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 72,
+            "candidateHash": "bb410a7bca0d80a9d11056af4319c6a799a264cb1544d490e7e6893e05d5dcfa",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 12,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet"
+            ]
+          },
+          {
+            "sampleIndex": 73,
+            "candidateHash": "bde0aebfa7dcf90576cbd8fc2a5f8d14a2ce115c7727024cc16491ba2a558683",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 12,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 74,
+            "candidateHash": "c05df644d83cc7192e36d610fd8c1ce6f79ba9fd958c66555494704b8276e69f",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 15,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 75,
+            "candidateHash": "c2d66546492c1d18d75644863f8354adb2e512461d25adea570b3651c60d051c",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 76,
+            "candidateHash": "c564cdc2215222e2adfc6b219e8924b970046e4d6247f5ec6fb2f52f4d1929c1",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 19,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 77,
+            "candidateHash": "c7f2b5d366f422b595bf6b69ec4a104763a5166b868b70dc6d97ef66152eb89b",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 78,
+            "candidateHash": "ca4adb604df0e51c67eb34a1a027ef9387b3673001629e8d82c47a804bebccf7",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 17,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 79,
+            "candidateHash": "ccff2f0071d699fc7f78d841bf91bb481896365610e97578914a2a9a25fcd20a",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 19,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 80,
+            "candidateHash": "cfb523d08c0dcd97b28e2b8ef22dc744536d0fe80e1aae1443a3c9d7ceb5500d",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 81,
+            "candidateHash": "d25348cdb087a7e0e854a757868973db7361a9033b2688cf0aed6c05b9df75f3",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 82,
+            "candidateHash": "d4d63dfa47e9c37739fb6b1bc5bc1aac9f0d0913f1ba810226911594ecc68f99",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 83,
+            "candidateHash": "d799f252eb36a126f2dc9d76c68100158a5937a98d406acf9e82ca22453ada66",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 22,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 84,
+            "candidateHash": "da13e05778a5d5aaba74792224580ffb9ad1a09a500540266ef054ca9631ffe1",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 17,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 85,
+            "candidateHash": "dc9fa614c54d65ce68976f8f1c54e970162c87b237eee61cb2e5cd6f4989c29e",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 86,
+            "candidateHash": "defc6d0bb7e11ceedfb93730b66788757da0240b2372aa1ea8f00253011cca74",
+            "literalDistanceVectors": 2,
+            "correctedLossRouteVectors": 27,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining",
+              "killerKillsProtagonists.killerIntrigueRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 87,
+            "candidateHash": "e18bab2b17aa0761f3ff10d1dce13e0ceee943ef5e6a294f537540d8a77256b7",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 88,
+            "candidateHash": "e4035abe791b3ce20d0f32222bd3e38f121efcc52eb6d1d2279abed07f53ae9a",
+            "literalDistanceVectors": 2,
+            "correctedLossRouteVectors": 27,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining",
+              "killerKillsProtagonists.killerIntrigueRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 89,
+            "candidateHash": "e65b73480e8fb61dad2101c41de207a16c8be50ec9e450234f55ed4258b9ad48",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 18,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 90,
+            "candidateHash": "e8f154dce3074c204be0896f63516377af45a222357069ddd0c18aa8b78d1e80",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 15,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 91,
+            "candidateHash": "eb8343bb7979c86c04bb9cac4f161472c3e858a82d9b6d8ccc3434d59a7a90d0",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 92,
+            "candidateHash": "ede421be29237e898f4d295039d9871928576d38d6fee349d57820ae65d359b4",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 22,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 93,
+            "candidateHash": "f059eec09cb5dce515af2909f2a84f0bdb7e676900b3b78aa5522ca1de969648",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 18,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 94,
+            "candidateHash": "f3004e5d64852f8014d7205e27c5426df42e5b92d0f9f67c3e38125eecc12515",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 13,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 95,
+            "candidateHash": "f57d10a547d1293582f324e85768fdb7c34e76e581fc41d3f2847c207b7c02e8",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 15,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 96,
+            "candidateHash": "f8344fa241811acbe8f88bf6211735236e851203f37c8fab97e205b69d8b09af",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 97,
+            "candidateHash": "faee07d30804097051992355454a932b0b95aeb13973474a01b2752d70caadd0",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 21,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 98,
+            "candidateHash": "fd7514cf874bb9e2fd7d0b31e11b1bbadc2e81d15f6dba7321cd4a8930ca1d35",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          },
+          {
+            "sampleIndex": 99,
+            "candidateHash": "fff8d831343eddade0875c02c9dc8851e08089fc1baa7df71aeac02e3b1e90c3",
+            "literalDistanceVectors": 1,
+            "correctedLossRouteVectors": 16,
+            "varyingAxes": [
+              "killerKillsKeyPerson.sameLocation",
+              "serialKillerKillsKeyPerson.keyPersonSameLocation",
+              "serialKillerKillsKeyPerson.otherLivingAtSerialKillerLocation",
+              "serialKillerKillsKeyPerson.conditionMet",
+              "suicideKillsKeyPerson.paranoiaRemaining"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "deterministicHash": "54a908f03d9c84dadc46dcc4788c6d0c5ce6790bff820ffe22a12e2c7f3c9498",
+  "performance": {
+    "milliseconds": 36504.953459,
+    "rssBytes": 344440832
+  }
+}
