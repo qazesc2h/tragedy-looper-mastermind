@@ -1,5 +1,5 @@
 {
-  "_note": "레포의 edition/폴더 구분은 원작 발매 단위이며 한국어 실물 박스와 다름. 이 파일이 한국어 기준 축이다. 24장 구성은 주인공 설명서 16p 및 추리 참조표 대조로 도출 — 실물 검수 권장.",
+  "_note": "레포의 edition/폴더 구분은 원작 발매 단위이며 한국어 실물 박스와 다름. characters는 한국어 실물 발매 축이다. 24장 구성은 주인공 설명서 16p 및 추리 참조표 대조로 도출 — 실물 검수 권장. 한국어 번역 존재 여부는 발매 여부와 별개이므로 unreleasedCharacterTranslations에 분리한다.",
   "characters": {
     "본판": [
       "boyStudent",
@@ -42,6 +42,23 @@
       "sectFounder",
       "servant",
       "youngGirl"
+    ]
+  },
+  "unreleasedCharacterTranslations": {
+    "_note": "한국 미발매 캐릭터 10명의 translations/ko.jsonc 기준 한국어 번역 존재 여부. 번역 있음은 한국 발매 또는 정발 용어를 뜻하지 않는다.",
+    "있음": [
+      "youngGirl",
+      "sectFounder",
+      "littleSister",
+      "copycat",
+      "servant",
+      "sacredTree",
+      "metaworldDenizen",
+      "partTimer",
+      "partTimerAlternate"
+    ],
+    "없음": [
+      "crusader"
     ]
   },
   "tragedySets": {
