@@ -40,6 +40,10 @@ import {
   type LossRoute,
   type LossRouteControl,
 } from "../engine/loss";
+import {
+  mastermindGuidance,
+  type MastermindGuidanceRoute,
+} from "../engine/mastermind-guidance";
 import { intrigueForbidActive } from "../engine/movement";
 import { type ProtagonistObservation } from "../engine/hypothesis";
 import { applyHookEffect, collectHooks } from "../engine/phases";
@@ -2668,6 +2672,97 @@ function renderLossRoute(route: LossRoute): string {
   </section>`;
 }
 
+function guidanceActionSummary(route: MastermindGuidanceRoute): string {
+  const cardDetail = route.actions.cardLabels.length === 0
+    ? "없음"
+    : route.actions.cardLabels.join(" · ");
+  const abilityDetail = route.actions.abilityLabels.length === 0
+    ? "없음"
+    : route.actions.abilityLabels.join(" · ");
+  return `카드 ${route.actions.cards}장 (${cardDetail}) · ` +
+    `능력 ${route.actions.abilities}회 (${abilityDetail})`;
+}
+
+function renderGuidanceRoute(
+  route: MastermindGuidanceRoute,
+  rank?: string,
+  primaryResources?: ReadonlySet<string>,
+): string {
+  const overlap = primaryResources === undefined
+    ? []
+    : route.resources.filter((resource) => primaryResources.has(resource));
+  return `<article class="guidance-route guidance-control-${route.control}">
+    <div class="guidance-route-heading">
+      ${rank === undefined ? "" : `<span class="guidance-rank">${escapeHtml(rank)}</span>`}
+      <div>
+        <strong>${escapeHtml(route.title)}</strong>
+        <span>${escapeHtml(route.controlLabel)} · ${escapeHtml(route.minimumDayLabel)}</span>
+      </div>
+    </div>
+    <dl class="guidance-metrics">
+      <div><dt>필요 행동</dt><dd>${escapeHtml(guidanceActionSummary(route))}</dd></div>
+      <div><dt>최단 소요</dt><dd>${escapeHtml(route.minimumDayLabel)} · ${escapeHtml(route.timing)}</dd></div>
+      <div><dt>통제</dt><dd>${escapeHtml(route.controlLabel)}</dd></div>
+      <div><dt>견제 난이도</dt><dd>${escapeHtml(route.interferenceDifficulty)} · ${escapeHtml(route.interference)}</dd></div>
+    </dl>
+    ${overlap.length === 0 || primaryResources === undefined
+      ? primaryResources === undefined ? "" : `<p class="guidance-resource is-disjoint">1순위와 필요한 카드·능력이 겹치지 않음</p>`
+      : `<p class="guidance-resource">1순위와 자원 ${overlap.length}종 겹침</p>`}
+    ${route.warning === undefined
+      ? ""
+      : `<p class="guidance-warning">${escapeHtml(route.warning)}</p>`}
+  </article>`;
+}
+
+function renderMastermindGuidance(
+  state: GameState,
+  context: "beforeStart" | "panel",
+): string {
+  const guidance = mastermindGuidance(state);
+  const primary = guidance.primary;
+  const primaryResources = new Set(primary?.resources ?? []);
+  const body = `
+    <div class="guidance-priority-list">
+      ${primary === undefined
+        ? `<p class="empty-overlay">각본가가 노릴 수 있는 경로가 없습니다.</p>`
+        : renderGuidanceRoute(primary, "1순위")}
+      ${guidance.alternatives.map((route, index) =>
+        renderGuidanceRoute(route, `대안 ${index + 1}`, primaryResources)
+      ).join("")}
+    </div>
+    <details class="guidance-all-routes">
+      <summary>전체 성립 가능 경로 ${guidance.routes.length}개 보기</summary>
+      <div class="guidance-all-routes-body">
+        ${guidance.routes.map((route) => renderGuidanceRoute(route)).join("")}
+      </div>
+    </details>
+    ${guidance.automaticRisks.length === 0
+      ? ""
+      : `<p class="guidance-footnote">자동 발동 ${guidance.automaticRisks.length}개: 조건이 갖춰지면 각본가도 멈출 수 없습니다.</p>`}
+    ${guidance.protagonistChoices.length === 0
+      ? ""
+      : `<p class="guidance-footnote">주인공 선택 ${guidance.protagonistChoices.length}개: 노릴 경로가 아니라 주의용으로만 표시합니다.</p>`}`;
+
+  if (context === "beforeStart") {
+    return `<section class="pre-game-guidance" aria-label="각본가 시작 지침">
+      <div class="pre-game-guidance-heading">
+        <span class="eyebrow">게임 전 필독</span>
+        <h2>각본가 시작 지침</h2>
+        <p>거리와 통제 가능성을 기준으로 계산했습니다. 대안은 1순위와 카드·능력 자원이 덜 겹치는 순서입니다.</p>
+      </div>
+      ${body}
+    </section>`;
+  }
+  return `<details class="info-accordion mastermind-guidance-information">
+    <summary>
+      <span><small>정적 지침</small><strong>노려볼 패배 조건</strong></span>
+      <span class="accordion-summary-value">${guidance.routes.length}개 경로</span>
+      <i aria-hidden="true"></i>
+    </summary>
+    <div class="info-accordion-body mastermind-guidance-body">${body}</div>
+  </details>`;
+}
+
 function renderOngoingGoodwillEffects(state: GameState): string {
   const items = [
     ...(state.loop.incidentCulpritSuppressedFor ?? []).map(
@@ -3133,6 +3228,7 @@ function renderMastermindOverlay(state: GameState): string {
   return `
     <aside class="mastermind-overlay" aria-label="각본가 정보">
       ${renderLoopStartInformation(state)}
+      ${renderMastermindGuidance(state, "panel")}
       ${renderCurrentLossDisclosure(state)}
       ${renderRuleHypotheses(state)}
       ${renderDeductionTables(state)}
@@ -3616,6 +3712,12 @@ function renderScenarioSelection(): void {
                 <strong>${escapeHtml(selectedEntry.title)} · 시작 불가</strong>
                 <p>${escapeHtml(selectedDifficulty?.validation.errors.join(" ") ?? "난이도 정보를 읽을 수 없습니다.")}</p>
               </aside>`}
+          ${selectedDifficulty?.validation.ok === true
+            ? renderMastermindGuidance(
+              createGameState(structuredClone(selectedDifficulty.scenario)),
+              "beforeStart",
+            )
+            : ""}
           <div class="flow-actions primary-actions">
             <button type="button" class="next-phase" data-action="start-selected-scenario"
               ${selectedDifficulty?.validation.ok === true ? "" : "disabled"}>게임 시작</button>

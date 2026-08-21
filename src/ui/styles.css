@@ -1780,6 +1780,164 @@ select {
   color: #8f8371 !important;
 }
 
+.pre-game-guidance {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
+  margin-top: 14px;
+  border: 1px solid #765d36;
+  border-radius: 12px;
+  background: linear-gradient(150deg, rgba(60, 47, 28, 0.88), rgba(26, 22, 17, 0.96));
+  padding: 12px;
+}
+
+.pre-game-guidance-heading h2,
+.pre-game-guidance-heading p {
+  margin: 0;
+}
+
+.pre-game-guidance-heading {
+  display: grid;
+  gap: 5px;
+}
+
+.pre-game-guidance-heading h2 {
+  color: #ead8b6;
+  font-size: 1rem;
+}
+
+.pre-game-guidance-heading p,
+.guidance-footnote {
+  color: #b8aa94;
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.mastermind-guidance-body,
+.guidance-priority-list,
+.guidance-all-routes-body {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+}
+
+.guidance-route {
+  min-width: 0;
+  border: 1px solid #4e4232;
+  border-radius: 9px;
+  background: #191611;
+  padding: 9px;
+}
+
+.guidance-route.guidance-control-automatic {
+  border-left: 3px solid #a46748;
+}
+
+.guidance-route.guidance-control-protagonist {
+  border-left: 3px solid #647e91;
+}
+
+.guidance-route-heading {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 7px;
+}
+
+.guidance-route-heading > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.guidance-route-heading strong {
+  color: #e0d2bb;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.guidance-route-heading span:not(.guidance-rank) {
+  color: #9f927f;
+  font-size: 0.67rem;
+}
+
+.guidance-rank {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #75512e;
+  padding: 3px 6px;
+  color: #f1d7aa;
+  font-size: 0.64rem;
+  font-weight: 700;
+}
+
+.guidance-metrics {
+  display: grid;
+  gap: 5px;
+  margin: 8px 0 0;
+}
+
+.guidance-metrics > div {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 7px;
+  font-size: 0.69rem;
+  line-height: 1.4;
+}
+
+.guidance-metrics dt {
+  color: #a99a80;
+}
+
+.guidance-metrics dd {
+  min-width: 0;
+  margin: 0;
+  color: #cec0a9;
+  overflow-wrap: anywhere;
+}
+
+.guidance-warning,
+.guidance-resource {
+  margin: 7px 0 0;
+  border-radius: 6px;
+  background: rgba(111, 64, 43, 0.3);
+  padding: 6px 7px;
+  color: #d6aa8f;
+  font-size: 0.68rem;
+  line-height: 1.4;
+}
+
+.guidance-resource.is-disjoint {
+  background: rgba(54, 91, 61, 0.28);
+  color: #a9c9a8;
+}
+
+.guidance-all-routes {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #493e31;
+  border-radius: 8px;
+  background: #17140f;
+}
+
+.guidance-all-routes > summary {
+  min-height: 42px;
+  padding: 9px;
+  color: #cdbb9c;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.guidance-all-routes-body {
+  border-top: 1px solid #493e31;
+  padding: 8px;
+}
+
+.guidance-footnote {
+  margin: 0;
+}
+
 .incident-judgment {
   border-left: 3px solid #8b6e43;
   background: #191611;

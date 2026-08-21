@@ -1,0 +1,643 @@
+{
+  "deterministic": {
+    "schema": "mastermind-pre-game-guidance-audit-v1",
+    "scenariosAttempted": 47,
+    "scenariosReturned": 47,
+    "scenariosWithNoRoute": [],
+    "totalGeneratedRoutes": 316,
+    "totalBaseRiskRoutes": 224,
+    "scenarios": [
+      {
+        "key": "firstSteps:1#difficulty-1",
+        "baseRouteCount": 6,
+        "routeCount": 6,
+        "primary": "death:serialKiller:shrineMaiden:girlStudent",
+        "alternatives": [
+          "role:killer:officeWorker:direct",
+          "death:incident:suicide:3:girlStudent"
+        ],
+        "automaticRiskCount": 2,
+        "protagonistChoiceCount": 0
+      },
+      {
+        "key": "firstSteps:2#difficulty-1",
+        "baseRouteCount": 5,
+        "routeCount": 5,
+        "primary": "death:serialKiller:shrineMaiden:girlStudent",
+        "alternatives": [
+          "role:killer:officeWorker:direct",
+          "death:incident:suicide:3:girlStudent"
+        ],
+        "automaticRiskCount": 2,
+        "protagonistChoiceCount": 0
+      },
+      {
+        "key": "firstSteps:3#difficulty-1",
+        "baseRouteCount": 4,
+        "routeCount": 4,
+        "primary": "incident:hospitalIncident:3:shrineMaiden:protagonistDeath",
+        "alternatives": [
+          "plot:lightAvenger:direct",
+          "death:incident:hospitalIncident:3:patient"
+        ],
+        "automaticRiskCount": 3,
+        "protagonistChoiceCount": 1
+      },
+      {
+        "key": "firstSteps:4#difficulty-1",
+        "baseRouteCount": 4,
+        "routeCount": 4,
+        "primary": "incident:hospitalIncident:3:boyStudent:protagonistDeath",
+        "alternatives": [
+          "plot:placeProtect:direct",
+          "death:incident:hospitalIncident:3:doctor"
+        ],
+        "automaticRiskCount": 3,
+        "protagonistChoiceCount": 0
+      },
+      {
+        "key": "firstSteps:4#difficulty-2",
+        "baseRouteCount": 4,
+        "routeCount": 4,
+        "primary": "incident:hospitalIncident:3:boyStudent:protagonistDeath",
+        "alternatives": [
+          "plot:placeProtect:direct",
+          "death:incident:hospitalIncident:3:doctor"
+        ],
+        "automaticRiskCount": 3,
+        "protagonistChoiceCount": 0
+      },
+      {
+        "key": "firstSteps:5#difficulty-1",
+        "baseRouteCount": 2,
+        "routeCount": 2,
+        "primary": "incident:hospitalIncident:3:boyStudent:protagonistDeath",
+        "alternatives": [
+          "plot:lightAvenger:direct"
+        ],
+        "automaticRiskCount": 2,
+        "protagonistChoiceCount": 0
+      },
+      {
+        "key": "firstSteps:6#difficulty-1",
+        "baseRouteCount": 2,
+        "routeCount": 2,
+        "primary": "death:serialKiller:shrineMaiden:nurse",
+        "alternatives": [
+          "plot:placeProtect:direct"
+        ],
+        "automaticRiskCount": 2,
+        "protagonistChoiceCount": 0
+      },
+      {
+        "key": "firstSteps:6#difficulty-2",
+        "baseRouteCount": 2,
+        "routeCount": 2,
+        "primary": "death:serialKiller:shrineMaiden:nurse",
+        "alternatives": [
+          "plot:placeProtect:direct"
+        ],
+        "automaticRiskCount": 2,
+        "protagonistChoiceCount": 0
+      },
+      {
+        "key": "firstSteps:7#difficulty-1",
+        "baseRouteCount": 6,
+        "routeCount": 6,
+        "primary": "death:killer:girlStudent:popIdol",
+        "alternatives": [
+          "death:incident:suicide:2:shrineMaiden",
+          "role:killer:girlStudent:direct"
+        ],
+        "automaticRiskCount": 1,
+        "protagonistChoiceCount": 0
+      },
+      {
+        "key": "basicTragedy:1#difficulty-1",
+        "baseRouteCount": 5,
+        "routeCount": 5,
+        "primary": "death:serialKiller:informer:shrineMaiden",
+        "alternatives": [
+          "role:lovedOne:classRep:direct",
+          "plot:signWithMe:direct"
+        ],
+        "automaticRiskCount": 4,
+        "protagonistChoiceCount": 0
+      },
+      {
+        "key": "basicTragedy:1#difficulty-2",
+        "baseRouteCount": 5,
+        "routeCount": 5,
+        "primary": "death:serialKiller:informer:shrineMaiden",
+        "alternatives": [
+          "role:lovedOne:classRep:direct",
+          "plot:signWithMe:direct"
+        ],
+        "automaticRiskCount": 4,
+        "protagonistChoiceCount": 0
+      },
+      {
+        "key": "basicTragedy:2#difficulty-1",
+        "baseRouteCount": 6,
+        "routeCount": 6,
+        "primary": "death:serialKiller:boyStudent:popIdol",
+        "alternatives": [
+          "incident:hospitalIncident:3:shrineMaiden:protagonistDeath",
+          "plot:signWithMe:direct"
+        ],
+        "automaticRiskCount": 6,
+        "protagonistChoiceCount": 0
+      },
+      {
+        "key": "basicTragedy:2#difficulty-2",
+        "baseRouteCount": 6,
+        "routeCount": 6,
+        "primary": "death:serialKiller:boyStudent:popIdol",
+        "alternatives": [
+          "incident:hospitalIncident:3:shrineMaiden:protagonistDeath",
+          "plot:signWithMe:direct"
+        ],
+        "automaticRiskCount": 6,
+        "protagonistChoiceCount": 0
+      },
+      {
+        "key": "basicTragedy:3#difficulty-1",
+        "baseRouteCount": 2,
+        "routeCount": 3,
+        "primary": "role:lovedOne:officeWorker:direct",
+        "alternatives": [
+          "plot:giantTimeBomb:direct"
+        ],
+        "automaticRiskCount": 1,
+        "protagonistChoiceCount": 1
+      },
+      {
+        "key": "basicTragedy:3#difficulty-2",
+        "baseRouteCount": 2,
+        "routeCount": 3,
+        "primary": "role:lovedOne:officeWorker:direct",
+        "alternatives": [
+          "plot:giantTimeBomb:direct"
+        ],
+        "automaticRiskCount": 1,
+        "protagonistChoiceCount": 1
+      },
+      {
+        "key": "basicTragedy:4#difficulty-1",
+        "baseRouteCount": 7,
+        "routeCount": 20,
+        "primary": "death:killer:classRep:informer",
+        "alternatives": [
+          "role:killer:classRep:direct",
+          "death:incident:suicide:2:boyStudent"
+        ],
+        "automaticRiskCount": 12,
+        "protagonistChoiceCount": 2
+      },
+      {
+        "key": "basicTragedy:4#difficulty-2",
+        "baseRouteCount": 7,
+        "routeCount": 20,
+        "primary": "death:killer:classRep:informer",
+        "alternatives": [
+          "role:killer:classRep:direct",
+          "death:incident:suicide:2:boyStudent"
+        ],
+        "automaticRiskCount": 12,
+        "protagonistChoiceCount": 2
+      },
+      {
+        "key": "basicTragedy:5#difficulty-1",
+        "baseRouteCount": 2,
+        "routeCount": 2,
+        "primary": "role:timeTraveler:informer:direct",
+        "alternatives": [
+          "plot:changeOfFuture:direct"
+        ],
+        "automaticRiskCount": 1,
+        "protagonistChoiceCount": 0
+      },
+      {
+        "key": "basicTragedy:5#difficulty-2",
+        "baseRouteCount": 2,
+        "routeCount": 2,
+        "primary": "role:timeTraveler:informer:direct",
+        "alternatives": [
+          "plot:changeOfFuture:direct"
+        ],
+        "automaticRiskCount": 1,
+        "protagonistChoiceCount": 0
+      },
+      {
+        "key": "basicTragedy:6#difficulty-1",
+        "baseRouteCount": 11,
+        "routeCount": 11,
+        "primary": "role:timeTraveler:patient:direct",
+        "alternatives": [
+          "plot:changeOfFuture:direct",
+          "death:serialKiller:doctor:classRep"
+        ],
+        "automaticRiskCount": 6,
+        "protagonistChoiceCount": 2
+      },
+      {
+        "key": "basicTragedy:6#difficulty-2",
+        "baseRouteCount": 11,
+        "routeCount": 11,
+        "primary": "role:timeTraveler:patient:direct",
+        "alternatives": [
+          "plot:changeOfFuture:direct",
+          "death:serialKiller:doctor:classRep"
+        ],
+        "automaticRiskCount": 6,
+        "protagonistChoiceCount": 2
+      },
+      {
+        "key": "basicTragedy:7#difficulty-1",
+        "baseRouteCount": 3,
+        "routeCount": 3,
+        "primary": "plot:sealedItem:direct",
+        "alternatives": [
+          "death:incident:murder:6:alien:officeWorker"
+        ],
+        "automaticRiskCount": 1,
+        "protagonistChoiceCount": 1
+      },
+      {
+        "key": "basicTragedy:8#difficulty-1",
+        "baseRouteCount": 2,
+        "routeCount": 4,
+        "primary": "death:serialKiller:officeWorker:journalist",
+        "alternatives": [
+          "plot:sealedItem:direct",
+          "death:incident:suicide:7:journalist"
+        ],
+        "automaticRiskCount": 4,
+        "protagonistChoiceCount": 0
+      },
+      {
+        "key": "basicTragedy:8#difficulty-2",
+        "baseRouteCount": 2,
+        "routeCount": 4,
+        "primary": "death:serialKiller:officeWorker:journalist",
+        "alternatives": [
+          "plot:sealedItem:direct",
+          "death:incident:suicide:7:journalist"
+        ],
+        "automaticRiskCount": 4,
+        "protagonistChoiceCount": 0
+      },
+      {
+        "key": "basicTragedy:9#difficulty-1",
+        "baseRouteCount": 5,
+        "routeCount": 5,
+        "primary": "incident:hospitalIncident:4:journalist:protagonistDeath",
+        "alternatives": [
+          "plot:giantTimeBomb:direct",
+          "death:incident:hospitalIncident:4:alien"
+        ],
+        "automaticRiskCount": 4,
+        "protagonistChoiceCount": 1
+      },
+      {
+        "key": "basicTragedy:9#difficulty-2",
+        "baseRouteCount": 5,
+        "routeCount": 5,
+        "primary": "incident:hospitalIncident:4:journalist:protagonistDeath",
+        "alternatives": [
+          "plot:giantTimeBomb:direct",
+          "death:incident:hospitalIncident:4:alien"
+        ],
+        "automaticRiskCount": 4,
+        "protagonistChoiceCount": 1
+      },
+      {
+        "key": "basicTragedy:10#difficulty-1",
+        "baseRouteCount": 3,
+        "routeCount": 4,
+        "primary": "role:lovedOne:godlyBeing:direct",
+        "alternatives": [
+          "role:timeTraveler:boyStudent:direct",
+          "death:serialKiller:officeWorker:nurse"
+        ],
+        "automaticRiskCount": 2,
+        "protagonistChoiceCount": 0
+      },
+      {
+        "key": "basicTragedy:11#difficulty-1",
+        "baseRouteCount": 4,
+        "routeCount": 16,
+        "primary": "death:serialKiller:nurse:girlStudent",
+        "alternatives": [
+          "plot:signWithMe:direct",
+          "death:incident:murder:7:boyStudent:girlStudent"
+        ],
+        "automaticRiskCount": 14,
+        "protagonistChoiceCount": 0
+      },
+      {
+        "key": "basicTragedy:11#difficulty-2",
+        "baseRouteCount": 4,
+        "routeCount": 16,
+        "primary": "death:serialKiller:nurse:girlStudent",
+        "alternatives": [
+          "plot:signWithMe:direct",
+          "death:incident:murder:7:boyStudent:girlStudent"
+        ],
+        "automaticRiskCount": 14,
+        "protagonistChoiceCount": 0
+      },
+      {
+        "key": "basicTragedy:12#difficulty-1",
+        "baseRouteCount": 1,
+        "routeCount": 2,
+        "primary": "role:timeTraveler:henchman:direct",
+        "alternatives": [
+          "plot:changeOfFuture:direct"
+        ],
+        "automaticRiskCount": 1,
+        "protagonistChoiceCount": 0
+      },
+      {
+        "key": "basicTragedy:12#difficulty-2",
+        "baseRouteCount": 1,
+        "routeCount": 2,
+        "primary": "role:timeTraveler:henchman:direct",
+        "alternatives": [
+          "plot:changeOfFuture:direct"
+        ],
+        "automaticRiskCount": 1,
+        "protagonistChoiceCount": 0
+      },
+      {
+        "key": "basicTragedy:13#difficulty-1",
+        "baseRouteCount": 11,
+        "routeCount": 11,
+        "primary": "death:killer:richStudent:shrineMaiden",
+        "alternatives": [
+          "role:lovedOne:girlStudent:direct",
+          "death:incident:murder:7:policeOfficer:informer"
+        ],
+        "automaticRiskCount": 4,
+        "protagonistChoiceCount": 0
+      },
+      {
+        "key": "basicTragedy:13#difficulty-2",
+        "baseRouteCount": 11,
+        "routeCount": 11,
+        "primary": "death:killer:richStudent:shrineMaiden",
+        "alternatives": [
+          "role:lovedOne:girlStudent:direct",
+          "death:incident:murder:7:policeOfficer:informer"
+        ],
+        "automaticRiskCount": 4,
+        "protagonistChoiceCount": 0
+      },
+      {
+        "key": "basicTragedy:14#difficulty-1",
+        "baseRouteCount": 2,
+        "routeCount": 2,
+        "primary": "role:lovedOne:richStudent:direct",
+        "alternatives": [
+          "plot:giantTimeBomb:direct"
+        ],
+        "automaticRiskCount": 1,
+        "protagonistChoiceCount": 0
+      },
+      {
+        "key": "basicTragedy:15#difficulty-1",
+        "baseRouteCount": 3,
+        "routeCount": 3,
+        "primary": "plot:sealedItem:direct",
+        "alternatives": [
+          "death:serialKiller:richStudent:illusion",
+          "death:incident:farawayMurder:7:illusion"
+        ],
+        "automaticRiskCount": 2,
+        "protagonistChoiceCount": 0
+      },
+      {
+        "key": "basicTragedy:16#difficulty-1",
+        "baseRouteCount": 4,
+        "routeCount": 8,
+        "primary": "role:timeTraveler:journalist:direct",
+        "alternatives": [
+          "plot:changeOfFuture:direct",
+          "death:serialKiller:classRep:youngGirl"
+        ],
+        "automaticRiskCount": 6,
+        "protagonistChoiceCount": 1
+      },
+      {
+        "key": "basicTragedy:16#difficulty-2",
+        "baseRouteCount": 4,
+        "routeCount": 8,
+        "primary": "role:timeTraveler:journalist:direct",
+        "alternatives": [
+          "plot:changeOfFuture:direct",
+          "death:serialKiller:classRep:youngGirl"
+        ],
+        "automaticRiskCount": 6,
+        "protagonistChoiceCount": 1
+      },
+      {
+        "key": "basicTragedy:17#difficulty-1",
+        "baseRouteCount": 9,
+        "routeCount": 9,
+        "primary": "death:serialKiller:shrineMaiden:sacredTree",
+        "alternatives": [
+          "role:killer:soldier:direct",
+          "role:killer:copycat:direct"
+        ],
+        "automaticRiskCount": 2,
+        "protagonistChoiceCount": 0
+      },
+      {
+        "key": "basicTragedy:17#difficulty-2",
+        "baseRouteCount": 9,
+        "routeCount": 9,
+        "primary": "death:serialKiller:shrineMaiden:sacredTree",
+        "alternatives": [
+          "role:killer:soldier:direct",
+          "role:killer:copycat:direct"
+        ],
+        "automaticRiskCount": 2,
+        "protagonistChoiceCount": 0
+      },
+      {
+        "key": "basicTragedy:18#difficulty-1",
+        "baseRouteCount": 4,
+        "routeCount": 6,
+        "primary": "death:serialKiller:alien:richStudent",
+        "alternatives": [
+          "role:lovedOne:patient:direct",
+          "plot:signWithMe:direct"
+        ],
+        "automaticRiskCount": 3,
+        "protagonistChoiceCount": 2
+      },
+      {
+        "key": "basicTragedy:18#difficulty-2",
+        "baseRouteCount": 4,
+        "routeCount": 6,
+        "primary": "death:serialKiller:alien:richStudent",
+        "alternatives": [
+          "role:lovedOne:patient:direct",
+          "plot:signWithMe:direct"
+        ],
+        "automaticRiskCount": 3,
+        "protagonistChoiceCount": 2
+      },
+      {
+        "key": "basicTragedy:19#difficulty-1",
+        "baseRouteCount": 3,
+        "routeCount": 5,
+        "primary": "role:lovedOne:boyStudent:direct",
+        "alternatives": [
+          "plot:giantTimeBomb:direct",
+          "death:serialKiller:shrineMaiden:godlyBeing"
+        ],
+        "automaticRiskCount": 4,
+        "protagonistChoiceCount": 0
+      },
+      {
+        "key": "basicTragedy:19#difficulty-2",
+        "baseRouteCount": 3,
+        "routeCount": 5,
+        "primary": "role:lovedOne:boyStudent:direct",
+        "alternatives": [
+          "plot:giantTimeBomb:direct",
+          "death:serialKiller:shrineMaiden:godlyBeing"
+        ],
+        "automaticRiskCount": 4,
+        "protagonistChoiceCount": 0
+      },
+      {
+        "key": "basicTragedy:20#difficulty-1",
+        "baseRouteCount": 5,
+        "routeCount": 9,
+        "primary": "death:killer:alien:illusion",
+        "alternatives": [
+          "role:killer:alien:direct",
+          "death:incident:farawayMurder:5:illusion"
+        ],
+        "automaticRiskCount": 1,
+        "protagonistChoiceCount": 2
+      },
+      {
+        "key": "basicTragedy:20#difficulty-2",
+        "baseRouteCount": 5,
+        "routeCount": 9,
+        "primary": "death:killer:alien:illusion",
+        "alternatives": [
+          "role:killer:alien:direct",
+          "death:incident:farawayMurder:5:illusion"
+        ],
+        "automaticRiskCount": 1,
+        "protagonistChoiceCount": 2
+      },
+      {
+        "key": "basicTragedy:21#difficulty-1",
+        "baseRouteCount": 11,
+        "routeCount": 11,
+        "primary": "death:serialKiller:patient:doctor",
+        "alternatives": [
+          "death:killer:informer:doctor",
+          "death:killer:informer:doctor"
+        ],
+        "automaticRiskCount": 6,
+        "protagonistChoiceCount": 0
+      },
+      {
+        "key": "basicTragedy:22#difficulty-1",
+        "baseRouteCount": 5,
+        "routeCount": 14,
+        "primary": "death:killer:popIdol:richStudent",
+        "alternatives": [
+          "death:incident:murder:2:classRep:richStudent",
+          "role:killer:popIdol:direct"
+        ],
+        "automaticRiskCount": 6,
+        "protagonistChoiceCount": 0
+      }
+    ],
+    "officialComparison": [
+      {
+        "id": "basicTragedy:1",
+        "title": "Young Women’s Battlefield",
+        "expectedMechanisms": 5,
+        "matchedMechanisms": 5,
+        "missing": [],
+        "mastermindHintsField": "See Tragedy Looper Mastermind Handbook",
+        "mastermindHintsHasContent": false
+      },
+      {
+        "id": "basicTragedy:8",
+        "title": "Lesser of Two Evils",
+        "expectedMechanisms": 4,
+        "matchedMechanisms": 4,
+        "missing": [],
+        "mastermindHintsField": "See Tragedy Looper Mastermind Handbook",
+        "mastermindHintsHasContent": false
+      },
+      {
+        "id": "basicTragedy:9",
+        "title": "The Secret That Was Kept",
+        "expectedMechanisms": 3,
+        "matchedMechanisms": 3,
+        "missing": [],
+        "mastermindHintsField": "See Tragedy Looper Mastermind Handbook",
+        "mastermindHintsHasContent": false
+      },
+      {
+        "id": "basicTragedy:10",
+        "title": "The Future of the Gods",
+        "expectedMechanisms": 4,
+        "matchedMechanisms": 4,
+        "missing": [],
+        "mastermindHintsField": "See Tragedy Looper Mastermind Handbook",
+        "mastermindHintsHasContent": false
+      },
+      {
+        "id": "basicTragedy:11",
+        "title": "Mirror Passcode",
+        "expectedMechanisms": 8,
+        "matchedMechanisms": 8,
+        "missing": [],
+        "mastermindHintsField": "See Tragedy Looper Mastermind Handbook",
+        "mastermindHintsHasContent": false
+      },
+      {
+        "id": "basicTragedy:12",
+        "title": "Those with Antibodies",
+        "expectedMechanisms": 2,
+        "matchedMechanisms": 2,
+        "missing": [],
+        "mastermindHintsField": "See Tragedy Looper Mastermind Handbook",
+        "mastermindHintsHasContent": false
+      },
+      {
+        "id": "basicTragedy:13",
+        "title": "Prologue",
+        "expectedMechanisms": 8,
+        "matchedMechanisms": 8,
+        "missing": [],
+        "mastermindHintsField": "See Tragedy Looper Mastermind Handbook",
+        "mastermindHintsHasContent": false
+      },
+      {
+        "id": "basicTragedy:14",
+        "title": "Neverending Happy & Sad Story",
+        "expectedMechanisms": 2,
+        "matchedMechanisms": 2,
+        "missing": [],
+        "mastermindHintsField": "See Tragedy Looper Mastermind Handbook",
+        "mastermindHintsHasContent": false
+      }
+    ],
+    "officialMechanismsExpected": 36,
+    "officialMechanismsMatched": 36,
+    "officialHintsWithEmbeddedContent": 0
+  },
+  "deterministicHash": "85c591d5abf892305df5584650730673b05aed4cccea4e8267f8ce39f7c16c81"
+}
