@@ -56,6 +56,11 @@ import {
   type LocationIntrigueSource,
   type MastermindDecoyGuidance,
 } from "../engine/mastermind-decoys";
+import {
+  mastermindCoverGuidance,
+  type MastermindCoverGuidance,
+  type RoleCoverCandidate,
+} from "../engine/mastermind-cover";
 import { intrigueForbidActive } from "../engine/movement";
 import { type ProtagonistObservation } from "../engine/hypothesis";
 import { applyHookEffect, collectHooks } from "../engine/phases";
@@ -2863,6 +2868,64 @@ function renderMastermindDecoys(decoys: MastermindDecoyGuidance): string {
   </section>`;
 }
 
+function renderCoverCandidate(
+  candidate: RoleCoverCandidate,
+  rank?: number,
+): string {
+  const affected = candidate.affectedVictoryRoutes.length === 0
+    ? "현재 계산된 승리 경로 없음"
+    : candidate.affectedVictoryRoutes.join(" · ");
+  return `<article class="cover-candidate difficulty-${candidate.difficulty}">
+    <div class="cover-candidate-heading">
+      <div>${rank === undefined ? "" : `<span>${rank}순위</span>`}
+        <strong>${escapeHtml(candidate.characterName)} · ${escapeHtml(candidate.roleName)}</strong>
+      </div>
+      <b>${escapeHtml(candidate.alreadyRevealed ? "이미 공개" : candidate.difficultyLabel)}</b>
+    </div>
+    <p>${escapeHtml(candidate.recommendationReason)}</p>
+    <dl class="cover-metrics">
+      <div><dt>노출 경로</dt><dd>${candidate.exposurePathCount}개 · 강제 ${candidate.automaticPathCount} / 각본가 ${candidate.mastermindPathCount} / 주인공 ${candidate.protagonistPathCount}</dd></div>
+      <div><dt>숨김 비용</dt><dd>영향받는 현재 승리 경로 ${candidate.affectedVictoryRouteCount}개 · ${escapeHtml(affected)}</dd></div>
+      <div><dt>룰 파급</dt><dd>${escapeHtml(candidate.plotExposure)}</dd></div>
+    </dl>
+    ${candidate.exposurePaths.length === 0 ? "" : `<details>
+      <summary>노출 조건과 교환 ${candidate.exposurePaths.length}개</summary>
+      <ul>${candidate.exposurePaths.map((path) => `<li>
+        <strong>${escapeHtml(path.title)}</strong>
+        <span>${escapeHtml(path.observation)}</span>
+        <small>회피 · ${escapeHtml(path.avoidance)}</small>
+        <small>포기 · ${escapeHtml(path.sacrifice)}</small>
+      </li>`).join("")}</ul>
+    </details>`}
+  </article>`;
+}
+
+function renderMastermindCover(cover: MastermindCoverGuidance): string {
+  return `<section class="mastermind-cover" aria-label="최후의 싸움 역할 은폐">
+    <div class="mastermind-cautions-heading">
+      <span class="eyebrow">D. 역할 은폐 순서</span>
+      <h3>끝까지 지킬 후보</h3>
+      <p>노출 경로 수, 통제 가능성, 회피할 때 포기하는 현재 승리 경로를 사전 계산합니다.</p>
+    </div>
+    <div class="cover-phase-principles">
+      <p>${escapeHtml(cover.earlyPrinciple)}</p>
+      <p>${escapeHtml(cover.latePrinciple)}</p>
+      <p>${escapeHtml(cover.finalDefensePrinciple)}</p>
+    </div>
+    ${cover.recommendation === undefined
+      ? `<p class="empty-overlay">지킬 수 있는 미공개 후보가 없습니다.</p>`
+      : `<div class="cover-recommendation"><span>정적 우선 후보</span>${
+        renderCoverCandidate(cover.recommendation)
+      }</div>`}
+    <details class="guidance-caution-category cover-ranking">
+      <summary><strong>전체 은폐 순서</strong><span>${cover.candidates.length}명</span></summary>
+      <div class="guidance-caution-list">${cover.candidates.map((candidate, index) =>
+        renderCoverCandidate(candidate, index + 1)
+      ).join("")}</div>
+    </details>
+  </section>`;
+}
+
 function renderMastermindGuidance(
   state: GameState,
   context: "beforeStart" | "panel",
@@ -2870,6 +2933,7 @@ function renderMastermindGuidance(
   const guidance = mastermindGuidance(state);
   const cautions = mastermindCautions(state);
   const decoys = mastermindDecoyGuidance(state);
+  const cover = mastermindCoverGuidance(state);
   const primary = guidance.primary;
   const primaryResources = new Set(primary?.resources ?? []);
   const body = `
@@ -2903,7 +2967,8 @@ function renderMastermindGuidance(
       ${renderCautionCategory("통제 불가능한 위험", cautions.uncontrolledRisks)}
       ${renderCautionCategory("주인공이 쓸 수 있는 수단", cautions.protagonistTools)}
     </section>
-    ${renderMastermindDecoys(decoys)}`;
+    ${renderMastermindDecoys(decoys)}
+    ${renderMastermindCover(cover)}`;
 
   if (context === "beforeStart") {
     return `<section class="pre-game-guidance" aria-label="각본가 시작 지침">
@@ -2918,7 +2983,7 @@ function renderMastermindGuidance(
   return `<details class="info-accordion mastermind-guidance-information">
     <summary>
       <span><small>정적 지침</small><strong>각본가 시작 지침</strong></span>
-      <span class="accordion-summary-value">${guidance.routes.length}개 경로 · 주의 ${cautions.total}건 · 미끼 ${decoys.total}건</span>
+      <span class="accordion-summary-value">${guidance.routes.length}개 경로 · 주의 ${cautions.total}건 · 미끼 ${decoys.total}건 · 은폐 ${cover.recommendation === undefined ? "없음" : escapeHtml(cover.recommendation.characterName)}</span>
       <i aria-hidden="true"></i>
     </summary>
     <div class="info-accordion-body mastermind-guidance-body">${body}</div>
