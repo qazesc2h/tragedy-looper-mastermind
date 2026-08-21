@@ -1,0 +1,239 @@
+{
+  "deterministic": {
+    "schema": "phase5-distance-to-loss-contract-audit-v1",
+    "coverage": "every bundled scenario difficulty at createGameState initial loop state",
+    "scenariosAttempted": 47,
+    "scenariosReturned": 47,
+    "scenariosErrored": 0,
+    "returnedContracts": [
+      {
+        "contract": {
+          "source": "role",
+          "category": "protectedCharacter",
+          "timing": "immediate",
+          "activation": "mandatory",
+          "requirements": [
+            "dead"
+          ],
+          "semantic": "current key-person death endpoint, not intrigue progress"
+        },
+        "examples": [
+          "firstSteps:1#difficulty-1:role:keyPerson:girlStudent",
+          "firstSteps:2#difficulty-1:role:keyPerson:girlStudent",
+          "firstSteps:4#difficulty-1:role:keyPerson:doctor"
+        ]
+      },
+      {
+        "contract": {
+          "source": "role",
+          "category": "protagonistDeath",
+          "timing": "dayEnd",
+          "activation": "optional",
+          "requirements": [
+            "intrigue"
+          ],
+          "semantic": "killer's own intrigue reaches 4"
+        },
+        "examples": [
+          "firstSteps:1#difficulty-1:role:killer:officeWorker",
+          "firstSteps:2#difficulty-1:role:killer:officeWorker",
+          "firstSteps:7#difficulty-1:role:killer:girlStudent"
+        ]
+      },
+      {
+        "contract": {
+          "source": "plot",
+          "category": "plot",
+          "timing": "loopEnd",
+          "activation": "mandatory",
+          "requirements": [
+            "placeXIntrigue"
+          ],
+          "semantic": "resolved place X intrigue reaches 2"
+        },
+        "examples": [
+          "firstSteps:3#difficulty-1:plot:lightAvenger",
+          "firstSteps:5#difficulty-1:plot:lightAvenger"
+        ]
+      },
+      {
+        "contract": {
+          "source": "role",
+          "category": "protectedCharacter",
+          "timing": "loopEnd",
+          "activation": "mandatory",
+          "requirements": [
+            "dead"
+          ],
+          "semantic": "current friend death endpoint, not a death-route distance"
+        },
+        "examples": [
+          "firstSteps:3#difficulty-1:role:friend:patient",
+          "firstSteps:7#difficulty-1:role:friend:shrineMaiden",
+          "basicTragedy:1#difficulty-1:role:friend:girlStudent"
+        ]
+      },
+      {
+        "contract": {
+          "source": "incident",
+          "category": "protagonistDeath",
+          "timing": "incident",
+          "activation": "mandatory",
+          "requirements": [
+            "culpritAlive",
+            "culpritParanoia",
+            "culpritNotSuppressed",
+            "effectNotSuppressed",
+            "hospitalIntrigue"
+          ],
+          "semantic": "culprit alive, culprit paranoia limit, no culprit/effect suppression, and Hospital intrigue 2; UI reads each route requirement separately"
+        },
+        "examples": [
+          "firstSteps:3#difficulty-1:incident:hospitalIncident:3:shrineMaiden",
+          "firstSteps:4#difficulty-1:incident:hospitalIncident:3:boyStudent",
+          "firstSteps:4#difficulty-2:incident:hospitalIncident:3:boyStudent"
+        ]
+      },
+      {
+        "contract": {
+          "source": "plot",
+          "category": "plot",
+          "timing": "loopEnd",
+          "activation": "mandatory",
+          "requirements": [
+            "schoolIntrigue"
+          ],
+          "semantic": "School intrigue reaches 2"
+        },
+        "examples": [
+          "firstSteps:4#difficulty-1:plot:placeProtect",
+          "firstSteps:4#difficulty-2:plot:placeProtect",
+          "firstSteps:6#difficulty-1:plot:placeProtect"
+        ]
+      },
+      {
+        "contract": {
+          "source": "plot",
+          "category": "plot",
+          "timing": "loopEnd",
+          "activation": "mandatory",
+          "requirements": [
+            "keyPersonIntrigue"
+          ],
+          "semantic": "actual key-person intrigue reaches 2"
+        },
+        "examples": [
+          "basicTragedy:1#difficulty-1:plot:signWithMe",
+          "basicTragedy:1#difficulty-2:plot:signWithMe",
+          "basicTragedy:2#difficulty-1:plot:signWithMe"
+        ]
+      },
+      {
+        "contract": {
+          "source": "role",
+          "category": "protagonistDeath",
+          "timing": "dayEnd",
+          "activation": "optional",
+          "requirements": [
+            "paranoia",
+            "intrigue"
+          ],
+          "semantic": "loved-one paranoia reaches 3 and intrigue reaches 1; top-level remaining sums unlike axes"
+        },
+        "examples": [
+          "basicTragedy:1#difficulty-1:role:lovedOne:classRep",
+          "basicTragedy:1#difficulty-2:role:lovedOne:classRep",
+          "basicTragedy:3#difficulty-1:role:lovedOne:officeWorker"
+        ]
+      },
+      {
+        "contract": {
+          "source": "plot",
+          "category": "plot",
+          "timing": "loopEnd",
+          "activation": "mandatory",
+          "requirements": [
+            "placeXIntrigue"
+          ],
+          "semantic": "resolved place X intrigue reaches 2"
+        },
+        "examples": [
+          "basicTragedy:3#difficulty-1:plot:giantTimeBomb",
+          "basicTragedy:3#difficulty-2:plot:giantTimeBomb",
+          "basicTragedy:9#difficulty-1:plot:giantTimeBomb"
+        ]
+      },
+      {
+        "contract": {
+          "source": "plot",
+          "category": "plot",
+          "timing": "loopEnd",
+          "activation": "mandatory",
+          "requirements": [
+            "butterflyEffectFired"
+          ],
+          "semantic": "butterflyEffect incident has fired in this loop"
+        },
+        "examples": [
+          "basicTragedy:5#difficulty-1:plot:changeOfFuture",
+          "basicTragedy:5#difficulty-2:plot:changeOfFuture",
+          "basicTragedy:6#difficulty-1:plot:changeOfFuture"
+        ]
+      },
+      {
+        "contract": {
+          "source": "role",
+          "category": "protectedCharacter",
+          "timing": "lastDay",
+          "activation": "optional",
+          "requirements": [
+            "goodwill"
+          ],
+          "semantic": "time-traveler goodwill reaches 3 on the last day"
+        },
+        "examples": [
+          "basicTragedy:5#difficulty-1:role:timeTraveler:informer",
+          "basicTragedy:5#difficulty-2:role:timeTraveler:informer",
+          "basicTragedy:6#difficulty-1:role:timeTraveler:patient"
+        ]
+      },
+      {
+        "contract": {
+          "source": "plot",
+          "category": "plot",
+          "timing": "loopEnd",
+          "activation": "mandatory",
+          "requirements": [
+            "shrineIntrigue"
+          ],
+          "semantic": "Shrine intrigue reaches 2"
+        },
+        "examples": [
+          "basicTragedy:7#difficulty-1:plot:sealedItem",
+          "basicTragedy:8#difficulty-1:plot:sealedItem",
+          "basicTragedy:8#difficulty-2:plot:sealedItem"
+        ]
+      }
+    ],
+    "contractMismatches": [],
+    "routeAudit": {
+      "manifestHash": "31089d052e4b6ea96f1244ca6ba6f9cd44606d61ce47b1169b9885e062ed3baa",
+      "totalConditions": 142,
+      "totalRoutes": 224,
+      "protectedConditionsWithNoKnownRoute": [
+        {
+          "scenario": "basicTragedy:7#difficulty-1",
+          "key": "role:friend:alien"
+        }
+      ],
+      "mismatches": []
+    },
+    "unsupportedScenarioErrors": [],
+    "semanticWarnings": [
+      "role:keyPerson and role:friend measure only current death endpoints; they omit every causal death route",
+      "multi-requirement top-level remaining is an arithmetic sum; consumers needing separate axes must read requirements",
+      "incident loss distance implements only hospitalIncident; other lossDeath incidents make distanceToLoss throw"
+    ]
+  },
+  "deterministicHash": "be207dc36caab8e05effb97e73ef8ba91fcce017f81928d4cc4a510dd9e5336e"
+}

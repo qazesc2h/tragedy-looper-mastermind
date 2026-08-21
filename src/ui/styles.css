@@ -1698,6 +1698,88 @@ select {
   line-height: 1.45;
 }
 
+.loss-current-judgment {
+  color: #a99d89 !important;
+}
+
+.loss-route-list {
+  display: grid;
+  gap: 7px;
+  margin-top: 8px;
+}
+
+.loss-route {
+  border: 1px solid #453b2f;
+  border-radius: 8px;
+  background: #191611;
+  padding: 8px;
+}
+
+.loss-route.is-met {
+  border-color: #a45f4d;
+  background: rgba(82, 37, 28, 0.45);
+}
+
+.loss-route.is-unavailable {
+  opacity: 0.62;
+}
+
+.loss-route-heading {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.loss-route-heading > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.loss-route-heading strong {
+  color: #e0d2bb;
+  font-size: 0.76rem;
+  overflow-wrap: anywhere;
+}
+
+.loss-route-heading span {
+  color: #9f927f;
+  font-size: 0.67rem;
+}
+
+.loss-route-requirements {
+  display: grid;
+  gap: 4px;
+  margin: 7px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.loss-route-requirements li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #c6b7a1;
+  font-size: 0.7rem;
+  line-height: 1.35;
+}
+
+.loss-route-requirements li.is-met {
+  color: #9bc6a1;
+}
+
+.loss-route-requirements .condition-mark {
+  width: 17px;
+  height: 17px;
+  flex-basis: 17px;
+  font-size: 0.58rem;
+}
+
+.loss-route-empty {
+  margin: 0 !important;
+  color: #8f8371 !important;
+}
+
 .incident-judgment {
   border-left: 3px solid #8b6e43;
   background: #191611;

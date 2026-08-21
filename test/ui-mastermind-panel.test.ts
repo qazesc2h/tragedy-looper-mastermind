@@ -211,7 +211,7 @@ describe("mastermind incident schedule", () => {
 
     state.scenario.mainPlot = "sealedItem";
     state.loop.locIntrigue.Shrine = 1;
-    expect(lossDistanceSummary(state)).toBe("신사 음모 1/2");
+    expect(lossDistanceSummary(state)).toBe("위험 경로 3개");
 
     state.loop.spentOncePerLoop.mastermind.push("moveVertical");
     state.loop.spentOncePerLoop.protagonists[1].push("goodwillPlus2");

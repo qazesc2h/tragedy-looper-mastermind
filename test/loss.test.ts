@@ -314,6 +314,78 @@ describe("role loss conditions", () => {
     expect(evaluateLoss(state)).toEqual([]);
   });
 
+  it("reports every current key-person death route without combining requirements", () => {
+    const state = createState({
+      cast: {
+        girlStudent: "keyPerson",
+        officeWorker: "killer",
+        shrineMaiden: "serialKiller",
+        alien: "person",
+      },
+      incidents: [{
+        day: 3,
+        incident: "suicide",
+        culprit: "girlStudent",
+      }],
+    });
+    setBoardLocation(state.loop, "girlStudent", "City");
+    setBoardLocation(state.loop, "officeWorker", "City");
+    setBoardLocation(state.loop, "alien", "City");
+    state.loop.charCounters.girlStudent.intrigue = 2;
+    state.loop.charCounters.girlStudent.paranoia = 1;
+    state.loop.charCounters.alien.goodwill = 4;
+
+    const keyPerson = distanceToLoss(state).find(
+      ({ role }) => role === "keyPerson",
+    );
+    const killerRoute = keyPerson?.routes.find(({ key }) =>
+      key === "death:killer:officeWorker:girlStudent"
+    );
+    expect(killerRoute).toMatchObject({
+      met: true,
+      control: "mastermind",
+      when: "오늘 라운드 종료",
+    });
+    expect(killerRoute?.requirements).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        key: "keyPersonIntrigue",
+        current: 2,
+        needed: 2,
+        remaining: 0,
+        met: true,
+      }),
+      expect.objectContaining({
+        key: "sameAbilityLocation",
+        current: 1,
+        needed: 1,
+        remaining: 0,
+        met: true,
+      }),
+    ]));
+    expect(keyPerson?.routes).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        key: "death:incident:suicide:3:girlStudent",
+        daysUntil: 2,
+        control: "automatic",
+      }),
+      expect.objectContaining({
+        key: "death:goodwill:alien:girlStudent",
+        control: "protagonist",
+        met: true,
+      }),
+      expect.objectContaining({
+        key: "death:serialKiller:shrineMaiden:girlStudent",
+        control: "automatic",
+      }),
+    ]));
+
+    const killer = distanceToLoss(state).find(({ role }) => role === "killer");
+    expect(killer?.routes).toContainEqual(expect.objectContaining({
+      key: "death:killer:officeWorker:girlStudent",
+      met: true,
+    }));
+  });
+
   it("waits until loop end to return a dead friend", () => {
     const state = createState({ cast: { boss: "friend" } });
     setBoardLife(state.loop, "boss", false);
@@ -377,6 +449,15 @@ describe("role loss conditions", () => {
       daysLeft: 2,
       met: false,
     }));
+    expect(distanceToLoss(state).find(({ id }) => id === "timeTraveler")
+      ?.routes[0]).toMatchObject({
+        met: false,
+        requirements: [expect.objectContaining({
+          key: "goodwill",
+          remaining: 2,
+          met: false,
+        })],
+      });
   });
 
   it("returns an optional timeTraveler loss on the last day at 2 goodwill", () => {
@@ -394,6 +475,14 @@ describe("role loss conditions", () => {
       when: "마지막 날",
       daysLeft: 0,
     }));
+    expect(beforeActivation?.routes[0]).toMatchObject({
+      met: true,
+      requirements: [expect.objectContaining({
+        key: "goodwill",
+        remaining: 1,
+        met: false,
+      })],
+    });
 
     setOptionalLossActivation(state, beforeActivation!.key, true);
     expect(evaluateLoss(state)).toContainEqual(expect.objectContaining({
@@ -419,6 +508,8 @@ describe("role loss conditions", () => {
       remaining: 0,
       met: false,
     }));
+    expect(distanceToLoss(state).find(({ id }) => id === "timeTraveler")
+      ?.routes[0].met).toBe(false);
     expect(evaluateLoss(state)).toEqual([]);
   });
 
@@ -450,6 +541,13 @@ describe("role loss conditions", () => {
       met: false,
       label: "남학생(연인A) 불안 2/3 · 음모 1/1",
     }));
+    const lovedOne = distances.find(({ role }) => role === "lovedOne");
+    expect(lovedOne?.routes).toMatchObject([{
+      requirements: [
+        { key: "paranoia", current: 2, needed: 3, remaining: 1, met: false },
+        { key: "intrigue", current: 1, needed: 1, remaining: 0, met: true },
+      ],
+    }]);
     expect(evaluateLoss(state)).toEqual([]);
 
     state.loop.phase = "P9_ROUND_END";
@@ -518,12 +616,25 @@ describe("incident loss conditions", () => {
 
     expect(distanceToLoss(state)).toContainEqual(expect.objectContaining({
       incident: "hospitalIncident",
-      current: 5,
-      needed: 5,
+      current: 7,
+      needed: 7,
       remaining: 0,
       met: true,
-      label: "1일 병원 사건: 범인 생존 1/1 · 범인 불안 2/2 · 병원 음모 2/2",
+      label: "1일 병원 사건: 범인 생존 1/1 · 범인 불안 2/2 · 발생 억제 없음 1/1 · 효과 유효 1/1 · 병원 음모 2/2",
     }));
+    const hospital = distanceToLoss(state).find(
+      ({ incident }) => incident === "hospitalIncident",
+    );
+    expect(hospital?.routes).toMatchObject([{
+      met: true,
+      requirements: [
+        { key: "culpritAlive", remaining: 0, met: true },
+        { key: "culpritParanoia", remaining: 0, met: true },
+        { key: "culpritNotSuppressed", remaining: 0, met: true },
+        { key: "effectNotSuppressed", remaining: 0, met: true },
+        { key: "hospitalIntrigue", remaining: 0, met: true },
+      ],
+    }]);
     expect(evaluateLoss(state)).toContainEqual(expect.objectContaining({
       incident: "hospitalIncident",
       category: "protagonistDeath",
@@ -574,6 +685,29 @@ describe("incident loss conditions", () => {
     expect(hospital?.met).toBe(false);
     expect(hospital?.remaining).toBe(1);
     expect(evaluateLoss(state)).toEqual([]);
+  });
+
+  it("shows a friend's scheduled hospital death as its own route", () => {
+    const state = createState({
+      cast: { boss: "friend", boyStudent: "person" },
+      incidents: [{
+        day: 2,
+        incident: "hospitalIncident",
+        culprit: "boyStudent",
+      }],
+    });
+    setBoardLocation(state.loop, "boss", "Hospital");
+    state.loop.charCounters.boyStudent.paranoia = 2;
+    state.loop.locIntrigue.Hospital = 1;
+
+    const friend = distanceToLoss(state).find(({ role }) => role === "friend");
+    expect(friend?.routes).toContainEqual(expect.objectContaining({
+      key: "death:incident:hospitalIncident:2:boss",
+      ko: "2일 병원 사건 · 병원 전원 사망",
+      when: "2일 사건 · 1일 후",
+      daysUntil: 1,
+      met: true,
+    }));
   });
 });
 

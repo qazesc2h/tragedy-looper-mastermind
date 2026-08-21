@@ -34,7 +34,12 @@ import {
   incidentFires,
 } from "../engine/incident";
 import { validatePlacement } from "../engine/legal";
-import { distanceToLoss, setOptionalLossActivation } from "../engine/loss";
+import {
+  distanceToLoss,
+  setOptionalLossActivation,
+  type LossRoute,
+  type LossRouteControl,
+} from "../engine/loss";
 import { intrigueForbidActive } from "../engine/movement";
 import { type ProtagonistObservation } from "../engine/hypothesis";
 import { applyHookEffect, collectHooks } from "../engine/phases";
@@ -2582,9 +2587,6 @@ function renderLossDistance(state: GameState): string {
     return `<p class="empty-overlay">${escapeHtml(misc("No loss condition", "No loss condition"))}</p>`;
   }
   return conditions.map((condition) => {
-    const ratio = condition.needed === 0
-      ? 0
-      : Math.min(100, Math.round((condition.current / condition.needed) * 100));
     return `
       <article class="loss-card ${condition.met ? "is-met" : ""} ${condition.blockedBy ? "is-blocked" : ""}">
         <div class="loss-title">
@@ -2592,8 +2594,12 @@ function renderLossDistance(state: GameState): string {
           <div><strong>${escapeHtml(condition.ko)}</strong>
           <span>${escapeHtml(condition.when)} · ${escapeHtml(condition.activation === "optional" ? misc("Optional", "Optional") : misc("Mandatory", "Mandatory"))}</span></div>
         </div>
-        <p>${escapeHtml(condition.label)}</p>
-        <div class="loss-meter"><i style="width:${ratio}%"></i></div>
+        <p class="loss-current-judgment">현재 판정 · ${escapeHtml(condition.label)}</p>
+        <div class="loss-route-list">
+          ${condition.routes.length === 0
+            ? `<p class="loss-route-empty">현재 각본에서 확인된 사망 경로 없음</p>`
+            : condition.routes.map(renderLossRoute).join("")}
+        </div>
         ${condition.daysLeft === undefined
           ? ""
           : `<small>${escapeHtml(misc("Days left", "Days left"))}: ${condition.daysLeft}</small>`}
@@ -2630,6 +2636,36 @@ function renderLossDistance(state: GameState): string {
           : ""}
       </article>`;
   }).join("");
+}
+
+function lossRouteControlLabel(control: LossRouteControl): string {
+  switch (control) {
+    case "automatic": return "자동";
+    case "mastermind": return "각본가 선택";
+    case "protagonist": return "주인공 선택";
+  }
+}
+
+function renderLossRoute(route: LossRoute): string {
+  const requirementsMet = route.requirements.filter(({ met }) => met).length;
+  return `<section class="loss-route ${route.met ? "is-met" : ""} ${
+    route.available ? "" : "is-unavailable"
+  }">
+    <div class="loss-route-heading">
+      ${mark(route.met)}
+      <div>
+        <strong>${escapeHtml(route.ko)}</strong>
+        <span>${escapeHtml(route.when)} · ${escapeHtml(
+          lossRouteControlLabel(route.control),
+        )} · 요구 ${requirementsMet}/${route.requirements.length}</span>
+      </div>
+    </div>
+    <ul class="loss-route-requirements">
+      ${route.requirements.map((requirement) => `<li class="${
+        requirement.met ? "is-met" : ""
+      }">${mark(requirement.met)}<span>${escapeHtml(requirement.label)}</span></li>`).join("")}
+    </ul>
+  </section>`;
 }
 
 function renderOngoingGoodwillEffects(state: GameState): string {

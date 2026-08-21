@@ -3,10 +3,13 @@ import { INCIDENT_IMPL } from "../impl/incidents";
 import { PLOT_IMPL } from "../impl/plots";
 import { effectiveAbilityRoles, ROLE_IMPL } from "../impl/roles";
 import {
+  abilityLocationsOf,
+  characterLocation,
   effectiveRole,
   isCharacterAlive,
   isCharacterDead,
   isCharacterPresent,
+  PHASE_ORDER,
   resolvePlaceX,
   type CharacterId,
   type GameState,
@@ -37,6 +40,7 @@ export type LossTiming =
 
 export type LossSource = "plot" | "role" | "incident";
 export type LossActivation = "mandatory" | "optional";
+export type LossRouteControl = "automatic" | "mastermind" | "protagonist";
 export type LossWhen =
   | "즉시"
   | "라운드 종료"
@@ -49,7 +53,20 @@ export interface LossRequirement {
   ko: string;
   current: number;
   needed: number;
+  remaining: number;
+  met: boolean;
   label: string;
+}
+
+export interface LossRoute {
+  key: string;
+  ko: string;
+  control: LossRouteControl;
+  when: string;
+  daysUntil?: number;
+  available: boolean;
+  met: boolean;
+  requirements: LossRequirement[];
 }
 
 export interface LossDistance {
@@ -76,6 +93,8 @@ export interface LossDistance {
   met: boolean;
   label: string;
   requirements: LossRequirement[];
+  /** 판정 조건과 별개로, 이 패배가 실제로 성립할 수 있는 경로별 진척. */
+  routes: LossRoute[];
 }
 
 export type LossCondition = LossDistance;
@@ -98,6 +117,7 @@ interface DistanceBase {
   ko: string;
   label: string;
   requirements: LossRequirement[];
+  routes?: LossRoute[];
   conditionMet?: boolean;
 }
 
@@ -114,16 +134,51 @@ function requirement(
   current: number,
   needed: number,
   label: string,
+  conditionMet?: boolean,
+  remainingOverride?: number,
 ): LossRequirement {
-  return { key, ko, current, needed, label };
+  const met = conditionMet ?? current >= needed;
+  return {
+    key,
+    ko,
+    current,
+    needed,
+    remaining: met
+      ? 0
+      : remainingOverride ?? Math.max(0, needed - current),
+    met,
+    label,
+  };
+}
+
+function route(
+  key: string,
+  ko: string,
+  control: LossRouteControl,
+  when: string,
+  available: boolean,
+  requirements: LossRequirement[],
+  daysUntil?: number,
+  conditionMet?: boolean,
+): LossRoute {
+  return {
+    key,
+    ko,
+    control,
+    when,
+    ...(daysUntil === undefined ? {} : { daysUntil }),
+    available,
+    met: available && (conditionMet ?? requirements.every(({ met }) => met)),
+    requirements,
+  };
 }
 
 function distance(base: DistanceBase): LossDistance {
   const met = base.conditionMet ?? base.requirements.every(
-    ({ current, needed }) => current >= needed,
+    (item) => item.met,
   );
   const remaining = base.requirements.reduce(
-    (sum, { current, needed }) => sum + Math.max(0, needed - current),
+    (sum, item) => sum + item.remaining,
     0,
   );
   const single = base.requirements.length === 1
@@ -147,6 +202,16 @@ function distance(base: DistanceBase): LossDistance {
     remaining,
     met,
     activated: false,
+    routes: base.routes ?? [route(
+      `${base.key}:direct`,
+      base.ko,
+      base.activation === "optional" ? "mastermind" : "automatic",
+      base.when,
+      true,
+      base.requirements,
+      base.daysLeft,
+      met,
+    )],
   };
 }
 
@@ -359,6 +424,455 @@ function characterLabel(character: CharacterId, role: RoleId): string {
   return `${characterDataOf(character).ko}(${ROLE_IMPL[role].ko})`;
 }
 
+function booleanRequirement(
+  key: string,
+  ko: string,
+  met: boolean,
+  passLabel: string,
+  failLabel: string,
+): LossRequirement {
+  return requirement(key, ko, Number(met), 1, met ? passLabel : failLabel, met);
+}
+
+function targetCanDieRequirements(
+  state: GameState,
+  target: CharacterId,
+): LossRequirement[] {
+  const alive = isCharacterAlive(state.loop.board[target]);
+  const protection = state.loop.charCounters[target].protection;
+  return [
+    booleanRequirement(
+      "targetAlive",
+      "대상 생존",
+      alive,
+      "대상 생존",
+      "대상이 이미 사망",
+    ),
+    booleanRequirement(
+      "targetUnprotected",
+      "보호 없음",
+      protection === 0,
+      "보호 없음",
+      `보호 ${protection}개`,
+    ),
+    booleanRequirement(
+      "targetMortal",
+      "사망 가능",
+      effectiveRole(state, target) !== "timeTraveler",
+      "사망 가능",
+      "시간 여행자라 사망하지 않음",
+    ),
+  ];
+}
+
+function characterHasAbilityRole(
+  state: GameState,
+  character: CharacterId,
+  role: RoleId,
+): boolean {
+  return effectiveAbilityRoles(state, character).includes(role);
+}
+
+function futureRoundAvailable(state: GameState): boolean {
+  return state.pendingLoopEnd === undefined && [
+    "LOOP_TIME_GAP",
+    "LOOP_CHARACTER_PLACEMENT",
+    "LOOP_COUNTER_SETUP",
+    "LOOP_CARD_DISTRIBUTION",
+    "ROUND",
+  ].includes(state.gamePhase);
+}
+
+function killerKeyPersonRoutes(
+  state: GameState,
+  keyPerson: CharacterId,
+): LossRoute[] {
+  return Object.keys(state.loop.board).flatMap((killer) => {
+    const position = state.loop.board[killer];
+    if (
+      !isCharacterPresent(position) ||
+      !characterHasAbilityRole(state, killer, "killer")
+    ) return [];
+    const keyPersonPosition = state.loop.board[keyPerson];
+    const inRange = isCharacterPresent(keyPersonPosition) &&
+      abilityLocationsOf(state, killer).includes(
+        characterLocation(keyPersonPosition, keyPerson),
+      );
+    const intrigue = state.loop.charCounters[keyPerson].intrigue;
+    return [route(
+      `death:killer:${killer}:${keyPerson}`,
+      `${characterDataOf(killer).ko}의 살인 청부업자 능력`,
+      "mastermind",
+      "오늘 라운드 종료",
+      futureRoundAvailable(state),
+      [
+        booleanRequirement(
+          "killerAlive",
+          "청부업자 생존",
+          isCharacterAlive(position),
+          "청부업자 생존",
+          "청부업자 사망",
+        ),
+        requirement(
+          "keyPersonIntrigue",
+          "핵심 인물 음모",
+          intrigue,
+          2,
+          `핵심 인물 음모 ${intrigue}/2`,
+        ),
+        booleanRequirement(
+          "sameAbilityLocation",
+          "능력 범위가 같음",
+          inRange,
+          "같은 장소/세력권",
+          "다른 장소/세력권",
+        ),
+        ...targetCanDieRequirements(state, keyPerson),
+      ],
+    )];
+  });
+}
+
+function serialKillerDeathRoutes(
+  state: GameState,
+  target: CharacterId,
+): LossRoute[] {
+  return Object.keys(state.loop.board).flatMap((serialKiller) => {
+    const position = state.loop.board[serialKiller];
+    if (
+      serialKiller === target ||
+      !isCharacterAlive(position) ||
+      !characterHasAbilityRole(state, serialKiller, "serialKiller")
+    ) return [];
+    const serialLocation = characterLocation(position, serialKiller);
+    const targetPosition = state.loop.board[target];
+    const targetSameLocation = isCharacterAlive(targetPosition) &&
+      characterLocation(targetPosition, target) === serialLocation;
+    const otherLiving = Object.entries(state.loop.board).filter(
+      ([character, candidate]) =>
+        character !== serialKiller &&
+        isCharacterAlive(candidate) &&
+        characterLocation(candidate, character) === serialLocation,
+    ).length;
+    return [route(
+      `death:serialKiller:${serialKiller}:${target}`,
+      `${characterDataOf(serialKiller).ko}의 연쇄 살인마 능력`,
+      "automatic",
+      "오늘 라운드 종료",
+      futureRoundAvailable(state),
+      [
+        booleanRequirement(
+          "targetSameLocation",
+          "대상과 같은 장소",
+          targetSameLocation,
+          "대상과 같은 장소",
+          "대상과 다른 장소",
+        ),
+        requirement(
+          "exactlyOneOtherLiving",
+          "같은 장소의 다른 생존자",
+          otherLiving,
+          1,
+          `다른 생존자 ${otherLiving}명/정확히 1명`,
+          otherLiving === 1,
+          Math.abs(otherLiving - 1),
+        ),
+        ...targetCanDieRequirements(state, target),
+      ],
+    )];
+  });
+}
+
+function incidentAlreadyResolved(
+  state: GameState,
+  scheduled: GameState["scenario"]["incidents"][number],
+): boolean {
+  return state.loop.incidentOccurrencesFiredThisLoop?.some(
+    ({ day, incident, culprit }) =>
+      day === scheduled.day &&
+      incident === scheduled.incident &&
+      culprit === scheduled.culprit,
+  ) ?? false;
+}
+
+function incidentRouteAvailable(
+  state: GameState,
+  scheduled: GameState["scenario"]["incidents"][number],
+): boolean {
+  if (!futureRoundAvailable(state)) return false;
+  if (incidentAlreadyResolved(state, scheduled)) return false;
+  if (scheduled.day > state.loop.day) return true;
+  if (scheduled.day < state.loop.day) return false;
+  if (state.gamePhase !== "ROUND") return true;
+  return PHASE_ORDER.indexOf(state.loop.phase) <=
+    PHASE_ORDER.indexOf("P7_INCIDENT");
+}
+
+function incidentWhen(
+  state: GameState,
+  scheduled: GameState["scenario"]["incidents"][number],
+): string {
+  const daysUntil = scheduled.day - state.loop.day;
+  if (!incidentRouteAvailable(state, scheduled)) {
+    return `${scheduled.day}일 사건 · 기회 지남`;
+  }
+  return daysUntil === 0
+    ? `${scheduled.day}일 사건 · 오늘`
+    : `${scheduled.day}일 사건 · ${daysUntil}일 후`;
+}
+
+function incidentCommonRequirements(
+  state: GameState,
+  scheduled: GameState["scenario"]["incidents"][number],
+): LossRequirement[] {
+  const culpritPosition = state.loop.board[scheduled.culprit];
+  const paranoia = incidentParanoia(state, scheduled.culprit);
+  const paranoiaNeeded = characterDataOf(scheduled.culprit).paranoiaLimit;
+  const suppressed = state.loop.incidentCulpritSuppressedFor?.includes(
+    scheduled.culprit,
+  ) ?? false;
+  return [
+    booleanRequirement(
+      "culpritAlive",
+      "범인 생존",
+      isCharacterAlive(culpritPosition),
+      "범인 생존",
+      "범인 사망/부재",
+    ),
+    requirement(
+      "culpritParanoia",
+      "범인 불안",
+      paranoia,
+      paranoiaNeeded,
+      `범인 불안 ${paranoia}/${paranoiaNeeded}`,
+    ),
+    booleanRequirement(
+      "culpritNotSuppressed",
+      "사건 발생 억제 없음",
+      !suppressed,
+      "사건 발생 억제 없음",
+      "범인의 사건 발생이 억제됨",
+    ),
+    booleanRequirement(
+      "effectNotSuppressed",
+      "사건 효과 유효",
+      scheduled.culprit !== "blackCat",
+      "사건 효과 유효",
+      "검은 고양이로 사건 효과 없음",
+    ),
+  ];
+}
+
+function incidentDeathRoutes(
+  state: GameState,
+  target: CharacterId,
+): LossRoute[] {
+  return state.scenario.incidents.flatMap((scheduled) => {
+    const common = incidentCommonRequirements(state, scheduled);
+    const targetPosition = state.loop.board[target];
+    const culpritPosition = state.loop.board[scheduled.culprit];
+    const targetAlive = isCharacterAlive(targetPosition);
+    const daysUntil = Math.max(0, scheduled.day - state.loop.day);
+    const base = {
+      when: incidentWhen(state, scheduled),
+      available: incidentRouteAvailable(state, scheduled),
+      daysUntil,
+    };
+    const incidentLabel = `${scheduled.day}일 ${INCIDENT_IMPL[scheduled.incident].ko}`;
+
+    switch (scheduled.incident) {
+      case "suicide":
+        return scheduled.culprit === target
+          ? [route(
+            `death:incident:suicide:${scheduled.day}:${target}`,
+            incidentLabel,
+            "automatic",
+            base.when,
+            base.available,
+            [...common, ...targetCanDieRequirements(state, target)],
+            base.daysUntil,
+          )]
+          : [];
+      case "murder": {
+        const sameLocation = targetAlive && isCharacterAlive(culpritPosition) &&
+          target !== scheduled.culprit &&
+          characterLocation(targetPosition, target) ===
+            characterLocation(culpritPosition, scheduled.culprit);
+        return target === scheduled.culprit
+          ? []
+          : [route(
+            `death:incident:murder:${scheduled.day}:${scheduled.culprit}:${target}`,
+            `${incidentLabel} · 각본가 대상 선택`,
+            "mastermind",
+            base.when,
+            base.available,
+            [
+              ...common,
+              booleanRequirement(
+                "sameLocationAsCulprit",
+                "범인과 같은 장소",
+                sameLocation,
+                "범인과 같은 장소",
+                "범인과 다른 장소",
+              ),
+              ...targetCanDieRequirements(state, target),
+            ],
+            base.daysUntil,
+          )];
+      }
+      case "farawayMurder": {
+        const intrigue = state.loop.charCounters[target].intrigue;
+        return [route(
+          `death:incident:farawayMurder:${scheduled.day}:${target}`,
+          `${incidentLabel} · 각본가 대상 선택`,
+          "mastermind",
+          base.when,
+          base.available,
+          [
+            ...common,
+            requirement(
+              "targetIntrigue",
+              "대상 음모",
+              intrigue,
+              2,
+              `대상 음모 ${intrigue}/2`,
+            ),
+            ...targetCanDieRequirements(state, target),
+          ],
+          base.daysUntil,
+        )];
+      }
+      case "hospitalIncident": {
+        const atHospital = targetAlive &&
+          characterLocation(targetPosition, target) === "Hospital";
+        const hospitalIntrigue = state.loop.locIntrigue.Hospital;
+        return [route(
+          `death:incident:hospitalIncident:${scheduled.day}:${target}`,
+          `${incidentLabel} · 병원 전원 사망`,
+          "automatic",
+          base.when,
+          base.available,
+          [
+            ...common,
+            requirement(
+              "hospitalIntrigueForDeath",
+              "병원 음모",
+              hospitalIntrigue,
+              1,
+              `병원 음모 ${hospitalIntrigue}/1`,
+            ),
+            booleanRequirement(
+              "targetAtHospital",
+              "대상이 병원에 있음",
+              atHospital,
+              "대상이 병원에 있음",
+              "대상이 병원 밖에 있음",
+            ),
+            ...targetCanDieRequirements(state, target),
+          ],
+          base.daysUntil,
+        )];
+      }
+      default:
+        return [];
+    }
+  });
+}
+
+function alienGoodwillDeathRoutes(
+  state: GameState,
+  target: CharacterId,
+): LossRoute[] {
+  const alienPosition = state.loop.board.alien;
+  if (
+    target === "alien" ||
+    alienPosition === undefined ||
+    !isCharacterPresent(alienPosition)
+  ) {
+    return [];
+  }
+  const targetPosition = state.loop.board[target];
+  const sameLocation = isCharacterAlive(alienPosition) &&
+    isCharacterAlive(targetPosition) &&
+    characterLocation(alienPosition, "alien") ===
+      characterLocation(targetPosition, target);
+  const goodwill = state.loop.charCounters.alien.goodwill;
+  const useKey = "alien:goodwill:0";
+  const used = state.loop.abilitiesUsedThisLoop.filter(
+    (key) => key === useKey,
+  ).length;
+  const availableThisLoop = used < 1;
+  const p6NotPassedForLoop = state.loop.day < state.scenario.daysPerLoop ||
+    PHASE_ORDER.indexOf(state.loop.phase) <= PHASE_ORDER.indexOf("P6_GOODWILL");
+  return [route(
+    `death:goodwill:alien:${target}`,
+    "이세계인 우호 4 · 주인공 선택",
+    "protagonist",
+    "주인공 우호 단계",
+    futureRoundAvailable(state) && p6NotPassedForLoop,
+    [
+      booleanRequirement(
+        "alienAlive",
+        "이세계인 생존",
+        isCharacterAlive(alienPosition),
+        "이세계인 생존",
+        "이세계인 사망/부재",
+      ),
+      requirement(
+        "alienGoodwill",
+        "이세계인 우호",
+        goodwill,
+        4,
+        `이세계인 우호 ${goodwill}/4`,
+      ),
+      booleanRequirement(
+        "sameLocationAsAlien",
+        "이세계인과 같은 장소",
+        sameLocation,
+        "이세계인과 같은 장소",
+        "이세계인과 다른 장소",
+      ),
+      booleanRequirement(
+        "alienKillUnused",
+        "우호 능력 미사용",
+        availableThisLoop,
+        "우호 4 사망 능력 미사용",
+        "우호 4 사망 능력 사용 완료",
+      ),
+      ...targetCanDieRequirements(state, target),
+    ],
+  )];
+}
+
+function protectedCharacterDeathRoutes(
+  state: GameState,
+  target: CharacterId,
+  includeKiller: boolean,
+): LossRoute[] {
+  if (isCharacterDead(state.loop.board[target])) {
+    return [route(
+      `death:current:${target}`,
+      "현재 사망",
+      "automatic",
+      "현재",
+      true,
+      [booleanRequirement(
+        "dead",
+        "사망",
+        true,
+        "사망",
+        "생존",
+      )],
+    )];
+  }
+  return [
+    ...(includeKiller ? killerKeyPersonRoutes(state, target) : []),
+    ...serialKillerDeathRoutes(state, target),
+    ...incidentDeathRoutes(state, target),
+    ...alienGoodwillDeathRoutes(state, target),
+  ];
+}
+
 function roleLossDistance(
   state: GameState,
   character: CharacterId,
@@ -381,7 +895,7 @@ function roleLossDistance(
 
     if (role === "keyPerson" && hookIndex === 0) {
       const current = isCharacterDead(state.loop.board[character]) ? 1 : 0;
-      out.push(distance({
+      const condition = distance({
         id: role,
         key: roleKey(role, character),
         source: "role",
@@ -398,7 +912,9 @@ function roleLossDistance(
           requirement("dead", "사망", current, 1,
             `${labelPrefix} 사망 ${current}/1`),
         ],
-      }));
+      });
+      condition.routes = protectedCharacterDeathRoutes(state, character, true);
+      out.push(condition);
       continue;
     }
 
@@ -437,7 +953,7 @@ function roleLossDistance(
 
     if (role === "friend" && hookIndex === 0) {
       const current = isCharacterDead(state.loop.board[character]) ? 1 : 0;
-      out.push(distance({
+      const condition = distance({
         id: role,
         key: roleKey(role, character),
         source: "role",
@@ -454,13 +970,15 @@ function roleLossDistance(
           requirement("dead", "사망", current, 1,
             `${labelPrefix} 사망 ${current}/1`),
         ],
-      }));
+      });
+      condition.routes = protectedCharacterDeathRoutes(state, character, false);
+      out.push(condition);
       continue;
     }
 
     if (role === "killer" && hookIndex === 1) {
       const current = state.loop.charCounters[character].intrigue;
-      out.push(distance({
+      const condition = distance({
         id: role,
         key: roleKey(role, character),
         source: "role",
@@ -477,7 +995,17 @@ function roleLossDistance(
           requirement("intrigue", "음모", current, 4,
             `${labelPrefix} 음모 ${current}/4`),
         ],
-      }));
+      });
+      const keyPerson = actualKeyPerson(state);
+      if (keyPerson !== undefined) {
+        condition.routes = [
+          ...condition.routes,
+          ...killerKeyPersonRoutes(state, keyPerson).filter(
+            ({ key }) => key.startsWith(`death:killer:${character}:`),
+          ),
+        ];
+      }
+      out.push(condition);
       continue;
     }
 
@@ -538,11 +1066,16 @@ function incidentLossDistance(
     ? "범인 판정 불안"
     : "범인 불안";
   const hospitalIntrigue = state.loop.locIntrigue.Hospital;
+  const notSuppressed = state.loop.incidentCulpritSuppressedFor?.includes(
+    scheduled.culprit,
+  ) ? 0 : 1;
+  const effectValid = scheduled.culprit === "blackCat" ? 0 : 1;
   const label = `${scheduled.day}일 ${impl.ko}: ` +
     `범인 생존 ${alive}/1 · ${paranoiaLabel} ${paranoia}/${paranoiaNeeded} · ` +
+    `발생 억제 없음 ${notSuppressed}/1 · 효과 유효 ${effectValid}/1 · ` +
     `병원 음모 ${hospitalIntrigue}/2`;
 
-  return [distance({
+  const condition = distance({
     id: scheduled.incident,
     key: incidentKey(
       scheduled.incident,
@@ -564,14 +1097,21 @@ function incidentLossDistance(
       lossHook.when(state, scheduled.culprit),
     label,
     requirements: [
-      requirement("culpritAlive", "범인 생존", alive, 1,
-        `범인 생존 ${alive}/1`),
-      requirement("culpritParanoia", "범인 불안", paranoia, paranoiaNeeded,
-        `범인 불안 ${paranoia}/${paranoiaNeeded}`),
+      ...incidentCommonRequirements(state, scheduled),
       requirement("hospitalIntrigue", "병원 음모", hospitalIntrigue, 2,
         `병원 음모 ${hospitalIntrigue}/2`),
     ],
-  })];
+  });
+  condition.routes = [route(
+    `${condition.key}:protagonistDeath`,
+    `${scheduled.day}일 ${impl.ko} · 주인공 사망`,
+    "automatic",
+    incidentWhen(state, scheduled),
+    incidentRouteAvailable(state, scheduled),
+    condition.requirements,
+    Math.max(0, scheduled.day - state.loop.day),
+  )];
+  return [condition];
 }
 
 /** 현재 시나리오의 모든 패배 조건과 남은 카운터/사건 거리를 반환한다. */

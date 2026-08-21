@@ -351,14 +351,14 @@ export function incidentScheduleSummary(state: GameState): string {
 }
 
 export function lossDistanceSummary(state: GameState): string {
-  const nearest = distanceToLoss(state)
-    .map((condition, index) => ({ condition, index }))
-    .sort((left, right) =>
-      Number(right.condition.met) - Number(left.condition.met) ||
-      left.condition.remaining - right.condition.remaining ||
-      left.index - right.index
-    )[0]?.condition;
-  return nearest?.label ?? "조건 없음";
+  const routes = distanceToLoss(state).flatMap((condition) =>
+    condition.routes.filter(({ available }) => available)
+  );
+  if (routes.length === 0) return "조건 없음";
+  const ready = routes.filter(({ met }) => met).length;
+  return ready === 0
+    ? `위험 경로 ${routes.length}개`
+    : `준비 완료 ${ready}/${routes.length}개`;
 }
 
 export function spentCardsSummary(state: GameState): string {

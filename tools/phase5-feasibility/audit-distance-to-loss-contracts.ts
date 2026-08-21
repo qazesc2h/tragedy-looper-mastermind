@@ -117,9 +117,15 @@ const INCIDENT_CONTRACTS: Readonly<Record<string, ExpectedContract>> = {
     category: "protagonistDeath",
     timing: "incident",
     activation: "mandatory",
-    requirements: ["culpritAlive", "culpritParanoia", "hospitalIntrigue"],
+    requirements: [
+      "culpritAlive",
+      "culpritParanoia",
+      "culpritNotSuppressed",
+      "effectNotSuppressed",
+      "hospitalIntrigue",
+    ],
     semantic:
-      "culprit alive, culprit paranoia limit, and Hospital intrigue 2; top-level remaining sums unlike axes",
+      "culprit alive, culprit paranoia limit, no culprit/effect suppression, and Hospital intrigue 2; UI reads each route requirement separately",
   },
 };
 
@@ -168,6 +174,7 @@ function main(): void {
     examples: string[];
   }>();
   const mismatches = [];
+  const routeMismatches = [];
   const errors = [];
 
   for (const entry of loadScenarioCatalog()) {
@@ -178,7 +185,23 @@ function main(): void {
         const conditions = distanceToLoss(state);
         scenarios.push({
           scenario: scenarioKey,
-          conditions: conditions.map(({ key }) => key),
+          conditions: conditions.map(({ key, routes }) => ({
+            key,
+            routes: routes.map((candidate) => ({
+              key: candidate.key,
+              control: candidate.control,
+              when: candidate.when,
+              available: candidate.available,
+              met: candidate.met,
+              requirements: candidate.requirements.map((requirement) => ({
+                key: requirement.key,
+                current: requirement.current,
+                needed: requirement.needed,
+                remaining: requirement.remaining,
+                met: requirement.met,
+              })),
+            })),
+          })),
         });
         for (const condition of conditions) {
           const expected = expectedContract(condition);
@@ -191,6 +214,31 @@ function main(): void {
             });
           }
           if (expected === undefined) continue;
+          const routeKeys = condition.routes.map(({ key }) => key);
+          if (new Set(routeKeys).size !== routeKeys.length) {
+            routeMismatches.push({
+              scenario: scenarioKey,
+              key: condition.key,
+              mismatch: "duplicate route key",
+            });
+          }
+          for (const candidate of condition.routes) {
+            for (const item of candidate.requirements) {
+              const remainingMatchesMet = item.met
+                ? item.remaining === 0
+                : item.remaining > 0;
+              if (!remainingMatchesMet) {
+                routeMismatches.push({
+                  scenario: scenarioKey,
+                  key: condition.key,
+                  route: candidate.key,
+                  requirement: item.key,
+                  mismatch:
+                    `remaining ${item.remaining} disagrees with met ${item.met}`,
+                });
+              }
+            }
+          }
           const signature = canonicalStringify({
             discriminator: condition.plot ?? condition.role ?? condition.incident,
             ...expected,
@@ -223,6 +271,30 @@ function main(): void {
     scenariosErrored: errors.length,
     returnedContracts: [...returnedContracts.values()],
     contractMismatches: mismatches,
+    routeAudit: {
+      manifestHash: sha256(canonicalStringify(scenarios)),
+      totalConditions: scenarios.reduce(
+        (sum, scenario) => sum + scenario.conditions.length,
+        0,
+      ),
+      totalRoutes: scenarios.reduce(
+        (sum, scenario) => sum + scenario.conditions.reduce(
+          (routeSum, condition) => routeSum + condition.routes.length,
+          0,
+        ),
+        0,
+      ),
+      protectedConditionsWithNoKnownRoute: scenarios.flatMap((scenario) =>
+        scenario.conditions.filter((condition) =>
+          condition.key.startsWith("role:keyPerson:") ||
+          condition.key.startsWith("role:friend:")
+        ).filter(({ routes }) => routes.length === 0).map(({ key }) => ({
+          scenario: scenario.scenario,
+          key,
+        }))
+      ),
+      mismatches: routeMismatches,
+    },
     unsupportedScenarioErrors: errors,
     semanticWarnings: [
       "role:keyPerson and role:friend measure only current death endpoints; they omit every causal death route",
@@ -245,6 +317,7 @@ function main(): void {
     scenariosErrored: deterministic.scenariosErrored,
     returnedContracts: deterministic.returnedContracts.length,
     contractMismatches: deterministic.contractMismatches.length,
+    routeAudit: deterministic.routeAudit,
     unsupportedScenarioErrors: deterministic.unsupportedScenarioErrors,
   }, null, 2)}\n`);
 }
