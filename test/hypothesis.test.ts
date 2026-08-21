@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { createGameState, finishLoop } from "../src/engine/game";
+import {
+  advanceGame,
+  createGameState,
+  finishLoop,
+} from "../src/engine/game";
 import { resolveGoodwillAbility } from "../src/engine/goodwill";
 import { setOptionalLossActivation } from "../src/engine/loss";
 import { requestLoopEnd } from "../src/engine/flow";
@@ -1060,6 +1064,65 @@ describe("loss observation filtering", () => {
     expect(evaluateStateRoleTableHypotheses(state).remaining).toHaveLength(
       105,
     );
+  });
+
+  it("keeps the actual bundled rule after an engine-resolved serial-killer loss", () => {
+    const state = basicState("basicTragedy:2");
+    state.gamePhase = "ROUND";
+    state.loop.phase = "P9_ROUND_END";
+    for (const character of Object.keys(state.loop.board)) {
+      if (isCharacterPresent(state.loop.board[character])) {
+        setBoardLocation(state.loop, character, "School");
+      }
+    }
+    setBoardLocation(state.loop, "boyStudent", "City");
+    setBoardLocation(state.loop, "popIdol", "City");
+
+    advanceGame(state);
+
+    expect(state.gamePhase).toBe("LOOP_JUDGMENT");
+    expect(state.loopOutcomes.at(-1)).toMatchObject({
+      reason: "effect",
+      result: "protagonistsLost",
+    });
+    expect(collectProtagonistObservations(state)).toContainEqual(
+      expect.objectContaining({ kind: "lossObserved", timing: "effect" }),
+    );
+    expect(actualCombinationRemains(state)).toBe(true);
+  });
+
+  it("keeps the actual bundled rule after an engine-resolved killer loss", () => {
+    const state = basicState("basicTragedy:4");
+    state.scenario.scriptSpecified ??= {};
+    state.scenario.scriptSpecified["startLocation:henchman"] = "Hospital";
+    state.gamePhase = "ROUND";
+    state.loop.phase = "P9_ROUND_END";
+    for (const character of Object.keys(state.loop.board)) {
+      if (isCharacterPresent(state.loop.board[character])) {
+        setBoardLocation(state.loop, character, "School");
+      }
+    }
+    for (const character of ["classRep", "informer", "shrineMaiden"]) {
+      setBoardLocation(state.loop, character, "City");
+    }
+    state.loop.charCounters.informer.intrigue = 2;
+    const killer = collectHooks(state, "P9_ROUND_END").find(
+      ({ self, hook }) => self === "classRep" && hook.kind === "optional",
+    );
+    if (killer === undefined) throw new Error("missing killer hook");
+
+    applyHookEffect(state, "P9_ROUND_END", killer.hook, killer.self);
+    advanceGame(state);
+
+    expect(state.gamePhase).toBe("LOOP_JUDGMENT");
+    expect(state.loopOutcomes.at(-1)).toMatchObject({
+      reason: "effect",
+      result: "protagonistsLost",
+    });
+    expect(collectProtagonistObservations(state)).toContainEqual(
+      expect.objectContaining({ kind: "lossObserved", timing: "effect" }),
+    );
+    expect(actualCombinationRemains(state)).toBe(true);
   });
 });
 

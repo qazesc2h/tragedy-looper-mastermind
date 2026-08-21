@@ -263,7 +263,7 @@ function main(): void {
   }
 
   const deterministic = {
-    schema: "phase5-distance-to-loss-contract-audit-v1",
+    schema: "phase5-distance-to-loss-contract-audit-v2",
     coverage:
       "every bundled scenario difficulty at createGameState initial loop state",
     scenariosAttempted: scenarios.length + errors.length,
@@ -297,9 +297,9 @@ function main(): void {
     },
     unsupportedScenarioErrors: errors,
     semanticWarnings: [
-      "role:keyPerson and role:friend measure only current death endpoints; they omit every causal death route",
+      "role:keyPerson and role:friend top-level requirements measure current death endpoints; causal death progress is represented separately in routes",
       "multi-requirement top-level remaining is an arithmetic sum; consumers needing separate axes must read requirements",
-      "incident loss distance implements only hospitalIncident; other lossDeath incidents make distanceToLoss throw",
+      "hospitalIncident is the only incident with a direct protagonist-death loss condition; murder, farawayMurder, suicide, and hospital character deaths appear as causal routes to protected-character endpoints",
     ],
   };
   const result = {

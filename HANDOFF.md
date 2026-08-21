@@ -165,8 +165,16 @@ SHA-256 `9abab4a7...993db`가 일치했다. 다만 전체 P2×P3의 해결 전 �
 `remaining` 합계를 읽지 않는다. 번들 47개 난이도에서 142조건·224경로를 감사해
 계약/경로 불일치와 예외가 0건이었고, `firstSteps:2` 390×844 실제 화면에서 5경로·
 25요구조건, 가로 넘침과 브라우저 오류 0건을 확인했다. 상세 결과는
-`tools/phase5-feasibility/results/loss-risk-routes-ui.md`에 있다. disclosure preview와
-가설 공간 감사 및 12종 성립 직전 회귀 벡터는 지시 순서상 아직 보류다.
+`tools/phase5-feasibility/results/loss-risk-routes-ui.md`에 있다.
+
+후속 감사에서 `disclosure-preview`의 `distanceToLoss()` 의존은 선택형 조건의 key,
+activation, category 조회 한 곳뿐이고 거리·요구조건·경로를 정보 누출량으로 쓰지 않음을
+확인했다. 가설 필터는 `distanceToLoss()`를 참조하지 않고 공개 종착 관측만 사용한다.
+따라서 142개 종착 조건과 224개 비공개 인과 경로는 다른 계층이며, 경로를 공개 가설
+조건으로 늘리지 않는다. 기본편 실제 각본 2편을 역할 훅→사망→즉시 종료→공개 관측까지
+진행한 회귀에서 실제 룰 조합 배제는 0/2였다. 요청한 15개 대표 경로의 성립 직전·성립·
+미성립과 보호·불사·검은 고양이·하수인 사건 억제도 테스트로 고정했다. 상세 결과는
+`tools/phase5-feasibility/results/disclosure-hypothesis-loss-route-audit.md`에 있다.
 
 축별 정적 관련성 계측에서 기존 10,567 P4류 중 핵심 인물 음모와 청부업자 위치·양쪽
 음모 합집합은 2,295류였다. 무관 결과 대표 1개를 포함한 2,296회 실행으로 전체 축

@@ -396,6 +396,11 @@ export를 재사용한다.
   `keyPerson`·`friend`는 사망 종착 상태만 재며, `lovedOne`·`hospitalIncident`의
   최상위 `remaining`은 서로 다른 요구조건 결손을 합산한다. 축별 탐색은 개별
   `requirements`와 원문상의 사망 경로를 별도로 사용한다.
+- 정보 누출·가설 공간 감사: `disclosure-preview`는 위험 경로 진척을 읽지 않고,
+  가설 필터는 공개 종착 관측만 사용한다. 142개 종착 조건과 224개 비공개 경로를
+  분리하며, 실제 번들 각본 2편의 역할 사망→종료 관측에서 실제 조합 배제 0/2를
+  확인했다. 대표 경로 15종의 성립 직전·성립·미성립과 특수 차단 4종을 회귀로
+  고정했다.
 - 축별 정적 관련성: 기존 10,567 P4류에서 핵심 인물 음모+청부업자 위치·양쪽 음모
   합집합은 2,295류이고, 무관 기준 1류를 더한 2,296회 실행으로 전 결과를 재현했다.
   연쇄 살인마 단둘 조건까지 합치면 7,165회라 이득이 작아진다. 2,244,960개 원시
@@ -409,4 +414,5 @@ export를 재사용한다.
   `results/firstSteps-2-evaluation-variance.md`,
   `results/firstSteps-2-evaluation-variance-by-day.md`,
   `results/firstSteps-2-loss-axis-audit.md`,
-  `results/firstSteps-2-axis-relevance.md`
+  `results/firstSteps-2-axis-relevance.md`,
+  `results/disclosure-hypothesis-loss-route-audit.md`

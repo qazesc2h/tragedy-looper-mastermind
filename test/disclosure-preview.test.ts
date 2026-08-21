@@ -324,6 +324,35 @@ describe("P9 disclosure preview", () => {
     });
   });
 
+  it("keeps hidden death-route progress out of public loss disclosure", () => {
+    const beforeRoute = p9State({
+      boyStudent: "keyPerson",
+      officeWorker: "killer",
+    });
+    beforeRoute.loop.charCounters.officeWorker.intrigue = 4;
+    setBoardLocation(beforeRoute.loop, "boyStudent", "City");
+    setBoardLocation(beforeRoute.loop, "officeWorker", "City");
+    const completedRoute = structuredClone(beforeRoute);
+    completedRoute.loop.charCounters.boyStudent.intrigue = 2;
+
+    const before = previewP9OptionalLossDisclosure(
+      beforeRoute,
+      "role:killer:officeWorker",
+    );
+    const completed = previewP9OptionalLossDisclosure(
+      completedRoute,
+      "role:killer:officeWorker",
+    );
+
+    expect(completed).toEqual(before);
+    expect(completed.explainableConditions).toEqual([{
+      key: "role:killer",
+      kind: "role",
+      role: "killer",
+    }]);
+    expect(JSON.stringify(completed)).not.toContain("death:killer");
+  });
+
   it("does not mutate state for current, hook, or optional-loss previews", () => {
     const state = p9State({
       boyStudent: "keyPerson",
