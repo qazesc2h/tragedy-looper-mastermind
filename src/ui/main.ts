@@ -48,6 +48,14 @@ import {
   mastermindCautions,
   type MastermindCaution,
 } from "../engine/mastermind-cautions";
+import {
+  mastermindDecoyGuidance,
+  type AttributeCandidateGroup,
+  type ConfusableRule,
+  type FakeLossCondition,
+  type LocationIntrigueSource,
+  type MastermindDecoyGuidance,
+} from "../engine/mastermind-decoys";
 import { intrigueForbidActive } from "../engine/movement";
 import { type ProtagonistObservation } from "../engine/hypothesis";
 import { applyHookEffect, collectHooks } from "../engine/phases";
@@ -2743,12 +2751,125 @@ function renderCautionCategory(
   </details>`;
 }
 
+function renderAttributeCandidates(group: AttributeCandidateGroup): string {
+  const actual = new Set(group.actualHolders);
+  return `<article class="decoy-card">
+    <div class="decoy-card-heading">
+      <strong>${escapeHtml(group.source)} · ${escapeHtml(group.attributeLabel)}</strong>
+      <span>속성 후보 ${group.candidates.length}명</span>
+    </div>
+    <p>${escapeHtml(group.requirement)}</p>
+    <ul class="decoy-chip-list">
+      ${group.candidates.map((character) => `<li class="${
+        actual.has(character) ? "is-actual" : "is-decoy"
+      }">${escapeHtml(characterName(character))}<small>${
+        actual.has(character) ? "실제 역할" : "미끼 후보"
+      }</small></li>`).join("")}
+    </ul>
+  </article>`;
+}
+
+function renderConfusableRule(rule: ConfusableRule): string {
+  return `<article class="decoy-card">
+    <div class="decoy-card-heading">
+      <strong>${escapeHtml(rule.selectedPlotName)}</strong>
+      <span>${escapeHtml(rule.observationLabel)}</span>
+    </div>
+    <p>같은 관측을 설명하는 다른 룰</p>
+    <ul class="decoy-rule-list">
+      ${rule.alternatives.map((alternative) => `<li>
+        <span>${escapeHtml(alternative.plotName)}</span>
+        <small>${alternative.sameTragedySet ? "현재 참극 세트 후보" : "다른 참극 세트 참고"}</small>
+      </li>`).join("")}
+    </ul>
+  </article>`;
+}
+
+function decoyTargetKindLabel(condition: FakeLossCondition): string {
+  switch (condition.targetKind) {
+    case "location": return "장소 기준";
+    case "character": return "캐릭터 기준";
+    case "incident": return "사건 기준";
+  }
+}
+
+function renderFakeLossCondition(condition: FakeLossCondition): string {
+  return `<article class="decoy-card fake-loss-condition">
+    <div class="decoy-card-heading">
+      <strong>${escapeHtml(condition.title)}</strong>
+      <span class="decoy-target-kind target-${condition.targetKind}">${escapeHtml(
+        decoyTargetKindLabel(condition),
+      )}</span>
+    </div>
+    <dl class="decoy-requirement">
+      <div><dt>추가 조건</dt><dd>${escapeHtml(condition.requirement)}</dd></div>
+      <div><dt>가능 대상</dt><dd>${escapeHtml(condition.targets.join(" · "))}</dd></div>
+    </dl>
+  </article>`;
+}
+
+function renderLocationIntrigueSource(source: LocationIntrigueSource): string {
+  return `<li>
+    <div><strong>${escapeHtml(source.title)}</strong><span>${escapeHtml(source.controller)}</span></div>
+    <p>${escapeHtml(source.timing)} · ${escapeHtml(source.targetScope)}</p>
+    <small>${escapeHtml(source.condition)}</small>
+  </li>`;
+}
+
+function renderDecoyCategory(
+  title: string,
+  count: number,
+  body: string,
+): string {
+  if (count === 0) return "";
+  return `<details class="guidance-caution-category decoy-category">
+    <summary>
+      <strong>${escapeHtml(title)}</strong>
+      <span>${count}건</span>
+    </summary>
+    <div class="guidance-caution-list">${body}</div>
+  </details>`;
+}
+
+function renderMastermindDecoys(decoys: MastermindDecoyGuidance): string {
+  return `<section class="mastermind-decoys" aria-label="시선 분산과 미끼">
+    <div class="mastermind-cautions-heading">
+      <span class="eyebrow">C. 시선 분산과 미끼</span>
+      <h3>관측을 흐리는 정적 후보</h3>
+      <p>추천이나 최적해가 아닙니다. 같은 속성·같은 관측·설명 가능한 패배 조건과 장소 음모 수단을 구분해 보여줍니다.</p>
+    </div>
+    ${renderDecoyCategory(
+      "같은 속성 캐릭터",
+      decoys.attributeCandidates.length,
+      decoys.attributeCandidates.map(renderAttributeCandidates).join(""),
+    )}
+    ${renderDecoyCategory(
+      "헷갈리게 만들 수 있는 룰",
+      decoys.confusableRules.length,
+      decoys.confusableRules.map(renderConfusableRule).join(""),
+    )}
+    ${renderDecoyCategory(
+      "성립시킬 수 있는 가짜 패배 조건",
+      decoys.fakeLossConditions.length,
+      decoys.fakeLossConditions.map(renderFakeLossCondition).join(""),
+    )}
+    ${renderDecoyCategory(
+      "장소에 음모를 놓는 수단",
+      decoys.locationIntrigueSources.length,
+      `<ul class="location-intrigue-source-list">${
+        decoys.locationIntrigueSources.map(renderLocationIntrigueSource).join("")
+      }</ul>`,
+    )}
+  </section>`;
+}
+
 function renderMastermindGuidance(
   state: GameState,
   context: "beforeStart" | "panel",
 ): string {
   const guidance = mastermindGuidance(state);
   const cautions = mastermindCautions(state);
+  const decoys = mastermindDecoyGuidance(state);
   const primary = guidance.primary;
   const primaryResources = new Set(primary?.resources ?? []);
   const body = `
@@ -2781,7 +2902,8 @@ function renderMastermindGuidance(
       ${renderCautionCategory("정체가 드러나는 행동", cautions.identityExposure)}
       ${renderCautionCategory("통제 불가능한 위험", cautions.uncontrolledRisks)}
       ${renderCautionCategory("주인공이 쓸 수 있는 수단", cautions.protagonistTools)}
-    </section>`;
+    </section>
+    ${renderMastermindDecoys(decoys)}`;
 
   if (context === "beforeStart") {
     return `<section class="pre-game-guidance" aria-label="각본가 시작 지침">
@@ -2796,7 +2918,7 @@ function renderMastermindGuidance(
   return `<details class="info-accordion mastermind-guidance-information">
     <summary>
       <span><small>정적 지침</small><strong>각본가 시작 지침</strong></span>
-      <span class="accordion-summary-value">${guidance.routes.length}개 경로 · 주의 ${cautions.total}건</span>
+      <span class="accordion-summary-value">${guidance.routes.length}개 경로 · 주의 ${cautions.total}건 · 미끼 ${decoys.total}건</span>
       <i aria-hidden="true"></i>
     </summary>
     <div class="info-accordion-body mastermind-guidance-body">${body}</div>

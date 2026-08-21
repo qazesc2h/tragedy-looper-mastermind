@@ -1,0 +1,678 @@
+{
+  "deterministic": {
+    "schema": "mastermind-pre-game-guidance-c-audit-v1",
+    "scenariosAttempted": 47,
+    "scenariosReturned": 47,
+    "scenarios": [
+      {
+        "key": "firstSteps:1#difficulty-1",
+        "attributeGroupCount": 0,
+        "confusableObservationCount": 5,
+        "fakeLossConditionCount": 3,
+        "locationIntrigueSourceCount": 3,
+        "fakeLocationCount": 2,
+        "fakeCharacterCount": 1
+      },
+      {
+        "key": "firstSteps:2#difficulty-1",
+        "attributeGroupCount": 0,
+        "confusableObservationCount": 5,
+        "fakeLossConditionCount": 3,
+        "locationIntrigueSourceCount": 3,
+        "fakeLocationCount": 2,
+        "fakeCharacterCount": 1
+      },
+      {
+        "key": "firstSteps:3#difficulty-1",
+        "attributeGroupCount": 0,
+        "confusableObservationCount": 5,
+        "fakeLossConditionCount": 3,
+        "locationIntrigueSourceCount": 3,
+        "fakeLocationCount": 1,
+        "fakeCharacterCount": 2
+      },
+      {
+        "key": "firstSteps:4#difficulty-1",
+        "attributeGroupCount": 0,
+        "confusableObservationCount": 4,
+        "fakeLossConditionCount": 3,
+        "locationIntrigueSourceCount": 3,
+        "fakeLocationCount": 1,
+        "fakeCharacterCount": 2
+      },
+      {
+        "key": "firstSteps:4#difficulty-2",
+        "attributeGroupCount": 0,
+        "confusableObservationCount": 4,
+        "fakeLossConditionCount": 3,
+        "locationIntrigueSourceCount": 3,
+        "fakeLocationCount": 1,
+        "fakeCharacterCount": 2
+      },
+      {
+        "key": "firstSteps:5#difficulty-1",
+        "attributeGroupCount": 0,
+        "confusableObservationCount": 3,
+        "fakeLossConditionCount": 4,
+        "locationIntrigueSourceCount": 5,
+        "fakeLocationCount": 1,
+        "fakeCharacterCount": 3
+      },
+      {
+        "key": "firstSteps:6#difficulty-1",
+        "attributeGroupCount": 0,
+        "confusableObservationCount": 5,
+        "fakeLossConditionCount": 3,
+        "locationIntrigueSourceCount": 2,
+        "fakeLocationCount": 1,
+        "fakeCharacterCount": 2
+      },
+      {
+        "key": "firstSteps:6#difficulty-2",
+        "attributeGroupCount": 0,
+        "confusableObservationCount": 5,
+        "fakeLossConditionCount": 3,
+        "locationIntrigueSourceCount": 2,
+        "fakeLocationCount": 1,
+        "fakeCharacterCount": 2
+      },
+      {
+        "key": "firstSteps:7#difficulty-1",
+        "attributeGroupCount": 0,
+        "confusableObservationCount": 6,
+        "fakeLossConditionCount": 2,
+        "locationIntrigueSourceCount": 3,
+        "fakeLocationCount": 2,
+        "fakeCharacterCount": 0
+      },
+      {
+        "key": "basicTragedy:1#difficulty-1",
+        "attributeGroupCount": 1,
+        "confusableObservationCount": 4,
+        "fakeLossConditionCount": 5,
+        "locationIntrigueSourceCount": 2,
+        "fakeLocationCount": 2,
+        "fakeCharacterCount": 3
+      },
+      {
+        "key": "basicTragedy:1#difficulty-2",
+        "attributeGroupCount": 1,
+        "confusableObservationCount": 4,
+        "fakeLossConditionCount": 5,
+        "locationIntrigueSourceCount": 2,
+        "fakeLocationCount": 2,
+        "fakeCharacterCount": 3
+      },
+      {
+        "key": "basicTragedy:2#difficulty-1",
+        "attributeGroupCount": 1,
+        "confusableObservationCount": 4,
+        "fakeLossConditionCount": 6,
+        "locationIntrigueSourceCount": 3,
+        "fakeLocationCount": 2,
+        "fakeCharacterCount": 4
+      },
+      {
+        "key": "basicTragedy:2#difficulty-2",
+        "attributeGroupCount": 1,
+        "confusableObservationCount": 4,
+        "fakeLossConditionCount": 6,
+        "locationIntrigueSourceCount": 3,
+        "fakeLocationCount": 2,
+        "fakeCharacterCount": 4
+      },
+      {
+        "key": "basicTragedy:3#difficulty-1",
+        "attributeGroupCount": 0,
+        "confusableObservationCount": 5,
+        "fakeLossConditionCount": 6,
+        "locationIntrigueSourceCount": 3,
+        "fakeLocationCount": 1,
+        "fakeCharacterCount": 5
+      },
+      {
+        "key": "basicTragedy:3#difficulty-2",
+        "attributeGroupCount": 0,
+        "confusableObservationCount": 5,
+        "fakeLossConditionCount": 6,
+        "locationIntrigueSourceCount": 3,
+        "fakeLocationCount": 1,
+        "fakeCharacterCount": 5
+      },
+      {
+        "key": "basicTragedy:4#difficulty-1",
+        "attributeGroupCount": 0,
+        "confusableObservationCount": 7,
+        "fakeLossConditionCount": 5,
+        "locationIntrigueSourceCount": 3,
+        "fakeLocationCount": 1,
+        "fakeCharacterCount": 4
+      },
+      {
+        "key": "basicTragedy:4#difficulty-2",
+        "attributeGroupCount": 0,
+        "confusableObservationCount": 7,
+        "fakeLossConditionCount": 5,
+        "locationIntrigueSourceCount": 3,
+        "fakeLocationCount": 1,
+        "fakeCharacterCount": 4
+      },
+      {
+        "key": "basicTragedy:5#difficulty-1",
+        "attributeGroupCount": 0,
+        "confusableObservationCount": 3,
+        "fakeLossConditionCount": 8,
+        "locationIntrigueSourceCount": 2,
+        "fakeLocationCount": 2,
+        "fakeCharacterCount": 6
+      },
+      {
+        "key": "basicTragedy:5#difficulty-2",
+        "attributeGroupCount": 0,
+        "confusableObservationCount": 3,
+        "fakeLossConditionCount": 8,
+        "locationIntrigueSourceCount": 2,
+        "fakeLocationCount": 2,
+        "fakeCharacterCount": 6
+      },
+      {
+        "key": "basicTragedy:6#difficulty-1",
+        "attributeGroupCount": 0,
+        "confusableObservationCount": 5,
+        "fakeLossConditionCount": 7,
+        "locationIntrigueSourceCount": 3,
+        "fakeLocationCount": 2,
+        "fakeCharacterCount": 5
+      },
+      {
+        "key": "basicTragedy:6#difficulty-2",
+        "attributeGroupCount": 0,
+        "confusableObservationCount": 5,
+        "fakeLossConditionCount": 7,
+        "locationIntrigueSourceCount": 3,
+        "fakeLocationCount": 2,
+        "fakeCharacterCount": 5
+      },
+      {
+        "key": "basicTragedy:7#difficulty-1",
+        "attributeGroupCount": 0,
+        "confusableObservationCount": 5,
+        "fakeLossConditionCount": 8,
+        "locationIntrigueSourceCount": 4,
+        "fakeLocationCount": 1,
+        "fakeCharacterCount": 6
+      },
+      {
+        "key": "basicTragedy:8#difficulty-1",
+        "attributeGroupCount": 0,
+        "confusableObservationCount": 7,
+        "fakeLossConditionCount": 6,
+        "locationIntrigueSourceCount": 4,
+        "fakeLocationCount": 1,
+        "fakeCharacterCount": 5
+      },
+      {
+        "key": "basicTragedy:8#difficulty-2",
+        "attributeGroupCount": 0,
+        "confusableObservationCount": 7,
+        "fakeLossConditionCount": 6,
+        "locationIntrigueSourceCount": 4,
+        "fakeLocationCount": 1,
+        "fakeCharacterCount": 5
+      },
+      {
+        "key": "basicTragedy:9#difficulty-1",
+        "attributeGroupCount": 0,
+        "confusableObservationCount": 4,
+        "fakeLossConditionCount": 7,
+        "locationIntrigueSourceCount": 3,
+        "fakeLocationCount": 1,
+        "fakeCharacterCount": 6
+      },
+      {
+        "key": "basicTragedy:9#difficulty-2",
+        "attributeGroupCount": 0,
+        "confusableObservationCount": 4,
+        "fakeLossConditionCount": 7,
+        "locationIntrigueSourceCount": 3,
+        "fakeLocationCount": 1,
+        "fakeCharacterCount": 6
+      },
+      {
+        "key": "basicTragedy:10#difficulty-1",
+        "attributeGroupCount": 0,
+        "confusableObservationCount": 4,
+        "fakeLossConditionCount": 6,
+        "locationIntrigueSourceCount": 2,
+        "fakeLocationCount": 2,
+        "fakeCharacterCount": 4
+      },
+      {
+        "key": "basicTragedy:11#difficulty-1",
+        "attributeGroupCount": 1,
+        "confusableObservationCount": 5,
+        "fakeLossConditionCount": 6,
+        "locationIntrigueSourceCount": 3,
+        "fakeLocationCount": 2,
+        "fakeCharacterCount": 4
+      },
+      {
+        "key": "basicTragedy:11#difficulty-2",
+        "attributeGroupCount": 1,
+        "confusableObservationCount": 5,
+        "fakeLossConditionCount": 6,
+        "locationIntrigueSourceCount": 3,
+        "fakeLocationCount": 2,
+        "fakeCharacterCount": 4
+      },
+      {
+        "key": "basicTragedy:12#difficulty-1",
+        "attributeGroupCount": 0,
+        "confusableObservationCount": 3,
+        "fakeLossConditionCount": 8,
+        "locationIntrigueSourceCount": 2,
+        "fakeLocationCount": 2,
+        "fakeCharacterCount": 6
+      },
+      {
+        "key": "basicTragedy:12#difficulty-2",
+        "attributeGroupCount": 0,
+        "confusableObservationCount": 3,
+        "fakeLossConditionCount": 8,
+        "locationIntrigueSourceCount": 2,
+        "fakeLocationCount": 2,
+        "fakeCharacterCount": 6
+      },
+      {
+        "key": "basicTragedy:13#difficulty-1",
+        "attributeGroupCount": 0,
+        "confusableObservationCount": 6,
+        "fakeLossConditionCount": 5,
+        "locationIntrigueSourceCount": 3,
+        "fakeLocationCount": 2,
+        "fakeCharacterCount": 3
+      },
+      {
+        "key": "basicTragedy:13#difficulty-2",
+        "attributeGroupCount": 0,
+        "confusableObservationCount": 6,
+        "fakeLossConditionCount": 5,
+        "locationIntrigueSourceCount": 3,
+        "fakeLocationCount": 2,
+        "fakeCharacterCount": 3
+      },
+      {
+        "key": "basicTragedy:14#difficulty-1",
+        "attributeGroupCount": 0,
+        "confusableObservationCount": 4,
+        "fakeLossConditionCount": 8,
+        "locationIntrigueSourceCount": 4,
+        "fakeLocationCount": 1,
+        "fakeCharacterCount": 6
+      },
+      {
+        "key": "basicTragedy:15#difficulty-1",
+        "attributeGroupCount": 0,
+        "confusableObservationCount": 6,
+        "fakeLossConditionCount": 8,
+        "locationIntrigueSourceCount": 4,
+        "fakeLocationCount": 1,
+        "fakeCharacterCount": 6
+      },
+      {
+        "key": "basicTragedy:16#difficulty-1",
+        "attributeGroupCount": 0,
+        "confusableObservationCount": 5,
+        "fakeLossConditionCount": 7,
+        "locationIntrigueSourceCount": 4,
+        "fakeLocationCount": 2,
+        "fakeCharacterCount": 5
+      },
+      {
+        "key": "basicTragedy:16#difficulty-2",
+        "attributeGroupCount": 0,
+        "confusableObservationCount": 5,
+        "fakeLossConditionCount": 7,
+        "locationIntrigueSourceCount": 4,
+        "fakeLocationCount": 2,
+        "fakeCharacterCount": 5
+      },
+      {
+        "key": "basicTragedy:17#difficulty-1",
+        "attributeGroupCount": 0,
+        "confusableObservationCount": 6,
+        "fakeLossConditionCount": 6,
+        "locationIntrigueSourceCount": 3,
+        "fakeLocationCount": 2,
+        "fakeCharacterCount": 3
+      },
+      {
+        "key": "basicTragedy:17#difficulty-2",
+        "attributeGroupCount": 0,
+        "confusableObservationCount": 6,
+        "fakeLossConditionCount": 6,
+        "locationIntrigueSourceCount": 3,
+        "fakeLocationCount": 2,
+        "fakeCharacterCount": 3
+      },
+      {
+        "key": "basicTragedy:18#difficulty-1",
+        "attributeGroupCount": 1,
+        "confusableObservationCount": 4,
+        "fakeLossConditionCount": 5,
+        "locationIntrigueSourceCount": 2,
+        "fakeLocationCount": 2,
+        "fakeCharacterCount": 3
+      },
+      {
+        "key": "basicTragedy:18#difficulty-2",
+        "attributeGroupCount": 1,
+        "confusableObservationCount": 4,
+        "fakeLossConditionCount": 5,
+        "locationIntrigueSourceCount": 2,
+        "fakeLocationCount": 2,
+        "fakeCharacterCount": 3
+      },
+      {
+        "key": "basicTragedy:19#difficulty-1",
+        "attributeGroupCount": 0,
+        "confusableObservationCount": 5,
+        "fakeLossConditionCount": 6,
+        "locationIntrigueSourceCount": 3,
+        "fakeLocationCount": 1,
+        "fakeCharacterCount": 5
+      },
+      {
+        "key": "basicTragedy:19#difficulty-2",
+        "attributeGroupCount": 0,
+        "confusableObservationCount": 5,
+        "fakeLossConditionCount": 6,
+        "locationIntrigueSourceCount": 3,
+        "fakeLocationCount": 1,
+        "fakeCharacterCount": 5
+      },
+      {
+        "key": "basicTragedy:20#difficulty-1",
+        "attributeGroupCount": 0,
+        "confusableObservationCount": 4,
+        "fakeLossConditionCount": 7,
+        "locationIntrigueSourceCount": 5,
+        "fakeLocationCount": 2,
+        "fakeCharacterCount": 4
+      },
+      {
+        "key": "basicTragedy:20#difficulty-2",
+        "attributeGroupCount": 0,
+        "confusableObservationCount": 4,
+        "fakeLossConditionCount": 7,
+        "locationIntrigueSourceCount": 5,
+        "fakeLocationCount": 2,
+        "fakeCharacterCount": 4
+      },
+      {
+        "key": "basicTragedy:21#difficulty-1",
+        "attributeGroupCount": 0,
+        "confusableObservationCount": 5,
+        "fakeLossConditionCount": 6,
+        "locationIntrigueSourceCount": 3,
+        "fakeLocationCount": 2,
+        "fakeCharacterCount": 4
+      },
+      {
+        "key": "basicTragedy:22#difficulty-1",
+        "attributeGroupCount": 0,
+        "confusableObservationCount": 5,
+        "fakeLossConditionCount": 7,
+        "locationIntrigueSourceCount": 3,
+        "fakeLocationCount": 2,
+        "fakeCharacterCount": 4
+      }
+    ],
+    "observationProfilePlotCount": 16,
+    "intrigueRequirementCount": 7,
+    "attributeRequirementCount": 14,
+    "staticAttributeRequirementCount": 7,
+    "dynamicAttributeRequirementCount": 7,
+    "attributeRequirements": [
+      {
+        "tragedySet": "base-game",
+        "owner": "signWithMe",
+        "requirement": "핵심 인물은 소녀",
+        "attribute": "girl",
+        "kind": "scriptBuild",
+        "sourcePath": "data/base-game/plots.jsonc"
+      },
+      {
+        "tragedySet": "cosmic-evil",
+        "owner": "nobleBloodline",
+        "requirement": "핵심 인물과 흡혈귀는 서로 이성",
+        "attribute": "oppositeSex",
+        "kind": "scriptBuild",
+        "sourcePath": "data/cosmic-evil/plots.jsonc"
+      },
+      {
+        "tragedySet": "cosmic-evil",
+        "owner": "keyGirl",
+        "requirement": "핵심 인물은 소녀",
+        "attribute": "girl",
+        "kind": "scriptBuild",
+        "sourcePath": "data/cosmic-evil/plots.jsonc"
+      },
+      {
+        "tragedySet": "haunted-stage",
+        "owner": "strangeStory",
+        "requirement": "흡혈귀와 악몽은 같은 성별",
+        "attribute": "sameSex",
+        "kind": "scriptBuild",
+        "sourcePath": "data/haunted-stage/plots.jsonc"
+      },
+      {
+        "tragedySet": "midnight-circle",
+        "owner": "maleConfrontation",
+        "requirement": "닌자는 남성",
+        "attribute": "man",
+        "kind": "scriptBuild",
+        "sourcePath": "data/midnight-circle/plots.jsonc"
+      },
+      {
+        "tragedySet": "last-liar",
+        "owner": "worldRebellion",
+        "requirement": "핵심 인물과 파편은 모두 소녀",
+        "attribute": "girl",
+        "kind": "scriptBuild",
+        "sourcePath": "data/last-liar/plots.jsonc"
+      },
+      {
+        "tragedySet": "rei",
+        "owner": "throughLookingGlass",
+        "requirement": "앨리스는 소녀",
+        "attribute": "girl",
+        "kind": "scriptBuild",
+        "sourcePath": "data/rei/plots.jsonc"
+      },
+      {
+        "tragedySet": "another-horizon",
+        "owner": "fanaticSacrifices",
+        "requirement": "광신도와 같은 성별의 다른 캐릭터 3명 이상 사망",
+        "attribute": "sameSex",
+        "kind": "dynamic",
+        "sourcePath": "data/another-horizon/plots.jsonc"
+      },
+      {
+        "tragedySet": "supernatural",
+        "owner": "metamorphosis",
+        "requirement": "탄원자는 생존한 초자연 캐릭터",
+        "attribute": "supernatural",
+        "kind": "dynamic",
+        "sourcePath": "data/supernatural/plots.jsonc"
+      },
+      {
+        "tragedySet": "haunted-stage",
+        "owner": "zombieApocalypse",
+        "requirement": "사후 능력이 없는 시체가 좀비 후보",
+        "attribute": "afterDeath",
+        "kind": "dynamic",
+        "sourcePath": "data/haunted-stage/plots.jsonc"
+      },
+      {
+        "tragedySet": "haunted-stage",
+        "owner": "vampireHaunted",
+        "requirement": "이성 캐릭터를 대상으로 하며 이성 시체 수를 센다",
+        "attribute": "oppositeSex",
+        "kind": "dynamic",
+        "sourcePath": "data/haunted-stage/roles.jsonc"
+      },
+      {
+        "tragedySet": "supernatural",
+        "owner": "seeder",
+        "requirement": "같은 장소의 비초자연 캐릭터",
+        "attribute": "supernatural",
+        "kind": "dynamic",
+        "sourcePath": "data/supernatural/roles.jsonc"
+      },
+      {
+        "tragedySet": "visual-novel",
+        "owner": "heavyLovers",
+        "requirement": "같은 장소의 동성 캐릭터",
+        "attribute": "sameSex",
+        "kind": "dynamic",
+        "sourcePath": "data/visual-novel/roles.jsonc"
+      },
+      {
+        "tragedySet": "another-horizon",
+        "owner": "animus",
+        "requirement": "캐릭터의 성별을 반전",
+        "attribute": "oppositeSex",
+        "kind": "dynamic",
+        "sourcePath": "data/another-horizon/roles.jsonc"
+      }
+    ],
+    "intrigueRequirements": [
+      {
+        "key": "plot:sealedItem",
+        "owner": "봉인된 것",
+        "targetKind": "location",
+        "target": "신사",
+        "amount": 2
+      },
+      {
+        "key": "plot:giantTimeBomb",
+        "owner": "거대 시한폭탄 X의 존재",
+        "targetKind": "location",
+        "target": "장소 X",
+        "amount": 2
+      },
+      {
+        "key": "plot:lightAvenger",
+        "owner": "복수자의 등불",
+        "targetKind": "location",
+        "target": "장소 X",
+        "amount": 2
+      },
+      {
+        "key": "plot:placeProtect",
+        "owner": "지켜야 할 장소",
+        "targetKind": "location",
+        "target": "학교",
+        "amount": 2
+      },
+      {
+        "key": "plot:signWithMe",
+        "owner": "나와 계약하자!",
+        "targetKind": "character",
+        "target": "핵심 인물",
+        "amount": 2
+      },
+      {
+        "key": "role:killer:keyPerson",
+        "owner": "살인 청부업자",
+        "targetKind": "character",
+        "target": "핵심 인물",
+        "amount": 2
+      },
+      {
+        "key": "role:killer:self",
+        "owner": "살인 청부업자",
+        "targetKind": "character",
+        "target": "본인",
+        "amount": 4
+      }
+    ],
+    "totalAttributeGroups": 8,
+    "totalConfusableObservations": 225,
+    "totalFakeLossConditions": 270,
+    "totalLocationIntrigueSources": 143,
+    "officialComparison": [
+      {
+        "id": "basicTragedy:1",
+        "title": "Young Women’s Battlefield",
+        "matched": true,
+        "officialGap": "여성 여러 명에게 음모를 분산해 나와 계약하자!의 핵심 인물을 감춘다.",
+        "contribution": "소녀 전원과 실제 핵심 인물·미끼 후보를 분리한다.",
+        "mastermindHintsField": "See Tragedy Looper Mastermind Handbook"
+      },
+      {
+        "id": "basicTragedy:8",
+        "title": "Lesser of Two Evils",
+        "matched": true,
+        "officialGap": "신사뿐 아니라 도심에도 음모를 쌓아 흑막과 승리 경로를 가린다.",
+        "contribution": "장소 음모 패배 관측의 유사 룰과 현재 흑막의 장소 음모 수단을 표시한다.",
+        "mastermindHintsField": "See Tragedy Looper Mastermind Handbook"
+      },
+      {
+        "id": "basicTragedy:9",
+        "title": "The Secret That Was Kept",
+        "matched": true,
+        "officialGap": "학교 음모를 지켜야 할 장소처럼 보이는 위협으로 사용한다.",
+        "contribution": "거대 시한폭탄 X의 장소 음모 관측과 지켜야 할 장소를 짝짓되 다른 참극 세트라고 명시한다.",
+        "mastermindHintsField": "See Tragedy Looper Mastermind Handbook"
+      },
+      {
+        "id": "basicTragedy:10",
+        "title": "The Future of the Gods",
+        "matched": true,
+        "officialGap": "A의 우선 경로는 공식 지침과 일치한다.",
+        "contribution": "선택되지 않은 패배 조건 후보를 추가 정보로 제공한다.",
+        "mastermindHintsField": "See Tragedy Looper Mastermind Handbook"
+      },
+      {
+        "id": "basicTragedy:11",
+        "title": "Mirror Passcode",
+        "matched": true,
+        "officialGap": "여러 대상에 음모를 병렬로 쌓아 나와 계약하자!와 변수 사망을 함께 가린다.",
+        "contribution": "소녀 전원과 캐릭터 기준 음모 2 조건을 표시한다.",
+        "mastermindHintsField": "See Tragedy Looper Mastermind Handbook"
+      },
+      {
+        "id": "basicTragedy:12",
+        "title": "Those with Antibodies",
+        "matched": true,
+        "officialGap": "A의 우선 경로는 공식 지침과 일치한다.",
+        "contribution": "나와 계약하자! 등 선택되지 않은 설명 가능 패배 조건을 표시한다.",
+        "mastermindHintsField": "See Tragedy Looper Mastermind Handbook"
+      },
+      {
+        "id": "basicTragedy:13",
+        "title": "Prologue",
+        "matched": true,
+        "officialGap": "공식은 특정 우선 경로를 지정하지 않는다.",
+        "contribution": "살인 계획의 핵심 인물 사망 관측과 나와 계약하자!를 짝짓는다.",
+        "mastermindHintsField": "See Tragedy Looper Mastermind Handbook"
+      },
+      {
+        "id": "basicTragedy:14",
+        "title": "Neverending Happy & Sad Story",
+        "matched": true,
+        "officialGap": "A의 우선 경로는 공식 지침과 일치한다.",
+        "contribution": "거대 시한폭탄 X와 다른 장소 음모 패배 관측을 구분해 병기한다.",
+        "mastermindHintsField": "See Tragedy Looper Mastermind Handbook"
+      }
+    ],
+    "officialRowsMatched": 8,
+    "upstreamAudit": {
+      "repository": "https://github.com/Tragedy-Looper/tragedy-looper.github.io",
+      "commit": "510c8275dac010ca3ca6ba02e1dbcd0162e636ec"
+    }
+  },
+  "deterministicHash": "a64799f414739f2dc9b5045e698c2cd45ce91c3ef7d526d3848402102bcfeea1"
+}

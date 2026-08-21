@@ -1947,6 +1947,182 @@ select {
   padding-top: 12px;
 }
 
+.mastermind-decoys {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+  margin-top: 6px;
+  border-top: 1px solid #57472f;
+  padding-top: 12px;
+}
+
+.decoy-category .guidance-caution-list {
+  gap: 8px;
+}
+
+.decoy-card {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  border-left: 3px solid #75639a;
+  border-radius: 7px;
+  background: #1c1914;
+  padding: 8px;
+}
+
+.decoy-card-heading {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.decoy-card-heading strong {
+  min-width: 0;
+  color: #e0d2bb;
+  font-size: 0.74rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.decoy-card-heading > span {
+  flex: 0 1 auto;
+  color: #b59dca;
+  font-size: 0.65rem;
+  line-height: 1.35;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.decoy-card > p {
+  margin: 0;
+  color: #c6baa6;
+  font-size: 0.69rem;
+  line-height: 1.45;
+}
+
+.decoy-chip-list,
+.decoy-rule-list,
+.location-intrigue-source-list {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.decoy-chip-list {
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+}
+
+.decoy-chip-list li,
+.decoy-rule-list li {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  border-radius: 6px;
+  background: #252019;
+  padding: 6px 7px;
+  color: #d0c2ac;
+  font-size: 0.68rem;
+}
+
+.decoy-chip-list li.is-actual {
+  box-shadow: inset 3px 0 #a06a4b;
+}
+
+.decoy-chip-list li.is-decoy {
+  box-shadow: inset 3px 0 #6c7896;
+}
+
+.decoy-chip-list small,
+.decoy-rule-list small {
+  flex: 0 0 auto;
+  color: #958a79;
+  font-size: 0.59rem;
+}
+
+.decoy-target-kind {
+  border-radius: 999px;
+  background: rgba(90, 72, 119, 0.38);
+  padding: 3px 6px;
+  white-space: nowrap;
+}
+
+.decoy-target-kind.target-location {
+  background: rgba(58, 95, 84, 0.38);
+  color: #9bc6b4;
+}
+
+.decoy-target-kind.target-character {
+  background: rgba(101, 66, 59, 0.38);
+  color: #d0a395;
+}
+
+.decoy-requirement {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+  margin: 0;
+}
+
+.decoy-requirement > div {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: 7px;
+  font-size: 0.67rem;
+  line-height: 1.4;
+}
+
+.decoy-requirement dt {
+  color: #9c8e7a;
+}
+
+.decoy-requirement dd {
+  min-width: 0;
+  margin: 0;
+  color: #c9bca7;
+  overflow-wrap: anywhere;
+}
+
+.location-intrigue-source-list > li {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+  border-radius: 7px;
+  background: #1c1914;
+  padding: 8px;
+}
+
+.location-intrigue-source-list > li > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.location-intrigue-source-list strong {
+  color: #e0d2bb;
+  font-size: 0.71rem;
+}
+
+.location-intrigue-source-list span,
+.location-intrigue-source-list small {
+  color: #948773;
+  font-size: 0.61rem;
+}
+
+.location-intrigue-source-list p {
+  margin: 0;
+  color: #c5b8a3;
+  font-size: 0.67rem;
+  line-height: 1.4;
+}
+
 .mastermind-cautions-heading {
   display: grid;
   gap: 4px;
