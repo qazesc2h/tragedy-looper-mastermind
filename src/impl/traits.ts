@@ -33,6 +33,20 @@ export const TRAIT_IMPL: Record<CharacterId, {
   ko: string;
   hooks: Hook[];
 }> = {
+  copycat: {
+    ko: "모방자",
+    hooks: [{
+      phase: "SCRIPT_BUILD",
+      kind: "scriptBuild",
+      source: {
+        timing: "Script Build",
+        description: `Script Creation: This Character must copy the role of another Character in the script (max amount ignored).`,
+      },
+      // SCRIPT_BUILD는 런타임 훅이 아니므로 원문 보존만 한다.
+      when: () => false,
+      effect: () => {},
+    }],
+  },
   mysteryBoy: {
     ko: "아웃사이더",
     hooks: [{
@@ -202,6 +216,34 @@ export const TRAIT_IMPL: Record<CharacterId, {
       },
       // IMPLEMENTED_ELSEWHERE: src/engine/legal.ts validatePlacement(),
       // src/engine/resolve.ts placementsWithIllusionCopies()
+      when: () => false,
+      effect: () => {},
+    }],
+  },
+  sectFounder: {
+    ko: "교주",
+    hooks: [{
+      phase: "P7_INCIDENT",
+      kind: "mandatory",
+      source: {
+        timing: "Incident",
+        description: `If this character is the culprit of an Incident that resolves, its effects resolve twice.`,
+      },
+      // STATIC_GUIDANCE_ONLY: 사건 2회 해결의 엔진 구현은 B의 범위가 아니다.
+      when: () => false,
+      effect: () => {},
+    }],
+  },
+  sacredTree: {
+    ko: "신수",
+    hooks: [{
+      phase: "ALWAYS",
+      kind: "mandatory",
+      source: {
+        timing: "Each turn / Mastermind Ability",
+        description: `Each turn, the Leader may move 1 counter on this character to another character at this location. If this character has :goodwill: Refusel, the Mastermind must also do this during the Mastermind's ability step.`,
+      },
+      // STATIC_GUIDANCE_ONLY: 양 진영의 카운터 이동 UI·엔진은 B의 범위가 아니다.
       when: () => false,
       effect: () => {},
     }],

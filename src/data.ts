@@ -28,6 +28,7 @@ export interface CharacterData {
 export interface GoodwillAbilityData {
   rank: number | null;
   en: string;
+  ko: string;
   timesPerLoop: number | null;
   restrictedToLocation: readonly Location[] | null;
   immuneToGoodwillRefusel: boolean;
@@ -108,19 +109,22 @@ function parseLocation(value: unknown, context: string): Location {
   return value;
 }
 
-function goodwillAbilityMinLoop(
+function goodwillAbilityMetadata(
   id: CharacterId,
   abilityIndex: number,
-): number | null {
+): { ko?: string; minLoop: number | null } {
   const rawAbilities = (
     goodwillAbilitiesJson as unknown as Record<string, unknown>
   )[id];
-  if (!Array.isArray(rawAbilities)) return null;
+  if (!Array.isArray(rawAbilities)) return { minLoop: null };
 
   const rawAbility = rawAbilities.find((candidate) =>
     isRecord(candidate) && candidate.abilityIndex === abilityIndex
   );
-  if (!isRecord(rawAbility) || rawAbility.minLoop === undefined) return null;
+  if (!isRecord(rawAbility)) return { minLoop: null };
+
+  const ko = typeof rawAbility.ko === "string" ? rawAbility.ko : undefined;
+  if (rawAbility.minLoop === undefined) return { ko, minLoop: null };
 
   const minLoop = requireNumber(
     rawAbility.minLoop,
@@ -131,7 +135,7 @@ function goodwillAbilityMinLoop(
       `goodwill ability "${id}:${abilityIndex}".minLoop must be a positive integer`,
     );
   }
-  return minLoop;
+  return { ko, minLoop };
 }
 
 function parseCharacterData(id: CharacterId, value: unknown): CharacterData {
@@ -185,9 +189,12 @@ function parseCharacterData(id: CharacterId, value: unknown): CharacterData {
         )
       );
 
+    const metadata = goodwillAbilityMetadata(id, index);
+    const en = requireString(entry.en, `${context}.en`);
     return {
       rank: requireNullableNumber(entry.rank, `${context}.rank`),
-      en: requireString(entry.en, `${context}.en`),
+      en,
+      ko: metadata.ko ?? en,
       timesPerLoop: requireNullableNumber(
         entry.timesPerLoop,
         `${context}.timesPerLoop`,
@@ -195,7 +202,7 @@ function parseCharacterData(id: CharacterId, value: unknown): CharacterData {
       restrictedToLocation,
       immuneToGoodwillRefusel:
         entry.immuneToGoodwillRefusel === true,
-      minLoop: goodwillAbilityMinLoop(id, index),
+      minLoop: metadata.minLoop,
     };
   });
 

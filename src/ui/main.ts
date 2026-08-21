@@ -44,6 +44,10 @@ import {
   mastermindGuidance,
   type MastermindGuidanceRoute,
 } from "../engine/mastermind-guidance";
+import {
+  mastermindCautions,
+  type MastermindCaution,
+} from "../engine/mastermind-cautions";
 import { intrigueForbidActive } from "../engine/movement";
 import { type ProtagonistObservation } from "../engine/hypothesis";
 import { applyHookEffect, collectHooks } from "../engine/phases";
@@ -2714,11 +2718,37 @@ function renderGuidanceRoute(
   </article>`;
 }
 
+function renderMastermindCaution(caution: MastermindCaution): string {
+  return `<article class="mastermind-caution caution-${caution.severity}">
+    <strong>${escapeHtml(caution.title)}</strong>
+    <span class="mastermind-caution-condition">${escapeHtml(caution.condition)}</span>
+    <p>${escapeHtml(caution.description)}</p>
+    <small>근거 · ${escapeHtml(caution.source)}</small>
+  </article>`;
+}
+
+function renderCautionCategory(
+  title: string,
+  cautions: readonly MastermindCaution[],
+): string {
+  if (cautions.length === 0) return "";
+  return `<details class="guidance-caution-category">
+    <summary>
+      <strong>${escapeHtml(title)}</strong>
+      <span>${cautions.length}건</span>
+    </summary>
+    <div class="guidance-caution-list">
+      ${cautions.map(renderMastermindCaution).join("")}
+    </div>
+  </details>`;
+}
+
 function renderMastermindGuidance(
   state: GameState,
   context: "beforeStart" | "panel",
 ): string {
   const guidance = mastermindGuidance(state);
+  const cautions = mastermindCautions(state);
   const primary = guidance.primary;
   const primaryResources = new Set(primary?.resources ?? []);
   const body = `
@@ -2741,7 +2771,17 @@ function renderMastermindGuidance(
       : `<p class="guidance-footnote">자동 발동 ${guidance.automaticRisks.length}개: 조건이 갖춰지면 각본가도 멈출 수 없습니다.</p>`}
     ${guidance.protagonistChoices.length === 0
       ? ""
-      : `<p class="guidance-footnote">주인공 선택 ${guidance.protagonistChoices.length}개: 노릴 경로가 아니라 주의용으로만 표시합니다.</p>`}`;
+      : `<p class="guidance-footnote">주인공 선택 ${guidance.protagonistChoices.length}개: 노릴 경로가 아니라 주의용으로만 표시합니다.</p>`}
+    <section class="mastermind-cautions" aria-label="주의사항">
+      <div class="mastermind-cautions-heading">
+        <span class="eyebrow">B. 주의사항</span>
+        <h3>시나리오별 주의사항</h3>
+        <p>현재 캐스트의 실제 역할·특성과 선택된 룰·사건만 표시합니다.</p>
+      </div>
+      ${renderCautionCategory("정체가 드러나는 행동", cautions.identityExposure)}
+      ${renderCautionCategory("통제 불가능한 위험", cautions.uncontrolledRisks)}
+      ${renderCautionCategory("주인공이 쓸 수 있는 수단", cautions.protagonistTools)}
+    </section>`;
 
   if (context === "beforeStart") {
     return `<section class="pre-game-guidance" aria-label="각본가 시작 지침">
@@ -2755,8 +2795,8 @@ function renderMastermindGuidance(
   }
   return `<details class="info-accordion mastermind-guidance-information">
     <summary>
-      <span><small>정적 지침</small><strong>노려볼 패배 조건</strong></span>
-      <span class="accordion-summary-value">${guidance.routes.length}개 경로</span>
+      <span><small>정적 지침</small><strong>각본가 시작 지침</strong></span>
+      <span class="accordion-summary-value">${guidance.routes.length}개 경로 · 주의 ${cautions.total}건</span>
       <i aria-hidden="true"></i>
     </summary>
     <div class="info-accordion-body mastermind-guidance-body">${body}</div>

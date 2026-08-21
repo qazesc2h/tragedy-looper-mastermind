@@ -1938,6 +1938,126 @@ select {
   margin: 0;
 }
 
+.mastermind-cautions {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+  margin-top: 6px;
+  border-top: 1px solid #57472f;
+  padding-top: 12px;
+}
+
+.mastermind-cautions-heading {
+  display: grid;
+  gap: 4px;
+}
+
+.mastermind-cautions-heading h3,
+.mastermind-cautions-heading p,
+.mastermind-caution p {
+  margin: 0;
+}
+
+.mastermind-cautions-heading h3 {
+  color: #ead8b6;
+  font-size: 0.9rem;
+}
+
+.mastermind-cautions-heading p {
+  color: #a99b86;
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.guidance-caution-category {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #4c4031;
+  border-radius: 9px;
+  background: #17140f;
+}
+
+.guidance-caution-category > summary {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 10px;
+  color: #d7c5a7;
+  cursor: pointer;
+}
+
+.guidance-caution-category > summary strong {
+  min-width: 0;
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.guidance-caution-category > summary span {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #352d23;
+  padding: 3px 7px;
+  color: #ab9d88;
+  font-size: 0.65rem;
+}
+
+.guidance-caution-list {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+  border-top: 1px solid #4c4031;
+  padding: 8px;
+}
+
+.mastermind-caution {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+  border-left: 3px solid #647e91;
+  border-radius: 7px;
+  background: #1c1914;
+  padding: 8px;
+}
+
+.mastermind-caution.caution-critical {
+  border-left-color: #b05f4e;
+  background: rgba(81, 38, 30, 0.27);
+}
+
+.mastermind-caution.caution-warning {
+  border-left-color: #a37a42;
+}
+
+.mastermind-caution strong {
+  color: #e0d2bb;
+  font-size: 0.74rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.mastermind-caution-condition {
+  color: #b59d7b;
+  font-size: 0.66rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.mastermind-caution p {
+  color: #c6baa6;
+  font-size: 0.69rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.mastermind-caution small {
+  color: #8f8371;
+  font-size: 0.62rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
 .incident-judgment {
   border-left: 3px solid #8b6e43;
   background: #191611;

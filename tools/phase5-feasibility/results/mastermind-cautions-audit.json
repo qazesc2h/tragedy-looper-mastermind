@@ -1,0 +1,566 @@
+{
+  "deterministic": {
+    "schema": "mastermind-pre-game-cautions-audit-v1",
+    "scenariosAttempted": 47,
+    "scenariosReturned": 47,
+    "scenariosWithNoCaution": [],
+    "scenariosWithMissingGoodwillTool": [],
+    "totalIdentityExposure": 57,
+    "totalUncontrolledRisks": 362,
+    "totalProtagonistTools": 520,
+    "sourceUniverse": {
+      "forcedRolesReviewed": [
+        "brain",
+        "conspiracyTheorist",
+        "cultist",
+        "factor",
+        "friend",
+        "keyPerson",
+        "killer",
+        "lovedOne",
+        "lover",
+        "serialKiller",
+        "timeTraveler",
+        "witch"
+      ],
+      "selectedTraitRecordsReviewed": [
+        "ai",
+        "blackCat",
+        "boss",
+        "copycat",
+        "godlyBeing",
+        "henchman",
+        "illusion",
+        "mysteryBoy",
+        "sacredTree",
+        "scientist",
+        "sectFounder",
+        "transferStudent"
+      ],
+      "incidentsReviewed": [
+        "butterflyEffect",
+        "farawayMurder",
+        "foulEvil",
+        "hospitalIncident",
+        "increasingUnease",
+        "missingPerson",
+        "murder",
+        "spreading",
+        "suicide"
+      ],
+      "plotsReviewed": [
+        "changeOfFuture",
+        "circleFriends",
+        "giantTimeBomb",
+        "hiddenFreak",
+        "hideousScript",
+        "lightAvenger",
+        "loveAffair",
+        "murderPlan",
+        "paranoiaVirus",
+        "placeProtect",
+        "sealedItem",
+        "shadowRipper",
+        "signWithMe",
+        "threadsFate",
+        "unknownFactor",
+        "unsettlingRumor"
+      ]
+    },
+    "scenarios": [
+      {
+        "key": "firstSteps:1#difficulty-1",
+        "identityExposure": 0,
+        "uncontrolledRisks": 6,
+        "protagonistTools": 9,
+        "expectedGoodwillTools": 9,
+        "goodwillTools": 9,
+        "total": 15
+      },
+      {
+        "key": "firstSteps:2#difficulty-1",
+        "identityExposure": 0,
+        "uncontrolledRisks": 5,
+        "protagonistTools": 9,
+        "expectedGoodwillTools": 9,
+        "goodwillTools": 9,
+        "total": 14
+      },
+      {
+        "key": "firstSteps:3#difficulty-1",
+        "identityExposure": 0,
+        "uncontrolledRisks": 3,
+        "protagonistTools": 9,
+        "expectedGoodwillTools": 9,
+        "goodwillTools": 9,
+        "total": 12
+      },
+      {
+        "key": "firstSteps:4#difficulty-1",
+        "identityExposure": 1,
+        "uncontrolledRisks": 4,
+        "protagonistTools": 7,
+        "expectedGoodwillTools": 7,
+        "goodwillTools": 7,
+        "total": 12
+      },
+      {
+        "key": "firstSteps:4#difficulty-2",
+        "identityExposure": 1,
+        "uncontrolledRisks": 4,
+        "protagonistTools": 7,
+        "expectedGoodwillTools": 7,
+        "goodwillTools": 7,
+        "total": 12
+      },
+      {
+        "key": "firstSteps:5#difficulty-1",
+        "identityExposure": 0,
+        "uncontrolledRisks": 3,
+        "protagonistTools": 9,
+        "expectedGoodwillTools": 9,
+        "goodwillTools": 9,
+        "total": 12
+      },
+      {
+        "key": "firstSteps:6#difficulty-1",
+        "identityExposure": 2,
+        "uncontrolledRisks": 5,
+        "protagonistTools": 8,
+        "expectedGoodwillTools": 8,
+        "goodwillTools": 8,
+        "total": 15
+      },
+      {
+        "key": "firstSteps:6#difficulty-2",
+        "identityExposure": 2,
+        "uncontrolledRisks": 5,
+        "protagonistTools": 8,
+        "expectedGoodwillTools": 8,
+        "goodwillTools": 8,
+        "total": 15
+      },
+      {
+        "key": "firstSteps:7#difficulty-1",
+        "identityExposure": 0,
+        "uncontrolledRisks": 6,
+        "protagonistTools": 9,
+        "expectedGoodwillTools": 9,
+        "goodwillTools": 9,
+        "total": 15
+      },
+      {
+        "key": "basicTragedy:1#difficulty-1",
+        "identityExposure": 1,
+        "uncontrolledRisks": 8,
+        "protagonistTools": 10,
+        "expectedGoodwillTools": 10,
+        "goodwillTools": 10,
+        "total": 19
+      },
+      {
+        "key": "basicTragedy:1#difficulty-2",
+        "identityExposure": 1,
+        "uncontrolledRisks": 8,
+        "protagonistTools": 10,
+        "expectedGoodwillTools": 10,
+        "goodwillTools": 10,
+        "total": 19
+      },
+      {
+        "key": "basicTragedy:2#difficulty-1",
+        "identityExposure": 0,
+        "uncontrolledRisks": 7,
+        "protagonistTools": 10,
+        "expectedGoodwillTools": 10,
+        "goodwillTools": 10,
+        "total": 17
+      },
+      {
+        "key": "basicTragedy:2#difficulty-2",
+        "identityExposure": 0,
+        "uncontrolledRisks": 7,
+        "protagonistTools": 10,
+        "expectedGoodwillTools": 10,
+        "goodwillTools": 10,
+        "total": 17
+      },
+      {
+        "key": "basicTragedy:3#difficulty-1",
+        "identityExposure": 1,
+        "uncontrolledRisks": 6,
+        "protagonistTools": 9,
+        "expectedGoodwillTools": 9,
+        "goodwillTools": 9,
+        "total": 16
+      },
+      {
+        "key": "basicTragedy:3#difficulty-2",
+        "identityExposure": 1,
+        "uncontrolledRisks": 6,
+        "protagonistTools": 9,
+        "expectedGoodwillTools": 9,
+        "goodwillTools": 9,
+        "total": 16
+      },
+      {
+        "key": "basicTragedy:4#difficulty-1",
+        "identityExposure": 0,
+        "uncontrolledRisks": 10,
+        "protagonistTools": 11,
+        "expectedGoodwillTools": 11,
+        "goodwillTools": 11,
+        "total": 21
+      },
+      {
+        "key": "basicTragedy:4#difficulty-2",
+        "identityExposure": 0,
+        "uncontrolledRisks": 10,
+        "protagonistTools": 11,
+        "expectedGoodwillTools": 11,
+        "goodwillTools": 11,
+        "total": 21
+      },
+      {
+        "key": "basicTragedy:5#difficulty-1",
+        "identityExposure": 2,
+        "uncontrolledRisks": 7,
+        "protagonistTools": 13,
+        "expectedGoodwillTools": 13,
+        "goodwillTools": 13,
+        "total": 22
+      },
+      {
+        "key": "basicTragedy:5#difficulty-2",
+        "identityExposure": 2,
+        "uncontrolledRisks": 7,
+        "protagonistTools": 13,
+        "expectedGoodwillTools": 13,
+        "goodwillTools": 13,
+        "total": 22
+      },
+      {
+        "key": "basicTragedy:6#difficulty-1",
+        "identityExposure": 2,
+        "uncontrolledRisks": 6,
+        "protagonistTools": 13,
+        "expectedGoodwillTools": 13,
+        "goodwillTools": 13,
+        "total": 21
+      },
+      {
+        "key": "basicTragedy:6#difficulty-2",
+        "identityExposure": 2,
+        "uncontrolledRisks": 6,
+        "protagonistTools": 13,
+        "expectedGoodwillTools": 13,
+        "goodwillTools": 13,
+        "total": 21
+      },
+      {
+        "key": "basicTragedy:7#difficulty-1",
+        "identityExposure": 2,
+        "uncontrolledRisks": 11,
+        "protagonistTools": 9,
+        "expectedGoodwillTools": 9,
+        "goodwillTools": 9,
+        "total": 22
+      },
+      {
+        "key": "basicTragedy:8#difficulty-1",
+        "identityExposure": 1,
+        "uncontrolledRisks": 7,
+        "protagonistTools": 10,
+        "expectedGoodwillTools": 10,
+        "goodwillTools": 10,
+        "total": 18
+      },
+      {
+        "key": "basicTragedy:8#difficulty-2",
+        "identityExposure": 1,
+        "uncontrolledRisks": 7,
+        "protagonistTools": 10,
+        "expectedGoodwillTools": 10,
+        "goodwillTools": 10,
+        "total": 18
+      },
+      {
+        "key": "basicTragedy:9#difficulty-1",
+        "identityExposure": 1,
+        "uncontrolledRisks": 8,
+        "protagonistTools": 12,
+        "expectedGoodwillTools": 12,
+        "goodwillTools": 12,
+        "total": 21
+      },
+      {
+        "key": "basicTragedy:9#difficulty-2",
+        "identityExposure": 1,
+        "uncontrolledRisks": 8,
+        "protagonistTools": 12,
+        "expectedGoodwillTools": 12,
+        "goodwillTools": 12,
+        "total": 21
+      },
+      {
+        "key": "basicTragedy:10#difficulty-1",
+        "identityExposure": 3,
+        "uncontrolledRisks": 8,
+        "protagonistTools": 12,
+        "expectedGoodwillTools": 12,
+        "goodwillTools": 12,
+        "total": 23
+      },
+      {
+        "key": "basicTragedy:11#difficulty-1",
+        "identityExposure": 2,
+        "uncontrolledRisks": 7,
+        "protagonistTools": 9,
+        "expectedGoodwillTools": 9,
+        "goodwillTools": 9,
+        "total": 18
+      },
+      {
+        "key": "basicTragedy:11#difficulty-2",
+        "identityExposure": 2,
+        "uncontrolledRisks": 7,
+        "protagonistTools": 9,
+        "expectedGoodwillTools": 9,
+        "goodwillTools": 9,
+        "total": 18
+      },
+      {
+        "key": "basicTragedy:12#difficulty-1",
+        "identityExposure": 2,
+        "uncontrolledRisks": 7,
+        "protagonistTools": 12,
+        "expectedGoodwillTools": 12,
+        "goodwillTools": 12,
+        "total": 21
+      },
+      {
+        "key": "basicTragedy:12#difficulty-2",
+        "identityExposure": 2,
+        "uncontrolledRisks": 7,
+        "protagonistTools": 12,
+        "expectedGoodwillTools": 12,
+        "goodwillTools": 12,
+        "total": 21
+      },
+      {
+        "key": "basicTragedy:13#difficulty-1",
+        "identityExposure": 0,
+        "uncontrolledRisks": 9,
+        "protagonistTools": 11,
+        "expectedGoodwillTools": 11,
+        "goodwillTools": 11,
+        "total": 20
+      },
+      {
+        "key": "basicTragedy:13#difficulty-2",
+        "identityExposure": 0,
+        "uncontrolledRisks": 9,
+        "protagonistTools": 11,
+        "expectedGoodwillTools": 11,
+        "goodwillTools": 11,
+        "total": 20
+      },
+      {
+        "key": "basicTragedy:14#difficulty-1",
+        "identityExposure": 3,
+        "uncontrolledRisks": 8,
+        "protagonistTools": 13,
+        "expectedGoodwillTools": 13,
+        "goodwillTools": 13,
+        "total": 24
+      },
+      {
+        "key": "basicTragedy:15#difficulty-1",
+        "identityExposure": 1,
+        "uncontrolledRisks": 9,
+        "protagonistTools": 13,
+        "expectedGoodwillTools": 13,
+        "goodwillTools": 13,
+        "total": 23
+      },
+      {
+        "key": "basicTragedy:16#difficulty-1",
+        "identityExposure": 2,
+        "uncontrolledRisks": 9,
+        "protagonistTools": 13,
+        "expectedGoodwillTools": 13,
+        "goodwillTools": 13,
+        "total": 24
+      },
+      {
+        "key": "basicTragedy:16#difficulty-2",
+        "identityExposure": 2,
+        "uncontrolledRisks": 9,
+        "protagonistTools": 13,
+        "expectedGoodwillTools": 13,
+        "goodwillTools": 13,
+        "total": 24
+      },
+      {
+        "key": "basicTragedy:17#difficulty-1",
+        "identityExposure": 2,
+        "uncontrolledRisks": 10,
+        "protagonistTools": 14,
+        "expectedGoodwillTools": 13,
+        "goodwillTools": 13,
+        "total": 26
+      },
+      {
+        "key": "basicTragedy:17#difficulty-2",
+        "identityExposure": 2,
+        "uncontrolledRisks": 10,
+        "protagonistTools": 14,
+        "expectedGoodwillTools": 13,
+        "goodwillTools": 13,
+        "total": 26
+      },
+      {
+        "key": "basicTragedy:18#difficulty-1",
+        "identityExposure": 1,
+        "uncontrolledRisks": 10,
+        "protagonistTools": 13,
+        "expectedGoodwillTools": 13,
+        "goodwillTools": 13,
+        "total": 24
+      },
+      {
+        "key": "basicTragedy:18#difficulty-2",
+        "identityExposure": 1,
+        "uncontrolledRisks": 10,
+        "protagonistTools": 13,
+        "expectedGoodwillTools": 13,
+        "goodwillTools": 13,
+        "total": 24
+      },
+      {
+        "key": "basicTragedy:19#difficulty-1",
+        "identityExposure": 2,
+        "uncontrolledRisks": 8,
+        "protagonistTools": 13,
+        "expectedGoodwillTools": 13,
+        "goodwillTools": 13,
+        "total": 23
+      },
+      {
+        "key": "basicTragedy:19#difficulty-2",
+        "identityExposure": 2,
+        "uncontrolledRisks": 8,
+        "protagonistTools": 13,
+        "expectedGoodwillTools": 13,
+        "goodwillTools": 13,
+        "total": 23
+      },
+      {
+        "key": "basicTragedy:20#difficulty-1",
+        "identityExposure": 1,
+        "uncontrolledRisks": 13,
+        "protagonistTools": 16,
+        "expectedGoodwillTools": 16,
+        "goodwillTools": 16,
+        "total": 30
+      },
+      {
+        "key": "basicTragedy:20#difficulty-2",
+        "identityExposure": 1,
+        "uncontrolledRisks": 13,
+        "protagonistTools": 16,
+        "expectedGoodwillTools": 16,
+        "goodwillTools": 16,
+        "total": 30
+      },
+      {
+        "key": "basicTragedy:21#difficulty-1",
+        "identityExposure": 0,
+        "uncontrolledRisks": 10,
+        "protagonistTools": 11,
+        "expectedGoodwillTools": 11,
+        "goodwillTools": 11,
+        "total": 21
+      },
+      {
+        "key": "basicTragedy:22#difficulty-1",
+        "identityExposure": 2,
+        "uncontrolledRisks": 11,
+        "protagonistTools": 9,
+        "expectedGoodwillTools": 9,
+        "goodwillTools": 9,
+        "total": 22
+      }
+    ],
+    "officialComparison": [
+      {
+        "id": "basicTragedy:1",
+        "title": "Young Women’s Battlefield",
+        "expectedCautions": 4,
+        "matchedCautions": 4,
+        "missing": [],
+        "wasAPriorityGap": true
+      },
+      {
+        "id": "basicTragedy:8",
+        "title": "Lesser of Two Evils",
+        "expectedCautions": 3,
+        "matchedCautions": 3,
+        "missing": [],
+        "wasAPriorityGap": true
+      },
+      {
+        "id": "basicTragedy:9",
+        "title": "The Secret That Was Kept",
+        "expectedCautions": 4,
+        "matchedCautions": 4,
+        "missing": [],
+        "wasAPriorityGap": true
+      },
+      {
+        "id": "basicTragedy:10",
+        "title": "The Future of the Gods",
+        "expectedCautions": 4,
+        "matchedCautions": 4,
+        "missing": [],
+        "wasAPriorityGap": false
+      },
+      {
+        "id": "basicTragedy:11",
+        "title": "Mirror Passcode",
+        "expectedCautions": 4,
+        "matchedCautions": 4,
+        "missing": [],
+        "wasAPriorityGap": true
+      },
+      {
+        "id": "basicTragedy:12",
+        "title": "Those with Antibodies",
+        "expectedCautions": 4,
+        "matchedCautions": 4,
+        "missing": [],
+        "wasAPriorityGap": false
+      },
+      {
+        "id": "basicTragedy:13",
+        "title": "Prologue",
+        "expectedCautions": 4,
+        "matchedCautions": 4,
+        "missing": [],
+        "wasAPriorityGap": false
+      },
+      {
+        "id": "basicTragedy:14",
+        "title": "Neverending Happy & Sad Story",
+        "expectedCautions": 3,
+        "matchedCautions": 3,
+        "missing": [],
+        "wasAPriorityGap": false
+      }
+    ],
+    "officialCautionsExpected": 30,
+    "officialCautionsMatched": 30,
+    "aPriorityGapsWithBMatches": 4
+  },
+  "deterministicHash": "c1179be83879fe2d052072ab9217d0c6b4edcda5e271881214f71685cb25f7b7"
+}
