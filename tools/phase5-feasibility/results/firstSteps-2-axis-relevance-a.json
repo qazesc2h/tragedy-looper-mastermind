@@ -1,0 +1,72 @@
+{
+  "deterministicHash": "e354018f321487c9e9959320fca1cd64dae1843297f2928b301899976256b3de",
+  "onePlyReference": {
+    "p4ClosedResponseClasses": 10567,
+    "keyPersonIntrigueRelevant": 0,
+    "killerDependenciesRelevant": 2295,
+    "requestedUnionRelevant": 2295,
+    "requestedUnionExactExecutions": 2296,
+    "serialKillerOccupancyRelevant": 7164,
+    "safetyUnionRelevant": 7164,
+    "safetyUnionExactExecutions": 7165
+  },
+  "dateComparison": [
+    {
+      "day": 1,
+      "p4ClosedResponseClasses": 12261,
+      "keyPersonIntrigueRelevant": 0,
+      "killerDependenciesRelevant": 3224,
+      "requestedUnionRelevant": 3224,
+      "safetyUnionRelevant": 8441
+    },
+    {
+      "day": 2,
+      "p4ClosedResponseClasses": 11483,
+      "keyPersonIntrigueRelevant": 0,
+      "killerDependenciesRelevant": 3072,
+      "requestedUnionRelevant": 3072,
+      "safetyUnionRelevant": 8000
+    },
+    {
+      "day": 3,
+      "p4ClosedResponseClasses": 7932,
+      "keyPersonIntrigueRelevant": 0,
+      "killerDependenciesRelevant": 2304,
+      "requestedUnionRelevant": 2304,
+      "safetyUnionRelevant": 5822
+    }
+  ],
+  "keyPersonStress": [
+    {
+      "day": 1,
+      "p4ClosedResponseClasses": 9272,
+      "keyPersonIntrigueRelevant": 646,
+      "killerDependenciesRelevant": 2548,
+      "requestedUnionRelevant": 2548,
+      "safetyUnionRelevant": 6256
+    },
+    {
+      "day": 2,
+      "p4ClosedResponseClasses": 8625,
+      "keyPersonIntrigueRelevant": 612,
+      "killerDependenciesRelevant": 2413,
+      "requestedUnionRelevant": 2413,
+      "safetyUnionRelevant": 5893
+    },
+    {
+      "day": 3,
+      "p4ClosedResponseClasses": 5752,
+      "keyPersonIntrigueRelevant": 444,
+      "killerDependenciesRelevant": 1747,
+      "requestedUnionRelevant": 1747,
+      "safetyUnionRelevant": 4147
+    }
+  ],
+  "verification": {
+    "rawResponsesStaticallyClassified": 2244960,
+    "actualP4ClassesExecuted": 65892,
+    "staticPredictionMismatches": 0,
+    "irrelevantAxesWithMultipleActualSignatures": 0,
+    "reducedAxisSetsMissingActualSignatures": 0
+  }
+}

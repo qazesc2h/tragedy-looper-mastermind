@@ -44,6 +44,12 @@ export interface DecisionContext {
   locationTargetIndexes: Map<Location, number>;
 }
 
+export interface ClosedCharacterProjection {
+  character: string;
+  location: Location;
+  intrigue: number;
+}
+
 interface ActionEquivalenceMeasurement {
   id: string;
   loop: number;
@@ -433,6 +439,50 @@ export function closedSuccessorKey(
   }
   return result |
     (resourceBits(context.state, mastermind, protagonists) << RESOURCE_SHIFT);
+}
+
+/**
+ * 실제 상태를 만들지 않고 P4 이동·음모 결과 중 축 관련 필드만 계산한다.
+ * firstSteps:2의 여섯 생존 캐릭터 전용이며 closedSuccessorKey와 같은 localOutcome을
+ * 사용하므로 이동 합성·이동 금지·음모 금지의 처리 순서가 같다.
+ */
+export function closedCharacterProjections(
+  context: DecisionContext,
+  mastermind: readonly PlacedCard[],
+  protagonists: readonly PlacedCard[],
+): ClosedCharacterProjection[] {
+  const mastermindByTarget = placementByTarget(mastermind);
+  const protagonistByTarget = placementByTarget(protagonists);
+  const intrigueForbidIsActive = protagonists.filter(({ card }) =>
+    card === "forbidIntrigue"
+  ).length === 1;
+
+  return context.characters.map((character) => {
+    const position = context.state.loop.board[character];
+    if (position?.status !== "alive") {
+      throw new Error(
+        `closed character projection requires living ${character}`,
+      );
+    }
+    const target: Target = { kind: "character", id: character };
+    const key = targetKey(target);
+    const outcome = localOutcome(
+      context,
+      target,
+      mastermindByTarget.get(key)?.card,
+      protagonistByTarget.get(key)?.card,
+      intrigueForbidIsActive,
+    );
+    const location = LOCATIONS[outcome & 3];
+    if (location === undefined) {
+      throw new Error(`invalid projected location for ${character}`);
+    }
+    return {
+      character,
+      location,
+      intrigue: (outcome >> 10) & 15,
+    };
+  });
 }
 
 function encodedResolvedState(state: GameState): bigint {

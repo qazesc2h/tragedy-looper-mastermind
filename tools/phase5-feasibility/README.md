@@ -315,6 +315,16 @@ npx vite-node tools/phase5-feasibility/measure-evaluation-variance.ts \
   /tmp/phase5-evaluation-variance-day3 3
 ```
 
+P4 대응을 평가 축별 입력 필드로 정적으로 분류하고, 무관 집합을 실제 엔진 전수 실행으로
+검증하려면 다음을 실행한다.
+
+```bash
+npx vite-node tools/phase5-feasibility/measure-axis-relevance.ts \
+  /tmp/phase5-axis-relevance-a
+npx vite-node tools/phase5-feasibility/measure-axis-relevance.ts \
+  /tmp/phase5-axis-relevance-b
+```
+
 두 실행은 출력 디렉터리와 프로세스를 공유하지 않는다. `manifest.json`의
 `deterministicHash`만 재현성 판정에 쓰고 시간·RSS 같은 성능값은 별도로 비교한다.
 
@@ -383,11 +393,17 @@ export를 재사용한다.
 - 같은 100개 표본의 임계값 스트레스 대표 상태: 2일차와 3일차 모두 94개 후보에서
   불변, 6개에서 가변이었다. 3일차 가변 후보는 청부업자 거리 0/1을 갈랐다. 빈도는
   후반에 폭발하지 않았지만 마지막 날의 드문 차이는 결정적이므로 근사 조기 종료는
-  쓰지 않는다. 다음 게이트는 축별 정확 관련성 분석이다.
+  쓰지 않는다.
+- 축별 정적 관련성: 기존 10,567 P4류에서 핵심 인물 음모+청부업자 위치·양쪽 음모
+  합집합은 2,295류이고, 무관 기준 1류를 더한 2,296회 실행으로 전 결과를 재현했다.
+  연쇄 살인마 단둘 조건까지 합치면 7,165회라 이득이 작아진다. 2,244,960개 원시
+  대응을 정적으로 분류하고 65,892개 P4류를 실제 실행한 전수 검증에서 과소 포함은
+  0건이었다. 축별 독립 탐색을 유지하고 모든 사망 축을 하나로 합치지 않는다.
 - `6,182`와 P2 100개 93% 주장은 생성 코드·상태 키가 없어 재현 불가로 폐기했다.
 - 상세 결과: `results/firstSteps-2-engine-state.md`,
   `results/firstSteps-2-p4-destinations.md`,
   `results/firstSteps-2-action-equivalence.md`,
   `results/firstSteps-2-one-ply-search.md`,
   `results/firstSteps-2-evaluation-variance.md`,
-  `results/firstSteps-2-evaluation-variance-by-day.md`
+  `results/firstSteps-2-evaluation-variance-by-day.md`,
+  `results/firstSteps-2-axis-relevance.md`
