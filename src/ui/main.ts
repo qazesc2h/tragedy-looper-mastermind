@@ -169,6 +169,7 @@ import {
   persistGameState,
   persistTrackerPreferences,
   prepareNewGame,
+  STORAGE_WRITE_WARNING,
   type StoredGame,
   type TrackerStore,
 } from "./storage";
@@ -273,6 +274,7 @@ function requireUiRoot(): HTMLElement {
 const root = requireUiRoot();
 
 let notice = "";
+let storageWriteWarning = "";
 let selectedHandCard: SelectedHandCard | undefined;
 let resolutionReceipt: ResolutionReceipt | undefined;
 let openCharacterModal: CharacterId | undefined;
@@ -414,17 +416,22 @@ function saveState(
   state: GameState,
   reason: string,
 ): void {
-  try {
-    persistGameState(
-      window.localStorage,
-      tracker,
-      scenarioId,
-      state,
-      reason,
-    );
-  } catch (error) {
-    notice = errorMessage(error);
-  }
+  const saved = persistGameState(
+    window.localStorage,
+    tracker,
+    scenarioId,
+    state,
+    reason,
+  );
+  storageWriteWarning = saved ? "" : STORAGE_WRITE_WARNING;
+}
+
+function renderStorageWriteWarning(): string {
+  return storageWriteWarning === ""
+    ? ""
+    : `<div class="storage-write-warning" role="alert">${
+      escapeHtml(storageWriteWarning)
+    }</div>`;
 }
 
 function captureUiTransaction(game: StoredGame): UiTransactionSnapshot {
@@ -487,17 +494,14 @@ function rollbackUiTransaction(
   const state = tracker.games[scenarioId].state;
   recordRuntimeError(state, action, error);
   notice = errorMessage(error);
-  try {
-    persistGameState(
-      window.localStorage,
-      tracker,
-      scenarioId,
-      state,
-      `error:${action}`,
-    );
-  } catch (persistenceError) {
-    notice = `${notice} · 오류 상태 저장 실패: ${errorMessage(persistenceError)}`;
-  }
+  const saved = persistGameState(
+    window.localStorage,
+    tracker,
+    scenarioId,
+    state,
+    `error:${action}`,
+  );
+  storageWriteWarning = saved ? "" : STORAGE_WRITE_WARNING;
   render();
 }
 
@@ -561,10 +565,11 @@ function requestNewGame(): void {
   if (!window.confirm(warning)) return;
   try {
     prepareNewGame(window.localStorage, tracker);
+    storageWriteWarning = "";
     resetTransientUi();
     notice = "";
-  } catch (error) {
-    notice = errorMessage(error);
+  } catch {
+    storageWriteWarning = STORAGE_WRITE_WARNING;
   }
   render();
 }
@@ -4021,6 +4026,7 @@ function renderScenarioSelection(): void {
             <button type="button" data-action="dismiss-notice" aria-label="알림 닫기">×</button>
           </div>`
         : ""}
+      ${renderStorageWriteWarning()}
       ${renderSiteFooter()}
     </div>`;
   scheduleNoticeDismiss();
@@ -4107,6 +4113,7 @@ function render(): void {
       </header>
 
       ${gameContent}
+      ${renderStorageWriteWarning()}
       ${notice
         ? `<div class="notice-toast" role="alert">
             <span>${escapeHtml(notice)}</span>
@@ -4276,13 +4283,7 @@ function revealActionCards(): void {
     operationSheetOpen = false;
     optionalHookSelections.clear();
     notice = "";
-    persistGameState(
-      window.localStorage,
-      tracker,
-      entry.id,
-      state,
-      "cards-resolved",
-    );
+    saveState(entry.id, state, "cards-resolved");
     render();
   } catch (error) {
     rollbackUiTransaction(entry.id, transaction, "cards-resolved", error);
@@ -4381,13 +4382,7 @@ function resolveGoodwillFromButton(button: HTMLButtonElement): void {
       response,
     );
     notice = "";
-    persistGameState(
-      window.localStorage,
-      tracker,
-      entry.id,
-      game.state,
-      `goodwill-${response}`,
-    );
+    saveState(entry.id, game.state, `goodwill-${response}`);
     clearGoodwillDraft(key);
     render();
   } catch (error) {
@@ -4418,13 +4413,7 @@ function advanceCurrentPhase(): void {
       operationSheetOpen = false;
       optionalHookSelections.clear();
       notice = "";
-      persistGameState(
-        window.localStorage,
-        tracker,
-        entry.id,
-        state,
-        "phase-result-confirmed",
-      );
+      saveState(entry.id, state, "phase-result-confirmed");
       render();
       return;
     }
@@ -4458,13 +4447,7 @@ function advanceCurrentPhase(): void {
     }
     optionalHookSelections.clear();
     notice = "";
-    persistGameState(
-      window.localStorage,
-      tracker,
-      entry.id,
-      state,
-      "phase-advance",
-    );
+    saveState(entry.id, state, "phase-advance");
     render();
   } catch (error) {
     rollbackUiTransaction(entry.id, transaction, "phase-advance", error);
@@ -4898,13 +4881,7 @@ root.addEventListener("change", (event) => {
         key,
         (control as HTMLInputElement).checked,
       );
-      persistGameState(
-        window.localStorage,
-        tracker,
-        entry.id,
-        game.state,
-        "optional-loss-activation",
-      );
+      saveState(entry.id, game.state, "optional-loss-activation");
       render();
     } catch (error) {
       rollbackUiTransaction(

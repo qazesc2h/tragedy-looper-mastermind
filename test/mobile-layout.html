@@ -317,6 +317,82 @@
         await pause();
       }
 
+      async function inspectStorageQuotaContinuation() {
+        mutateActiveState((state) => {
+          state.gamePhase = "ROUND";
+          state.loop.phase = "P4_RESOLVE";
+          state.loop.actionResolutionComplete = false;
+          state.loop.placed = [
+            ["intriguePlus1", "patient", "mastermind"],
+            ["paranoiaPlus1", "nurse", "mastermind"],
+            ["goodwillPlus1", "shrineMaiden", "mastermind"],
+            ["forbidIntrigue", "policeOfficer", 0],
+            ["forbidParanoia", "officeWorker", 1],
+            ["forbidGoodwill", "boyStudent", 2],
+          ].map(([card, id, owner]) => ({
+            card,
+            target: { kind: "character", id },
+            owner,
+          }));
+          delete state.pendingLoopEnd;
+          delete state.loop.pendingImmediateLossKeys;
+        });
+        await reloadApp("storage-quota-p4");
+        const reveal = await waitFor(
+          () => frameDocument().querySelector("[data-action='reveal-cards']"),
+          "저장 실패 회귀용 카드 공개·해결",
+        );
+        const currentWindow = frameWindow();
+        const storagePrototype = currentWindow.Storage.prototype;
+        const originalSetItem = storagePrototype.setItem;
+        storagePrototype.setItem = function (key, value) {
+          if (key === "tragedy-looper-mastermind:tracker") {
+            throw new currentWindow.DOMException(
+              "quota exceeded",
+              "QuotaExceededError",
+            );
+          }
+          return originalSetItem.call(this, key, value);
+        };
+
+        let after;
+        let warning;
+        try {
+          reveal.click();
+          const warningElement = await waitFor(
+            () => frameDocument().querySelector(".storage-write-warning"),
+            "저장 용량 부족 경고",
+          );
+          after = {
+            resultVisible: Boolean(
+              frameDocument().querySelector(".resolution-receipt"),
+            ),
+            nextPhaseEnabled: !frameDocument().querySelector(
+              "[data-action='advance']",
+            )?.disabled,
+          };
+          warning = warningElement.textContent.trim();
+        } finally {
+          storagePrototype.setItem = originalSetItem;
+        }
+
+        const report = { after, warning };
+        reports.push({ label: "저장 용량 초과 진행 유지", ...report });
+        if (
+          !after?.resultVisible ||
+          !after?.nextPhaseEnabled ||
+          warning !== "저장 공간이 부족합니다. 진행은 계속되지만 새로고침하면 복원되지 않습니다"
+        ) {
+          failures.push(`저장 용량 초과 진행 유지: ${JSON.stringify(report)}`);
+        }
+        mutateActiveState((state) => {
+          state.loop.phase = "P2_MASTERMIND_ACTION";
+          state.loop.actionResolutionComplete = false;
+          state.loop.placed = [];
+        });
+        await reloadApp("storage-quota-reset");
+      }
+
       async function inspectResetFlows() {
         const currentWindow = frameWindow();
         const storage = currentWindow.localStorage;
@@ -1642,6 +1718,7 @@
         await moveCharacter("informer", "Hospital");
         recordBoardLayout("한 장소 4명", [4, 1, 1, 3]);
         await inspectStorageActions();
+        await inspectStorageQuotaContinuation();
         await inspectDockAndToast();
         await inspectOpenCardPanel();
         await inspectP5DisclosurePreview();

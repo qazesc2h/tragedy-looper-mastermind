@@ -11,6 +11,7 @@ import {
   persistGameState,
   RETIRED_TRACKER_STORAGE_KEYS,
   STORAGE_RESET_NOTICE,
+  STORAGE_WRITE_WARNING,
   TRACKER_STORAGE_KEY,
   type LocalKeyValueStore,
   type StoredGame,
@@ -46,6 +47,28 @@ class MemoryStorage implements LocalKeyValueStore {
 
   removeItem(key: string): void {
     this.values.delete(key);
+  }
+}
+
+class QuotaExceededStorage implements LocalKeyValueStore {
+  get length(): number {
+    return 0;
+  }
+
+  getItem(): string | null {
+    return null;
+  }
+
+  key(): string | null {
+    return null;
+  }
+
+  setItem(): void {
+    throw new DOMException("quota exceeded", "QuotaExceededError");
+  }
+
+  removeItem(): void {
+    // 저장할 수 없으므로 지울 값도 없다.
   }
 }
 
@@ -223,10 +246,90 @@ describe("UI localStorage snapshots", () => {
       .toHaveLength(2);
     expect(restored.games["basicTragedy:1"].observationsByLoop["2"])
       .toHaveLength(1);
-    expect(
-      restored.games["basicTragedy:1"].observationsByLoop["1"][1]
-        .state.charCounters.boyStudent.goodwill,
-    ).toBe(1);
+    const observation =
+      restored.games["basicTragedy:1"].observationsByLoop["1"][1];
+    expect(observation).toMatchObject({
+      reason: "character-counter",
+      loop: 1,
+      day: 1,
+      phase: "P1_ROUND_START",
+    });
+    expect(observation.stateSignature).toMatch(/^[0-9a-f]{8}$/);
+    expect(observation).not.toHaveProperty("state");
+  });
+
+  it("migrates legacy full observation snapshots to compact metadata", () => {
+    const storage = new MemoryStorage();
+    const defaults = storedGameDefaults("basicTragedy:1");
+    if (defaults === undefined) throw new Error("missing defaults");
+    const observed = structuredClone(defaults.state.loop);
+    observed.charCounters.boyStudent.goodwill = 2;
+    storage.setItem(TRACKER_STORAGE_KEY, JSON.stringify({
+      activeScenarioId: "basicTragedy:1",
+      mastermindOverlay: true,
+      games: {
+        "basicTragedy:1": {
+          ...defaults,
+          observationsByLoop: {
+            "1": [{
+              recordedAt: "2026-08-24T00:00:00.000Z",
+              reason: "legacy-full-snapshot",
+              loop: 1,
+              day: 1,
+              phase: "P1_ROUND_START",
+              state: observed,
+            }],
+          },
+        },
+      },
+    }));
+
+    const restored = loadTrackerStore(storage, storedGameDefaults);
+    const observation =
+      restored.games["basicTragedy:1"].observationsByLoop["1"][0];
+    expect(observation).not.toHaveProperty("state");
+    expect(observation.stateSignature).toMatch(/^[0-9a-f]{8}$/);
+
+    expect(persistGameState(
+      storage,
+      restored,
+      "basicTragedy:1",
+      restored.games["basicTragedy:1"].state,
+      "post-migration",
+    )).toBe(true);
+    const compacted = JSON.parse(storage.getItem(TRACKER_STORAGE_KEY) ?? "");
+    expect(compacted.games["basicTragedy:1"].observationsByLoop["1"][0])
+      .not.toHaveProperty("state");
+  });
+
+  it("keeps in-memory progress when localStorage rejects a write", () => {
+    const storage = new QuotaExceededStorage();
+    const tracker = emptyTrackerStore();
+    const game = state();
+    game.loop.day = 4;
+    game.loop.phase = "P4_RESOLVE";
+
+    expect(() => persistGameState(
+      storage,
+      tracker,
+      "basicTragedy:1",
+      game,
+      "quota-regression",
+    )).not.toThrow();
+    expect(persistGameState(
+      storage,
+      tracker,
+      "basicTragedy:1",
+      game,
+      "quota-regression",
+    )).toBe(false);
+    expect(tracker.games["basicTragedy:1"].state.loop).toMatchObject({
+      day: 4,
+      phase: "P4_RESOLVE",
+    });
+    expect(STORAGE_WRITE_WARNING).toBe(
+      "저장 공간이 부족합니다. 진행은 계속되지만 새로고침하면 복원되지 않습니다",
+    );
   });
 
   it("deletes invalid JSON and reports that the app will start over", () => {

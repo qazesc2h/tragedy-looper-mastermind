@@ -10,6 +10,8 @@ export const RETIRED_TRACKER_STORAGE_KEYS = [
 ] as const;
 export const STORAGE_RESET_NOTICE =
   "저장 데이터를 읽을 수 없어 새로 시작합니다.";
+export const STORAGE_WRITE_WARNING =
+  "저장 공간이 부족합니다. 진행은 계속되지만 새로고침하면 복원되지 않습니다";
 
 export interface LoopObservation {
   recordedAt: string;
@@ -17,7 +19,8 @@ export interface LoopObservation {
   loop: number;
   day: number;
   phase: Phase;
-  state: LoopState;
+  /** 전체 LoopState 대신 변경 여부만 비교하는 비복원용 지문. */
+  stateSignature: string;
 }
 
 export interface StoredGame {
@@ -141,7 +144,11 @@ function validateStoredBoardShapes(saved: unknown, path: string): void {
       if (!isRecord(observation)) {
         throw new Error(`${observationPath} must be an object`);
       }
-      validateLoopBoard(observation.state, `${observationPath}.state`);
+      // 구 저장은 각 관측마다 LoopState 전체를 보존했다. 다음 저장에서
+      // 메타데이터만 남기도록 읽되, 보드 형식 검증은 계속 유지한다.
+      if (observation.state !== undefined) {
+        validateLoopBoard(observation.state, `${observationPath}.state`);
+      }
     });
   }
 }
@@ -183,15 +190,29 @@ function restoreObservations(
     loop: defaults.state.loop.loop,
     day: defaults.state.loop.day,
     phase: defaults.state.loop.phase,
-    state: defaults.state.loop,
+    stateSignature: loopSignature(defaults.state.loop),
   };
   return Object.fromEntries(Object.entries(saved).map(([loop, observations]) => {
     if (!Array.isArray(observations)) {
       throw new Error(`${path}.${loop} must be an array`);
     }
-    return [loop, observations.map((observation, index) =>
-      mergeDefaults(observationDefaults, observation, `${path}.${loop}.${index}`)
-    )];
+    return [loop, observations.map((observation, index) => {
+      const observationPath = `${path}.${loop}.${index}`;
+      const raw = observation as Record<string, unknown>;
+      const stateSignature = typeof raw.stateSignature === "string"
+        ? raw.stateSignature
+        : raw.state === undefined
+        ? observationDefaults.stateSignature
+        : loopSignature(raw.state as LoopState);
+      return mergeDefaults(observationDefaults, {
+        recordedAt: raw.recordedAt,
+        reason: raw.reason,
+        loop: raw.loop,
+        day: raw.day,
+        phase: raw.phase,
+        stateSignature,
+      }, observationPath);
+    })];
   }));
 }
 
@@ -267,10 +288,16 @@ export function loadTrackerStore(
 }
 
 function loopSignature(loop: LoopState): string {
-  return JSON.stringify(loop);
+  const json = JSON.stringify(loop);
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < json.length; index += 1) {
+    hash ^= json.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
 }
 
-/** 현재 게임과 관측 시점의 LoopState를 루프 번호별로 함께 저장한다. */
+/** 현재 게임과 관측 시점 메타데이터를 루프 번호별로 함께 저장한다. */
 export function persistGameState(
   storage: LocalKeyValueStore,
   tracker: TrackerStore,
@@ -278,7 +305,7 @@ export function persistGameState(
   state: GameState,
   reason: string,
   now = new Date(),
-): void {
+): boolean {
   const savedAt = now.toISOString();
   const previous = tracker.games[scenarioId];
   const observationsByLoop: Record<string, LoopObservation[]> =
@@ -286,10 +313,11 @@ export function persistGameState(
   const loopKey = String(state.loop.loop);
   const observations = observationsByLoop[loopKey] ??= [];
   const latest = observations.at(-1);
+  const stateSignature = loopSignature(state.loop);
 
   if (
     latest === undefined ||
-    loopSignature(latest.state) !== loopSignature(state.loop)
+    latest.stateSignature !== stateSignature
   ) {
     observations.push({
       recordedAt: savedAt,
@@ -297,7 +325,7 @@ export function persistGameState(
       loop: state.loop.loop,
       day: state.loop.day,
       phase: state.loop.phase,
-      state: structuredClone(state.loop),
+      stateSignature,
     });
   }
 
@@ -307,7 +335,14 @@ export function persistGameState(
     observationsByLoop,
     updatedAt: savedAt,
   };
-  storage.setItem(TRACKER_STORAGE_KEY, JSON.stringify(tracker));
+  const serialized = JSON.stringify(tracker);
+  try {
+    storage.setItem(TRACKER_STORAGE_KEY, serialized);
+    return true;
+  } catch {
+    // 메모리의 진행 상태는 유지한다. 호출부는 경고만 표시하고 계속 진행한다.
+    return false;
+  }
 }
 
 export function persistTrackerPreferences(
