@@ -3267,6 +3267,22 @@ function hypothesisObservationLabel(
       return `${observation.day}일 ${incidentName(observation.incident)} 효과 해결`;
     case "intrigueForbidIgnored":
       return `음모 금지 무시 · ${targetLabel(observation.target)} 음모 증가`;
+    case "goodwillForbidApplied":
+      return `${observation.loop}루프 ${observation.day}일 · ${characterName(observation.character)} 우호 금지 발동`;
+    case "roundEvidence": {
+      const deaths = observation.record.deathBatches?.flatMap(
+        ({ characters }) => characters,
+      ) ?? [];
+      const result = deaths.length === 0
+        ? "사망 없음"
+        : `${deaths.map(characterName).join(", ")} 사망`;
+      const immediate = observation.record.immediateLoopEnd === undefined
+        ? ""
+        : " · 즉시 루프 종료";
+      return `${observation.loop}루프 ${observation.record.day}일 라운드 종료 · ${result}${immediate}`;
+    }
+    case "mandatoryEffectMissing":
+      return `${observation.loop}루프 시작 · ${characterName(observation.character)} 인과율 불안 증가 없음`;
   }
 }
 
@@ -3384,6 +3400,10 @@ function roleCellReasonLabel(code: string): string {
     case "abilityLocationIntersection": return "능력 위치 교집합";
     case "loopEndRoleRevealMissing": return "루프 종료 역할 공개 없음";
     case "lossConditionOnlyCandidate": return "패배 조건 유일 후보";
+    case "diedDespiteImmortality": return "사망으로 불사 배제";
+    case "deathWithoutImmediateLoss": return "사망했지만 즉시 종료 없음";
+    case "goodwillForbidApplied": return "우호 금지 발동으로 불사 배제";
+    case "causeConstraint": return "누적 원인 제약";
     default: return code;
   }
 }
@@ -3406,8 +3426,240 @@ function possibilityMark(status: "possible" | "impossible" | "confirmed"): strin
   return status === "confirmed" ? "✓" : status === "impossible" ? "×" : "○";
 }
 
+function possibilityStatusLabel(
+  status: "possible" | "impossible" | "confirmed" | undefined,
+): string {
+  return status === "confirmed"
+    ? "확정"
+    : status === "impossible"
+    ? "배제"
+    : status === "possible"
+    ? "후보"
+    : "현재 룰 후보에 없음";
+}
+
+function renderRoleInferenceTraces(
+  summary: ReturnType<typeof deductionTablesSummary>,
+): string {
+  const traces: string[] = [];
+  const virusPossible = summary.remainingCombinations.some(({ subPlots }) =>
+    subPlots.includes("paranoiaVirus")
+  );
+  const immortalMaximum = summary.roleTable.characters.includes("copycat")
+    ? 2
+    : 1;
+  const noDeathPartners = new Map<CharacterId, Set<CharacterId>>();
+
+  for (const observation of summary.observations) {
+    if (observation.kind === "goodwillForbidApplied") {
+      const cell = summary.roleTable.cells[observation.character]
+        ?.timeTraveler;
+      traces.push(`<li>
+        <strong>${escapeHtml(characterName(observation.character))} · 불사 배제</strong>
+        <span>근거: ${observation.loop}루프 ${observation.day}일 우호 금지 효과가 실제로 발동</span>
+        <small>→ 시간 여행자 ${possibilityStatusLabel(cell?.status)}</small>
+      </li>`);
+      continue;
+    }
+    if (observation.kind === "mandatoryEffectMissing") {
+      traces.push(`<li>
+        <strong>인과율 후보 배제</strong>
+        <span>근거: ${observation.loop}루프 시작 · ${escapeHtml(characterName(observation.character))}에게 불안 2 증가 없음</span>
+        <small>대상 부재 등 공개 기록으로 발동 여부를 확정할 수 없는 경우에는 이 관측을 만들지 않습니다.</small>
+      </li>`);
+      continue;
+    }
+    if (observation.kind === "deadAtLoopEndWithoutRoleReveal") {
+      traces.push(`<li>
+        <strong>${escapeHtml(characterName(observation.character))} · 친구 배제</strong>
+        <span>근거: ${observation.loop}루프 종료 · 사망했지만 역할 공개 없음</span>
+      </li>`);
+      continue;
+    }
+    if (observation.kind !== "roundEvidence") continue;
+
+    const deaths = observation.record.deathBatches?.flatMap(
+      ({ characters }) => characters,
+    ) ?? [];
+    const p9Deaths = new Set(
+      observation.record.deathBatches?.flatMap((batch) =>
+        batch.phase === "P9_ROUND_END" ? batch.characters : []
+      ) ?? [],
+    );
+    if (
+      observation.record.immediateLoopEnd?.reason === "effect" &&
+      deaths.length > 0
+    ) {
+      const candidates = deaths.flatMap((character) => {
+        const batch = observation.record.deathBatches?.find(({ characters }) =>
+          characters.includes(character)
+        );
+        const roles = [
+          summary.roleTable.cells[character]?.keyPerson?.status !== "impossible"
+            ? roleName("keyPerson")
+            : undefined,
+          (batch?.cityIntrigue ?? -1) >= 2 &&
+              summary.roleTable.cells[character]?.factor?.status !== "impossible"
+            ? `${roleName("factor")}(${locationName("City")} 음모 2+)`
+            : undefined,
+        ].filter((role): role is string => role !== undefined);
+        return roles.length === 0
+          ? []
+          : [`${characterName(character)}: ${roles.join(" 또는 ")}`];
+      });
+      const excluded = deaths.filter((character) => {
+        const batch = observation.record.deathBatches?.find(({ characters }) =>
+          characters.includes(character)
+        );
+        const keyExcluded = summary.roleTable.cells[character]?.keyPerson
+          ?.status === "impossible";
+        const factorExcluded = (batch?.cityIntrigue ?? -1) < 2 ||
+          summary.roleTable.cells[character]?.factor?.status === "impossible";
+        return keyExcluded && factorExcluded;
+      });
+      const simultaneous = deaths.length > 1
+        ? ` · 동시 사망 ${deaths.length}명`
+        : "";
+      traces.push(`<li>
+        <strong>핵심 인물 능력 보유 후보 {${escapeHtml(
+          candidates.join(", ") || "설명 가능한 후보 없음",
+        )}}</strong>
+        <span>근거: ${observation.loop}루프 ${observation.record.day}일 즉시 루프 종료${simultaneous}</span>
+        <small>→ 같은 라운드 사망자 전체를 함께 유지하며 한 명에게 원인을 귀속하지 않습니다.${
+          excluded.length === 0
+            ? ""
+            : ` → ${escapeHtml(excluded.map(characterName).join(", "))}: 다른 공개·누적 제약으로 후보에서 제외`
+        }</small>
+      </li>`);
+    }
+
+    for (const character of deaths) {
+      if (
+        summary.roleTable.cells[character]?.timeTraveler?.status ===
+          "impossible"
+      ) {
+        traces.push(`<li>
+          <strong>${escapeHtml(characterName(character))} · 불사 배제</strong>
+          <span>근거: ${observation.loop}루프 ${observation.record.day}일 실제 사망</span>
+          <small>→ 시간 여행자는 사망하지 않으므로 이후 단둘 비발동 제약의 예외가 될 수 없습니다.</small>
+        </li>`);
+      }
+    }
+
+    for (const batch of observation.record.deathBatches ?? []) {
+      if (batch.aliveAfterDeaths === undefined) continue;
+      const reactions = observation.deathReactions.filter((reaction) =>
+        reaction.deadCharacters.some((character) =>
+          batch.characters.includes(character)
+        )
+      );
+      const reacted = new Set(reactions.map(({ target }) => target));
+      const silentResponders = batch.aliveAfterDeaths.filter((character) =>
+        !reacted.has(character)
+      );
+      if (silentResponders.length === 0) continue;
+      traces.push(`<li>
+        <strong>연인 강제 반응 제약</strong>
+        <span>근거: ${observation.loop}루프 ${observation.record.day}일 ${escapeHtml(batch.characters.map(characterName).join(", "))} 사망 · ${escapeHtml(silentResponders.map(characterName).join(", "))}에게 불안 6 증가 없음</span>
+        <small>사망 직후 생존자만 판정합니다. 이미 시체이거나 부재였던 캐릭터는 반응 후보에 넣지 않습니다.</small>
+      </li>`);
+    }
+
+    const protectedTargets = new Set(observation.protectedAtRoundEnd);
+    for (const pair of observation.record.roundEndPairs ?? []) {
+      for (let actorIndex = 0; actorIndex < 2; actorIndex += 1) {
+        const actor = pair.characters[actorIndex];
+        const target = pair.characters[actorIndex === 0 ? 1 : 0];
+        if (actor === undefined || target === undefined) continue;
+        const actorName = characterName(actor);
+        const targetName = characterName(target);
+        if (!p9Deaths.has(target)) {
+          if (protectedTargets.has(target)) {
+            traces.push(`<li>
+              <strong>${escapeHtml(actorName)} · 연쇄 살인마 판정 보류</strong>
+              <span>근거: ${observation.loop}루프 ${observation.record.day}일 ${escapeHtml(locationName(pair.location))} 단둘 · ${escapeHtml(targetName)} 사망 없음</span>
+              <small>보호 카운터가 소비되어 강제 사망의 부재를 역할 배제에 쓰지 않습니다.</small>
+            </li>`);
+            continue;
+          }
+          const partners = noDeathPartners.get(actor) ?? new Set<CharacterId>();
+          partners.add(target);
+          noDeathPartners.set(actor, partners);
+          const serialStatus = summary.roleTable.cells[actor]?.serialKiller
+            ?.status;
+          const immortalStatus = summary.roleTable.cells[target]?.timeTraveler
+            ?.status;
+          const immortalPossible = immortalStatus === "possible" ||
+            immortalStatus === "confirmed";
+          const mutation = virusPossible && (pair.paranoia[actorIndex] ?? 0) >= 3
+            ? ` · ${actorName} 불안 3+: 엑스트라+망상 확대 바이러스 변이도 같은 조건`
+            : "";
+          traces.push(`<li>
+            <strong>${escapeHtml(actorName)} · 연쇄 살인마 능력 보유 ${
+              immortalPossible
+                ? `아님 <em>(단, ${escapeHtml(targetName)}가 불사가 아닐 때)</em>`
+                : "배제"
+            }</strong>
+            <span>근거: ${observation.loop}루프 ${observation.record.day}일 ${escapeHtml(locationName(pair.location))} 단둘 · 사망 없음${escapeHtml(mutation)}</span>
+            <small>현재: ${escapeHtml(actorName)} 연쇄 살인마 ${possibilityStatusLabel(serialStatus)} · ${escapeHtml(targetName)} 시간 여행자 ${possibilityStatusLabel(immortalStatus)}</small>
+          </li>`);
+          continue;
+        }
+
+        const alternatives = [
+          `${actorName}=연쇄 살인마`,
+          virusPossible && (pair.paranoia[actorIndex] ?? 0) >= 3
+            ? `${actorName}=엑스트라 + 망상 확대 바이러스 변이`
+            : undefined,
+          (pair.intrigue?.[actorIndex === 0 ? 1 : 0] ?? -1) >= 2
+            ? `${actorName}=살인 청부업자 + ${targetName}=핵심 인물`
+            : undefined,
+          observation.lastDay ? "마지막 날 시간 여행자 능력" : undefined,
+        ].filter((alternative): alternative is string =>
+          alternative !== undefined
+        );
+        traces.push(`<li>
+          <strong>${escapeHtml(actorName)}–${escapeHtml(targetName)} 사망 원인 분기</strong>
+          <span>근거: ${observation.loop}루프 ${observation.record.day}일 단둘 · ${escapeHtml(targetName)} 사망</span>
+          <small>후보: ${escapeHtml(alternatives.join(" / "))}</small>
+        </li>`);
+      }
+    }
+
+    if (
+      deaths.length > 0 &&
+      observation.record.roundEndPairs !== undefined &&
+      observation.record.immediateLoopEnd === undefined
+    ) {
+      for (const character of deaths) {
+        traces.push(`<li>
+          <strong>${escapeHtml(characterName(character))} · 핵심 인물 능력 보유 배제</strong>
+          <span>근거: ${observation.loop}루프 ${observation.record.day}일 사망 뒤에도 즉시 루프 종료 없음</span>
+          <small>핵심 인물 ${possibilityStatusLabel(summary.roleTable.cells[character]?.keyPerson?.status)}</small>
+        </li>`);
+      }
+    }
+  }
+
+  for (const [actor, partners] of noDeathPartners) {
+    if (partners.size <= immortalMaximum) continue;
+    traces.push(`<li>
+      <strong>${escapeHtml(characterName(actor))} · 연쇄 살인마 능력 보유 배제</strong>
+      <span>서로 다른 단둘 상대 ${partners.size}명 · 가능한 불사 최대 ${immortalMaximum}명</span>
+      <small>→ 모든 상대가 불사일 수 없으므로 조건부 제약이 확정 배제로 승격됩니다.</small>
+    </li>`);
+  }
+
+  if (traces.length === 0) return "";
+  return `<section class="role-inference-traces" aria-label="역할 추론 과정">
+    <h3>추론 과정 ${traces.length}건</h3>
+    <ul>${traces.join("")}</ul>
+  </section>`;
+}
+
 function renderDeductionTables(state: GameState): string {
   const summary = deductionTablesSummary(state);
+  const roleInferenceTraces = renderRoleInferenceTraces(summary);
   const roleRows = summary.roleRows.map((row) => {
     const names = row.possibleRoles.map(roleName);
     const text = row.confirmedRole === undefined
@@ -3484,6 +3736,7 @@ function renderDeductionTables(state: GameState): string {
         <i aria-hidden="true"></i>
       </summary>
       <div class="info-accordion-body deduction-body">
+        ${roleInferenceTraces}
         <ul class="deduction-summary-list">${roleRows}</ul>
         <details class="deduction-grid-details">
           <summary>전체 역할 격자 보기</summary>

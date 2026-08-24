@@ -18,6 +18,7 @@ import {
   type PublicBoardChange,
   type PublicObservationContext,
   type PublicObservationAt,
+  type RoundEvidence,
   type RoleId,
   type Target,
 } from "../types";
@@ -136,6 +137,33 @@ export type ProtagonistObservation = (
     target: Target;
     context?: PublicObservationContext;
   }
+  | {
+    kind: "goodwillForbidApplied";
+    loop: number;
+    day: number;
+    character: CharacterId;
+  }
+  | {
+    kind: "roundEvidence";
+    loop: number;
+    record: RoundEvidence;
+    context: PublicObservationContext;
+    lastDay: boolean;
+    /** P9 사망 시도에서 보호가 공개적으로 소비된 대상. */
+    protectedAtRoundEnd: CharacterId[];
+    /** 같은 사망 묶음 직후 불안 6이 공개적으로 증가한 대상. */
+    deathReactions: {
+      deadCharacters: CharacterId[];
+      target: CharacterId;
+    }[];
+  }
+  | {
+    kind: "mandatoryEffectMissing";
+    loop: number;
+    day: number;
+    effect: "threadsFate";
+    character: CharacterId;
+  }
 ) & {
   /** 서로 다른 공개 기록 저장소를 가로지르는 실제 관측 시점. */
   observedAt?: PublicObservationAt;
@@ -153,6 +181,7 @@ export type RuleContradictionCode =
   | "crossObservationRoleUnavailable"
   | "loopStartGoodwillUnavailable"
   | "intrigueForbidIgnoreUnavailable"
+  | "mandatoryEffectMissing"
   | "lossConditionUnavailable";
 
 export interface RuleContradiction {
@@ -244,6 +273,25 @@ export type RolePossibilityReason =
   | {
     code: "lossConditionOnlyCandidate";
     observation: Extract<ProtagonistObservation, { kind: "lossObserved" }>;
+  }
+  | {
+    code: "diedDespiteImmortality";
+    observation: Extract<ProtagonistObservation, { kind: "roundEvidence" }>;
+  }
+  | {
+    code: "deathWithoutImmediateLoss";
+    observation: Extract<ProtagonistObservation, { kind: "roundEvidence" }>;
+  }
+  | {
+    code: "goodwillForbidApplied";
+    observation: Extract<
+      ProtagonistObservation,
+      { kind: "goodwillForbidApplied" }
+    >;
+  }
+  | {
+    code: "causeConstraint";
+    observations: ProtagonistObservation[];
   };
 
 export interface RolePossibilityCell {
@@ -542,17 +590,20 @@ interface RoleCauseRequirement {
   candidates: CharacterId[];
 }
 
+interface RoleCauseExclusion {
+  character: CharacterId;
+  role: RoleId;
+}
+
 interface ObservationCauseAlternative {
   requirements: RoleCauseRequirement[];
+  exclusions?: RoleCauseExclusion[];
   /** 같은 루프에서 한 번뿐인 룰 능력의 소비 단위. */
   oncePerLoopUse?: string;
 }
 
 interface ObservationCauseClause {
-  observation: Extract<
-    ProtagonistObservation,
-    { kind: "mastermindAbilityResult" }
-  >;
+  observation: ProtagonistObservation;
   alternatives: ObservationCauseAlternative[];
 }
 
@@ -643,7 +694,10 @@ function roleCapacity(
   }
 
   const activeCount = ranges.get(role)?.max ?? 0;
-  if (activeCount > 0) return activeCount;
+  // 모방자는 활성 역할의 정원과 무관하게 한 역할을 복사할 수 있다. 복사 대상
+  // 추론은 아직 미지원이므로 어떤 역할을 복사했는지 모를 때는 상한만 1 늘린다.
+  const copycatAllowance = publicCast.includes("copycat") ? 1 : 0;
+  if (activeCount > 0) return activeCount + copycatAllowance;
   if (!inactiveSetRoleIsPossible(tragedySetRoles, ranges, role)) return 0;
 
   const outsiderCount = publicCast.filter((character) =>
@@ -865,6 +919,307 @@ function roundEndDeathCauseClauses(
   return clauses;
 }
 
+function compatibleRoleCandidates(
+  candidates: readonly CharacterId[],
+  role: RoleId,
+  tragedySetRoles: readonly RoleId[],
+  ranges: ReadonlyMap<RoleId, RoleRange>,
+  confirmedRoles: ReadonlyMap<CharacterId, RoleId>,
+): CharacterId[] {
+  return candidates.filter((character) =>
+    roleAssignmentCompatible(
+      tragedySetRoles,
+      ranges,
+      role,
+      character,
+      confirmedRoles,
+    )
+  );
+}
+
+function roundEvidenceCauseClauses(
+  observation: Extract<ProtagonistObservation, { kind: "roundEvidence" }>,
+  combination: RuleCombination,
+  tragedySetRoles: readonly RoleId[],
+  ranges: ReadonlyMap<RoleId, RoleRange>,
+  confirmedRoles: ReadonlyMap<CharacterId, RoleId>,
+): ObservationCauseClause[] {
+  const clauses: ObservationCauseClause[] = [];
+  const deaths = observation.record.deathBatches?.flatMap(({ characters }) =>
+    characters
+  ) ?? [];
+
+  if (
+    observation.record.immediateLoopEnd?.reason === "effect" &&
+    deaths.length > 0
+  ) {
+    const alternatives: ObservationCauseAlternative[] = [{
+      requirements: [{
+        role: "keyPerson",
+        candidates: compatibleRoleCandidates(
+          deaths,
+          "keyPerson",
+          tragedySetRoles,
+          ranges,
+          confirmedRoles,
+        ),
+      }],
+    }];
+    const factorDeaths = observation.record.deathBatches?.flatMap((batch) =>
+      (batch.cityIntrigue ?? -1) >= 2 ? batch.characters : []
+    ) ?? [];
+    if (factorDeaths.length > 0) {
+      alternatives.push({
+        requirements: [{
+          role: "factor",
+          candidates: compatibleRoleCandidates(
+            factorDeaths,
+            "factor",
+            tragedySetRoles,
+            ranges,
+            confirmedRoles,
+          ),
+        }],
+      });
+    }
+    if (
+      observation.lastDay &&
+      observation.record.immediateLoopEnd.phase === "P9_ROUND_END"
+    ) {
+      const timeTravelers = Object.entries(
+        observation.context.characters ?? {},
+      ).flatMap(([character, state]) =>
+        state.status === "alive" && state.goodwill <= 2 ? [character] : []
+      );
+      alternatives.push({
+        requirements: [{
+          role: "timeTraveler",
+          candidates: compatibleRoleCandidates(
+            timeTravelers,
+            "timeTraveler",
+            tragedySetRoles,
+            ranges,
+            confirmedRoles,
+          ),
+        }],
+      });
+    }
+    clauses.push({ observation, alternatives });
+  }
+
+  const p9Deaths = new Set(
+    observation.record.deathBatches?.flatMap((batch) =>
+      batch.phase === "P9_ROUND_END" ? batch.characters : []
+    ) ?? [],
+  );
+  const protectedTargets = new Set(observation.protectedAtRoundEnd);
+  for (const pair of observation.record.roundEndPairs ?? []) {
+    for (let actorIndex = 0; actorIndex < pair.characters.length; actorIndex += 1) {
+      const actor = pair.characters[actorIndex];
+      const target = pair.characters[actorIndex === 0 ? 1 : 0];
+      if (actor === undefined || target === undefined) continue;
+
+      if (!p9Deaths.has(target)) {
+        if (protectedTargets.has(target)) continue;
+        const effectiveSerialExclusions: RoleCauseExclusion[] = [{
+          character: actor,
+          role: "serialKiller",
+        }];
+        if (
+          combination.subPlots.includes("paranoiaVirus") &&
+          (pair.paranoia[actorIndex] ?? 0) >= 3
+        ) {
+          effectiveSerialExclusions.push({ character: actor, role: "person" });
+        }
+        clauses.push({
+          observation,
+          alternatives: [
+            { requirements: [], exclusions: effectiveSerialExclusions },
+            {
+              requirements: [{
+                role: "timeTraveler",
+                candidates: compatibleRoleCandidates(
+                  [target],
+                  "timeTraveler",
+                  tragedySetRoles,
+                  ranges,
+                  confirmedRoles,
+                ),
+              }],
+            },
+          ],
+        });
+        continue;
+      }
+
+      const alternatives: ObservationCauseAlternative[] = [{
+        requirements: [{
+          role: "serialKiller",
+          candidates: compatibleRoleCandidates(
+            [actor],
+            "serialKiller",
+            tragedySetRoles,
+            ranges,
+            confirmedRoles,
+          ),
+        }],
+      }];
+      if (
+        combination.subPlots.includes("paranoiaVirus") &&
+        (pair.paranoia[actorIndex] ?? 0) >= 3
+      ) {
+        alternatives.push({
+          requirements: [{
+            role: "person",
+            candidates: compatibleRoleCandidates(
+              [actor],
+              "person",
+              tragedySetRoles,
+              ranges,
+              confirmedRoles,
+            ),
+          }],
+        });
+      }
+      if ((pair.intrigue?.[actorIndex === 0 ? 1 : 0] ?? -1) >= 2) {
+        alternatives.push({
+          requirements: [
+            {
+              role: "killer",
+              candidates: compatibleRoleCandidates(
+                [actor],
+                "killer",
+                tragedySetRoles,
+                ranges,
+                confirmedRoles,
+              ),
+            },
+            {
+              role: "keyPerson",
+              candidates: compatibleRoleCandidates(
+                [target],
+                "keyPerson",
+                tragedySetRoles,
+                ranges,
+                confirmedRoles,
+              ),
+            },
+          ],
+        });
+      }
+      clauses.push({ observation, alternatives });
+    }
+  }
+
+  const allDeathBatches = observation.record.deathBatches ?? [];
+  for (const batch of allDeathBatches) {
+    const reactions = observation.deathReactions.filter((reaction) =>
+      reaction.deadCharacters.some((character) =>
+        batch.characters.includes(character)
+      )
+    );
+    for (const reaction of reactions) {
+      const alternatives: ObservationCauseAlternative[] = [];
+      for (const dead of batch.characters) {
+        alternatives.push({
+          requirements: [
+            {
+              role: "lover",
+              candidates: compatibleRoleCandidates(
+                [reaction.target],
+                "lover",
+                tragedySetRoles,
+                ranges,
+                confirmedRoles,
+              ),
+            },
+            {
+              role: "lovedOne",
+              candidates: compatibleRoleCandidates(
+                [dead],
+                "lovedOne",
+                tragedySetRoles,
+                ranges,
+                confirmedRoles,
+              ),
+            },
+          ],
+        });
+        alternatives.push({
+          requirements: [
+            {
+              role: "lovedOne",
+              candidates: compatibleRoleCandidates(
+                [reaction.target],
+                "lovedOne",
+                tragedySetRoles,
+                ranges,
+                confirmedRoles,
+              ),
+            },
+            {
+              role: "lover",
+              candidates: compatibleRoleCandidates(
+                [dead],
+                "lover",
+                tragedySetRoles,
+                ranges,
+                confirmedRoles,
+              ),
+            },
+          ],
+        });
+      }
+      clauses.push({ observation, alternatives });
+    }
+
+    const reacted = new Set(reactions.map(({ target }) => target));
+    // 구 저장에는 정확한 사망 직후 생존자 목록이 없다. 최종 보드 상태로
+    // 역산하면 등장 전/부재 캐릭터를 잘못 배제하므로 그 경우 추론하지 않는다.
+    const responders = (batch.aliveAfterDeaths ?? []).filter((character) =>
+      !reacted.has(character)
+    );
+    for (const dead of batch.characters) {
+      for (const responder of responders) {
+        clauses.push({
+          observation,
+          alternatives: [
+            {
+              requirements: [],
+              exclusions: [{ character: dead, role: "lovedOne" }],
+            },
+            {
+              requirements: [{
+                role: "lover",
+                candidates: [...(batch.aliveAfterDeaths ?? [])],
+              }],
+              exclusions: [{ character: responder, role: "lover" }],
+            },
+          ],
+        });
+        clauses.push({
+          observation,
+          alternatives: [
+            {
+              requirements: [],
+              exclusions: [{ character: dead, role: "lover" }],
+            },
+            {
+              requirements: [{
+                role: "lovedOne",
+                candidates: [...(batch.aliveAfterDeaths ?? [])],
+              }],
+              exclusions: [{ character: responder, role: "lovedOne" }],
+            },
+          ],
+        });
+      }
+    }
+  }
+
+  return clauses;
+}
+
 function causeClausesForObservation(
   observation: ProtagonistObservation,
   combination: RuleCombination,
@@ -872,6 +1227,15 @@ function causeClausesForObservation(
   ranges: ReadonlyMap<RoleId, RoleRange>,
   confirmedRoles: ReadonlyMap<CharacterId, RoleId>,
 ): ObservationCauseClause[] {
+  if (observation.kind === "roundEvidence") {
+    return roundEvidenceCauseClauses(
+      observation,
+      combination,
+      tragedySetRoles,
+      ranges,
+      confirmedRoles,
+    );
+  }
   if (observation.kind !== "mastermindAbilityResult") return [];
   return [
     ...p5CauseClauses(
@@ -894,6 +1258,7 @@ function causeClausesForObservation(
 function holderOptionsForRole(
   role: RoleId,
   requirements: readonly RoleCauseRequirement[],
+  exclusions: ReadonlySet<CharacterId>,
   tragedySetRoles: readonly RoleId[],
   ranges: ReadonlyMap<RoleId, RoleRange>,
   publicCast: readonly CharacterId[],
@@ -903,14 +1268,19 @@ function holderOptionsForRole(
   const confirmedHolders = [...confirmedRoles.entries()].flatMap(
     ([character, confirmedRole]) => confirmedRole === role ? [character] : [],
   );
-  if (confirmedHolders.length > capacity) return [];
+  if (
+    confirmedHolders.length > capacity ||
+    confirmedHolders.some((character) => exclusions.has(character))
+  ) return [];
 
   const mandatory = new Set(confirmedHolders);
   const universe = [...new Set([
     ...confirmedHolders,
     ...requirements.flatMap(({ candidates }) => candidates),
   ])];
-  const optional = universe.filter((character) => !mandatory.has(character));
+  const optional = universe.filter((character) =>
+    !mandatory.has(character) && !exclusions.has(character)
+  );
   const valid: Set<CharacterId>[] = [];
   for (
     let optionalCount = 0;
@@ -935,16 +1305,31 @@ function holderOptionsForRole(
 
 function roleRequirementsCanCoexist(
   requirements: readonly RoleCauseRequirement[],
+  exclusions: readonly RoleCauseExclusion[],
   tragedySetRoles: readonly RoleId[],
   ranges: ReadonlyMap<RoleId, RoleRange>,
   publicCast: readonly CharacterId[],
   confirmedRoles: ReadonlyMap<CharacterId, RoleId>,
 ): boolean {
+  if (exclusions.some(({ character, role }) =>
+    confirmedRoles.get(character) === role
+  )) return false;
+
   const byRole = new Map<RoleId, RoleCauseRequirement[]>();
   for (const requirement of requirements) {
     const roleRequirements = byRole.get(requirement.role) ?? [];
     roleRequirements.push(requirement);
     byRole.set(requirement.role, roleRequirements);
+  }
+  for (const role of confirmedRoles.values()) {
+    if (!byRole.has(role)) byRole.set(role, []);
+  }
+
+  const excludedByRole = new Map<RoleId, Set<CharacterId>>();
+  for (const exclusion of exclusions) {
+    const characters = excludedByRole.get(exclusion.role) ?? new Set();
+    characters.add(exclusion.character);
+    excludedByRole.set(exclusion.role, characters);
   }
 
   const roleOptions = [...byRole.entries()].map(([role, roleRequirements]) => ({
@@ -952,6 +1337,7 @@ function roleRequirementsCanCoexist(
     options: holderOptionsForRole(
       role,
       roleRequirements,
+      excludedByRole.get(role) ?? new Set(),
       tragedySetRoles,
       ranges,
       publicCast,
@@ -979,6 +1365,7 @@ function causeClausesAreSatisfiable(
   ranges: ReadonlyMap<RoleId, RoleRange>,
   publicCast: readonly CharacterId[],
   confirmedRoles: ReadonlyMap<CharacterId, RoleId>,
+  initialExclusions: readonly RoleCauseExclusion[] = [],
 ): boolean {
   const ordered = [...clauses].sort(
     (left, right) => left.alternatives.length - right.alternatives.length,
@@ -986,6 +1373,7 @@ function causeClausesAreSatisfiable(
   const search = (
     index: number,
     requirements: readonly RoleCauseRequirement[],
+    exclusions: readonly RoleCauseExclusion[],
     uses: ReadonlySet<string>,
   ): boolean => {
     const clause = ordered[index];
@@ -996,19 +1384,50 @@ function causeClausesAreSatisfiable(
         uses.has(alternative.oncePerLoopUse)
       ) return false;
       const nextRequirements = [...requirements, ...alternative.requirements];
+      const nextExclusions = [
+        ...exclusions,
+        ...(alternative.exclusions ?? []),
+      ];
       const nextUses = alternative.oncePerLoopUse === undefined
         ? uses
         : new Set([...uses, alternative.oncePerLoopUse]);
       return roleRequirementsCanCoexist(
           nextRequirements,
+          nextExclusions,
           tragedySetRoles,
           ranges,
           publicCast,
           confirmedRoles,
-        ) && search(index + 1, nextRequirements, nextUses);
+        ) && search(
+          index + 1,
+          nextRequirements,
+          nextExclusions,
+          nextUses,
+        );
     });
   };
-  return search(0, [], new Set());
+  return search(0, [], initialExclusions, new Set());
+}
+
+function observedRoleExclusions(
+  observations: readonly ProtagonistObservation[],
+  publicCast: readonly CharacterId[],
+  tragedySetRoles: readonly RoleId[],
+  combination: RuleCombination,
+): RoleCauseExclusion[] {
+  return publicCast.flatMap((character) =>
+    tragedySetRoles.flatMap((role) =>
+      observedRoleExclusionReason(
+          observations,
+          character,
+          role,
+          tragedySetRoles,
+          [combination],
+        ) === undefined
+        ? []
+        : [{ character, role }]
+    )
+  );
 }
 
 function crossObservationRoleContradiction(
@@ -1050,6 +1469,12 @@ function crossObservationRoleContradiction(
         ranges,
         knownCast,
         confirmedRoles,
+        observedRoleExclusions(
+          prefix,
+          knownCast,
+          tragedySetRoles,
+          combination,
+        ),
       )
     ) {
       return {
@@ -1551,7 +1976,21 @@ function contradictionsForCombination(
         break;
       case "goodwillIncidentEffect":
       case "goodwillAccepted":
+      case "goodwillForbidApplied":
+      case "roundEvidence":
         // 역할 배정 없이 룰 조합만으로 확정할 수 없으므로 보수적으로 유지한다.
+        break;
+      case "mandatoryEffectMissing":
+        if (
+          observation.effect === "threadsFate" &&
+          combination.subPlots.includes("threadsFate")
+        ) {
+          contradiction = {
+            code: "mandatoryEffectMissing",
+            observation,
+            reason: "직전 루프 우호 보유자에게 루프 시작 불안 2가 붙지 않았습니다.",
+          };
+        }
         break;
     }
     if (contradiction !== undefined) contradictions.push(contradiction);
@@ -1750,6 +2189,7 @@ function brainLocationConstraint(
 ): AbilityLocationRoleConstraint | undefined {
   if (
     combinations.length === 0 ||
+    publicCast.includes("copycat") ||
     combinations.some(({ subPlots }) => subPlots.includes("unsettlingRumor"))
   ) {
     return undefined;
@@ -1806,7 +2246,9 @@ function conspiracyTheoristLocationConstraint(
   publicCast: readonly CharacterId[],
   observations: readonly ProtagonistObservation[],
 ): AbilityLocationRoleConstraint | undefined {
-  if (combinations.length === 0) return undefined;
+  if (combinations.length === 0 || publicCast.includes("copycat")) {
+    return undefined;
+  }
 
   const tragedySetRoles = rolesForTragedySet(tragedySet);
   let candidates: Set<CharacterId> | undefined;
@@ -2011,8 +2453,111 @@ function observedRoleExclusionReason(
     ) {
       return { code: "mandatoryGoodwillRefusalMissing", observation };
     }
+    if (
+      observation.kind === "goodwillForbidApplied" &&
+      observation.character === character &&
+      role === "timeTraveler"
+    ) {
+      return { code: "goodwillForbidApplied", observation };
+    }
+    if (observation.kind === "roundEvidence") {
+      const deathBatches = observation.record.deathBatches ?? [];
+      const died = deathBatches.some(({ characters }) =>
+        characters.includes(character)
+      );
+      if (died && role === "timeTraveler") {
+        return { code: "diedDespiteImmortality", observation };
+      }
+      const roundCompleted = observation.record.roundEndPairs !== undefined ||
+        observation.record.immediateLoopEnd !== undefined;
+      if (
+        died &&
+        roundCompleted &&
+        observation.record.immediateLoopEnd === undefined &&
+        role === "keyPerson"
+      ) {
+        return { code: "deathWithoutImmediateLoss", observation };
+      }
+      const factorDiedWithAbility = deathBatches.some((batch) =>
+        batch.characters.includes(character) &&
+        (batch.cityIntrigue ?? -1) >= 2
+      );
+      if (
+        factorDiedWithAbility &&
+        roundCompleted &&
+        observation.record.immediateLoopEnd === undefined &&
+        role === "factor"
+      ) {
+        return { code: "deathWithoutImmediateLoss", observation };
+      }
+    }
   }
   return undefined;
+}
+
+interface CauseConstraintCellResult {
+  allowed: boolean;
+  observations: ProtagonistObservation[];
+}
+
+function causeConstraintForCell(
+  tragedySet: string,
+  publicCast: readonly CharacterId[],
+  combinations: readonly RuleCombination[],
+  observations: readonly ProtagonistObservation[],
+  character: CharacterId,
+  role: RoleId,
+): CauseConstraintCellResult {
+  const tragedySetRoles = rolesForTragedySet(tragedySet);
+  const evidence = new Map<string, ProtagonistObservation>();
+  for (const combination of combinations) {
+    const ranges = roleRanges(combination);
+    const confirmedRoles = confirmedRoleByCharacter(observations, combination);
+    const alreadyConfirmed = confirmedRoles.get(character);
+    if (alreadyConfirmed !== undefined && alreadyConfirmed !== role) continue;
+    if (!roleAssignmentCompatible(
+      tragedySetRoles,
+      ranges,
+      role,
+      character,
+      confirmedRoles,
+    )) continue;
+
+    const assumedRoles = new Map(confirmedRoles);
+    assumedRoles.set(character, role);
+    // 기존 P5 위치 교집합은 별도 제약이 담당한다. 여기서는 기록층이 새로
+    // 보존하는 라운드 사실만 캐릭터×역할 칸으로 투영한다.
+    const clauses = observations.flatMap((observation) =>
+      observation.kind === "roundEvidence"
+        ? roundEvidenceCauseClauses(
+          observation,
+          combination,
+          tragedySetRoles,
+          ranges,
+          assumedRoles,
+        )
+        : []
+    );
+    for (const clause of clauses) {
+      evidence.set(observationKey(clause.observation), clause.observation);
+    }
+    if (causeClausesAreSatisfiable(
+      clauses,
+      tragedySetRoles,
+      ranges,
+      publicCast,
+      assumedRoles,
+      observedRoleExclusions(
+        observations,
+        publicCast,
+        tragedySetRoles,
+        combination,
+      ),
+    )) {
+      return { allowed: true, observations: [...evidence.values()] };
+    }
+  }
+  return { allowed: false, observations: [...evidence.values()] };
 }
 
 /**
@@ -2185,6 +2730,27 @@ export function buildRolePossibilityTable(
           role,
           status: "impossible",
           reasons: [reason],
+        };
+        continue;
+      }
+
+      const causeConstraint = causeConstraintForCell(
+        tragedySet,
+        publicCast,
+        combinations,
+        observations,
+        character,
+        role,
+      );
+      if (!causeConstraint.allowed) {
+        row[role] = {
+          character,
+          role,
+          status: "impossible",
+          reasons: [{
+            code: "causeConstraint",
+            observations: causeConstraint.observations,
+          }],
         };
         continue;
       }
@@ -2734,6 +3300,37 @@ export function collectProtagonistObservations(
             }
           }
         }
+        const goodwillForbids = entry.placements.filter((placement) =>
+          placement.card === "forbidGoodwill" &&
+          placement.target.kind === "character"
+        );
+        for (const forbid of goodwillForbids) {
+          if (forbid.target.kind !== "character") continue;
+          const character = forbid.target.id;
+          const goodwillPlaced = entry.placements.some((placement) =>
+            (placement.card === "goodwillPlus1" ||
+              placement.card === "goodwillPlus2") &&
+            sameTarget(placement.target, forbid.target)
+          );
+          const goodwillIncreased = entry.publicChanges.some((change) =>
+            change.kind === "counter" &&
+            change.target.kind === "character" &&
+            change.target.id === character &&
+            change.counter === "goodwill" &&
+            change.delta > 0
+          );
+          if (goodwillPlaced && !goodwillIncreased) {
+            observations.push({
+              kind: "goodwillForbidApplied",
+              loop: entry.loop,
+              day: entry.day,
+              character,
+              ...(entry.observedAt === undefined
+                ? {}
+                : { observedAt: entry.observedAt }),
+            });
+          }
+        }
       } else if (
         entry.kind === "abilityActivated" &&
         entry.publicChanges !== undefined &&
@@ -2756,6 +3353,91 @@ export function collectProtagonistObservations(
             : { observedAt: entry.observedAt }),
         });
       }
+    }
+
+    for (const record of loop.roundEvidence ?? []) {
+      const protectedAtRoundEnd = (loop.phaseLog ?? []).flatMap((entry) =>
+        entry.loop === loop.loop &&
+          entry.day === record.day &&
+          entry.kind === "abilityActivated" &&
+          entry.timing === "P9_ROUND_END"
+          ? (entry.publicChanges ?? []).flatMap((change) =>
+            change.kind === "counter" &&
+              change.target.kind === "character" &&
+              change.counter === "protection" &&
+              change.delta < 0
+              ? [change.target.id]
+              : []
+          )
+          : []
+      );
+      const deathReactions = (loop.phaseLog ?? []).flatMap((entry) => {
+        if (
+          entry.loop !== loop.loop ||
+          entry.day !== record.day ||
+          entry.kind !== "abilityActivated" ||
+          entry.timing !== "ON_DEATH" ||
+          entry.publicTrigger?.kind !== "death"
+        ) return [];
+        const deadCharacters = [...entry.publicTrigger.deadCharacters];
+        return (entry.publicChanges ?? []).flatMap((change) =>
+          change.kind === "counter" &&
+            change.target.kind === "character" &&
+            change.counter === "paranoia" &&
+            change.delta === 6
+            ? [{ deadCharacters, target: change.target.id }]
+            : []
+        );
+      });
+      observations.push({
+        kind: "roundEvidence",
+        loop: loop.loop,
+        record: structuredClone(record),
+        context: snapshotPublicContext(loop),
+        lastDay: record.day === state.scenario.daysPerLoop,
+        protectedAtRoundEnd: [...new Set(protectedAtRoundEnd)],
+        deathReactions,
+      });
+    }
+  }
+
+  for (const loop of loops) {
+    if (
+      loop.loop <= 1 ||
+      (loop.loop === state.loop.loop && state.gamePhase === "LOOP_TIME_GAP")
+    ) continue;
+    const previous = loops.find((candidate) => candidate.loop === loop.loop - 1);
+    if (previous === undefined) continue;
+    const increased = new Set((loop.phaseLog ?? []).flatMap((entry) =>
+      entry.kind === "abilityActivated" && entry.timing === "LOOP_START"
+        ? (entry.publicChanges ?? []).flatMap((change) =>
+          change.kind === "counter" &&
+            change.target.kind === "character" &&
+            change.counter === "paranoia" &&
+            change.delta === 2
+            ? [change.target.id]
+            : []
+        )
+        : []
+    ));
+    for (const [character, previousPosition] of Object.entries(previous.board)) {
+      const previousCounters = previous.charCounters[character];
+      const currentPosition = loop.board[character];
+      if (
+        previousCounters === undefined ||
+        currentPosition === undefined ||
+        previousPosition.status !== "alive" ||
+        previousCounters.goodwill < 1 ||
+        currentPosition.status === "absent" ||
+        increased.has(character)
+      ) continue;
+      observations.push({
+        kind: "mandatoryEffectMissing",
+        loop: loop.loop,
+        day: 1,
+        effect: "threadsFate",
+        character,
+      });
     }
   }
 

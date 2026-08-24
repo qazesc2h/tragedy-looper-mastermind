@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { characterDataOf } from "../src/data";
 import {
   buildRolePossibilityTable,
   collectProtagonistObservations,
@@ -11,10 +12,17 @@ import {
 } from "../src/engine/hypothesis";
 import { attemptProtagonistDeath, reviveCharacter } from "../src/engine/death";
 import { applyHookEffect, collectHooks } from "../src/engine/phases";
-import { createGameState, finishLoop } from "../src/engine/game";
+import {
+  advanceGame,
+  createGameState,
+  finishLoop,
+} from "../src/engine/game";
 import { initLoop } from "../src/engine/setup";
-import { loadFirstStepsScenarioCatalog } from "../src/scenario-catalog";
-import type { GameState, Scenario } from "../src/types";
+import {
+  loadBasicTragedyScenarioCatalog,
+  loadFirstStepsScenarioCatalog,
+} from "../src/scenario-catalog";
+import { effectiveRole, type GameState, type Scenario } from "../src/types";
 import { setBoardLife, setBoardLocation } from "./helpers";
 
 function combination(id: string): RuleCombination {
@@ -32,6 +40,53 @@ function roleRevealed(
   confirmed = true,
 ): Extract<ProtagonistObservation, { kind: "roleRevealed" }> {
   return { kind: "roleRevealed", loop: 1, character, role, confirmed };
+}
+
+const fullCast = [
+  "doctor",
+  "patient",
+  "girlStudent",
+  "officeWorker",
+  "informer",
+  "boyStudent",
+  "classRep",
+  "shrineMaiden",
+  "richStudent",
+];
+
+function roundObservation(
+  day: number,
+  record: Extract<ProtagonistObservation, { kind: "roundEvidence" }>["record"],
+  dead: readonly string[] = [],
+  lastDay = false,
+): Extract<ProtagonistObservation, { kind: "roundEvidence" }> {
+  return {
+    kind: "roundEvidence",
+    loop: 1,
+    record,
+    context: {
+      locationIntrigue: {
+        Hospital: 0,
+        Shrine: 0,
+        City: 0,
+        School: 0,
+      },
+      characters: Object.fromEntries(fullCast.map((character) => [
+        character,
+        {
+          status: dead.includes(character) ? "dead" : "alive",
+          location: "Hospital",
+          abilityLocations: ["Hospital"],
+          goodwill: 0,
+          paranoia: 0,
+          intrigue: 0,
+        },
+      ])),
+    },
+    lastDay,
+    protectedAtRoundEnd: [],
+    deathReactions: [],
+  };
 }
 
 describe("role possibility table", () => {
@@ -474,9 +529,364 @@ describe("role possibility table", () => {
       "possible",
     );
   });
+
+  it("does not confirm a paranoia-3 pair killer as the base serial killer", () => {
+    const observation = roundObservation(1, {
+      day: 1,
+      roundEndPairs: [{
+        location: "Hospital",
+        characters: ["doctor", "patient"],
+        paranoia: [3, 0],
+        intrigue: [0, 0],
+      }],
+      deathBatches: [{
+        phase: "P9_ROUND_END",
+        characters: ["patient"],
+        cityIntrigue: 0,
+      }],
+    }, ["patient"]);
+    const table = buildRolePossibilityTable(
+      "basicTragedy",
+      fullCast,
+      [combination("murderPlan+hiddenFreak+paranoiaVirus")],
+      [observation],
+    );
+
+    expect(table.cells.doctor.serialKiller.status).toBe("possible");
+    expect(table.cells.doctor.person.status).toBe("possible");
+  });
+
+  it("propagates a revealed transformed person back to paranoia virus", () => {
+    const observation = roundObservation(1, {
+      day: 1,
+      roundEndPairs: [{
+        location: "Hospital",
+        characters: ["doctor", "patient"],
+        paranoia: [3, 0],
+        intrigue: [0, 0],
+      }],
+      deathBatches: [{
+        phase: "P9_ROUND_END",
+        characters: ["patient"],
+        cityIntrigue: 0,
+      }],
+    }, ["patient"]);
+    const evaluation = evaluateRuleHypotheses(
+      "basicTragedy",
+      [observation, roleRevealed("doctor", "person")],
+      { publicCast: fullCast },
+    );
+
+    expect(evaluation.remaining.length).toBeGreaterThan(0);
+    expect(evaluation.remaining.every(({ subPlots }) =>
+      subPlots.includes("paranoiaVirus")
+    )).toBe(true);
+  });
+
+  it("keeps every simultaneous death as an immediate key-ability candidate", () => {
+    const observation = roundObservation(1, {
+      day: 1,
+      deathBatches: [
+        {
+          phase: "P4_RESOLVE",
+          characters: ["doctor"],
+          cityIntrigue: 0,
+        },
+        {
+          phase: "P6_GOODWILL",
+          characters: ["patient"],
+          cityIntrigue: 0,
+        },
+      ],
+      immediateLoopEnd: {
+        phase: "P6_GOODWILL",
+        reason: "effect",
+      },
+    }, ["doctor", "patient"]);
+    const table = buildRolePossibilityTable(
+      "basicTragedy",
+      fullCast,
+      [combination("murderPlan+hiddenFreak+unknownFactor")],
+      [observation],
+    );
+    const candidates = fullCast.filter((character) =>
+      table.cells[character]?.keyPerson?.status !== "impossible"
+    );
+
+    expect(candidates).toEqual(["doctor", "patient"]);
+    expect(table.cells.doctor.keyPerson.status).toBe("possible");
+    expect(table.cells.patient.keyPerson.status).toBe("possible");
+  });
+
+  it("propagates no-death pair conditions only after immortality is exhausted", () => {
+    const first = roundObservation(1, {
+      day: 1,
+      roundEndPairs: [{
+        location: "Hospital",
+        characters: ["doctor", "patient"],
+        paranoia: [0, 0],
+        intrigue: [0, 0],
+      }],
+    });
+    const second = roundObservation(2, {
+      day: 2,
+      roundEndPairs: [{
+        location: "Hospital",
+        characters: ["doctor", "girlStudent"],
+        paranoia: [0, 0],
+        intrigue: [0, 0],
+      }],
+    });
+    const future = combination("changeOfFuture+hiddenFreak+threadsFate");
+
+    expect(buildRolePossibilityTable(
+      "basicTragedy",
+      fullCast,
+      [future],
+      [first],
+    ).cells.doctor.serialKiller.status).toBe("possible");
+    expect(buildRolePossibilityTable(
+      "basicTragedy",
+      fullCast,
+      [future],
+      [first, roleRevealed("patient", "person")],
+    ).cells.doctor.serialKiller.status).toBe("impossible");
+
+    const protectedObservation = {
+      ...first,
+      protectedAtRoundEnd: ["patient"],
+    } satisfies Extract<ProtagonistObservation, { kind: "roundEvidence" }>;
+    expect(buildRolePossibilityTable(
+      "basicTragedy",
+      fullCast,
+      [future],
+      [protectedObservation, roleRevealed("patient", "person")],
+    ).cells.doctor.serialKiller.status).toBe("possible");
+    expect(buildRolePossibilityTable(
+      "basicTragedy",
+      fullCast,
+      [future],
+      [first, second],
+    ).cells.doctor.serialKiller.status).toBe("impossible");
+
+    const withCopycat = [...fullCast, "copycat"];
+    expect(buildRolePossibilityTable(
+      "basicTragedy",
+      withCopycat,
+      [future],
+      [first, second],
+    ).cells.doctor.serialKiller.status).toBe("possible");
+    const third = roundObservation(3, {
+      day: 3,
+      roundEndPairs: [{
+        location: "Hospital",
+        characters: ["doctor", "boyStudent"],
+        paranoia: [0, 0],
+        intrigue: [0, 0],
+      }],
+    });
+    expect(buildRolePossibilityTable(
+      "basicTragedy",
+      withCopycat,
+      [future],
+      [first, second, third],
+    ).cells.doctor.serialKiller.status).toBe("impossible");
+  });
+
+  it("replays the first-day serial-killer versus Factor immediate loss", () => {
+    const scenario: Scenario = {
+      tragedySet: "basicTragedy",
+      mainPlot: "murderPlan",
+      subPlots: ["hiddenFreak", "unknownFactor"],
+      cast: {
+        doctor: "serialKiller",
+        patient: "factor",
+        girlStudent: "keyPerson",
+        officeWorker: "killer",
+        informer: "brain",
+        boyStudent: "friend",
+        classRep: "person",
+        shrineMaiden: "person",
+        richStudent: "person",
+      },
+      incidents: [],
+      loops: 2,
+      daysPerLoop: 3,
+    };
+    const state = createGameState(scenario);
+    state.gamePhase = "ROUND";
+    state.loop.phase = "P9_ROUND_END";
+    for (const character of Object.keys(state.scenario.cast)) {
+      setBoardLocation(state.loop, character, "School");
+    }
+    setBoardLocation(state.loop, "doctor", "Hospital");
+    setBoardLocation(state.loop, "patient", "Hospital");
+    state.loop.locIntrigue.City = 2;
+
+    advanceGame(state);
+    expect(state.loop.board.patient.status).toBe("dead");
+    expect(state.loopOutcomes[0]?.reason).toBe("effect");
+
+    const evaluation = evaluateRoleTableHypotheses(
+      "basicTragedy",
+      Object.keys(scenario.cast),
+      collectProtagonistObservations(state),
+    );
+    expect(evaluation.table.cells.doctor.serialKiller.status).toBe(
+      "confirmed",
+    );
+    expect(evaluation.table.cells.patient.keyPerson.status).toBe("possible");
+    expect(evaluation.table.cells.patient.factor.status).toBe("possible");
+    for (const [character, role] of Object.entries(scenario.cast)) {
+      expect(
+        evaluation.table.cells[character]?.[role]?.status,
+        `${character}=${role}`,
+      ).not.toBe("impossible");
+    }
+  });
+
+  it("uses death and an unblocked round completion to exclude mandatory roles", () => {
+    const observation = roundObservation(1, {
+      day: 1,
+      deathBatches: [{
+        phase: "P4_RESOLVE",
+        characters: ["doctor"],
+        cityIntrigue: 2,
+        aliveAfterDeaths: fullCast.filter((character) =>
+          character !== "doctor"
+        ),
+      }],
+      roundEndPairs: [],
+    }, ["doctor"]);
+    const table = buildRolePossibilityTable(
+      "basicTragedy",
+      fullCast,
+      [
+        combination("murderPlan+loveAffair+unknownFactor"),
+        combination("changeOfFuture+loveAffair+unknownFactor"),
+      ],
+      [observation],
+    );
+
+    expect(table.cells.doctor.timeTraveler.status).toBe("impossible");
+    expect(table.cells.doctor.keyPerson.status).toBe("impossible");
+    expect(table.cells.doctor.factor.status).toBe("impossible");
+    expect(table.cells.doctor.lover.status).toBe("impossible");
+    expect(table.cells.doctor.lovedOne.status).toBe("impossible");
+  });
+
+  it("excludes immortality after a goodwill forbid actually applies", () => {
+    const table = buildRolePossibilityTable(
+      "basicTragedy",
+      fullCast,
+      [combination("changeOfFuture+hiddenFreak+threadsFate")],
+      [{
+        kind: "goodwillForbidApplied",
+        loop: 1,
+        day: 1,
+        character: "patient",
+      }],
+    );
+
+    expect(table.cells.patient.timeTraveler.status).toBe("impossible");
+  });
+
+  it("keeps an absent character available outside the observation that it missed", () => {
+    const observation: ProtagonistObservation = {
+      kind: "mastermindAbilityResult",
+      loop: 1,
+      day: 1,
+      timing: "P5_MASTERMIND_ABILITY",
+      changes: [{
+        kind: "counter",
+        target: { kind: "location", at: "Hospital" },
+        counter: "intrigue",
+        delta: 1,
+      }],
+      context: {
+        locationIntrigue: {
+          Hospital: 0,
+          Shrine: 0,
+          City: 0,
+          School: 0,
+        },
+        characters: {
+          doctor: {
+            status: "absent",
+            goodwill: 0,
+            paranoia: 0,
+            intrigue: 0,
+          },
+          patient: {
+            status: "alive",
+            location: "Hospital",
+            abilityLocations: ["Hospital"],
+            goodwill: 0,
+            paranoia: 0,
+            intrigue: 0,
+          },
+        },
+      },
+    };
+    const table = buildRolePossibilityTable(
+      "firstSteps",
+      ["doctor", "patient", "copycat"],
+      [combination("murderPlan+shadowRipper")],
+      [observation],
+    );
+
+    expect(table.cells.doctor.brain.status).toBe("possible");
+    expect(table.cells.patient.brain.status).toBe("possible");
+  });
+
+  it("excludes threads of fate after its mandatory loop-start change is absent", () => {
+    const observation: ProtagonistObservation = {
+      kind: "mandatoryEffectMissing",
+      loop: 2,
+      day: 1,
+      effect: "threadsFate",
+      character: "doctor",
+    };
+    const evaluation = evaluateRuleHypotheses(
+      "basicTragedy",
+      [observation],
+      { publicCast: fullCast },
+    );
+
+    expect(evaluation.remaining.some(({ subPlots }) =>
+      subPlots.includes("threadsFate")
+    )).toBe(false);
+  });
 });
 
 describe("role table to rule propagation", () => {
+  it("keeps every bundled script's actual role assignment possible", () => {
+    const catalog = [
+      ...loadFirstStepsScenarioCatalog(),
+      ...loadBasicTragedyScenarioCatalog(),
+    ];
+    for (const { id, scenario } of catalog) {
+      const state = createGameState(structuredClone(scenario));
+      const evaluation = evaluateRoleTableHypotheses(
+        scenario.tragedySet,
+        Object.keys(scenario.cast),
+        [],
+      );
+      for (const character of Object.keys(scenario.cast)) {
+        const role = effectiveRole(state, character);
+        // 일부 공식 각본의 plot-less 캐릭터 `person`은 실제 역할 미지정
+        // 자리표시자다. 공개 후보표가 추정할 수 있는 실제 배정만 검사한다.
+        if (role === "person" && characterDataOf(character).plotLessRole) {
+          continue;
+        }
+        expect(
+          evaluation.table.cells[character]?.[role]?.status,
+          `${id}: ${character}=${role}`,
+        ).not.toBe("impossible");
+      }
+    }
+  });
+
   it("keeps the existing 9 and 105 rule spaces without table evidence", () => {
     const cast = [
       "boyStudent",

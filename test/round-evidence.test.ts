@@ -51,6 +51,7 @@ describe("round evidence", () => {
         location: "Hospital",
         characters: ["doctor", "patient"],
         paranoia: [3, 1],
+        intrigue: [0, 0],
       }],
     });
     expect(state.loop.board.patient.status).toBe("alive");
@@ -76,10 +77,13 @@ describe("round evidence", () => {
         location: "City",
         characters: ["doctor", "patient"],
         paranoia: [2, 0],
+        intrigue: [0, 0],
       }],
       deathBatches: [{
         phase: "P9_ROUND_END",
         characters: ["patient"],
+        cityIntrigue: 0,
+        aliveAfterDeaths: ["doctor"],
       }],
     });
     expect(state.loop.board.patient.status).toBe("dead");
@@ -107,6 +111,8 @@ describe("round evidence", () => {
       deathBatches: [{
         phase: "P4_RESOLVE",
         characters: ["doctor", "patient"],
+        cityIntrigue: 0,
+        aliveAfterDeaths: [],
       }],
     }]);
 
@@ -120,6 +126,8 @@ describe("round evidence", () => {
       deathBatches: [{
         phase: "P4_RESOLVE",
         characters: ["doctor", "patient"],
+        cityIntrigue: 0,
+        aliveAfterDeaths: [],
       }],
       immediateLoopEnd: {
         phase: "P4_RESOLVE",

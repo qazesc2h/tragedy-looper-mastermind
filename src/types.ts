@@ -429,6 +429,10 @@ export type PhaseLogEntry = (
 export interface RoundDeathBatch {
   phase: Phase;
   characters: CharacterId[];
+  /** 이 사망 묶음이 닫힌 시점의 도심 음모. 변수 능력 판정에만 쓴다. */
+  cityIntrigue?: number;
+  /** 사망 직후 생존해 있어 ON_DEATH 강제 반응의 주체가 될 수 있던 캐릭터. */
+  aliveAfterDeaths?: CharacterId[];
 }
 
 /** P9 판정 직전 한 장소에 살아있는 두 캐릭터만 있었던 공개 사실. */
@@ -437,6 +441,8 @@ export interface RoundEndPairEvidence {
   characters: [CharacterId, CharacterId];
   /** characters와 같은 순서의 관측 시점 불안 수치. */
   paranoia: [number, number];
+  /** characters와 같은 순서의 관측 시점 음모 수치. 살인 청부업자 분기에 쓴다. */
+  intrigue?: [number, number];
 }
 
 /** 한 날짜의 제약 생성에 필요한 최소 사실. 전체 보드 상태는 저장하지 않는다. */

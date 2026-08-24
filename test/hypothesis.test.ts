@@ -555,7 +555,15 @@ describe("observation model", () => {
     expect(virusCombination(revealAt(3))?.contradictions).toContainEqual(
       expect.objectContaining({ code: "revealedDynamicRoleMismatch" }),
     );
-    const legacy = { ...revealAt(3), context: undefined, observedAt: undefined };
+    const revealed = revealAt(3);
+    if (revealed.kind !== "roleRevealed") {
+      throw new Error("role reveal observation expected");
+    }
+    const legacy: ProtagonistObservation = {
+      ...revealed,
+      context: undefined,
+      observedAt: undefined,
+    };
     expect(virusCombination(legacy)?.excluded).toBe(false);
   });
 

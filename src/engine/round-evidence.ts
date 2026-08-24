@@ -28,6 +28,10 @@ export function recordRoundDeathBatch(
   (record.deathBatches ??= []).push({
     phase: state.loop.phase,
     characters: [...characters],
+    cityIntrigue: state.loop.locIntrigue.City,
+    aliveAfterDeaths: Object.entries(state.loop.board).flatMap(
+      ([character, position]) => isCharacterAlive(position) ? [character] : [],
+    ),
   });
 }
 
@@ -52,6 +56,10 @@ export function recordRoundEndPairs(state: GameState): void {
       paranoia: [
         state.loop.charCounters[first].paranoia,
         state.loop.charCounters[second].paranoia,
+      ],
+      intrigue: [
+        state.loop.charCounters[first].intrigue,
+        state.loop.charCounters[second].intrigue,
       ],
     });
   }

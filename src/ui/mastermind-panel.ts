@@ -96,6 +96,8 @@ export interface IncidentPossibilitySummaryRow {
 }
 
 export interface DeductionTablesSummary {
+  observations: ProtagonistObservation[];
+  remainingCombinations: RuleCombination[];
   roleTable: RolePossibilityTable;
   roleRows: RolePossibilitySummaryRow[];
   incidentTable: IncidentPossibilityTable;
@@ -229,7 +231,14 @@ export function deductionTablesSummary(
       narrowed: possibleColumns.length < incidentTable.columns.length,
     };
   });
-  return { roleTable, roleRows, incidentTable, incidentRows };
+  return {
+    observations: roleEvaluation.observations,
+    remainingCombinations: roleEvaluation.remaining,
+    roleTable,
+    roleRows,
+    incidentTable,
+    incidentRows,
+  };
 }
 
 function occurrenceFired(

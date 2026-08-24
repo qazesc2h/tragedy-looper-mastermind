@@ -1180,6 +1180,64 @@ select {
   list-style: none;
 }
 
+.role-inference-traces {
+  margin: 0 0 12px;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--gold) 35%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--gold) 7%, transparent);
+}
+
+.role-inference-traces h3 {
+  margin: 0 0 8px;
+  font-size: 0.82rem;
+}
+
+.role-inference-traces ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.role-inference-traces li {
+  display: grid;
+  gap: 3px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.role-inference-traces li:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.role-inference-traces strong,
+.role-inference-traces span,
+.role-inference-traces small {
+  overflow-wrap: anywhere;
+}
+
+.role-inference-traces strong {
+  font-size: 0.78rem;
+}
+
+.role-inference-traces strong em {
+  font-style: normal;
+  color: var(--ink-muted);
+}
+
+.role-inference-traces span,
+.role-inference-traces small {
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.role-inference-traces small {
+  color: var(--ink-muted);
+}
+
 .deduction-summary-row {
   display: grid;
   grid-template-columns: minmax(64px, 0.28fr) minmax(0, 1fr) auto;
