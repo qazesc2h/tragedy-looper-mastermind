@@ -139,10 +139,16 @@ function phaseEntry(
         kind: "incidentJudged",
         incident: "murder",
         culprit: character,
-        fired: false,
-        effectApplied: false,
-        failureReasons: ["insufficientParanoia"],
+        fired: true,
+        effectApplied: true,
+        failureReasons: [],
         publicContext,
+        publicChanges: [{
+          kind: "status",
+          character,
+          from: "alive",
+          to: "dead",
+        }],
       };
     case "P8_LEADER_PASS":
       return { ...common, phase, kind: "leaderPassed", from: 0, to: 1 };

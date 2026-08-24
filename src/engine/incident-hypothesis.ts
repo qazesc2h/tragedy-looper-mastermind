@@ -3,6 +3,7 @@ import type {
   CharacterId,
   GameState,
   IncidentId,
+  Location,
   ScheduledIncident,
 } from "../types";
 import {
@@ -30,6 +31,27 @@ export type IncidentPossibilityReason =
   }
   | {
     code: "suicideDeathIdentified";
+    observation: Extract<
+      ProtagonistObservation,
+      { kind: "incidentOccurred" }
+    >;
+  }
+  | {
+    code: "missingPersonMovementIdentified";
+    observation: Extract<
+      ProtagonistObservation,
+      { kind: "incidentOccurred" }
+    >;
+  }
+  | {
+    code: "incidentTraceLocationMismatch";
+    observation: Extract<
+      ProtagonistObservation,
+      { kind: "incidentOccurred" }
+    >;
+  }
+  | {
+    code: "murderVictimCannotBeCulprit";
     observation: Extract<
       ProtagonistObservation,
       { kind: "incidentOccurred" }
@@ -125,10 +147,17 @@ function initialConfirmations(
     } else if (
       observation.kind === "incidentOccurred" &&
       observation.occurred &&
-      observation.incident === "suicide" &&
-      observation.deaths?.length === 1
+      observation.incident === "suicide"
     ) {
-      const culprit = observation.deaths[0];
+      const directDeaths = observation.changes?.flatMap((change) =>
+        change.kind === "status" &&
+        change.from === "alive" &&
+        change.to === "dead"
+          ? [change.character]
+          : []
+      ) ?? [];
+      if (directDeaths.length !== 1) continue;
+      const culprit = directDeaths[0];
       if (culprit === undefined) continue;
       for (const column of matchingColumns(
         columns,
@@ -140,9 +169,107 @@ function initialConfirmations(
           reason: { code: "suicideDeathIdentified", observation },
         });
       }
+    } else if (
+      observation.kind === "incidentOccurred" &&
+      observation.occurred &&
+      observation.incident === "missingPerson"
+    ) {
+      const movements = observation.changes?.filter((change) =>
+        change.kind === "movement"
+      ) ?? [];
+      const movement = movements[0];
+      if (movements.length !== 1 || movement?.kind !== "movement") continue;
+      for (const column of matchingColumns(
+        columns,
+        observation.day,
+        observation.incident,
+      )) {
+        confirmations.set(column.id, {
+          character: movement.character,
+          reason: { code: "missingPersonMovementIdentified", observation },
+        });
+      }
     }
   }
   return confirmations;
+}
+
+function traceExclusionReason(
+  character: CharacterId,
+  column: IncidentHypothesisColumn,
+  observations: readonly ProtagonistObservation[],
+): IncidentPossibilityReason | undefined {
+  for (const observation of observations) {
+    if (
+      observation.kind !== "incidentOccurred" ||
+      observation.day !== column.day ||
+      observation.incident !== column.incident ||
+      !observation.occurred ||
+      observation.context === undefined ||
+      observation.changes === undefined
+    ) continue;
+
+    const observedCharacter = observation.context.characters?.[character];
+    const locationOf = (target: CharacterId) =>
+      observation.context?.characters?.[target]?.location;
+    let traceLocations: Location[] = [];
+
+    if (column.incident === "missingPerson") {
+      const movements = observation.changes.filter((change) =>
+        change.kind === "movement"
+      );
+      // 이동 흔적이 있으면 이동한 캐릭터가 이미 직접 확정된다. 제자리 이동만
+      // 장소 음모 흔적으로 후보 위치를 좁힌다.
+      if (movements.length > 0) continue;
+      traceLocations = observation.changes.flatMap((change) =>
+        change.kind === "counter" &&
+          change.target.kind === "location" &&
+          change.counter === "intrigue" &&
+          change.delta > 0
+          ? [change.target.at]
+          : []
+      );
+    } else if (column.incident === "murder") {
+      const victims = observation.changes.flatMap((change) =>
+        change.kind === "status" &&
+          change.from === "alive" &&
+          change.to === "dead"
+          ? [change.character]
+          : []
+      );
+      if (victims.includes(character)) {
+        return { code: "murderVictimCannotBeCulprit", observation };
+      }
+      traceLocations = victims.flatMap((victim) => {
+        const location = locationOf(victim);
+        return location === undefined ? [] : [location];
+      });
+    } else if (column.incident === "butterflyEffect") {
+      const affected = observation.changes.flatMap((change) =>
+        change.kind === "counter" &&
+          change.target.kind === "character" &&
+          change.delta > 0
+          ? [change.target.id]
+          : []
+      );
+      traceLocations = affected.flatMap((target) => {
+        const location = locationOf(target);
+        return location === undefined ? [] : [location];
+      });
+    } else {
+      // 나머지 기본편 사건 효과는 범인의 위치와 관계없는 대상을 고른다.
+      continue;
+    }
+
+    const uniqueLocations = [...new Set(traceLocations)];
+    if (
+      uniqueLocations.length === 1 &&
+      observedCharacter?.location !== uniqueLocations[0]
+    ) {
+      return { code: "incidentTraceLocationMismatch", observation };
+    }
+  }
+  return undefined;
 }
 
 function outcomeExclusionReason(
@@ -200,6 +327,11 @@ function buildCells(
     for (const column of columns) {
       const confirmation = confirmations.get(column.id);
       if (confirmation !== undefined) {
+        const independentReason = traceExclusionReason(
+          character,
+          column,
+          observations,
+        ) ?? outcomeExclusionReason(character, column, observations);
         row[column.id] = confirmation.character === character
           ? {
             character,
@@ -211,10 +343,13 @@ function buildCells(
             character,
             column: column.id,
             status: "impossible",
-            reasons: [{
-              code: "otherCulpritConfirmed",
-              column: column.id,
-            }],
+            reasons: [
+              {
+                code: "otherCulpritConfirmed",
+                column: column.id,
+              },
+              ...(independentReason === undefined ? [] : [independentReason]),
+            ],
           };
         continue;
       }
@@ -234,7 +369,13 @@ function buildCells(
         column,
         observations,
       );
-      row[column.id] = outcomeReason === undefined
+      const traceReason = traceExclusionReason(
+        character,
+        column,
+        observations,
+      );
+      const reason = traceReason ?? outcomeReason;
+      row[column.id] = reason === undefined
         ? {
           character,
           column: column.id,
@@ -245,7 +386,7 @@ function buildCells(
           character,
           column: column.id,
           status: "impossible",
-          reasons: [outcomeReason],
+          reasons: [reason],
         };
     }
     cells[character] = row;

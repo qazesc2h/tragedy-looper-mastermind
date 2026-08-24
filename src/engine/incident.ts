@@ -9,6 +9,26 @@ import type {
   IncidentResult,
 } from "../types";
 import { withDeathBatch } from "./death";
+import { publicBoardChanges } from "./public-observation";
+
+type IncidentEffectResult = {
+  effectApplied: boolean;
+  publicChanges?: ReturnType<typeof publicBoardChanges>;
+};
+
+const resolvedIncidentPublicChanges = new WeakMap<
+  GameState,
+  ReturnType<typeof publicBoardChanges>
+>();
+
+/** P7 로그 기록기가 방금 해결된 사건 본체의 공개 변화만 한 번 가져간다. */
+export function takeResolvedIncidentPublicChanges(
+  state: GameState,
+): ReturnType<typeof publicBoardChanges> | undefined {
+  const changes = resolvedIncidentPublicChanges.get(state);
+  resolvedIncidentPublicChanges.delete(state);
+  return changes;
+}
 
 /** AI만 사건 발생 판정에서 캐릭터 위의 모든 카운터를 불안으로 센다. */
 export function incidentParanoia(
@@ -57,19 +77,34 @@ export function resolveIncidentEffect(
   culprit: CharacterId,
   choice?: IncidentChoice,
 ): boolean {
+  return resolveIncidentEffectResult(state, incident, culprit, choice)
+    .effectApplied;
+}
+
+function resolveIncidentEffectResult(
+  state: GameState,
+  incident: string,
+  culprit: CharacterId,
+  choice?: IncidentChoice,
+): IncidentEffectResult {
   const impl = INCIDENT_IMPL[incident];
   if (!impl) {
     throw new Error(`unknown incident "${incident}"`);
   }
 
   // 조건은 효과 적용 전에 모두 판정한다. 활성 훅 전체가 P7 사망 배치 하나다.
+  const before = structuredClone(state.loop);
   const activeHooks = impl.hooks.filter((hook) => hook.when(state, culprit));
   return withDeathBatch(state, () => {
     let effectApplied = false;
     for (const hook of activeHooks) {
       effectApplied = hook.effect(state, culprit, choice) || effectApplied;
     }
-    return effectApplied;
+    const publicChanges = publicBoardChanges(before, state.loop);
+    return {
+      effectApplied,
+      ...(publicChanges.length === 0 ? {} : { publicChanges }),
+    };
   });
 }
 
@@ -86,6 +121,7 @@ export function resolveIncident(
   state: GameState,
   choice?: IncidentChoice,
 ): IncidentResult {
+  resolvedIncidentPublicChanges.delete(state);
   const scheduled = state.scenario.incidents.find(
     ({ day }) => day === state.loop.day,
   );
@@ -102,9 +138,9 @@ export function resolveIncident(
   }
 
   // 검은 고양이는 사건이 발생한 뒤 효과만 "효과 없음"으로 바꾼다.
-  const effectApplied = scheduled.culprit === "blackCat"
-    ? false
-    : resolveIncidentEffect(
+  const effectResult = scheduled.culprit === "blackCat"
+    ? { effectApplied: false }
+    : resolveIncidentEffectResult(
       state,
       scheduled.incident,
       scheduled.culprit,
@@ -124,5 +160,9 @@ export function resolveIncident(
     firedOccurrences.push({ ...scheduled });
   }
 
-  return { ...base, fired: true, effectApplied };
+  if (effectResult.publicChanges !== undefined) {
+    resolvedIncidentPublicChanges.set(state, effectResult.publicChanges);
+  }
+
+  return { ...base, fired: true, effectApplied: effectResult.effectApplied };
 }

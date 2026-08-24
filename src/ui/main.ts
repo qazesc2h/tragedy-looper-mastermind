@@ -3412,6 +3412,9 @@ function incidentCellReasonLabel(code: string): string {
   switch (code) {
     case "culpritRevealed": return "범인 공개";
     case "suicideDeathIdentified": return "자살 사망자 확인";
+    case "missingPersonMovementIdentified": return "행방불명 이동 흔적";
+    case "incidentTraceLocationMismatch": return "사건 흔적 장소 불일치";
+    case "murderVictimCannotBeCulprit": return "살인 사건 피해자";
     case "onlyRemainingCandidate": return "유일 후보";
     case "otherCulpritConfirmed": return "다른 범인 확정";
     case "culpritAlreadyAssigned": return "다른 사건 범인 확정";

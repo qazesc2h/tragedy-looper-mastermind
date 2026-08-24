@@ -91,6 +91,8 @@ export type ProtagonistObservation = (
     incident: IncidentId;
     occurred: boolean;
     context?: PublicObservationContext;
+    /** ON_DEATH 반응 전 사건 효과 자체의 공개 변화. */
+    changes?: PublicBoardChange[];
     deaths?: CharacterId[];
   }
   | {
@@ -3255,6 +3257,9 @@ export function collectProtagonistObservations(
           ...(entry.publicContext === undefined
             ? {}
             : { context: entry.publicContext }),
+          ...(entry.publicChanges === undefined
+            ? {}
+            : { changes: structuredClone(entry.publicChanges) }),
           ...(entry.deaths === undefined ? {} : { deaths: [...entry.deaths] }),
           ...(entry.observedAt === undefined
             ? {}

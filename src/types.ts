@@ -400,6 +400,8 @@ export type PhaseLogEntry = (
     failureReasons: IncidentFailureReason[];
     /** 사건 발생 판정 직전의 공개 게임판. 구 저장 기록에는 없을 수 있다. */
     publicContext?: PublicObservationContext;
+    /** ON_DEATH 반응을 제외한 사건 효과 자체의 공개 변화. */
+    publicChanges?: PublicBoardChange[];
     /** 사건 해결 중 새로 사망한 캐릭터. 예전 저장 기록에는 없을 수 있다. */
     deaths?: CharacterId[];
     /** 사건 해결 중 주인공 사망이 실제 요청되었는지 여부. */

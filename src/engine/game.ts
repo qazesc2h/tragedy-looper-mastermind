@@ -16,7 +16,10 @@ import {
 } from "../types";
 import { tragedySetDefinition } from "../tragedy-sets";
 import { requestLoopEnd } from "./flow";
-import { incidentFailureReasons } from "./incident";
+import {
+  incidentFailureReasons,
+  takeResolvedIncidentPublicChanges,
+} from "./incident";
 import { evaluateLoss, type LossCondition } from "./loss";
 import { advance, collectHooks, resolveHooks } from "./phases";
 import { recordPhaseLog } from "./phase-log";
@@ -322,6 +325,9 @@ function advanceRoundOnce(
     : undefined;
 
   const result = advance(state, incidentChoice);
+  const incidentPublicChanges = phase === "P7_INCIDENT"
+    ? takeResolvedIncidentPublicChanges(state)
+    : undefined;
 
   if (phase === "P1_ROUND_START") {
     if (!phaseAlreadyLogged(state, loop, day, phase)) {
@@ -382,6 +388,9 @@ function advanceRoundOnce(
         ...(incidentContext === undefined
           ? {}
           : { publicContext: incidentContext }),
+        ...(incidentPublicChanges === undefined
+          ? {}
+          : { publicChanges: incidentPublicChanges }),
         ...(deaths.length > 0 ? { deaths } : {}),
         ...(protagonistsDied ? { protagonistsDied: true } : {}),
       });
