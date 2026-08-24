@@ -357,6 +357,11 @@ export function adaptTragedyScript(
     ...castMetadata,
     ...options.scriptSpecified,
   };
+  const specialRules = raw.specialRules === undefined
+    ? []
+    : requireStringArray(raw.specialRules, `${context}.specialRules`)
+      .map((rule) => rule.trim())
+      .filter((rule) => rule.length > 0);
 
   const scenario: Scenario = {
     tragedySet: requireString(raw.tragedySet, `${context}.tragedySet`),
@@ -368,6 +373,7 @@ export function adaptTragedyScript(
     difficultyIndex,
     difficulty: selectedDifficulty.difficulty,
     daysPerLoop: requireNumber(raw.daysPerLoop, `${context}.daysPerLoop`),
+    specialRules: specialRules.length > 0 ? specialRules : undefined,
     scriptSpecified:
       Object.keys(scriptSpecified).length > 0 ? scriptSpecified : undefined,
   };

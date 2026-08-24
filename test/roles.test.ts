@@ -1028,3 +1028,41 @@ describe("factor / gained abilities", () => {
     expect(signWithMeLossTargets).toEqual([]);
   });
 });
+
+describe("hook owner life state", () => {
+  it.each([
+    ["cultist", "P4_RESOLVE"],
+    ["brain", "P5_MASTERMIND_ABILITY"],
+    ["killer", "P9_ROUND_END"],
+  ] as const)(
+    "does not collect the %s ability when its owner is dead or absent",
+    (role, phase) => {
+      const character = "officeWorker";
+      const dead = createRoleState({ [character]: role });
+      killCharacter(dead, character);
+      expect(collectHooks(dead, phase)).toEqual([]);
+
+      const absent = createRoleState({ [character]: role });
+      absent.loop.board[character] = { status: "absent" };
+      expect(collectHooks(absent, phase)).toEqual([]);
+    },
+  );
+
+  it("keeps the Friend death-trigger reveal at loop end", () => {
+    const state = createRoleState({ [FRIEND]: "friend" });
+    killCharacter(state, FRIEND);
+
+    expect(collectHooks(state, "LOOP_END")).toEqual([
+      expect.objectContaining({ self: FRIEND }),
+    ]);
+  });
+
+  it("keeps the Key Person death-trigger loss hook", () => {
+    const state = createRoleState({ [KEY_PERSON]: "keyPerson" });
+    killCharacter(state, KEY_PERSON);
+
+    expect(collectHooks(state, "ALWAYS")).toEqual([
+      expect.objectContaining({ self: KEY_PERSON }),
+    ]);
+  });
+});

@@ -93,6 +93,7 @@ import { INCIDENT_IMPL } from "../impl/incidents";
 import { ROLE_IMPL } from "../impl/roles";
 import {
   abilityLocationsOf,
+  characterEntryTiming,
   characterLocation,
   effectiveRole,
   isActionCard,
@@ -187,6 +188,9 @@ import "./styles.css";
 interface ScenarioEntry extends Omit<ScenarioCatalogEntry, "rawTitle"> {
   title: string;
 }
+
+/** 긴 정보 목록에서 처음부터 펼쳐 두는 항목 수를 한 곳에서 통일한다. */
+const DEFAULT_EXPANDED_LIST_LIMIT = 4;
 
 interface SelectedHandCard extends HandCard {
   owner: CardOwner;
@@ -358,6 +362,35 @@ function escapeHtml(value: unknown): string {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function renderCollapsedHtmlList(
+  items: readonly string[],
+  className: string,
+  summary: string,
+): string {
+  if (items.length === 0) return "";
+  return `<details class="long-list-details">
+    <summary><strong>${escapeHtml(summary)}</strong><span class="long-list-toggle" aria-hidden="true"></span></summary>
+    <ul class="${className}">${items.join("")}</ul>
+  </details>`;
+}
+
+function renderBoundedHtmlList(
+  items: readonly string[],
+  className: string,
+  overflowLabel: string,
+): string {
+  if (items.length === 0) return "";
+  const visible = items.slice(0, DEFAULT_EXPANDED_LIST_LIMIT);
+  const overflow = items.slice(DEFAULT_EXPANDED_LIST_LIMIT);
+  return `<ul class="${className}">${visible.join("")}</ul>${
+    renderCollapsedHtmlList(
+      overflow,
+      className,
+      `${overflowLabel} ${overflow.length}건`,
+    )
+  }`;
 }
 
 function scheduleNoticeDismiss(): void {
@@ -2612,6 +2645,22 @@ function renderTodayIncidents(
   }).join("");
 }
 
+function renderLossRoutes(routes: readonly LossRoute[]): string {
+  if (routes.length === 0) {
+    return `<div class="loss-route-list"><p class="loss-route-empty">현재 각본에서 확인된 사망 경로 없음</p></div>`;
+  }
+  const visible = routes.slice(0, DEFAULT_EXPANDED_LIST_LIMIT);
+  const overflow = routes.slice(DEFAULT_EXPANDED_LIST_LIMIT);
+  return `<div class="loss-route-list">${visible.map(renderLossRoute).join("")}</div>${
+    overflow.length === 0
+      ? ""
+      : `<details class="long-list-details loss-route-details">
+          <summary><strong>추가 패배 위험 경로 ${overflow.length}개</strong><span class="long-list-toggle" aria-hidden="true"></span></summary>
+          <div class="loss-route-list">${overflow.map(renderLossRoute).join("")}</div>
+        </details>`
+  }`;
+}
+
 function renderLossDistance(state: GameState): string {
   const conditions = distanceToLoss(state);
   if (conditions.length === 0) {
@@ -2626,11 +2675,7 @@ function renderLossDistance(state: GameState): string {
           <span>${escapeHtml(condition.when)} · ${escapeHtml(condition.activation === "optional" ? misc("Optional", "Optional") : misc("Mandatory", "Mandatory"))}</span></div>
         </div>
         <p class="loss-current-judgment">현재 판정 · ${escapeHtml(condition.label)}</p>
-        <div class="loss-route-list">
-          ${condition.routes.length === 0
-            ? `<p class="loss-route-empty">현재 각본에서 확인된 사망 경로 없음</p>`
-            : condition.routes.map(renderLossRoute).join("")}
-        </div>
+        ${renderLossRoutes(condition.routes)}
         ${condition.daysLeft === undefined
           ? ""
           : `<small>${escapeHtml(misc("Days left", "Days left"))}: ${condition.daysLeft}</small>`}
@@ -3106,6 +3151,7 @@ function renderScenarioInformation(state: GameState): string {
       id,
     })),
   ];
+  const specialRules = state.scenario.specialRules ?? [];
 
   return `<section class="scenario-information-panel">
     <div class="overlay-heading">
@@ -3118,10 +3164,38 @@ function renderScenarioInformation(state: GameState): string {
           id ? plotName(id) : misc("None", "None"),
         )}</dd></div>`).join("")}
     </dl>
+    ${specialRules.length === 0
+      ? ""
+      : `<section class="scenario-special-rules" aria-label="시나리오 특수 규칙">
+          <h3>시나리오 특수 규칙</h3>
+          <ul>${specialRules.map((rule) =>
+            `<li>${escapeHtml(gameText(rule))}</li>`
+          ).join("")}</ul>
+        </section>`}
     <ul class="scenario-cast-list">
       ${Object.keys(state.scenario.cast).map((character) => {
         const culpritDays = incidentDaysForCharacter(state, character);
         const traitText = characterTraitText(state, character);
+        const facts: string[] = [];
+        if (character === "boss") {
+          const turf = state.loop.turfLocations.boss;
+          if (turf !== undefined) facts.push(`세력권 · ${locationName(turf)}`);
+        }
+        const entry = characterEntryTiming(state.scenario, character);
+        if (entry?.kind === "loop") facts.push(`등장 루프 · ${entry.value}루프`);
+        if (entry?.kind === "day") facts.push(`등장 날짜 · ${entry.value}일`);
+        if (character === "henchman") {
+          const start = state.loop.loopStartTraitLocationChoices?.henchman;
+          facts.push(`이번 루프 시작 장소 · ${
+            start === undefined ? "미선택" : locationName(start)
+          }`);
+        }
+        if (character === "scientist") {
+          const counter = state.loop.loopStartTraitCounterChoices?.scientist;
+          facts.push(`이번 루프 카운터 · ${
+            counter === undefined ? "미선택" : counterLabel(counter)
+          }`);
+        }
         return `<li>
           <span>${escapeHtml(characterName(character))}</span>
           <b>${escapeHtml(roleName(effectiveRole(state, character)))}</b>
@@ -3131,6 +3205,9 @@ function renderScenarioInformation(state: GameState): string {
           ${traitText
             ? `<small class="scenario-cast-trait"><strong>특성</strong> · ${escapeHtml(traitText)}</small>`
             : ""}
+          ${facts.map((fact) =>
+            `<small class="scenario-cast-fact">${escapeHtml(fact)}</small>`
+          ).join("")}
         </li>`;
       }).join("")}
     </ul>
@@ -3298,6 +3375,21 @@ function renderRuleHypotheses(state: GameState): string {
   const remainingCount = summary.remainingCombinations.length;
   const mainCandidateNames = summary.mainPlotCandidates.map(plotName);
   const subCandidateNames = summary.subPlotCandidates.map(plotName);
+  const observationRow = ({
+    observation,
+    excludedCount,
+  }: typeof summary.observationImpacts[number]): string => `<li>
+    <span>${escapeHtml(hypothesisObservationLabel(observation))}</span>
+    <strong>${excludedCount === 0
+      ? "배제 없음"
+      : `${excludedCount}개 배제`}</strong>
+  </li>`;
+  const impactfulObservations = summary.observationImpacts
+    .filter(({ excludedCount }) => excludedCount > 0)
+    .map(observationRow);
+  const zeroImpactObservations = summary.observationImpacts
+    .filter(({ excludedCount }) => excludedCount === 0)
+    .map(observationRow);
   const remainingList = summary.remainingCombinations.map((combination) => `
     <li>
       <span>${escapeHtml(ruleCombinationLabel(
@@ -3371,13 +3463,15 @@ function renderRuleHypotheses(state: GameState): string {
           <h3>관측 목록</h3>
           ${summary.observationImpacts.length === 0
             ? `<p class="empty-overlay">아직 관측이 없습니다.</p>`
-            : `<ul>${summary.observationImpacts.map(({ observation, excludedCount }) => `
-                <li>
-                  <span>${escapeHtml(hypothesisObservationLabel(observation))}</span>
-                  <strong>${excludedCount === 0
-                    ? "배제 없음"
-                    : `${excludedCount}개 배제`}</strong>
-                </li>`).join("")}</ul>`}
+            : `${renderBoundedHtmlList(
+                impactfulObservations,
+                "hypothesis-observation-list",
+                "추가 배제 관측",
+              )}${renderCollapsedHtmlList(
+                zeroImpactObservations,
+                "hypothesis-observation-list",
+                `배제 없음 ${zeroImpactObservations.length}건`,
+              )}`}
         </section>
       </div>
     </details>`;
@@ -3656,7 +3750,7 @@ function renderRoleInferenceTraces(
   if (traces.length === 0) return "";
   return `<section class="role-inference-traces" aria-label="역할 추론 과정">
     <h3>추론 과정 ${traces.length}건</h3>
-    <ul>${traces.join("")}</ul>
+    ${renderBoundedHtmlList(traces, "role-inference-list", "추가 추론")}
   </section>`;
 }
 
@@ -3675,7 +3769,7 @@ function renderDeductionTables(state: GameState): string {
       <span>${escapeHtml(text)}</span>
       <b>${row.confirmedRole === undefined ? `(${row.possibleRoles.length})` : "✓"}</b>
     </li>`;
-  }).join("");
+  });
   const roleHeader = summary.roleTable.roles.map((role) => `
     <th scope="col" title="${escapeHtml(roleName(role))}" aria-label="${escapeHtml(roleName(role))}">
       <span>${escapeHtml(roleName(role))}</span>
@@ -3710,7 +3804,7 @@ function renderDeductionTables(state: GameState): string {
       <span>${escapeHtml(text)}</span>
       <b>${row.confirmedColumn === undefined ? `(${row.possibleColumns.length})` : "✓"}</b>
     </li>`;
-  }).join("");
+  });
   const incidentHeader = summary.incidentTable.columns.map((column) => {
     const label = `${column.day}일 ${incidentName(column.incident)}`;
     return `<th scope="col" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}"><span>${escapeHtml(label)}</span></th>`;
@@ -3740,7 +3834,11 @@ function renderDeductionTables(state: GameState): string {
       </summary>
       <div class="info-accordion-body deduction-body">
         ${roleInferenceTraces}
-        <ul class="deduction-summary-list">${roleRows}</ul>
+        ${renderBoundedHtmlList(
+          roleRows,
+          "deduction-summary-list",
+          "추가 역할 후보",
+        )}
         <details class="deduction-grid-details">
           <summary>전체 역할 격자 보기</summary>
           <div class="deduction-grid-scroll">
@@ -3761,7 +3859,11 @@ function renderDeductionTables(state: GameState): string {
       <div class="info-accordion-body deduction-body">
         ${summary.incidentTable.columns.length === 0
           ? `<p class="empty-overlay">시나리오에 사건이 없습니다.</p>`
-          : `<ul class="deduction-summary-list">${incidentRows}</ul>
+          : `${renderBoundedHtmlList(
+              incidentRows,
+              "deduction-summary-list",
+              "추가 범인 후보",
+            )}
             <details class="deduction-grid-details">
               <summary>전체 범인 격자 보기</summary>
               <div class="deduction-grid-scroll">

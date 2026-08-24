@@ -2,6 +2,8 @@
 // 근거: 주인공 설명서 21p(4-1~4-9), 45p(라운드 진행 요약).
 
 import {
+  isCharacterAlive,
+  isCharacterDead,
   isCharacterPresent,
   type GameState, type Hook, type HookPoint, type IncidentChoice,
   type HookContext, type IncidentResult, type Phase,
@@ -78,17 +80,35 @@ export function collectHooks(s: GameState, at: HookPoint): {
 
   for (const c of Object.keys(s.scenario.cast)) {
     const position = s.loop.board[c];
-    if (position && isCharacterPresent(position)) {
+    if (position !== undefined) {
       for (const abilityRole of effectiveAbilityRoles(s, c)) {
         const impl = ROLE_IMPL[abilityRole];
         for (const h of impl?.hooks ?? []) {
-          if (h.phase === at) out.push({ self: c, hook: h });
+          if (
+            h.phase === at &&
+            (
+              isCharacterAlive(position) ||
+              // 핵심 인물의 즉시 종료와 친구의 루프 종료 공개는 시체가 능력을
+              // "사용"하는 예외가 아니라 사망 상태 자체의 패배·공개 처리다.
+              ((at === "ALWAYS" || at === "LOOP_END") &&
+                h.kind === "lossTragedy" &&
+                isCharacterDead(position))
+            )
+          ) out.push({ self: c, hook: h });
         }
       }
     }
-    // 등장 특성은 absent 상태에서도 자신을 배치할 수 있어야 한다.
+    // 등장 특성은 absent 상태에서도 자신을 배치할 수 있어야 한다. 그 밖의
+    // 캐릭터 특성은 살아 있는 캐릭터만 공급한다.
     for (const h of TRAIT_IMPL[c]?.hooks ?? []) {
-      if (h.phase === at) out.push({ self: c, hook: h });
+      const entryTrait = h.phase === "LOOP_CHARACTER_PLACEMENT" ||
+        h.phase === "P1_CHARACTER_ENTRY";
+      if (
+        h.phase === at &&
+        position !== undefined &&
+        (isCharacterAlive(position) ||
+          (entryTrait && !isCharacterPresent(position)))
+      ) out.push({ self: c, hook: h });
     }
   }
   for (const p of [s.scenario.mainPlot, ...s.scenario.subPlots]) {

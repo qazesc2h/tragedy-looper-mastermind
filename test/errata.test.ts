@@ -11,6 +11,16 @@ import {
 } from "../src/scenario-catalog";
 
 describe("scenario errata overlay", () => {
+  it("preserves only non-empty scenario special rules", () => {
+    const ordinary = adaptTragedyScript(basicTragedyScriptsJson[0]);
+    const special = adaptTragedyScript(basicTragedyScriptsJson[13]);
+
+    expect(ordinary.specialRules).toBeUndefined();
+    expect(special.specialRules).toEqual([
+      'Mastermind removes "Forbid :goodwill:" from his hand. It cannot be used in any loop',
+    ]);
+  });
+
   it("keeps the printed source and corrects basicTragedy:12 while loading", () => {
     const printed = basicTragedyScriptsJson[11];
     expect(printed.title).toBe("Those with Antibodies");

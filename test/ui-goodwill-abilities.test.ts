@@ -78,6 +78,43 @@ describe("AI incident choice fields", () => {
   });
 });
 
+describe("goodwill ability owner life state", () => {
+  it("omits dead and absent ability users", () => {
+    const dead = createState(["alien"]);
+    unlock(dead, "alien", 5);
+    setBoardLife(dead.loop, "alien", false);
+    expect(goodwillAbilityViews(dead)).toEqual([]);
+
+    const absent = createState(["alien"]);
+    unlock(absent, "alien", 5);
+    absent.loop.board.alien = { status: "absent" };
+    expect(goodwillAbilityViews(absent)).toEqual([]);
+  });
+
+  it.each([
+    ["alien", "boyStudent"],
+    ["forensicSpecialist", "boyStudent"],
+  ] as const)(
+    "keeps %s's corpse-target ability available",
+    (user, corpse) => {
+      const state = createState([user, corpse]);
+      unlock(state, user, 5);
+      setBoardLocation(state.loop, user, "City");
+      setBoardLocation(state.loop, corpse, "City");
+      setBoardLife(state.loop, corpse, false);
+
+      const view = goodwillAbilityViews(state).find(
+        ({ character, schema }) =>
+          character === user && schema.rank === 5,
+      );
+      expect(view).toMatchObject({
+        disabledReason: undefined,
+        targets: [{ kind: "character", id: corpse }],
+      });
+    },
+  );
+});
+
 function resolveLeaderCardThroughP4(
   state: GameState,
   card: ActionCard,
@@ -172,7 +209,7 @@ describe("structured goodwill ability UI", () => {
       .not.toContainEqual({ kind: "character", id: "transferStudent" });
   });
 
-  it("disables dead officeWorker and boyStudent abilities as dead", () => {
+  it("does not display dead officeWorker and boyStudent abilities", () => {
     const state = createState([
       "officeWorker",
       "boyStudent",
@@ -185,18 +222,10 @@ describe("structured goodwill ability UI", () => {
 
     const views = goodwillAbilityViews(state);
 
-    expect(views.find(({ character }) => character === "officeWorker"))
-      .toMatchObject({
-        disabledReason: "dead",
-        disabledDiagnostic: "status=dead",
-        targetRequired: false,
-      });
-    expect(views.find(({ character }) => character === "boyStudent"))
-      .toMatchObject({
-        disabledReason: "dead",
-        disabledDiagnostic: "status=dead",
-        targetRequired: true,
-      });
+    expect(views.some(({ character }) => character === "officeWorker"))
+      .toBe(false);
+    expect(views.some(({ character }) => character === "boyStudent"))
+      .toBe(false);
   });
 
   it("offers boyStudent and girlStudent only another living student in the same location", () => {

@@ -434,7 +434,10 @@ function disabledDiagnosticFor(
 /** P6에 표시할 능력을 구조화 데이터의 제약과 현재 상태로 계산한다. */
 export function goodwillAbilityViews(state: GameState): GoodwillAbilityView[] {
   return Object.keys(state.loop.board).flatMap((character) => {
-    if (!isCharacterPresent(state.loop.board[character])) return [];
+    // 시체와 부재 카드는 능력 사용자 목록 자체에서 제외한다. 시체를 대상으로
+    // 하는 이세계인[우호5]·감식관[우호5]은 살아 있는 사용자의 target predicate
+    // "dead" 경로로 계속 표시된다.
+    if (!isCharacterAlive(state.loop.board[character])) return [];
     return (GOODWILL_ABILITIES[character] ?? []).flatMap((schema) => {
       if (state.loop.charCounters[character].goodwill < schema.rank) return [];
       const targets = targetsFor(state, character, schema);

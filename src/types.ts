@@ -154,6 +154,8 @@ export interface Scenario {
   difficultyIndex?: number;
   difficulty?: number;
   daysPerLoop: number;
+  /** 원본 각본에 적힌 별도 진행 규칙. 빈 문자열은 어댑터에서 제거한다. */
+  specialRules?: string[];
   /** 하수인 시작 장소 등 각본가가 루프마다 지정하는 값 */
   scriptSpecified?: Record<string, unknown>;
 }

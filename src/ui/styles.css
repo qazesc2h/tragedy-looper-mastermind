@@ -1162,6 +1162,54 @@ select {
   padding: 7px;
 }
 
+.long-list-details {
+  min-width: 0;
+  margin-top: 6px;
+  border: 1px solid #4b402f;
+  border-radius: 8px;
+  background: #191713;
+  overflow: hidden;
+}
+
+.compact-information .long-list-details > summary,
+.long-list-details > summary {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 9px;
+  color: #d5c29e;
+  cursor: pointer;
+  font-size: 0.72rem;
+  list-style: none;
+}
+
+.long-list-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.long-list-details > summary strong {
+  overflow-wrap: anywhere;
+}
+
+.long-list-toggle::after {
+  color: #b99a64;
+  content: "펼치기";
+  font-size: 0.68rem;
+  white-space: nowrap;
+}
+
+.long-list-details[open] .long-list-toggle::after {
+  content: "접기";
+}
+
+.long-list-details > ul,
+.long-list-details > .loss-route-list {
+  border-top: 1px solid #443a2c;
+  padding: 7px;
+}
+
 .deduction-information {
   border-color: #5e5941;
 }
@@ -1504,6 +1552,37 @@ select {
   line-height: 1.4;
 }
 
+.scenario-cast-fact {
+  grid-column: 1 / -1;
+  color: #e1c98e;
+  font-size: 0.68rem;
+  line-height: 1.4;
+}
+
+.scenario-special-rules {
+  margin-bottom: 8px;
+  border: 1px solid #745a31;
+  border-radius: 8px;
+  background: rgba(100, 73, 32, 0.18);
+  padding: 8px;
+}
+
+.scenario-special-rules h3 {
+  margin: 0 0 6px;
+  color: #ead09a;
+  font-size: 0.74rem;
+}
+
+.scenario-special-rules ul {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding-left: 18px;
+  color: #d8c9ad;
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
 .scenario-cast-trait strong {
   color: #ead09a;
 }
@@ -1775,6 +1854,10 @@ select {
 .loss-route-list {
   display: grid;
   gap: 7px;
+  margin-top: 8px;
+}
+
+.loss-route-details {
   margin-top: 8px;
 }
 
