@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { initLoop } from "../src/engine/setup";
 import { publicObservationContext } from "../src/engine/public-observation";
+import { recordRoundEndPairs } from "../src/engine/round-evidence";
 import {
   advanceGame,
   chooseInitialLeader,
@@ -171,6 +172,7 @@ function simulateStoredScenario(scenario: Scenario): {
       for (const phase of PHASE_ORDER) {
         state.loop.day = day;
         state.loop.phase = phase;
+        if (phase === "P9_ROUND_END") recordRoundEndPairs(state);
         state.loop.phaseLog?.push(phaseEntry(phase, loop, day, state));
         persistGameState(
           storage,
@@ -261,6 +263,9 @@ function storageBreakdown(tracker: TrackerStore): Record<string, number> {
     currentLoop: jsonLength(game.state.loop),
     loopOutcomes: jsonLength(game.state.loopOutcomes),
     scenario: jsonLength(game.state.scenario),
+    roundEvidence: jsonLength(loops.flatMap((loop) =>
+      loop.roundEvidence ?? []
+    )),
   };
 }
 

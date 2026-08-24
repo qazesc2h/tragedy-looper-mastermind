@@ -2,6 +2,7 @@ import type {
   GameState,
   LoopEndReason,
 } from "../types";
+import { recordImmediateLoopEnd } from "./round-evidence";
 
 /**
  * 현재 효과 묶음이 끝난 직후 루프를 종료하도록 요청한다.
@@ -21,6 +22,7 @@ export function requestLoopEnd(
       phase: state.loop.phase,
       lossKeys: [...new Set(lossKeys)],
     };
+    recordImmediateLoopEnd(state, state.pendingLoopEnd);
     return;
   }
 
@@ -34,4 +36,5 @@ export function requestLoopEnd(
   if (reason === "protagonistDeath") {
     state.pendingLoopEnd.reason = reason;
   }
+  recordImmediateLoopEnd(state, state.pendingLoopEnd);
 }

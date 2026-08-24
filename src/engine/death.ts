@@ -11,6 +11,7 @@ import {
   reconcilePendingImmediateLosses,
   resolveHooks,
 } from "./phases";
+import { recordRoundDeathBatch } from "./round-evidence";
 
 export interface ProtagonistDeathResult {
   died: boolean;
@@ -28,6 +29,7 @@ const deathBatches = new WeakMap<GameState, DeathBatch>();
 function closeDeathBatch(state: GameState, batch: DeathBatch): void {
   deathBatches.delete(state);
   if (batch.deadCharacters.length > 0) {
+    recordRoundDeathBatch(state, batch.deadCharacters);
     // 현재 배치를 먼저 닫아 ON_DEATH 효과가 새 사망을 만들면 별도 배치로
     // 처리한다. 이미 죽은 캐릭터는 killCharacter가 거부하므로 재귀도 끝난다.
     resolveHooks(state, "ON_DEATH", {

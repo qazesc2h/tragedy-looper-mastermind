@@ -425,6 +425,34 @@ export type PhaseLogEntry = (
   observedAt?: PublicObservationAt;
 };
 
+/** 같은 원자적 효과 묶음에서 실제로 발생한 사망. */
+export interface RoundDeathBatch {
+  phase: Phase;
+  characters: CharacterId[];
+}
+
+/** P9 판정 직전 한 장소에 살아있는 두 캐릭터만 있었던 공개 사실. */
+export interface RoundEndPairEvidence {
+  location: Location;
+  characters: [CharacterId, CharacterId];
+  /** characters와 같은 순서의 관측 시점 불안 수치. */
+  paranoia: [number, number];
+}
+
+/** 한 날짜의 제약 생성에 필요한 최소 사실. 전체 보드 상태는 저장하지 않는다. */
+export interface RoundEvidence {
+  day: number;
+  /** 없으면 사망 묶음이 없었다. */
+  deathBatches?: RoundDeathBatch[];
+  /** 필드가 존재하면 P9 단둘 검사를 마쳤다. 빈 배열도 관측값이다. */
+  roundEndPairs?: RoundEndPairEvidence[];
+  /** lastDay 자연 종료가 아닌 즉시 종료 요청. */
+  immediateLoopEnd?: {
+    phase: Phase;
+    reason: Exclude<LoopEndReason, "lastDay">;
+  };
+}
+
 /** 이번 루프에 각본가가 주인공에게 전달해야 하는 공개·해결 결과. */
 export type PublicInformation = (
   | {
@@ -506,6 +534,9 @@ export interface LoopState {
 
   /** 자동 통과·사건 판정·리더 교대 기록 */
   phaseLog?: PhaseLogEntry[];
+
+  /** 역할 제약 생성용 날짜별 최소 사망·비사망 사실. */
+  roundEvidence?: RoundEvidence[];
 
   /** 이번 P4에서 음모 금지 무시 능력을 발동한 광신도 */
   cultistsIgnoringForbidIntrigue?: CharacterId[];

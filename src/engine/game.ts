@@ -221,6 +221,12 @@ export function finishLoop(state: GameState): LoopOutcome {
   const atLoopEnd = evaluateLoss(state);
   const losses = uniqueActivatedLosses([...atTrigger, ...atLoopEnd]);
 
+  // 완료 스냅샷에는 이번 종료를 일으킨 즉시 조건 키를 보존한다. 진행용
+  // 임시 선택 상태는 과거 기록에 필요하지 않으므로 제외한다.
+  const completedLoop = structuredClone(state.loop);
+  delete completedLoop.optionalLossActivations;
+  delete completedLoop.roundEndMandatoryResolved;
+
   delete state.loop.optionalLossActivations;
   delete state.loop.roundEndMandatoryResolved;
   delete state.loop.pendingImmediateLossKeys;
@@ -230,7 +236,7 @@ export function finishLoop(state: GameState): LoopOutcome {
   const outcomeObservedAt = nextPublicObservationAt(state, "LOOP_END");
 
   if (!state.history.some(({ loop }) => loop === state.loop.loop)) {
-    state.history.push(structuredClone(state.loop));
+    state.history.push(completedLoop);
   }
 
   const outcome: LoopOutcome = {

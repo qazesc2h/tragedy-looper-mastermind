@@ -20,6 +20,7 @@ import {
   publicBoardChanges,
   publicObservationContext,
 } from "./public-observation";
+import { recordRoundEndPairs } from "./round-evidence";
 
 function requestEndForActivatedLosses(s: GameState): void {
   // LOOP_END 조건은 라운드 종료 훅과 LAST_DAY 처리를 마친 뒤 finishLoop()에서
@@ -233,6 +234,7 @@ export function advance(
 
     case "P9_ROUND_END":
       if (!s.loop.roundEndMandatoryResolved) {
+        recordRoundEndPairs(s);
         resolveHooks(s, "P9_ROUND_END");
         requestEndForActivatedLosses(s);
         if (s.pendingLoopEnd) return undefined;
