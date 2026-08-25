@@ -156,7 +156,9 @@ import {
   lossDistanceSummary,
   ruleHypothesisSummary,
   spentCardsSummary,
+  type DeductionTablesSummary,
   type IncidentScheduleRow,
+  type RuleHypothesisSummary,
 } from "./mastermind-panel";
 import {
   phaseLogDayIsOpen,
@@ -3148,14 +3150,30 @@ function renderLoopStartInformation(state: GameState): string {
   </section>`;
 }
 
-function renderScenarioInformation(state: GameState): string {
-  const plots = [
-    { label: "룰 Y", id: state.scenario.mainPlot },
-    ...state.scenario.subPlots.map((id, index) => ({
-      label: `룰 X${index + 1}`,
-      id,
-    })),
-  ];
+function subPlotDeductionLabel(summary: RuleHypothesisSummary): string {
+  if (summary.remainingCombinations.length === 0) return "후보 없음";
+  const fixed = summary.fixedSubPlots.map(plotName);
+  if (summary.unresolvedSubPlotSlots === 0) {
+    return fixed.length === 0 ? "룰 X 없음" : `${fixed.join(" / ")} 확정`;
+  }
+  const unresolved = summary.unresolvedSubPlotCandidates.length;
+  if (fixed.length === 0) {
+    return `후보 ${unresolved}개 중 ${summary.unresolvedSubPlotSlots}개`;
+  }
+  return `${fixed.join(" / ")} 확정 + 나머지 ${summary.unresolvedSubPlotSlots}개 (후보 ${unresolved}개)`;
+}
+
+function renderScenarioInformation(
+  state: GameState,
+  ruleSummary: RuleHypothesisSummary,
+  deductionSummary: DeductionTablesSummary,
+): string {
+  const mainPlotCandidates = ruleSummary.mainPlotCandidates.map(plotName);
+  const subPlotCandidates = ruleSummary.subPlotCandidates.map(plotName);
+  const fixedSubPlotSet = new Set(ruleSummary.fixedSubPlots);
+  const roleRows = new Map(
+    deductionSummary.roleRows.map((row) => [row.character, row]),
+  );
   const specialRules = state.scenario.specialRules ?? [];
 
   return `<section class="scenario-information-panel">
@@ -3164,10 +3182,46 @@ function renderScenarioInformation(state: GameState): string {
       <h2>룰과 역할</h2>
     </div>
     <dl class="scenario-rule-list">
-      ${plots.map(({ label, id }) => `
-        <div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(
-          id ? plotName(id) : misc("None", "None"),
-        )}</dd></div>`).join("")}
+      <div class="scenario-rule-row is-rule-y ${
+        ruleSummary.ruleYFixed ? "is-confirmed" : ""
+      }">
+        <dt>룰 Y</dt>
+        <dd>
+          <span class="scenario-rule-value">${escapeHtml(
+            plotName(state.scenario.mainPlot),
+          )}</span>
+          <i class="scenario-deduction-chip ${
+            ruleSummary.ruleYFixed ? "is-danger" : ""
+          }" title="공개 후보: ${escapeHtml(
+            mainPlotCandidates.join(" / ") || "없음",
+          )}">${ruleSummary.ruleYFixed
+            ? "확정 · 위험"
+            : `후보 ${ruleSummary.mainPlotCandidates.length}개`}</i>
+          <small>공개 후보 · ${escapeHtml(
+            mainPlotCandidates.join(" / ") || "없음",
+          )}</small>
+        </dd>
+      </div>
+      <div class="scenario-rule-row is-rule-x ${
+        ruleSummary.fixedSubPlots.length > 0 ? "is-confirmed" : ""
+      }">
+        <dt>룰 X <small>순서 없음</small></dt>
+        <dd>
+          <span class="scenario-rule-values">${
+            state.scenario.subPlots.length === 0
+              ? escapeHtml(misc("None", "None"))
+              : state.scenario.subPlots.map((plot) => `
+                <span>${escapeHtml(plotName(plot))}${
+                  fixedSubPlotSet.has(plot)
+                    ? `<i class="scenario-deduction-chip is-confirmed">확정</i>`
+                    : ""
+                }</span>`).join("")
+          }</span>
+          <small class="scenario-rule-deduction" title="공개 후보: ${escapeHtml(
+            subPlotCandidates.join(" / ") || "없음",
+          )}">공개 추론 · ${escapeHtml(subPlotDeductionLabel(ruleSummary))}</small>
+        </dd>
+      </div>
     </dl>
     ${specialRules.length === 0
       ? ""
@@ -3179,6 +3233,7 @@ function renderScenarioInformation(state: GameState): string {
         </section>`}
     <ul class="scenario-cast-list">
       ${Object.keys(state.scenario.cast).map((character) => {
+        const roleRow = roleRows.get(character);
         const culpritDays = incidentDaysForCharacter(state, character);
         const traitText = characterTraitText(state, character);
         const facts: string[] = [];
@@ -3201,9 +3256,20 @@ function renderScenarioInformation(state: GameState): string {
             counter === undefined ? "미선택" : counterLabel(counter)
           }`);
         }
+        const possibleRoleNames = roleRow?.possibleRoles.map(roleName) ?? [];
+        const roleStatus = roleRow?.confirmedRole === undefined
+          ? `후보 ${possibleRoleNames.length}개`
+          : "확정";
         return `<li>
           <span>${escapeHtml(characterName(character))}</span>
-          <b>${escapeHtml(roleName(effectiveRole(state, character)))}</b>
+          <span class="scenario-role-value">
+            <b>${escapeHtml(roleName(effectiveRole(state, character)))}</b>
+            <i class="scenario-deduction-chip ${
+              roleRow?.confirmedRole === undefined ? "" : "is-confirmed"
+            }" title="공개 후보: ${escapeHtml(
+              possibleRoleNames.join(" / ") || "없음",
+            )}">${roleStatus}</i>
+          </span>
           ${culpritDays.length === 0
             ? ""
             : `<em>범인 · ${culpritDays.map((day) => `${day}일`).join(" · ")}</em>`}
@@ -3375,8 +3441,7 @@ function ruleCombinationLabel(
   return `${plotName(mainPlot)} + ${subPlots.map(plotName).join(" / ")}`;
 }
 
-function renderRuleHypotheses(state: GameState): string {
-  const summary = ruleHypothesisSummary(state);
+function renderRuleHypotheses(summary: RuleHypothesisSummary): string {
   const remainingCount = summary.remainingCombinations.length;
   const mainCandidateNames = summary.mainPlotCandidates.map(plotName);
   const subCandidateNames = summary.subPlotCandidates.map(plotName);
@@ -3759,8 +3824,9 @@ function renderRoleInferenceTraces(
   </section>`;
 }
 
-function renderDeductionTables(state: GameState): string {
-  const summary = deductionTablesSummary(state);
+function renderDeductionTables(
+  summary: DeductionTablesSummary,
+): string {
   const roleInferenceTraces = renderRoleInferenceTraces(summary);
   const roleRows = summary.roleRows.map((row) => {
     const names = row.possibleRoles.map(roleName);
@@ -3884,13 +3950,15 @@ function renderDeductionTables(state: GameState): string {
 
 function renderMastermindOverlay(state: GameState): string {
   if (!tracker.mastermindOverlay) return "";
+  const ruleSummary = ruleHypothesisSummary(state);
+  const deductionSummary = deductionTablesSummary(state);
   return `
     <aside class="mastermind-overlay" aria-label="각본가 정보">
       ${renderLoopStartInformation(state)}
       ${renderMastermindGuidance(state, "panel")}
       ${renderCurrentLossDisclosure(state)}
-      ${renderRuleHypotheses(state)}
-      ${renderDeductionTables(state)}
+      ${renderRuleHypotheses(ruleSummary)}
+      ${renderDeductionTables(deductionSummary)}
       <details class="info-accordion today-information" open>
         <summary>
           <span><small>오늘</small><strong>사건·범인·판정 상태</strong></span>
@@ -3905,7 +3973,11 @@ function renderMastermindOverlay(state: GameState): string {
           <span><small>시나리오</small><strong>룰과 역할</strong></span>
           <i aria-hidden="true"></i>
         </summary>
-        <div class="info-accordion-body">${renderScenarioInformation(state)}</div>
+        <div class="info-accordion-body">${renderScenarioInformation(
+          state,
+          ruleSummary,
+          deductionSummary,
+        )}</div>
       </details>
       <details class="info-accordion compact-information">
         <summary>

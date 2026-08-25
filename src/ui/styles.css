@@ -1486,17 +1486,27 @@ select {
 
 .scenario-rule-list {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 5px;
   margin: 0 0 9px;
 }
 
-.scenario-rule-list div {
+.scenario-rule-list > div {
   min-width: 0;
   border: 1px solid #4e402d;
   border-radius: 7px;
   background: #201c16;
   padding: 7px;
+}
+
+.scenario-rule-list > .is-rule-y.is-confirmed {
+  border-color: #9b5548;
+  background: rgba(83, 38, 31, 0.48);
+  box-shadow: inset 3px 0 0 #bd6653;
+}
+
+.scenario-rule-list > .is-rule-x.is-confirmed {
+  border-color: #6b7546;
 }
 
 .scenario-rule-list dt {
@@ -1505,14 +1515,63 @@ select {
   font-size: 0.65rem;
 }
 
+.scenario-rule-list dt small {
+  margin-left: 4px;
+  color: #7f735f;
+  font-size: 0.6rem;
+  font-weight: 500;
+}
+
 .scenario-rule-list dd {
-  overflow: hidden;
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
   margin: 0;
   color: #ead09a;
   font-size: 0.74rem;
   font-weight: 800;
   line-height: 1.25;
-  text-overflow: ellipsis;
+}
+
+.scenario-rule-value,
+.scenario-rule-values {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.scenario-rule-values {
+  display: flex;
+  flex: 1 1 100%;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.scenario-rule-values > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.scenario-rule-values > span + span::before {
+  content: "/";
+  margin-right: 1px;
+  color: #756a58;
+}
+
+.scenario-rule-list dd > small {
+  flex: 1 1 100%;
+  color: #a99a80;
+  font-size: 0.64rem;
+  font-weight: 500;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.scenario-rule-list .scenario-rule-deduction {
+  color: #d5c39d;
+  font-weight: 700;
 }
 
 .scenario-cast-list,
@@ -1535,6 +1594,42 @@ select {
   border-bottom: 1px solid #393126;
   padding: 6px 1px;
   font-size: 0.75rem;
+}
+
+.scenario-role-value {
+  display: inline-flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.scenario-deduction-chip {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  border: 1px solid #6b5c43;
+  border-radius: 999px;
+  padding: 2px 5px;
+  color: #cdbc9c;
+  font-size: 0.6rem;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.scenario-deduction-chip.is-confirmed {
+  border-color: #667545;
+  background: rgba(61, 80, 39, 0.38);
+  color: #c9e79b;
+}
+
+.scenario-deduction-chip.is-danger {
+  border-color: #a85d4e;
+  background: rgba(116, 50, 39, 0.45);
+  color: #f1aaa0;
 }
 
 .scenario-cast-list b,

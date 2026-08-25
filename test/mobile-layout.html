@@ -987,13 +987,22 @@
         await reloadApp("loss-deduction-alert");
         document = frameDocument();
         const lossAlert = document.querySelector(".loss-deduction-alert");
+        const fixedRuleY = document.querySelector(
+          ".scenario-information-panel .is-rule-y",
+        );
         const lossAlertReport = {
           text: lossAlert?.textContent.replace(/\s+/g, " ").trim() ?? "",
+          ruleYText: fixedRuleY?.textContent.replace(/\s+/g, " ").trim() ?? "",
+          dangerousRuleYChip: Boolean(fixedRuleY?.querySelector(
+            ".scenario-deduction-chip.is-danger",
+          )),
           horizontal: horizontalOverflow(),
         };
         reports.push({ label: "패배 조건 확정 경고", ...lossAlertReport });
         if (
           !lossAlertReport.text.includes("이번 패배로 봉인된 것 확정됨") ||
+          !lossAlertReport.ruleYText.includes("봉인된 것 확정 · 위험") ||
+          !lossAlertReport.dangerousRuleYChip ||
           lossAlertReport.horizontal.scrollWidth > WIDTH
         ) {
           failures.push(`패배 조건 확정 경고: ${JSON.stringify(lossAlertReport)}`);
@@ -1003,43 +1012,74 @@
         mutateActiveState((state) => {
           state.history = [];
           state.loopOutcomes = [];
+          state.scenario.subPlots = ["loveAffair", "threadsFate"];
           state.loop.revealedRoleCharacters = [];
           state.loop.publicInformationThisLoop = [];
           state.loop.phaseLog = [];
-          state.loop.phaseLog.push(
-            {
-              loop: 1,
-              day: 2,
-              phase: "P7_INCIDENT",
-              kind: "abilityActivated",
-              timing: "ON_DEATH",
-              description: "hidden source",
-              publicTrigger: {
-                kind: "death",
-                deadCharacters: ["girlStudent"],
-              },
-              publicChanges: [{
-                kind: "counter",
-                target: { kind: "character", id: "boyStudent" },
-                counter: "paranoia",
-                delta: 6,
-              }],
+          state.loop.phaseLog.push({
+            loop: 1,
+            day: 2,
+            phase: "P7_INCIDENT",
+            kind: "abilityActivated",
+            timing: "ON_DEATH",
+            description: "hidden source",
+            publicTrigger: {
+              kind: "death",
+              deadCharacters: ["girlStudent"],
             },
-            {
-              loop: 2,
-              day: 1,
-              phase: "P1_ROUND_START",
-              kind: "abilityActivated",
-              timing: "LOOP_START",
-              description: "hidden source",
-              publicChanges: ["boyStudent", "girlStudent"].map((id) => ({
-                kind: "counter",
-                target: { kind: "character", id },
-                counter: "paranoia",
-                delta: 2,
-              })),
-            },
-          );
+            publicChanges: [{
+              kind: "counter",
+              target: { kind: "character", id: "boyStudent" },
+              counter: "paranoia",
+              delta: 6,
+            }],
+          });
+        });
+        await reloadApp("unordered-x-partial");
+        document = frameDocument();
+        const scenarioPanel = document.querySelector(".scenario-information-panel");
+        const scenarioDetails = scenarioPanel?.closest("details");
+        if (!(scenarioDetails instanceof frameWindow().HTMLDetailsElement)) {
+          throw new Error("부분 확정 룰과 역할 패널을 찾을 수 없습니다.");
+        }
+        scenarioDetails.open = true;
+        scenarioDetails.scrollIntoView({ block: "start" });
+        await pause(100);
+        const partialXText = scenarioPanel.querySelector(".is-rule-x")
+          ?.textContent.replace(/\s+/g, " ").trim() ?? "";
+        const partialXReport = {
+          text: partialXText,
+          confirmedChips: scenarioPanel.querySelectorAll(
+            ".is-rule-x .scenario-deduction-chip.is-confirmed",
+          ).length,
+          horizontal: horizontalOverflow(),
+        };
+        reports.push({ label: "순서 없는 룰 X 부분 확정", ...partialXReport });
+        if (
+          !partialXReport.text.includes(
+            "연애의 풍경 확정 + 나머지 1개 (후보 6개)",
+          ) ||
+          partialXReport.confirmedChips !== 1 ||
+          partialXReport.horizontal.scrollWidth > WIDTH
+        ) {
+          failures.push(`순서 없는 룰 X 부분 확정: ${JSON.stringify(partialXReport)}`);
+        }
+
+        mutateActiveState((state) => {
+          state.loop.phaseLog.push({
+            loop: 2,
+            day: 1,
+            phase: "P1_ROUND_START",
+            kind: "abilityActivated",
+            timing: "LOOP_START",
+            description: "hidden source",
+            publicChanges: ["boyStudent", "girlStudent"].map((id) => ({
+              kind: "counter",
+              target: { kind: "character", id },
+              counter: "paranoia",
+              delta: 2,
+            })),
+          });
         });
         await reloadApp("c2-fixed-observations");
         document = frameDocument();
@@ -1108,11 +1148,16 @@
         const incidentPanel = document.querySelector(
           ".incident-deduction-information",
         );
+        const scenarioPanel = document.querySelector(
+          ".scenario-information-panel",
+        );
+        const scenarioDetails = scenarioPanel?.closest("details");
         if (
           !(rolePanel instanceof frameWindow().HTMLDetailsElement) ||
-          !(incidentPanel instanceof frameWindow().HTMLDetailsElement)
+          !(incidentPanel instanceof frameWindow().HTMLDetailsElement) ||
+          !(scenarioDetails instanceof frameWindow().HTMLDetailsElement)
         ) {
-          throw new Error("역할·범인 후보 패널을 찾을 수 없습니다.");
+          throw new Error("룰·역할·범인 후보 패널을 찾을 수 없습니다.");
         }
 
         const roleSummaryRect = rolePanel.querySelector(":scope > summary")
@@ -1121,6 +1166,7 @@
           .getBoundingClientRect();
         rolePanel.open = true;
         incidentPanel.open = true;
+        scenarioDetails.open = true;
         const roleGridDetails = rolePanel.querySelector(".deduction-grid-details");
         const incidentGridDetails = incidentPanel.querySelector(
           ".deduction-grid-details",
@@ -1206,6 +1252,13 @@
           stacking,
           roleText: rolePanel.textContent.replace(/\s+/g, " ").trim(),
           incidentText: incidentPanel.textContent.replace(/\s+/g, " ").trim(),
+          scenarioConfirmedRoles: scenarioPanel.querySelectorAll(
+            ".scenario-cast-list .scenario-deduction-chip.is-confirmed",
+          ).length,
+          scenarioCandidateRoles: scenarioPanel.querySelectorAll(
+            ".scenario-cast-list .scenario-deduction-chip:not(.is-confirmed)",
+          ).length,
+          scenarioText: scenarioPanel.textContent.replace(/\s+/g, " ").trim(),
           horizontal: horizontalOverflow(),
         };
         reports.push({ label: "역할·범인 추리표", ...report });
@@ -1227,6 +1280,9 @@
           ) ||
           !report.roleText.includes("확정") ||
           !report.incidentText.includes("확정") ||
+          report.scenarioConfirmedRoles < 1 ||
+          report.scenarioCandidateRoles < 1 ||
+          !report.scenarioText.includes("후보") ||
           report.horizontal.scrollWidth > WIDTH
         ) {
           failures.push(`역할·범인 추리표: ${JSON.stringify(report)}`);

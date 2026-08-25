@@ -227,6 +227,9 @@ describe("mastermind rule hypothesis summary", () => {
       totalCombinations: 105,
       mainPlotTotal: 5,
       subPlotTotal: 7,
+      subPlotSlots: 2,
+      fixedSubPlots: [],
+      unresolvedSubPlotSlots: 2,
       ruleYFixed: false,
       showEveryCombination: false,
     });
@@ -414,8 +417,47 @@ describe("mastermind rule hypothesis summary", () => {
     expect(summary.remainingCombinations).toHaveLength(5);
     expect(summary.mainPlotCandidates).toHaveLength(5);
     expect(summary.subPlotCandidates).toEqual(["loveAffair", "threadsFate"]);
+    expect(summary.fixedSubPlots).toEqual(["loveAffair", "threadsFate"]);
+    expect(summary.unresolvedSubPlotCandidates).toEqual([]);
+    expect(summary.unresolvedSubPlotSlots).toBe(0);
     expect(summary.observationImpacts.map(({ excludedCount }) => excludedCount))
       .toEqual([0, 0, 75, 25]);
+  });
+
+  it("treats basic subplots as an unordered pair with a shared fixed member", () => {
+    const state = createState();
+    state.loop.phaseLog?.push({
+      loop: 1,
+      day: 2,
+      phase: "P7_INCIDENT",
+      kind: "abilityActivated",
+      timing: "ON_DEATH",
+      description: "hidden source",
+      publicTrigger: {
+        kind: "death",
+        deadCharacters: ["girlStudent"],
+      },
+      publicChanges: [{
+        kind: "counter",
+        target: { kind: "character", id: "officeWorker" },
+        counter: "paranoia",
+        delta: 6,
+      }],
+    });
+
+    const summary = ruleHypothesisSummary(state);
+
+    expect(summary.remainingCombinations).toHaveLength(30);
+    expect(summary.fixedSubPlots).toEqual(["loveAffair"]);
+    expect(summary.unresolvedSubPlotCandidates).toEqual([
+      "circleFriends",
+      "hiddenFreak",
+      "unsettlingRumor",
+      "paranoiaVirus",
+      "threadsFate",
+      "unknownFactor",
+    ]);
+    expect(summary.unresolvedSubPlotSlots).toBe(1);
   });
 
   it("marks the nine-combination firstSteps set for a full list", () => {

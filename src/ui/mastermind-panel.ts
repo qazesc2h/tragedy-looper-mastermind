@@ -72,6 +72,10 @@ export interface RuleHypothesisSummary {
   mainPlotCandidates: PlotId[];
   subPlotTotal: number;
   subPlotCandidates: PlotId[];
+  subPlotSlots: number;
+  fixedSubPlots: PlotId[];
+  unresolvedSubPlotCandidates: PlotId[];
+  unresolvedSubPlotSlots: number;
   ruleYFixed: boolean;
   observationImpacts: RuleHypothesisObservationImpact[];
   lossDeductions: LossHypothesisDeduction[];
@@ -136,6 +140,14 @@ export function ruleHypothesisSummary(
   const subPlotCandidates = definition.subPlots.filter((plot) =>
     remainingSubPlots.has(plot)
   );
+  const fixedSubPlots = subPlotCandidates.filter((plot) =>
+    evaluation.remaining.length > 0 &&
+    evaluation.remaining.every(({ subPlots }) => subPlots.includes(plot))
+  );
+  const fixedSubPlotSet = new Set(fixedSubPlots);
+  const unresolvedSubPlotCandidates = subPlotCandidates.filter((plot) =>
+    !fixedSubPlotSet.has(plot)
+  );
   const lossDeductions: LossHypothesisDeduction[] = [];
   for (let index = 0; index < evaluation.observations.length; index += 1) {
     const observation = evaluation.observations[index];
@@ -184,6 +196,13 @@ export function ruleHypothesisSummary(
     mainPlotCandidates,
     subPlotTotal: definition.subPlots.length,
     subPlotCandidates,
+    subPlotSlots: definition.numberOfSubPlots,
+    fixedSubPlots,
+    unresolvedSubPlotCandidates,
+    unresolvedSubPlotSlots: Math.max(
+      0,
+      definition.numberOfSubPlots - fixedSubPlots.length,
+    ),
     ruleYFixed: mainPlotCandidates.length === 1,
     observationImpacts,
     lossDeductions,
