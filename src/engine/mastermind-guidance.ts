@@ -47,6 +47,8 @@ export interface MastermindGuidanceRoute {
 export interface MastermindGuidance {
   primary?: MastermindGuidanceRoute;
   alternatives: MastermindGuidanceRoute[];
+  /** 1순위부터 자원 중복이 적은 순으로 정렬한, 각본가가 노릴 수 있는 경로. */
+  rankedRoutes: MastermindGuidanceRoute[];
   automaticRisks: MastermindGuidanceRoute[];
   protagonistChoices: MastermindGuidanceRoute[];
   routes: MastermindGuidanceRoute[];
@@ -448,8 +450,6 @@ function guidanceRoute(
   const interference = interferenceFor(condition, route);
   const warning = condition.role === "timeTraveler"
     ? "각본가 행동은 0회다. 주인공이 우호를 쌓지 않고 방치하면 마지막 날에 성립한다."
-    : route.control === "automatic"
-    ? "조건이 갖춰지면 강제 발동한다. 각본가도 멈출 수 없다."
     : route.control === "protagonist"
     ? "사용 여부와 대상은 주인공이 고른다. 노릴 경로가 아니다."
     : undefined;
@@ -618,16 +618,18 @@ export function mastermindGuidance(state: GameState): MastermindGuidance {
   const unique = [...byKey.values()].sort(compareRoutes);
   const pursuable = unique.filter(({ control }) => control !== "protagonist");
   const primary = pursuable[0];
-  const alternatives = primary === undefined
+  const rankedRoutes = primary === undefined
     ? []
-    : pursuable.slice(1).sort((left, right) => {
+    : [primary, ...pursuable.slice(1).sort((left, right) => {
       const overlap = resourceOverlap(primary, left) -
         resourceOverlap(primary, right);
       return overlap !== 0 ? overlap : compareRoutes(left, right);
-    }).slice(0, 2);
+    })];
+  const alternatives = rankedRoutes.slice(1, 3);
   return {
     ...(primary === undefined ? {} : { primary }),
     alternatives,
+    rankedRoutes,
     automaticRisks: unique.filter(({ control }) => control === "automatic"),
     protagonistChoices: unique.filter(({ control }) => control === "protagonist"),
     routes: unique,

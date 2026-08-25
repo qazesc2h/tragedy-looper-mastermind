@@ -21,7 +21,9 @@ describe("mastermind cover guidance", () => {
     const results = loadScenarioCatalog().flatMap((entry) =>
       entry.difficulties.map((difficulty) => ({
         key: `${entry.id}#${difficulty.index}`,
-        castSize: Object.keys(difficulty.scenario.cast).length,
+        roleHolderCount: Object.values(difficulty.scenario.cast).filter(
+          (role) => role !== "person",
+        ).length,
         guidance: mastermindCoverGuidance(
           createGameState(difficulty.scenario),
         ),
@@ -29,11 +31,13 @@ describe("mastermind cover guidance", () => {
     );
 
     expect(results).toHaveLength(47);
-    for (const { key, castSize, guidance } of results) {
-      expect(guidance.candidates, key).toHaveLength(castSize);
+    for (const { key, roleHolderCount, guidance } of results) {
+      expect(guidance.candidates, key).toHaveLength(roleHolderCount);
       expect(guidance.recommendation, key).toBeDefined();
       expect(new Set(guidance.candidates.map(({ character }) => character)).size,
-        key).toBe(castSize);
+        key).toBe(roleHolderCount);
+      expect(guidance.candidates.every(({ role }) => role !== "person"), key)
+        .toBe(true);
       for (const candidate of guidance.candidates) {
         expect(candidate.exposurePathCount, key).toBe(
           candidate.exposurePaths.length,
@@ -159,5 +163,40 @@ describe("mastermind cover guidance", () => {
     expect(serialKiller?.recommendationReason).toContain("후순위");
     expect(firstSteps.hasFinalGuess).toBe(false);
     expect(firstSteps.finalDefensePrinciple).toContain("최후의 싸움이 없다");
+  });
+
+  it("treats the nurse as hiding mandatory refusal and separates common role reveals", () => {
+    const lesser = mastermindCoverGuidance(stateFor("basicTragedy:8"));
+    const nurse = lesser.candidates.find(({ character }) => character === "nurse");
+    const shrineReveal = lesser.commonExposure.find(({ key }) =>
+      key.startsWith("common-goodwill-reveal:shrineMaiden:")
+    );
+
+    expect(nurse).toMatchObject({ role: "cultist", baseDifficulty: "controlled" });
+    expect(nurse?.exposurePaths.some(({ key }) =>
+      key.includes("mandatory-refusal")
+    )).toBe(false);
+    expect(nurse?.recommendationReason).toContain("거부 불가라 절대 우호 무시 여부가 드러나지 않는다");
+    expect(shrineReveal?.targetCharacterNames.length).toBeGreaterThan(0);
+    expect(lesser.candidates.some(({ role }) => role === "person")).toBe(false);
+  });
+
+  it("excludes AI from the Shrine Maiden's same-location role reveal", () => {
+    const state = stateFor("basicTragedy:8");
+    state.scenario.cast.ai = "brain";
+    state.loop.board.ai = { status: "alive", at: "City" };
+    state.loop.charCounters.ai = {
+      goodwill: 0,
+      paranoia: 0,
+      intrigue: 0,
+      protection: 0,
+    };
+    const guidance = mastermindCoverGuidance(state);
+    const shrineReveal = guidance.commonExposure.find(({ key }) =>
+      key.startsWith("common-goodwill-reveal:shrineMaiden:")
+    );
+
+    expect(shrineReveal?.excludedCharacterNames).toContain("AI");
+    expect(shrineReveal?.targetCharacterNames).not.toContain("AI");
   });
 });

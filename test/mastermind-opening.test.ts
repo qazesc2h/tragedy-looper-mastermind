@@ -107,11 +107,13 @@ describe("mastermind opening guidance E", () => {
     );
 
     expect(guidance.eligibleDecoyCount).toBeGreaterThan(0);
-    expect(guidance.excludedDecoys).toEqual(expect.arrayContaining([
-      expect.objectContaining({ reason: expect.stringContaining("1일차") }),
-    ]));
+    expect(guidance.excludedDecoys.every(({ reason }) =>
+      reason.includes("1일차")
+    )).toBe(true);
     expect(decoyContributions.every(({ amount }) => amount > 0)).toBe(true);
-    expect(guidance.axisContract).toContain("장소 음모·캐릭터 음모");
+    expect(guidance.axisContract).toContain("A의 승리 경로");
+    expect(guidance.axisContract).not.toContain("224개");
+    expect(guidance.horizonReason).toContain("2일차부터는 주인공이 낸 카드");
   });
 
   it("uses D only as a profile tie-break explanation", () => {

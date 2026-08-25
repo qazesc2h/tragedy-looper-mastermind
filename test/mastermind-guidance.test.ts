@@ -29,11 +29,24 @@ describe("mastermind pre-game guidance", () => {
     for (const { key, guidance } of results) {
       expect(guidance.routes.length, key).toBeGreaterThan(0);
       expect(guidance.primary, key).toBeDefined();
+      expect(guidance.rankedRoutes[0], key).toEqual(guidance.primary);
+      expect(guidance.alternatives, key).toEqual(
+        guidance.rankedRoutes.slice(1, 3),
+      );
       expect(new Set(guidance.routes.map(({ conditionKey, key: routeKey }) =>
         `${conditionKey}|${routeKey}`
       )).size,
         key).toBe(guidance.routes.length);
     }
+  });
+
+  it("uses the control label without repeating the generic automatic warning", () => {
+    const guidance = mastermindGuidance(stateFor("basicTragedy:8"));
+
+    expect(guidance.automaticRisks.length).toBeGreaterThan(0);
+    expect(guidance.automaticRisks.every(({ warning }) =>
+      warning === undefined || warning.includes("방치하면")
+    )).toBe(true);
   });
 
   it("includes the First Script protagonist-death and key-person routes", () => {

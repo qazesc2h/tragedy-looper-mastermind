@@ -527,13 +527,13 @@ export function mastermindOpeningGuidance(state: GameState): MastermindOpeningGu
   const candidateProfiles = profiles(state, generated.candidates);
   return {
     horizonDays: 1,
-    horizonReason: `1일차 기여 배치 ${generated.candidates.length}개에서 합법적인 3장 조합 ${candidateProfiles.length}개를 전수 평가했다. 2일차는 각 조합마다 주인공 3장 대응 분기가 다시 곱해지므로 이번 정적 지침 범위에서 제외했다.`,
+    horizonReason: "게임 전에는 1일차 시작 상태만 확정되어 있습니다. 2일차부터는 주인공이 낸 카드와 공개된 결과에 따라 보드 상태가 달라지므로, 시작 전에 고정한 추천은 실제 진행과 어긋날 수 있습니다. 이후 판단은 게임 중 각본가 정보에서 현재 상태를 확인하십시오.",
     allP2Count: 63_360,
     contributingPlacementCount: generated.candidates.length,
     candidateProfileCount: candidateProfiles.length,
     eligibleDecoyCount: generated.eligibleDecoyCount,
     excludedDecoys: generated.excludedDecoys,
     recommendations: candidateProfiles.slice(0, 3),
-    axisContract: "224개 패배 위험 경로가 쓰는 목표를 장소 음모·캐릭터 음모·캐릭터 불안·위치 관계로 다시 나눴다. 음모 금지 상쇄는 그날 낸 장수를 전체로 세지만, 활성 금지는 카드를 놓은 대상에만 적용된다. 따라서 최악 대응은 음모 배치 한 곳과 모든 이동·불안 배치를 막는 것으로 계산한다.",
+    axisContract: "각 배치가 A의 승리 경로 또는 C의 성립 가능한 미끼를 실제로 진척시키는지 계산합니다. 주인공 대응은 음모 배치 한 곳과 모든 이동·불안 배치를 막을 수 있는 가장 불리한 합법 조합으로 평가합니다.",
   };
 }

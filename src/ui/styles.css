@@ -2029,9 +2029,7 @@ select {
 }
 
 .pre-game-guidance {
-  display: grid;
   min-width: 0;
-  gap: 10px;
   margin-top: 14px;
   border: 1px solid #765d36;
   border-radius: 12px;
@@ -2039,29 +2037,60 @@ select {
   padding: 12px;
 }
 
-.pre-game-guidance-heading h2,
-.pre-game-guidance-heading p {
-  margin: 0;
-}
-
 .pre-game-guidance-heading {
-  display: grid;
-  gap: 5px;
+  display: flex;
+  min-height: 46px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  cursor: pointer;
+  list-style: none;
 }
 
-.pre-game-guidance-heading h2 {
+.pre-game-guidance-heading::-webkit-details-marker {
+  display: none;
+}
+
+.pre-game-guidance-heading > span {
+  display: grid;
+  gap: 4px;
+}
+
+.pre-game-guidance-heading strong {
   color: #ead8b6;
   font-size: 1rem;
 }
 
-.pre-game-guidance-heading p,
+.pre-game-guidance-heading i {
+  width: 9px;
+  height: 9px;
+  transform: rotate(45deg);
+  border-right: 2px solid #a99575;
+  border-bottom: 2px solid #a99575;
+  transition: transform 150ms ease;
+}
+
+.pre-game-guidance[open] .pre-game-guidance-heading i {
+  transform: rotate(225deg);
+}
+
+.pre-game-guidance-body {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.pre-game-guidance-intro,
 .guidance-footnote {
+  margin: 0;
   color: #b8aa94;
   font-size: 0.72rem;
   line-height: 1.45;
 }
 
 .mastermind-guidance-body,
+.mastermind-guidance-priorities,
 .guidance-priority-list,
 .guidance-all-routes-body {
   display: grid;
@@ -2314,21 +2343,6 @@ select {
   overflow-wrap: anywhere;
 }
 
-.opening-target-kind {
-  flex: 0 0 auto;
-  border-radius: 999px;
-  padding: 2px 5px;
-  background: rgba(61, 94, 117, 0.42);
-  color: #a9c7da;
-  font-size: 0.57rem;
-  font-weight: 700;
-}
-
-.opening-target-kind.target-character {
-  background: rgba(105, 73, 94, 0.46);
-  color: #d0acc4;
-}
-
 .opening-placement-list p,
 .opening-placement-list small {
   margin: 0 0 0 24px;
@@ -2367,6 +2381,13 @@ select {
 
 .opening-method li strong {
   color: #cbbba2;
+}
+
+.opening-excluded-title,
+.decoy-rule-explanation {
+  color: #b8aa94;
+  font-size: 0.65rem;
+  line-height: 1.4;
 }
 
 .cover-phase-principles {
@@ -2508,6 +2529,28 @@ select {
 .cover-candidate li span { color: #b9aa95; }
 .cover-candidate li small { color: #928571; }
 
+.cover-common-exposure ul {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cover-common-exposure li {
+  display: grid;
+  gap: 3px;
+  border-radius: 6px;
+  background: #242019;
+  padding: 7px;
+  color: #b9aa95;
+  font-size: 0.63rem;
+  line-height: 1.4;
+}
+
+.cover-common-exposure li strong { color: #d8c9b1; }
+.cover-common-exposure li small { color: #928571; }
+
 .decoy-category .guidance-caution-list {
   gap: 8px;
 }
@@ -2596,23 +2639,6 @@ select {
   flex: 0 0 auto;
   color: #958a79;
   font-size: 0.59rem;
-}
-
-.decoy-target-kind {
-  border-radius: 999px;
-  background: rgba(90, 72, 119, 0.38);
-  padding: 3px 6px;
-  white-space: nowrap;
-}
-
-.decoy-target-kind.target-location {
-  background: rgba(58, 95, 84, 0.38);
-  color: #9bc6b4;
-}
-
-.decoy-target-kind.target-character {
-  background: rgba(101, 66, 59, 0.38);
-  color: #d0a395;
 }
 
 .decoy-requirement {

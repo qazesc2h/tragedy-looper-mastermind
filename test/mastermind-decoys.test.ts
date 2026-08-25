@@ -60,7 +60,7 @@ describe("mastermind decoy guidance", () => {
     expect(group?.candidates).toContain(group?.actualHolders[0]);
   });
 
-  it("pairs rules by observation type across tragedy sets", () => {
+  it("pairs rules by observation type only within the current tragedy set", () => {
     const sealed = mastermindDecoyGuidance(stateFor("basicTragedy:8"))
       .confusableRules.find(({ key }) =>
         key === "sealedItem:locationIntrigueLoss"
@@ -68,8 +68,11 @@ describe("mastermind decoy guidance", () => {
     const murder = mastermindDecoyGuidance(stateFor("basicTragedy:13"))
       .confusableRules.find(({ key }) => key === "murderPlan:keyPersonDeath");
 
-    expect(sealed?.alternatives.map(({ plot }) => plot)).toEqual(
-      expect.arrayContaining(["giantTimeBomb", "placeProtect"]),
+    expect(sealed?.alternatives.map(({ plot }) => plot)).toContain(
+      "giantTimeBomb",
+    );
+    expect(sealed?.alternatives.map(({ plot }) => plot)).not.toContain(
+      "placeProtect",
     );
     expect(murder?.alternatives.map(({ plot }) => plot)).toContain("signWithMe");
     expect(Object.keys(PLOT_OBSERVATION_PROFILES).sort()).toEqual(
@@ -78,6 +81,18 @@ describe("mastermind decoy guidance", () => {
     expect(Object.values(PLOT_OBSERVATION_PROFILES).every(
       (profiles) => profiles.length > 0,
     )).toBe(true);
+  });
+
+  it("omits visible key-person deaths and undeliverable protagonist-death decoys", () => {
+    const guidance = mastermindDecoyGuidance(stateFor("basicTragedy:8"));
+    const keys = guidance.fakeLossConditions.map(({ explanationKey }) =>
+      explanationKey
+    );
+
+    expect(keys).not.toContain("role:keyPerson");
+    expect(keys).not.toContain("role:factor");
+    expect(keys).not.toContain("role:killer");
+    expect(keys).not.toContain("role:lovedOne");
   });
 
   it("keeps location and character intrigue loss decoys distinct", () => {

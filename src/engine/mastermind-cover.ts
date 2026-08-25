@@ -6,6 +6,7 @@ import {
   effectiveRole,
   type CharacterId,
   type GameState,
+  LOCATIONS,
   type RoleId,
 } from "../types";
 import {
@@ -48,22 +49,30 @@ export interface RoleCoverCandidate {
   recommendationReason: string;
 }
 
+export interface CommonRoleExposure {
+  key: string;
+  title: string;
+  observation: string;
+  targetCharacterNames: string[];
+  excludedCharacterNames: string[];
+}
+
 export interface MastermindCoverGuidance {
   hasFinalGuess: boolean;
   earlyPrinciple: string;
   latePrinciple: string;
   finalDefensePrinciple: string;
+  commonExposure: CommonRoleExposure[];
   recommendation?: RoleCoverCandidate;
   candidates: RoleCoverCandidate[];
 }
 
 const BASE_DIFFICULTY: Readonly<Partial<Record<RoleId, CoverDifficulty>>> = {
-  person: "passive",
   curmudgeon: "controlled",
   keyPerson: "controlled",
   killer: "controlled",
   brain: "controlled",
-  cultist: "hard",
+  cultist: "controlled",
   timeTraveler: "hard",
   witch: "passive",
   friend: "hard",
@@ -92,7 +101,8 @@ function wasRevealed(state: GameState, character: CharacterId): boolean {
 }
 
 function isRefusable(ability: GoodwillAbilityData): boolean {
-  return ability.rank !== null && !ability.immuneToGoodwillRefusel;
+  return ability.rank !== null && !ability.immuneToGoodwillRefusel &&
+    !ability.en.toLowerCase().includes("cannot be refused");
 }
 
 function goodwillAbilityCondition(ability: GoodwillAbilityData): string {
@@ -140,29 +150,70 @@ function roleRevealAbilityTargets(
   return true;
 }
 
+function canShareRequiredLocation(
+  user: CharacterId,
+  target: CharacterId,
+  ability: GoodwillAbilityData,
+): boolean {
+  const text = ability.en.toLowerCase();
+  if (!text.includes("same location") && !text.includes("this location")) {
+    return true;
+  }
+  const userData = characterDataOf(user);
+  const targetData = characterDataOf(target);
+  return LOCATIONS.some((location) =>
+    !userData.forbiddenLocation.includes(location) &&
+    !targetData.forbiddenLocation.includes(location) &&
+    (ability.restrictedToLocation === null ||
+      ability.restrictedToLocation.includes(location))
+  );
+}
+
 function goodwillRevealPaths(
   state: GameState,
   target: CharacterId,
 ): RoleExposurePath[] {
-  return Object.keys(state.scenario.cast).flatMap((user) =>
-    characterDataOf(user).goodwillAbilities.flatMap((ability, abilityIndex) => {
+  return characterDataOf(target).goodwillAbilities.flatMap(
+    (ability, abilityIndex) => {
       if (ability.rank === null ||
-        !roleRevealAbilityTargets(state, user, target, ability)) {
+        !roleRevealAbilityTargets(state, target, target, ability)) {
         return [];
       }
-      const self = user === target;
       return [{
-        key: `goodwill-reveal:${user}:${abilityIndex}:${target}`,
-        title: `${characterDataOf(user).ko} [우호${ability.rank}] 역할 공개`,
-        observation: `${goodwillAbilityCondition(ability)} · ${self
-          ? "이 캐릭터의 역할이 직접 공개된다."
-          : `${characterDataOf(user).ko}의 우호 능력 대상으로 선택되면 역할이 직접 공개된다.`}`,
+        key: `goodwill-reveal:${target}:${abilityIndex}:${target}`,
+        title: `${characterDataOf(target).ko} [우호${ability.rank}] 역할 공개`,
+        observation: `${goodwillAbilityCondition(ability)} · 이 캐릭터의 역할이 직접 공개된다.`,
         control: "protagonist" as const,
         avoidable: true,
-        avoidance: self && ROLE_IMPL[effectiveRole(state, target)]?.goodwillRefusal
+        avoidance: ROLE_IMPL[effectiveRole(state, target)]?.goodwillRefusal
           ? "능력을 거부하거나 우호 기준 도달을 막는다. 거부 자체가 역할 후보를 좁힐 수 있다."
           : "우호 금지, 이동, 우호 기준 미달 유지로 사용 기회를 막는다.",
         sacrifice: "우호 금지 카드와 배치 여유를 쓰며, 다른 위험 캐릭터의 우호 능력 견제를 포기한다.",
+      }];
+    },
+  );
+}
+
+function commonGoodwillRevealPaths(
+  state: GameState,
+  candidates: readonly CharacterId[],
+): CommonRoleExposure[] {
+  return Object.keys(state.scenario.cast).flatMap((user) =>
+    characterDataOf(user).goodwillAbilities.flatMap((ability, abilityIndex) => {
+      if (ability.rank === null) return [];
+      const targets = candidates.filter((target) =>
+        user !== target && roleRevealAbilityTargets(state, user, target, ability) &&
+        canShareRequiredLocation(user, target, ability)
+      );
+      if (targets.length === 0) return [];
+      const targetSet = new Set(targets);
+      const excluded = candidates.filter((target) => !targetSet.has(target));
+      return [{
+        key: `common-goodwill-reveal:${user}:${abilityIndex}`,
+        title: `${characterDataOf(user).ko} [우호${ability.rank}] 역할 공개`,
+        observation: `${goodwillAbilityCondition(ability)} · 대상으로 고른 캐릭터의 역할을 공개한다.`,
+        targetCharacterNames: targets.map((target) => characterDataOf(target).ko),
+        excludedCharacterNames: excluded.map((target) => characterDataOf(target).ko),
       }];
     })
   );
@@ -343,7 +394,7 @@ function roleSpecificPaths(
         key: "role:factor:gained-abilities",
         title: "장소 음모에 따른 강제 능력 획득",
         observation: "학교·도심 음모 2에서 선동가·핵심 인물 능력이 붙어 변수 후보가 좁혀진다.",
-        control: "automatic", avoidable: true,
+        control: "mastermind", avoidable: true,
         avoidance: "학교와 도심의 음모를 2 미만으로 유지한다.",
         sacrifice: "두 장소의 음모 기반 승리·미끼와 변수의 추가 능력을 포기한다.",
       });
@@ -423,7 +474,11 @@ export function mastermindCoverGuidance(
   state: GameState,
 ): MastermindCoverGuidance {
   const victoryRoutes = mastermindGuidance(state).routes;
-  const candidates = Object.keys(state.scenario.cast).map((character) => {
+  const candidateCharacters = Object.keys(state.scenario.cast).filter(
+    (character) => effectiveRole(state, character) !== "person",
+  );
+  const commonExposure = commonGoodwillRevealPaths(state, candidateCharacters);
+  const candidates = candidateCharacters.map((character) => {
     const role = effectiveRole(state, character);
     const rolePaths = roleSpecificPaths(state, character, role);
     const exposurePaths = [
@@ -454,8 +509,18 @@ export function mastermindCoverGuidance(
       : baseDifficulty;
     const roleName = ROLE_IMPL[role]?.ko ?? role;
     const affectedVictoryRoutes = [...new Set(affected.map(({ title }) => title))];
+    const mandatoryRefusal = ROLE_IMPL[role]?.goodwillRefusal === "Mandatory";
+    const rankedAbilities = characterDataOf(character).goodwillAbilities.filter(
+      ({ rank }) => rank !== null,
+    );
+    const refusalHiddenByAbilities = mandatoryRefusal &&
+      rankedAbilities.length > 0 && rankedAbilities.every((ability) =>
+        !isRefusable(ability)
+      );
     const reason = alreadyRevealed
       ? "이미 공개되어 최종 은폐 후보가 될 수 없다."
+      : refusalHiddenByAbilities
+      ? `${characterDataOf(character).ko}의 우호 능력은 거부 불가라 절대 우호 무시 여부가 드러나지 않는다. 음모 금지 무시를 쓰지 않으면 역할을 숨기기 쉽다.`
       : automaticPathCount > 0
       ? `강제 노출 경로 ${automaticPathCount}개를 피해야 하므로 끝까지 지킬 후보로는 후순위다.`
       : baseDifficulty === "hard"
@@ -496,6 +561,7 @@ export function mastermindCoverGuidance(
     finalDefensePrinciple: definition.hasFinalGuess
       ? "최후의 싸움: 주인공은 전원의 역할을 맞혀야 하므로 한 명만 틀려도 각본가가 이긴다. 이는 최종 방어선이며 루프 전략의 주축은 아니다."
       : "이 참극 세트에는 최후의 싸움이 없다. 후보 순서는 룰 은폐 비용만 비교한다.",
+    commonExposure,
     ...(recommendation === undefined ? {} : { recommendation }),
     candidates,
   };

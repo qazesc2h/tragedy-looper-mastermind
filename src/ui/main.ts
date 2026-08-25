@@ -58,6 +58,7 @@ import {
 } from "../engine/mastermind-decoys";
 import {
   mastermindCoverGuidance,
+  type CommonRoleExposure,
   type MastermindCoverGuidance,
   type RoleCoverCandidate,
 } from "../engine/mastermind-cover";
@@ -2839,34 +2840,25 @@ function renderAttributeCandidates(group: AttributeCandidateGroup): string {
 function renderConfusableRule(rule: ConfusableRule): string {
   return `<article class="decoy-card">
     <div class="decoy-card-heading">
-      <strong>${escapeHtml(rule.selectedPlotName)}</strong>
-      <span>${escapeHtml(rule.observationLabel)}</span>
+      <strong>${escapeHtml(rule.observationLabel)}</strong>
+      <span>관측</span>
     </div>
-    <p>같은 관측을 설명하는 다른 룰</p>
+    <p>이번 게임의 룰 · <strong>${escapeHtml(rule.selectedPlotName)}</strong></p>
+    <small class="decoy-rule-explanation">이 관측을 설명하는 룰 목록</small>
     <ul class="decoy-rule-list">
+      <li class="is-actual"><span>${escapeHtml(rule.selectedPlotName)}</span><small>이번 게임</small></li>
       ${rule.alternatives.map((alternative) => `<li>
         <span>${escapeHtml(alternative.plotName)}</span>
-        <small>${alternative.sameTragedySet ? "현재 참극 세트 후보" : "다른 참극 세트 참고"}</small>
+        <small>같은 시트 후보</small>
       </li>`).join("")}
     </ul>
   </article>`;
-}
-
-function decoyTargetKindLabel(condition: FakeLossCondition): string {
-  switch (condition.targetKind) {
-    case "location": return "장소 기준";
-    case "character": return "캐릭터 기준";
-    case "incident": return "사건 기준";
-  }
 }
 
 function renderFakeLossCondition(condition: FakeLossCondition): string {
   return `<article class="decoy-card fake-loss-condition">
     <div class="decoy-card-heading">
       <strong>${escapeHtml(condition.title)}</strong>
-      <span class="decoy-target-kind target-${condition.targetKind}">${escapeHtml(
-        decoyTargetKindLabel(condition),
-      )}</span>
     </div>
     <dl class="decoy-requirement">
       <div><dt>추가 조건</dt><dd>${escapeHtml(condition.requirement)}</dd></div>
@@ -2903,7 +2895,7 @@ function renderMastermindDecoys(decoys: MastermindDecoyGuidance): string {
     <div class="mastermind-cautions-heading">
       <span class="eyebrow">C. 시선 분산과 미끼</span>
       <h3>관측을 흐리는 정적 후보</h3>
-      <p>추천이나 최적해가 아닙니다. 같은 속성·같은 관측·설명 가능한 패배 조건과 장소 음모 수단을 구분해 보여줍니다.</p>
+      <p>같은 시트 안에서 이 관측을 설명할 수 있는 룰과 실제로 성립시킬 수 있는 미끼만 보여줍니다.</p>
     </div>
     ${renderDecoyCategory(
       "같은 속성 캐릭터",
@@ -2962,6 +2954,17 @@ function renderCoverCandidate(
   </article>`;
 }
 
+function renderCommonRoleExposure(exposure: CommonRoleExposure): string {
+  return `<li>
+    <strong>${escapeHtml(exposure.title)}</strong>
+    <span>${escapeHtml(exposure.observation)}</span>
+    <small>가능 · ${escapeHtml(exposure.targetCharacterNames.join(" · "))}</small>
+    ${exposure.excludedCharacterNames.length === 0 ? "" : `<small>제외 · ${escapeHtml(
+      exposure.excludedCharacterNames.join(" · "),
+    )}</small>`}
+  </li>`;
+}
+
 function renderMastermindCover(cover: MastermindCoverGuidance): string {
   return `<section class="mastermind-cover" aria-label="최후의 싸움 역할 은폐">
     <div class="mastermind-cautions-heading">
@@ -2974,6 +2977,12 @@ function renderMastermindCover(cover: MastermindCoverGuidance): string {
       <p>${escapeHtml(cover.latePrinciple)}</p>
       <p>${escapeHtml(cover.finalDefensePrinciple)}</p>
     </div>
+    ${cover.commonExposure.length === 0 ? "" : `<details class="guidance-caution-category cover-common-exposure">
+      <summary><strong>공통 역할 공개 수단</strong><span>${cover.commonExposure.length}개</span></summary>
+      <div class="guidance-caution-list"><ul>${cover.commonExposure.map(
+        renderCommonRoleExposure,
+      ).join("")}</ul></div>
+    </details>`}
     ${cover.recommendation === undefined
       ? `<p class="empty-overlay">지킬 수 있는 미공개 후보가 없습니다.</p>`
       : `<div class="cover-recommendation"><span>정적 우선 후보</span>${
@@ -3003,9 +3012,7 @@ function renderOpeningProfile(profile: OpeningProfile, rank?: string): string {
     <ol class="opening-placement-list">${profile.placements.map((placement) => {
       const reasons = [...new Set(placement.contributions.map(({ reason }) => reason))];
       return `<li>
-        <div><strong>${escapeHtml(placement.targetLabel)}에 ${escapeHtml(placement.cardLabel)}</strong>
-          <span class="opening-target-kind target-${placement.targetKind}">${placement.targetKind === "location" ? "장소" : "캐릭터"}</span>
-        </div>
+        <div><strong>${escapeHtml(placement.targetLabel)}에 ${escapeHtml(placement.cardLabel)}</strong></div>
         ${reasons.map((reason) => `<p>${escapeHtml(reason)}</p>`).join("")}
         <small>대응 · ${escapeHtml(placement.protagonistResponse)}</small>
       </li>`;
@@ -3020,8 +3027,8 @@ function renderMastermindOpening(opening: MastermindOpeningGuidance): string {
   return `<section class="mastermind-opening" aria-label="1일차 개시 배치">
     <div class="mastermind-cautions-heading">
       <span class="eyebrow">E. 1일차 개시 배치</span>
-      <h3>기여 배치 전수 평가</h3>
-      <p>전체 ${opening.allP2Count.toLocaleString("ko-KR")}개 대신 기여 배치 ${opening.contributingPlacementCount}개와 합법 조합 ${opening.candidateProfileCount.toLocaleString("ko-KR")}개만 계산했습니다.</p>
+      <h3>첫날에 남길 진척과 미끼</h3>
+      <p>주인공의 가장 불리한 합법 대응을 받은 뒤에도 남는 진척을 기준으로 정렬했습니다.</p>
     </div>
     <p class="opening-axis-contract">${escapeHtml(opening.axisContract)}</p>
     ${first === undefined
@@ -3030,14 +3037,15 @@ function renderMastermindOpening(opening: MastermindOpeningGuidance): string {
     ${opening.recommendations.length <= 1 ? "" : `<details class="guidance-caution-category opening-alternatives">
       <summary><strong>다른 개시 배치</strong><span>${opening.recommendations.length - 1}개</span></summary>
       <div class="guidance-caution-list">${opening.recommendations.slice(1).map((profile, index) =>
-        renderOpeningProfile(profile, `대안 ${index + 1}`)
+        renderOpeningProfile(profile, `${index + 2}순위`)
       ).join("")}</div>
     </details>`}
     <details class="guidance-caution-category opening-method">
-      <summary><strong>계산 범위와 제외</strong><span>미끼 ${opening.eligibleDecoyCount} / 제외 ${opening.excludedDecoys.length}</span></summary>
+      <summary><strong>이 계산이 1일차만 다루는 이유</strong><span>계산 근거</span></summary>
       <div class="guidance-caution-list">
         <p>${escapeHtml(opening.horizonReason)}</p>
-        ${opening.excludedDecoys.length === 0 ? "" : `<ul>${opening.excludedDecoys.map((decoy) =>
+        <p>검토 범위 · 전체 배치 ${opening.allP2Count.toLocaleString("ko-KR")}개 중 기여 배치 ${opening.contributingPlacementCount}개, 합법 조합 ${opening.candidateProfileCount.toLocaleString("ko-KR")}개, 1일차 미끼 ${opening.eligibleDecoyCount}개.</p>
+        ${opening.excludedDecoys.length === 0 ? "" : `<strong class="opening-excluded-title">1일차 카드로 직접 진척되지 않아 개시 후보에서 뺀 미끼</strong><ul>${opening.excludedDecoys.map((decoy) =>
           `<li><strong>${escapeHtml(decoy.title)}</strong><span>${escapeHtml(decoy.reason)}</span></li>`
         ).join("")}</ul>`}
       </div>
@@ -3056,27 +3064,36 @@ function renderMastermindGuidance(
   const opening = mastermindOpeningGuidance(state);
   const primary = guidance.primary;
   const primaryResources = new Set(primary?.resources ?? []);
+  const otherRankedRoutes = guidance.rankedRoutes.slice(3);
   const body = `
+    <section class="mastermind-guidance-priorities" aria-label="승리 경로 우선순위">
+      <div class="mastermind-cautions-heading">
+        <span class="eyebrow">A. 승리 경로 우선순위</span>
+        <h3>성립 경로 우선순위</h3>
+        <p>최단 소요와 필요한 행동을 먼저 비교하고, 2순위부터는 1순위와 자원이 덜 겹치는 경로를 앞에 둡니다.</p>
+      </div>
     <div class="guidance-priority-list">
       ${primary === undefined
         ? `<p class="empty-overlay">각본가가 노릴 수 있는 경로가 없습니다.</p>`
         : renderGuidanceRoute(primary, "1순위")}
       ${guidance.alternatives.map((route, index) =>
-        renderGuidanceRoute(route, `대안 ${index + 1}`, primaryResources)
+        renderGuidanceRoute(route, `${index + 2}순위`, primaryResources)
       ).join("")}
     </div>
-    <details class="guidance-all-routes">
-      <summary>전체 성립 가능 경로 ${guidance.routes.length}개 보기</summary>
+    ${otherRankedRoutes.length === 0 ? "" : `<details class="guidance-all-routes">
+      <summary>그 외 성립 가능 경로 ${otherRankedRoutes.length}개 보기</summary>
       <div class="guidance-all-routes-body">
-        ${guidance.routes.map((route) => renderGuidanceRoute(route)).join("")}
+        ${otherRankedRoutes.map((route, index) => renderGuidanceRoute(
+          route,
+          `${index + 4}순위`,
+          primaryResources,
+        )).join("")}
       </div>
-    </details>
-    ${guidance.automaticRisks.length === 0
-      ? ""
-      : `<p class="guidance-footnote">자동 발동 ${guidance.automaticRisks.length}개: 조건이 갖춰지면 각본가도 멈출 수 없습니다.</p>`}
+    </details>`}
     ${guidance.protagonistChoices.length === 0
       ? ""
-      : `<p class="guidance-footnote">주인공 선택 ${guidance.protagonistChoices.length}개: 노릴 경로가 아니라 주의용으로만 표시합니다.</p>`}
+      : `<details class="guidance-all-routes"><summary>주인공 선택으로만 성립하는 경로 ${guidance.protagonistChoices.length}개</summary><div class="guidance-all-routes-body">${guidance.protagonistChoices.map((route) => renderGuidanceRoute(route)).join("")}</div></details>`}
+    </section>
     <section class="mastermind-cautions" aria-label="주의사항">
       <div class="mastermind-cautions-heading">
         <span class="eyebrow">B. 주의사항</span>
@@ -3084,7 +3101,8 @@ function renderMastermindGuidance(
         <p>현재 캐스트의 실제 역할·특성과 선택된 룰·사건만 표시합니다.</p>
       </div>
       ${renderCautionCategory("정체가 드러나는 행동", cautions.identityExposure)}
-      ${renderCautionCategory("통제 불가능한 위험", cautions.uncontrolledRisks)}
+      ${renderCautionCategory("자동 발동 주의", cautions.uncontrolledRisks)}
+      ${renderCautionCategory("사건·운영 체크", cautions.operationalNotes)}
       ${renderCautionCategory("주인공이 쓸 수 있는 수단", cautions.protagonistTools)}
     </section>
     ${renderMastermindDecoys(decoys)}
@@ -3092,14 +3110,16 @@ function renderMastermindGuidance(
     ${renderMastermindOpening(opening)}`;
 
   if (context === "beforeStart") {
-    return `<section class="pre-game-guidance" aria-label="각본가 시작 지침">
-      <div class="pre-game-guidance-heading">
-        <span class="eyebrow">게임 전 필독</span>
-        <h2>각본가 시작 지침</h2>
-        <p>거리와 통제 가능성을 기준으로 계산했습니다. 대안은 1순위와 카드·능력 자원이 덜 겹치는 순서입니다.</p>
+    return `<details class="pre-game-guidance" aria-label="각본가 시작 지침">
+      <summary class="pre-game-guidance-heading">
+        <span><small class="eyebrow">게임 전 준비 · 게임 중 다시 확인</small><strong>각본가 시작 지침</strong></span>
+        <i aria-hidden="true"></i>
+      </summary>
+      <div class="pre-game-guidance-body">
+        <p class="pre-game-guidance-intro">게임 중에는 각본가 정보의 같은 항목을 접어 두고 다시 확인할 수 있습니다.</p>
+        ${body}
       </div>
-      ${body}
-    </section>`;
+    </details>`;
   }
   return `<details class="info-accordion mastermind-guidance-information">
     <summary>
@@ -4443,16 +4463,16 @@ function renderScenarioSelection(): void {
                 <strong>${escapeHtml(selectedEntry.title)} · 시작 불가</strong>
                 <p>${escapeHtml(selectedDifficulty?.validation.errors.join(" ") ?? "난이도 정보를 읽을 수 없습니다.")}</p>
               </aside>`}
+          <div class="flow-actions primary-actions">
+            <button type="button" class="next-phase" data-action="start-selected-scenario"
+              ${selectedDifficulty?.validation.ok === true ? "" : "disabled"}>게임 시작</button>
+          </div>
           ${selectedDifficulty?.validation.ok === true
             ? renderMastermindGuidance(
               createGameState(structuredClone(selectedDifficulty.scenario)),
               "beforeStart",
             )
             : ""}
-          <div class="flow-actions primary-actions">
-            <button type="button" class="next-phase" data-action="start-selected-scenario"
-              ${selectedDifficulty?.validation.ok === true ? "" : "disabled"}>게임 시작</button>
-          </div>
         </section>
       </main>
       ${notice

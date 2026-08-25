@@ -94,7 +94,6 @@ export interface ConfusableRule {
   alternatives: Array<{
     plot: PlotId;
     plotName: string;
-    sameTragedySet: boolean;
   }>;
 }
 
@@ -407,12 +406,11 @@ function confusableRules(state: GameState): ConfusableRule[] {
   return activePlots(state).flatMap((selectedPlot) =>
     (PLOT_OBSERVATION_PROFILES[selectedPlot] ?? []).flatMap((profile) => {
       const alternatives = Object.entries(PLOT_OBSERVATION_PROFILES).flatMap(
-        ([plot, profiles]) => plot !== selectedPlot &&
+        ([plot, profiles]) => plot !== selectedPlot && setPlots.has(plot) &&
             profiles.some(({ type }) => type === profile.type)
           ? [{
             plot,
             plotName: PLOT_IMPL[plot]?.ko ?? plot,
-            sameTragedySet: setPlots.has(plot),
           }]
           : [],
       );
@@ -503,6 +501,10 @@ function fakeLossConditions(state: GameState): FakeLossCondition[] {
   const actualRoles = new Set(castCharacters(state).map((character) =>
     effectiveRole(state, character)
   ));
+  const hasProtagonistDeathDelivery = actualRoles.has("killer") ||
+    actualRoles.has("lovedOne") || state.scenario.incidents.some(
+      ({ incident }) => incident === "hospitalIncident",
+    );
   const addRole = (
     role: RoleId,
     targetKind: DecoyTargetKind,
@@ -528,12 +530,12 @@ function fakeLossConditions(state: GameState): FakeLossCondition[] {
       candidateCharacters: candidates,
     });
   };
-  addRole("keyPerson", "character", "후보 캐릭터 사망");
   addRole("friend", "character", "후보 캐릭터 사망 후 루프 종료 판정");
   addRole("timeTraveler", "character", "마지막 날 후보 캐릭터의 우호 2개 이하");
-  addRole("factor", "character", "도심(장소) 음모 2개와 후보 캐릭터 사망");
-  addRole("killer", "character", "후보 캐릭터(본인)에 음모 4개");
-  addRole("lovedOne", "character", "후보 캐릭터(본인)에 불안 3개와 음모 1개");
+  if (hasProtagonistDeathDelivery) {
+    addRole("killer", "character", "후보 캐릭터(본인)에 음모 4개");
+    addRole("lovedOne", "character", "후보 캐릭터(본인)에 불안 3개와 음모 1개");
+  }
 
   return plans.filter((plan) =>
     projectedConditionIsExplainable(state, plan, combinations)

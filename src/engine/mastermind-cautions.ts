@@ -14,6 +14,7 @@ import {
 export type MastermindCautionCategory =
   | "identityExposure"
   | "uncontrolledRisk"
+  | "operationalNote"
   | "protagonistTool";
 
 export type MastermindCautionSeverity = "critical" | "warning" | "note";
@@ -31,6 +32,7 @@ export interface MastermindCaution {
 export interface MastermindCautions {
   identityExposure: MastermindCaution[];
   uncontrolledRisks: MastermindCaution[];
+  operationalNotes: MastermindCaution[];
   protagonistTools: MastermindCaution[];
   total: number;
 }
@@ -87,7 +89,7 @@ function holders(state: GameState, role: RoleId): CharacterId[] {
 }
 
 function actualRoleCondition(state: GameState, character: CharacterId): string {
-  return `${characterName(character)}이(가) ${roleName(effectiveRole(state, character))}일 때`;
+  return `${characterName(character)} · ${roleName(effectiveRole(state, character))}`;
 }
 
 function locationName(location: Location): string {
@@ -166,25 +168,12 @@ function addIdentityExposure(
     });
   }
 
-  for (const character of castCharacters(state)) {
-    for (const { ability, abilityIndex } of rankedAbilities(character)) {
-      if (!cannotBeRefused(ability)) continue;
-      output.push({
-        key: `identity:cannot-refuse:${character}:${abilityIndex}`,
-        category: "identityExposure",
-        title: `${characterName(character)} [우호${ability.rank ?? "-"}] · 거부 불가`,
-        condition: actualRoleCondition(state, character),
-        description: `이 능력은 역할의 우호 무시 종류와 관계없이 거부할 수 없습니다. 각본가에게 선택권이 없습니다.`,
-        source: `${characterName(character)} [우호${ability.rank ?? "-"}] 원문`,
-        severity: "warning",
-      });
-    }
-  }
 }
 
 function addRoleRisks(
   state: GameState,
   output: MastermindCaution[],
+  operationalNotes: MastermindCaution[],
 ): void {
   const keyPeople = holders(state, "keyPerson");
   const serialKillers = holders(state, "serialKiller");
@@ -233,7 +222,7 @@ function addRoleRisks(
       key: "risk:lovers:counterpart-death",
       category: "uncontrolledRisk",
       title: `${names} · 상대 사망 시 불안 6`,
-      condition: `${lovedOnes.map(characterName).join(" · ")}이(가) 연인A이고 ${lovers.map(characterName).join(" · ")}이(가) 연인B일 때`,
+      condition: `${lovedOnes.map(characterName).join(" · ")} · 연인A / ${lovers.map(characterName).join(" · ")} · 연인B`,
       description: "한쪽이 사망하면 살아 있는 상대에게 불안 6개가 강제로 놓입니다. 연인A의 사망 조건이나 사건 발생 판정이 뜻밖에 열릴 수 있습니다.",
       source: "연인A·연인B [강제] 역할 원문",
       severity: "critical",
@@ -241,12 +230,12 @@ function addRoleRisks(
   }
 
   for (const character of holders(state, "factor")) {
-    output.push({
+    operationalNotes.push({
       key: `risk:factor:${character}`,
-      category: "uncontrolledRisk",
-      title: `${characterName(character)} · 장소 음모에 따른 강제 능력 획득`,
+      category: "operationalNote",
+      title: `${characterName(character)} · 장소 음모 2개부터 능력 획득`,
       condition: actualRoleCondition(state, character),
-      description: "학교 음모 2개 이상이면 선동가 능력, 도심 음모 2개 이상이면 핵심 인물의 ‘사망 즉시 루프 종료’ 능력을 얻습니다. 역할 자체는 바뀌지 않습니다.",
+      description: "학교 음모 2개 이상이면 선동가 능력, 도심 음모 2개 이상이면 핵심 인물의 ‘사망 즉시 루프 종료’ 능력을 얻습니다. 장소 음모는 주로 각본가가 선택해 쌓으며, 기자 우호 능력과 사건 효과가 예외입니다.",
       source: "변수 [상시·강제] 역할 원문",
       severity: "critical",
     });
@@ -260,11 +249,11 @@ function addRoleRisks(
     keyPeople.length > 0 && holders(state, "killer").length > 0 &&
     deadlyIncidentLabels.length > 0
   ) {
-    output.push({
+    operationalNotes.push({
       key: "risk:self-sabotage:killer-route",
-      category: "uncontrolledRisk",
+      category: "operationalNote",
       title: "자기 승리 방해 · 청부업자 경로 소멸",
-      condition: `${keyPeople.map(characterName).join(" · ")}가 사건으로 먼저 사망할 수 있을 때`,
+      condition: `${keyPeople.map(characterName).join(" · ")} · 사건 사망 가능`,
       description: `핵심 인물이 먼저 죽으면 살인 청부업자로 죽이는 계획은 더 진행할 수 없습니다. 관련 사건: ${deadlyIncidentLabels.join(" · ")}.`,
       source: "핵심 인물 즉시 종료 + 사건 사망 원문",
       severity: "critical",
@@ -275,7 +264,7 @@ function addRoleRisks(
       key: "risk:self-sabotage:serial-key-person",
       category: "uncontrolledRisk",
       title: "자기 승리 방해 · 연쇄 살인마가 핵심 인물 사망", 
-      condition: `${serialKillers.map(characterName).join(" · ")}와 ${keyPeople.map(characterName).join(" · ")}가 단둘이 될 수 있을 때`,
+      condition: `${serialKillers.map(characterName).join(" · ")} / ${keyPeople.map(characterName).join(" · ")} · 단둘이 배치 가능`,
       description: "강제 사망 직후 루프가 즉시 끝나므로, 같은 날 뒤에 준비한 사건이나 다른 패배 조건 계획은 무산됩니다.",
       source: "연쇄 살인마 강제 사망 + 핵심 인물 즉시 종료",
       severity: "critical",
@@ -316,6 +305,7 @@ function addPlotRisks(
 function addTraitRisks(
   state: GameState,
   output: MastermindCaution[],
+  operationalNotes: MastermindCaution[],
 ): void {
   const cast = new Set(castCharacters(state));
   if (cast.has("blackCat")) {
@@ -323,29 +313,29 @@ function addTraitRisks(
       key: "risk:trait:black-cat-loop-start",
       category: "uncontrolledRisk",
       title: "검은 고양이 · 루프 시작 신사 음모 1",
-      condition: "검은 고양이가 캐스트에 있을 때",
+      condition: "캐스트 · 검은 고양이",
       description: "매 루프 시작 시 신사에 음모 1개가 강제로 놓입니다.",
       source: "검은 고양이 [루프 시작·강제] 특성 원문",
       severity: "warning",
     });
   }
   if (cast.has("scientist")) {
-    output.push({
+    operationalNotes.push({
       key: "risk:trait:scientist",
-      category: "uncontrolledRisk",
+      category: "operationalNote",
       title: "학자 · 루프 시작 카운터 필수 선택",
-      condition: "학자가 캐스트에 있을 때",
+      condition: "캐스트 · 학자",
       description: "매 루프 시작 시 학자에게 불안·우호·음모 중 1개를 반드시 놓습니다. 시작 전에 종류를 선택해야 합니다.",
       source: "학자 [루프 시작·강제] 특성 원문",
       severity: "warning",
     });
   }
   if (cast.has("henchman")) {
-    output.push({
+    operationalNotes.push({
       key: "risk:trait:henchman-placement",
-      category: "uncontrolledRisk",
+      category: "operationalNote",
       title: "하수인 · 매 루프 시작 장소 선택",
-      condition: "하수인이 캐스트에 있을 때",
+      condition: "캐스트 · 하수인",
       description: "각본가가 매 루프 새 시작 장소를 반드시 선택합니다. 장소 X가 하수인의 역할을 참조하면 이 선택이 장소 X도 바꿉니다.",
       source: "하수인 [루프 시작] 특성 원문",
       severity: "warning",
@@ -353,9 +343,9 @@ function addTraitRisks(
   }
   if (cast.has("boss")) {
     const turf = state.loop.turfLocations.boss;
-    output.push({
+    operationalNotes.push({
       key: "risk:trait:boss-turf",
-      category: "uncontrolledRisk",
+      category: "operationalNote",
       title: `거물 · ${turf === undefined ? "세력권" : locationName(turf)}에도 능력 도달`,
       condition: actualRoleCondition(state, "boss"),
       description: `사건을 제외한 모든 능력에서 실제 장소뿐 아니라 ${turf === undefined ? "지정 세력권" : locationName(turf)}에 있는 것으로도 취급할 수 있습니다. 역할 능력과 우호 능력의 범위를 실제 위치만 보고 놓치지 마십시오.`,
@@ -368,7 +358,7 @@ function addTraitRisks(
       key: "risk:trait:illusion",
       category: "uncontrolledRisk",
       title: "환상 · 장소 카드가 함께 적용",
-      condition: "환상이 캐스트에 있을 때",
+      condition: "캐스트 · 환상",
       description: "환상에는 행동 카드를 직접 놓을 수 없고, 환상이 있는 장소에 놓인 모든 행동 카드가 환상에게도 적용됩니다.",
       source: "환상 [카드 배치/해결·강제] 특성 원문",
       severity: "critical",
@@ -379,7 +369,7 @@ function addTraitRisks(
       key: "risk:trait:sect-founder",
       category: "uncontrolledRisk",
       title: "교주 · 범인인 사건 효과 2회 해결",
-      condition: "교주가 사건 범인일 때",
+      condition: "사건 범인 · 교주",
       description: "교주가 범인인 사건이 해결되면 그 사건 효과를 두 번 해결합니다. 첫 해결 뒤의 상태를 기준으로 두 번째 효과까지 대비해야 합니다.",
       source: "교주 [강제] 특성 원문",
       severity: "critical",
@@ -412,7 +402,7 @@ function addTraitRisks(
       key: `risk:trait:entry:${character}`,
       category: "uncontrolledRisk",
       title: `${characterName(character)} · ${timing}에 등장`,
-      condition: `${characterName(character)}이(가) 캐스트에 있을 때`,
+      condition: `캐스트 · ${characterName(character)}`,
       description: `그전까지 게임판에 없고 ${timing}에 강제로 등장합니다. 사망·사건·장소 계획에 너무 일찍 포함하지 마십시오.`,
       source: `${characterName(character)} 등장 특성 원문`,
       severity: "warning",
@@ -442,9 +432,9 @@ function addIncidentRisks(
     }
     output.push({
       key: `risk:incident:${scheduled.day}:${scheduled.incident}:${scheduled.culprit}`,
-      category: "uncontrolledRisk",
+      category: "operationalNote",
       title: `${scheduled.day}일 ${incidentName(scheduled.incident)} · 범인 ${culprit}`,
-      condition: `${scheduled.day}일에 ${culprit}이(가) 생존·등장 중이고 사건 불안 한계를 충족할 때`,
+      condition: `${scheduled.day}일 · 범인 ${culprit} · 생존·등장 및 불안 한계 충족`,
       description,
       source: `${incidentName(scheduled.incident)} [강제] 사건 원문`,
       severity,
@@ -457,9 +447,9 @@ function addIncidentRisks(
   if (aiIncidents.length > 0) {
     output.push({
       key: "risk:trait:ai-incident-counters",
-      category: "uncontrolledRisk",
+      category: "operationalNote",
       title: "AI · 모든 카운터를 불안으로 사건 판정",
-      condition: `AI가 ${aiIncidents.map(({ day, incident }) => `${day}일 ${incidentName(incident)}`).join(" · ")}의 범인일 때`,
+      condition: `AI · ${aiIncidents.map(({ day, incident }) => `${day}일 ${incidentName(incident)}`).join(" · ")} 범인`,
       description: "AI가 범인인 사건의 발생 여부를 판정할 때 AI 위의 우호·불안·음모·보호 카운터를 모두 불안으로 셉니다.",
       source: "AI [사건 판정·강제] 특성 원문",
       severity: "critical",
@@ -526,7 +516,7 @@ function addProtagonistTools(
       key: "tool:trait:sacred-tree",
       category: "protagonistTool",
       title: "신수 특성 · 매 라운드 카운터 이동",
-      condition: "신수가 캐스트에 있을 때",
+      condition: "캐스트 · 신수",
       description: "리더는 매 라운드 신수의 카운터 1개를 같은 장소의 다른 캐릭터에게 옮길 수 있습니다.",
       source: "신수 특성 원문",
       severity: "critical",
@@ -537,16 +527,22 @@ function addProtagonistTools(
 export function mastermindCautions(state: GameState): MastermindCautions {
   const identityExposure: MastermindCaution[] = [];
   const uncontrolledRisks: MastermindCaution[] = [];
+  const operationalNotes: MastermindCaution[] = [];
   const protagonistTools: MastermindCaution[] = [];
 
   addIdentityExposure(state, identityExposure);
-  addRoleRisks(state, uncontrolledRisks);
+  addRoleRisks(state, uncontrolledRisks, operationalNotes);
   addPlotRisks(state, uncontrolledRisks);
-  addTraitRisks(state, uncontrolledRisks);
-  addIncidentRisks(state, uncontrolledRisks);
+  addTraitRisks(state, uncontrolledRisks, operationalNotes);
+  addIncidentRisks(state, operationalNotes);
   addProtagonistTools(state, protagonistTools);
 
-  const keys = [...identityExposure, ...uncontrolledRisks, ...protagonistTools]
+  const keys = [
+    ...identityExposure,
+    ...uncontrolledRisks,
+    ...operationalNotes,
+    ...protagonistTools,
+  ]
     .map(({ key }) => key);
   if (new Set(keys).size !== keys.length) {
     throw new Error("mastermind caution keys must be unique");
@@ -555,6 +551,7 @@ export function mastermindCautions(state: GameState): MastermindCautions {
   return {
     identityExposure,
     uncontrolledRisks,
+    operationalNotes,
     protagonistTools,
     total: keys.length,
   };
