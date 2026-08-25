@@ -232,7 +232,7 @@ function p9State(
   const state = createGameState(scenario);
   state.gamePhase = "ROUND";
   state.loop.phase = "P9_ROUND_END";
-  state.loop.day = 4;
+  state.loop.day = 5;
   state.loop.roundEndMandatoryResolved = true;
   for (const character of LOSS_CAST) {
     state.loop.charCounters[character].goodwill = 3;
@@ -240,7 +240,229 @@ function p9State(
   return state;
 }
 
+function lesserTwoEvilsImmediateState(): GameState {
+  const entry = loadBasicTragedyScenarioCatalog().find(
+    ({ rawTitle }) => rawTitle === "Lesser of Two Evils",
+  );
+  if (entry === undefined) throw new Error("missing Lesser of Two Evils");
+  const state = createGameState(structuredClone(entry.scenario));
+  state.gamePhase = "ROUND";
+  state.loop.day = 1;
+  state.loop.phase = "P9_ROUND_END";
+  state.loop.roundEndMandatoryResolved = true;
+  state.loop.locIntrigue.City = 2;
+  setBoardLife(state.loop, "journalist", false);
+  state.loop.pendingImmediateLossKeys = ["role:keyPerson:journalist"];
+  state.loop.roundEvidence = [{
+    day: 1,
+    deathBatches: [{
+      phase: "P9_ROUND_END",
+      characters: ["journalist"],
+      cityIntrigue: 2,
+    }],
+    immediateLoopEnd: {
+      phase: "P9_ROUND_END",
+      reason: "effect",
+    },
+  }];
+  state.pendingLoopEnd = {
+    reason: "effect",
+    day: 1,
+    phase: "P9_ROUND_END",
+    lossKeys: ["role:keyPerson:journalist"],
+  };
+  return state;
+}
+
 describe("P9 disclosure preview", () => {
+  it("uses the pending immediate-end path in Lesser of Two Evils", () => {
+    const preview = previewCurrentLossDisclosure(
+      lesserTwoEvilsImmediateState(),
+    );
+
+    expect(preview.before.ruleCombinations).toBe(60);
+    expect(preview.after.ruleCombinations).toBe(45);
+    expect(preview.explainableConditions).toEqual(expect.arrayContaining([
+      { key: "role:keyPerson", kind: "role", role: "keyPerson" },
+      { key: "role:factor", kind: "role", role: "factor" },
+    ]));
+    expect(preview.explainableConditions).not.toEqual(expect.arrayContaining([
+      { key: "role:friend", kind: "role", role: "friend" },
+      { key: "plot:giantTimeBomb", kind: "plot", plot: "giantTimeBomb" },
+    ]));
+  });
+
+  it("keeps the time traveler only for an immediate last-day P9 end", () => {
+    const state = p9State();
+    state.loop.charCounters.informer.goodwill = 2;
+    setBoardLife(state.loop, "boyStudent", false);
+    state.loop.roundEvidence = [{
+      day: 5,
+      deathBatches: [{
+        phase: "P9_ROUND_END",
+        characters: ["boyStudent"],
+        cityIntrigue: 0,
+      }],
+      immediateLoopEnd: {
+        phase: "P9_ROUND_END",
+        reason: "effect",
+      },
+    }];
+    state.pendingLoopEnd = {
+      reason: "effect",
+      day: 5,
+      phase: "P9_ROUND_END",
+      lossKeys: ["role:keyPerson:boyStudent"],
+    };
+
+    const conditions = previewCurrentLossDisclosure(state)
+      .explainableConditions;
+    expect(conditions).toContainEqual({
+      key: "role:timeTraveler",
+      kind: "role",
+      role: "timeTraveler",
+    });
+    expect(conditions.some(({ kind }) => kind === "plot")).toBe(false);
+    expect(conditions).not.toContainEqual({
+      key: "role:friend",
+      kind: "role",
+      role: "friend",
+    });
+  });
+
+  it("keeps only loop-end judgments after a natural last-day P9 end", () => {
+    const state = p9State();
+    state.loop.locIntrigue.Shrine = 2;
+    state.loop.locIntrigue.City = 2;
+    state.loop.charCounters.informer.goodwill = 2;
+    setBoardLife(state.loop, "boyStudent", false);
+
+    const conditions = previewCurrentLossDisclosure(state)
+      .explainableConditions;
+    expect(conditions).toContainEqual({
+      key: "plot:sealedItem",
+      kind: "plot",
+      plot: "sealedItem",
+    });
+    expect(conditions).toContainEqual({
+      key: "role:friend",
+      kind: "role",
+      role: "friend",
+    });
+    for (const role of ["keyPerson", "factor", "timeTraveler"] as const) {
+      expect(conditions).not.toContainEqual({
+        key: `role:${role}`,
+        kind: "role",
+        role,
+      });
+    }
+  });
+
+  it("does not use P9 roles to explain a P7 character-death end", () => {
+    const state = p9State();
+    state.loop.day = 2;
+    state.loop.phase = "P7_INCIDENT";
+    state.loop.locIntrigue.City = 2;
+    setBoardLife(state.loop, "boyStudent", false);
+    state.loop.charCounters.officeWorker.intrigue = 4;
+    state.loop.charCounters.classRep.paranoia = 3;
+    state.loop.charCounters.classRep.intrigue = 1;
+    state.loop.roundEvidence = [{
+      day: 2,
+      deathBatches: [{
+        phase: "P7_INCIDENT",
+        characters: ["boyStudent"],
+        cityIntrigue: 2,
+      }],
+      immediateLoopEnd: {
+        phase: "P7_INCIDENT",
+        reason: "effect",
+      },
+    }];
+    state.pendingLoopEnd = {
+      reason: "effect",
+      day: 2,
+      phase: "P7_INCIDENT",
+      lossKeys: ["role:keyPerson:boyStudent"],
+    };
+
+    const conditions = previewCurrentLossDisclosure(state)
+      .explainableConditions;
+    expect(conditions).toEqual(expect.arrayContaining([
+      { key: "role:keyPerson", kind: "role", role: "keyPerson" },
+      { key: "role:factor", kind: "role", role: "factor" },
+    ]));
+    for (const role of ["killer", "lovedOne", "timeTraveler"] as const) {
+      expect(conditions).not.toContainEqual({
+        key: `role:${role}`,
+        kind: "role",
+        role,
+      });
+    }
+  });
+
+  it.each(["P4_RESOLVE", "P5_MASTERMIND_ABILITY"] as const)(
+    "does not invent an immediate-ending candidate path at %s",
+    (phase) => {
+      const state = p9State();
+      state.loop.day = 2;
+      state.loop.phase = phase;
+      setBoardLife(state.loop, "boyStudent", false);
+      state.loop.roundEvidence = [{
+        day: 2,
+        deathBatches: [{
+          phase,
+          characters: ["boyStudent"],
+          cityIntrigue: 2,
+        }],
+        immediateLoopEnd: { phase, reason: "effect" },
+      }];
+      state.pendingLoopEnd = {
+        reason: "effect",
+        day: 2,
+        phase,
+        lossKeys: ["role:keyPerson:boyStudent"],
+      };
+
+      expect(previewCurrentLossDisclosure(state).explainableConditions)
+        .toEqual([]);
+    },
+  );
+
+  it("distinguishes a public P7 protagonist death from character death", () => {
+    const state = p9State();
+    state.loop.day = 2;
+    state.loop.phase = "P7_INCIDENT";
+    state.loop.locIntrigue.Hospital = 2;
+    state.loop.charCounters.officeWorker.intrigue = 4;
+    state.loop.phaseLog = [{
+      loop: 1,
+      day: 2,
+      phase: "P7_INCIDENT",
+      kind: "incidentJudged",
+      incident: "hospitalIncident",
+      culprit: "doctor",
+      fired: true,
+      effectApplied: true,
+      failureReasons: [],
+      protagonistsDied: true,
+    }];
+    state.pendingLoopEnd = {
+      reason: "protagonistDeath",
+      day: 2,
+      phase: "P7_INCIDENT",
+      lossKeys: ["incident:hospitalIncident:2:doctor"],
+    };
+
+    expect(previewCurrentLossDisclosure(state).explainableConditions).toEqual([
+      {
+        key: "incident:hospitalIncident",
+        kind: "incident",
+        incident: "hospitalIncident",
+      },
+    ]);
+  });
+
   it("warns when the current loss state fixes sealedItem", () => {
     const state = p9State();
     state.loop.locIntrigue.Shrine = 2;

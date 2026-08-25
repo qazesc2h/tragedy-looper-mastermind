@@ -616,7 +616,7 @@
         mutateActiveState((state) => {
           state.gamePhase = "ROUND";
           state.loop.phase = "P9_ROUND_END";
-          state.loop.day = 3;
+          state.loop.day = 7;
           state.loop.roundEndMandatoryResolved = true;
           state.loop.locIntrigue = {
             Hospital: 0,
@@ -673,6 +673,47 @@
         const decoyText = preview.textContent.replace(/\s+/g, " ").trim();
 
         mutateActiveState((state) => {
+          state.loop.day = 1;
+          state.loop.phase = "P9_ROUND_END";
+          state.loop.locIntrigue.City = 2;
+          state.loop.board.journalist = { status: "dead", at: "Hospital" };
+          state.loop.pendingImmediateLossKeys = [
+            "role:keyPerson:journalist",
+          ];
+          state.loop.roundEvidence = [{
+            day: 1,
+            deathBatches: [{
+              phase: "P9_ROUND_END",
+              characters: ["journalist"],
+              cityIntrigue: 2,
+            }],
+            immediateLoopEnd: {
+              phase: "P9_ROUND_END",
+              reason: "effect",
+            },
+          }];
+          state.pendingLoopEnd = {
+            reason: "effect",
+            day: 1,
+            phase: "P9_ROUND_END",
+            lossKeys: ["role:keyPerson:journalist"],
+          };
+        });
+        await reloadApp("p9-disclosure-preview-pending-effect");
+        preview = await waitFor(
+          () => frameDocument().querySelector(
+            ".mastermind-overlay > .p9-disclosure-preview",
+          ),
+          "P9 즉시 종료 경로 노출 예고",
+        );
+        const immediateEndText = preview.textContent.replace(/\s+/g, " ")
+          .trim();
+
+        mutateActiveState((state) => {
+          delete state.pendingLoopEnd;
+          delete state.loop.pendingImmediateLossKeys;
+          state.loop.roundEvidence = [];
+          state.loop.day = 7;
           state.loop.locIntrigue = {
             Hospital: 0,
             Shrine: 0,
@@ -713,6 +754,7 @@
           alwaysText,
           phaseText,
           decoyText,
+          immediateEndText,
           hookText,
           optionalLossText,
           alwaysRect: { left: alwaysRect.left, right: alwaysRect.right },
@@ -725,7 +767,11 @@
           !alwaysText.includes("위험") ||
           !phaseText.includes("이 상태로 패배하면 봉인된 것 확정") ||
           !decoyText.includes("룰 노출 없음") ||
-          !decoyText.includes("설명 가능한 조건 3개") ||
+          !decoyText.includes("설명 가능한 조건 2개") ||
+          !immediateEndText.includes("핵심 인물 조건") ||
+          !immediateEndText.includes("변수 조건") ||
+          immediateEndText.includes("친구 조건") ||
+          immediateEndText.includes("거대 시한폭탄 X의 존재") ||
           !hookText.includes("발동 뒤 즉시 종료 예고") ||
           !hookText.includes("핵심 인물 확정") ||
           !optionalLossText.includes("발동 뒤 즉시 종료 예고") ||

@@ -583,7 +583,7 @@ describe("role possibility table", () => {
     )).toBe(true);
   });
 
-  it("keeps every simultaneous death as an immediate key-ability candidate", () => {
+  it("keeps only deaths from the immediate-ending phase as key-ability candidates", () => {
     const observation = roundObservation(1, {
       day: 1,
       deathBatches: [
@@ -613,9 +613,9 @@ describe("role possibility table", () => {
       table.cells[character]?.keyPerson?.status !== "impossible"
     );
 
-    expect(candidates).toEqual(["doctor", "patient"]);
-    expect(table.cells.doctor.keyPerson.status).toBe("possible");
-    expect(table.cells.patient.keyPerson.status).toBe("possible");
+    expect(candidates).toEqual(["patient"]);
+    expect(table.cells.doctor.keyPerson.status).toBe("impossible");
+    expect(table.cells.patient.keyPerson.status).toBe("confirmed");
   });
 
   it("propagates no-death pair conditions only after immortality is exhausted", () => {

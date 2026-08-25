@@ -6,6 +6,7 @@ import {
   finishLoop,
 } from "../src/engine/game";
 import { resolveGoodwillAbility } from "../src/engine/goodwill";
+import { killCharacter, withDeathBatch } from "../src/engine/death";
 import { setOptionalLossActivation } from "../src/engine/loss";
 import { requestLoopEnd } from "../src/engine/flow";
 import {
@@ -596,7 +597,9 @@ describe("observation model", () => {
       ...state.scenario.scriptSpecified,
       "startLocation:henchman": "Hospital",
     };
-    setBoardLife(state.loop, "informer", false);
+    withDeathBatch(state, () => {
+      killCharacter(state, "informer");
+    });
     requestLoopEnd(state, "effect", ["role:keyPerson:informer"]);
     finishLoop(state);
 
@@ -966,7 +969,9 @@ describe("loss observation filtering", () => {
         classRep: "brain",
       },
     );
-    setBoardLife(state.loop, "boyStudent", false);
+    withDeathBatch(state, () => {
+      killCharacter(state, "boyStudent");
+    });
     requestLoopEnd(state, "effect");
     finishLoop(state);
 

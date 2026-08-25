@@ -1755,9 +1755,14 @@ function currentLossDisclosure(state: GameState): P9DisclosurePreview {
 }
 
 function renderCurrentLossDisclosure(state: GameState): string {
+  const pendingEnd = state.pendingLoopEnd !== undefined ||
+    (state.loop.pendingImmediateLossKeys?.length ?? 0) > 0;
+  const naturalLoopEnd = state.loop.phase === "P9_ROUND_END" &&
+    state.loop.day === state.scenario.daysPerLoop;
   if (
     state.gamePhase !== "ROUND" ||
-    !loopStartTraitChoicesComplete(state)
+    !loopStartTraitChoicesComplete(state) ||
+    (!pendingEnd && !naturalLoopEnd)
   ) return "";
   return renderP9DisclosurePreview(
     currentLossDisclosure(state),

@@ -272,14 +272,18 @@ export function previewP6GoodwillRefusal(
   };
 }
 
-/** 현재 공개 보드에서 패배가 관측된다고 가정한 상시 P9 예고다. */
+/** 현재 대기 중인 종료 경로 또는 마지막 날 자연 종료의 공개 관측을 예고한다. */
 export function previewCurrentLossDisclosure(
   state: GameState,
 ): P9DisclosurePreview {
+  const timing = state.pendingLoopEnd?.reason ??
+    ((state.loop.pendingImmediateLossKeys?.length ?? 0) > 0
+      ? "effect"
+      : "lastDay");
   return previewLossAfterAssumption(
     structuredClone(state),
     structuredClone(state),
-    "lastDay",
+    timing,
   );
 }
 

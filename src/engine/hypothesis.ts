@@ -18,6 +18,7 @@ import {
   type PublicBoardChange,
   type PublicObservationContext,
   type PublicObservationAt,
+  type RoundDeathBatch,
   type RoundEvidence,
   type RoleId,
   type Target,
@@ -42,6 +43,8 @@ export interface RuleCombination {
 export interface PublicLossObservationContext extends PublicObservationContext {
   phase: Phase;
   lastDay: boolean;
+  /** 종료 요청이 일어난 단계의 공개 사망 묶음. 빈 배열도 관측값이다. */
+  endingDeathBatches?: RoundDeathBatch[];
   startingLocations: Partial<Record<CharacterId, Location>>;
   firedIncidents: { day: number; incident: IncidentId }[];
 }
@@ -947,29 +950,39 @@ function roundEvidenceCauseClauses(
   confirmedRoles: ReadonlyMap<CharacterId, RoleId>,
 ): ObservationCauseClause[] {
   const clauses: ObservationCauseClause[] = [];
-  const deaths = observation.record.deathBatches?.flatMap(({ characters }) =>
-    characters
-  ) ?? [];
+  const immediatePhase = observation.record.immediateLoopEnd?.phase;
+  const immediatePhaseSupported = immediatePhase === "P6_GOODWILL" ||
+    immediatePhase === "P7_INCIDENT" ||
+    immediatePhase === "P9_ROUND_END";
+  const endingDeathBatches = immediatePhase === undefined
+    ? []
+    : (observation.record.deathBatches ?? []).filter(({ phase }) =>
+      phase === immediatePhase
+    );
+  const deaths = endingDeathBatches.flatMap(({ characters }) => characters);
 
   if (
     observation.record.immediateLoopEnd?.reason === "effect" &&
-    deaths.length > 0
+    immediatePhaseSupported
   ) {
-    const alternatives: ObservationCauseAlternative[] = [{
-      requirements: [{
-        role: "keyPerson",
-        candidates: compatibleRoleCandidates(
-          deaths,
-          "keyPerson",
-          tragedySetRoles,
-          ranges,
-          confirmedRoles,
-        ),
-      }],
-    }];
-    const factorDeaths = observation.record.deathBatches?.flatMap((batch) =>
+    const alternatives: ObservationCauseAlternative[] = [];
+    if (deaths.length > 0) {
+      alternatives.push({
+        requirements: [{
+          role: "keyPerson",
+          candidates: compatibleRoleCandidates(
+            deaths,
+            "keyPerson",
+            tragedySetRoles,
+            ranges,
+            confirmedRoles,
+          ),
+        }],
+      });
+    }
+    const factorDeaths = endingDeathBatches.flatMap((batch) =>
       (batch.cityIntrigue ?? -1) >= 2 ? batch.characters : []
-    ) ?? [];
+    );
     if (factorDeaths.length > 0) {
       alternatives.push({
         requirements: [{
@@ -986,7 +999,7 @@ function roundEvidenceCauseClauses(
     }
     if (
       observation.lastDay &&
-      observation.record.immediateLoopEnd.phase === "P9_ROUND_END"
+      immediatePhase === "P9_ROUND_END"
     ) {
       const timeTravelers = Object.entries(
         observation.context.characters ?? {},
@@ -1006,7 +1019,7 @@ function roundEvidenceCauseClauses(
         }],
       });
     }
-    clauses.push({ observation, alternatives });
+    if (alternatives.length > 0) clauses.push({ observation, alternatives });
   }
 
   const p9Deaths = new Set(
@@ -1708,6 +1721,69 @@ function publicCharacterAtLoss(
   return context.characters?.[character];
 }
 
+type PublicLossPath =
+  | "immediate"
+  | "lastDayImmediate"
+  | "naturalLoopEnd"
+  | "protagonistIncident"
+  | "protagonistRoundEnd"
+  | "unsupported";
+
+function publicLossPath(
+  timing: LoopEndReason,
+  context: PublicLossObservationContext,
+): PublicLossPath {
+  if (timing === "protagonistDeath") {
+    if (context.phase === "P7_INCIDENT") return "protagonistIncident";
+    if (context.phase === "P9_ROUND_END") return "protagonistRoundEnd";
+    return "unsupported";
+  }
+  if (timing === "lastDay") {
+    return context.phase === "P9_ROUND_END" && context.lastDay
+      ? "naturalLoopEnd"
+      : "unsupported";
+  }
+  if (
+    context.phase !== "P6_GOODWILL" &&
+    context.phase !== "P7_INCIDENT" &&
+    context.phase !== "P9_ROUND_END"
+  ) return "unsupported";
+  return context.phase === "P9_ROUND_END" && context.lastDay
+    ? "lastDayImmediate"
+    : "immediate";
+}
+
+function finalDeadCharacters(
+  context: PublicLossObservationContext,
+): CharacterId[] {
+  return Object.entries(context.characters ?? {}).flatMap(
+    ([character, state]) => state.status === "dead" ? [character] : [],
+  );
+}
+
+function endingDeathCharacters(
+  context: PublicLossObservationContext,
+): CharacterId[] {
+  return context.endingDeathBatches === undefined
+    ? finalDeadCharacters(context)
+    : [...new Set(context.endingDeathBatches.flatMap(({ characters }) =>
+      characters
+    ))];
+}
+
+function endingFactorDeathCharacters(
+  context: PublicLossObservationContext,
+): CharacterId[] {
+  if (context.endingDeathBatches === undefined) {
+    return context.locationIntrigue.City >= 2
+      ? finalDeadCharacters(context)
+      : [];
+  }
+  return [...new Set(context.endingDeathBatches.flatMap((batch) =>
+    (batch.cityIntrigue ?? -1) >= 2 ? batch.characters : []
+  ))];
+}
+
 function plotLossCouldExplain(
   tragedySet: string,
   combination: RuleCombination,
@@ -1770,54 +1846,49 @@ function nonDeathLossCouldExplain(
   publicCast: readonly CharacterId[],
   observations: readonly ProtagonistObservation[],
 ): boolean {
-  if (timing !== "effect" &&
-    [combination.mainPlot, ...combination.subPlots].some((plot) =>
-    plotLossCouldExplain(
+  const path = publicLossPath(timing, context);
+  if (path === "naturalLoopEnd") {
+    if ([combination.mainPlot, ...combination.subPlots].some((plot) =>
+      plotLossCouldExplain(
+        tragedySet,
+        combination,
+        plot,
+        context,
+        publicCast,
+        observations,
+      )
+    )) return true;
+    return lossRoleCandidates(
       tragedySet,
       combination,
-      plot,
-      context,
-      publicCast,
-      observations,
-    )
-  )) return true;
-
-  const keyPersonDied = lossRoleCandidates(
-    tragedySet,
-    combination,
-    "keyPerson",
-    publicCast,
-    observations,
-  ).some((character) =>
-    publicCharacterAtLoss(context, character)?.status === "dead"
-  );
-  if (keyPersonDied) return true;
-
-  if (context.locationIntrigue.City >= 2) {
-    const factorWithKeyPersonAbilityDied = lossRoleCandidates(
-      tragedySet,
-      combination,
-      "factor",
+      "friend",
       publicCast,
       observations,
     ).some((character) =>
       publicCharacterAtLoss(context, character)?.status === "dead"
     );
-    if (factorWithKeyPersonAbilityDied) return true;
   }
+  if (path !== "immediate" && path !== "lastDayImmediate") return false;
 
-  const friendDied = timing !== "effect" && lossRoleCandidates(
+  const deaths = new Set(endingDeathCharacters(context));
+  if (lossRoleCandidates(
     tragedySet,
     combination,
-    "friend",
+    "keyPerson",
     publicCast,
     observations,
-  ).some((character) =>
-    publicCharacterAtLoss(context, character)?.status === "dead"
-  );
-  if (friendDied) return true;
+  ).some((character) => deaths.has(character))) return true;
 
-  return context.lastDay && lossRoleCandidates(
+  const factorDeaths = new Set(endingFactorDeathCharacters(context));
+  if (lossRoleCandidates(
+    tragedySet,
+    combination,
+    "factor",
+    publicCast,
+    observations,
+  ).some((character) => factorDeaths.has(character))) return true;
+
+  return path === "lastDayImmediate" && lossRoleCandidates(
     tragedySet,
     combination,
     "timeTraveler",
@@ -1836,13 +1907,14 @@ function protagonistDeathCouldExplain(
   publicCast: readonly CharacterId[],
   observations: readonly ProtagonistObservation[],
 ): boolean {
-  const hospitalIncident = context.phase === "P7_INCIDENT" &&
+  const path = publicLossPath(observation.timing, context);
+  const hospitalIncident = path === "protagonistIncident" &&
     context.locationIntrigue.Hospital >= 2 &&
     context.firedIncidents.some(({ day, incident }) =>
       day === observation.day && incident === "hospitalIncident"
-    );
+  );
   if (hospitalIncident) return true;
-  if (context.phase !== "P9_ROUND_END") return false;
+  if (path !== "protagonistRoundEnd") return false;
 
   const killerCouldAct = lossRoleCandidates(
     tragedySet,
@@ -2326,11 +2398,17 @@ function lossRoleCauseCandidates(
     const context = observation.context;
     const causes = new Map<string, { character: CharacterId; role: RoleId }>();
     let nonRoleCauseExists = false;
+    const path = publicLossPath(observation.timing, context);
+    const deaths = new Set(endingDeathCharacters(context));
+    const factorDeaths = new Set(endingFactorDeathCharacters(context));
 
     for (const combination of combinations) {
-      if (observation.timing === "protagonistDeath") {
+      if (
+        path === "protagonistIncident" ||
+        path === "protagonistRoundEnd"
+      ) {
         if (
-          context.phase === "P7_INCIDENT" &&
+          path === "protagonistIncident" &&
           context.locationIntrigue.Hospital >= 2 &&
           context.firedIncidents.some(({ day, incident }) =>
             day === observation.day && incident === "hospitalIncident"
@@ -2339,7 +2417,7 @@ function lossRoleCauseCandidates(
           nonRoleCauseExists = true;
           continue;
         }
-        if (context.phase !== "P9_ROUND_END") continue;
+        if (path !== "protagonistRoundEnd") continue;
         for (const role of ["killer", "lovedOne"] as const) {
           for (const character of lossRoleCandidates(
             tragedySet,
@@ -2358,7 +2436,7 @@ function lossRoleCauseCandidates(
         continue;
       }
 
-      if (observation.timing !== "effect" &&
+      if (path === "naturalLoopEnd" &&
         [combination.mainPlot, ...combination.subPlots].some((plot) =>
         plotLossCouldExplain(
           tragedySet,
@@ -2372,9 +2450,15 @@ function lossRoleCauseCandidates(
         nonRoleCauseExists = true;
       }
 
-      for (const role of ["keyPerson", "friend", "timeTraveler"] as const) {
-        if (role === "friend" && observation.timing === "effect") continue;
-        if (role === "timeTraveler" && !context.lastDay) continue;
+      const roles: ReadonlyArray<"keyPerson" | "friend" | "timeTraveler"> =
+        path === "naturalLoopEnd"
+          ? ["friend"]
+          : path === "lastDayImmediate"
+          ? ["keyPerson", "timeTraveler"]
+          : path === "immediate"
+          ? ["keyPerson"]
+          : [];
+      for (const role of roles) {
         for (const character of lossRoleCandidates(
           tragedySet,
           combination,
@@ -2385,11 +2469,13 @@ function lossRoleCauseCandidates(
           const state = publicCharacterAtLoss(context, character);
           const met = role === "timeTraveler"
             ? (state?.goodwill ?? 3) <= 2
-            : state?.status === "dead";
+            : role === "friend"
+            ? state?.status === "dead"
+            : deaths.has(character);
           if (met) causes.set(`${character}:${role}`, { character, role });
         }
       }
-      if (context.locationIntrigue.City >= 2) {
+      if (path === "immediate" || path === "lastDayImmediate") {
         for (const character of lossRoleCandidates(
           tragedySet,
           combination,
@@ -2397,7 +2483,7 @@ function lossRoleCauseCandidates(
           publicCast,
           observations,
         )) {
-          if (publicCharacterAtLoss(context, character)?.status === "dead") {
+          if (factorDeaths.has(character)) {
             causes.set(`${character}:factor`, { character, role: "factor" });
           }
         }
@@ -2980,6 +3066,10 @@ function observationKey(observation: ProtagonistObservation): string {
 function publicLossObservationContext(
   state: GameState,
   loop: LoopState,
+  end: { day: number; phase: Phase } = {
+    day: loop.day,
+    phase: loop.phase,
+  },
 ): PublicLossObservationContext {
   const startingLocations: Partial<Record<CharacterId, Location>> = {};
   for (const character of Object.keys(state.scenario.cast)) {
@@ -3003,10 +3093,19 @@ function publicLossObservationContext(
       });
     }
   }
+  const endEvidence = loop.roundEvidence?.find(({ day }) => day === end.day);
+  const endingDeathBatches = endEvidence === undefined
+    ? undefined
+    : structuredClone(
+      (endEvidence.deathBatches ?? []).filter(({ phase }) =>
+        phase === end.phase
+      ),
+    );
   return {
     ...snapshotPublicContext(loop),
-    phase: loop.phase,
-    lastDay: loop.day === state.scenario.daysPerLoop,
+    phase: end.phase,
+    lastDay: end.day === state.scenario.daysPerLoop,
+    ...(endingDeathBatches === undefined ? {} : { endingDeathBatches }),
     startingLocations,
     firedIncidents,
   };
@@ -3017,12 +3116,18 @@ export function hypotheticalLossObservation(
   state: GameState,
   timing: LoopEndReason,
 ): Extract<ProtagonistObservation, { kind: "lossObserved" }> {
+  const pending = state.pendingLoopEnd?.reason === timing
+    ? state.pendingLoopEnd
+    : undefined;
+  const end = pending === undefined
+    ? { day: state.loop.day, phase: state.loop.phase }
+    : { day: pending.day, phase: pending.phase };
   return {
     kind: "lossObserved",
     loop: state.loop.loop,
-    day: state.loop.day,
+    day: end.day,
     timing,
-    context: publicLossObservationContext(state, state.loop),
+    context: publicLossObservationContext(state, state.loop, end),
   };
 }
 
@@ -3044,11 +3149,15 @@ export function explainableLossConditions(
   const add = (condition: ExplainableLossCondition): void => {
     conditions.set(condition.key, condition);
   };
+  const path = publicLossPath(observation.timing, context);
 
   for (const combination of combinations) {
-    if (observation.timing === "protagonistDeath") {
+    if (
+      path === "protagonistIncident" ||
+      path === "protagonistRoundEnd"
+    ) {
       if (
-        context.phase === "P7_INCIDENT" &&
+        path === "protagonistIncident" &&
         context.locationIntrigue.Hospital >= 2 &&
         context.firedIncidents.some(({ day, incident }) =>
           day === observation.day && incident === "hospitalIncident"
@@ -3060,7 +3169,7 @@ export function explainableLossConditions(
           incident: "hospitalIncident",
         });
       }
-      if (context.phase !== "P9_ROUND_END") continue;
+      if (path !== "protagonistRoundEnd") continue;
       for (const role of ["killer", "lovedOne"] as const) {
         const met = lossRoleCandidates(
           tragedySet,
@@ -3080,7 +3189,7 @@ export function explainableLossConditions(
       continue;
     }
 
-    if (observation.timing !== "effect") {
+    if (path === "naturalLoopEnd") {
       for (const plot of [combination.mainPlot, ...combination.subPlots]) {
         if (plotLossCouldExplain(
           tragedySet,
@@ -3095,33 +3204,38 @@ export function explainableLossConditions(
       }
     }
 
+    const deaths = new Set(endingDeathCharacters(context));
+    const factorDeaths = new Set(endingFactorDeathCharacters(context));
     const roleConditions: ReadonlyArray<{
       role: "keyPerson" | "friend" | "timeTraveler" | "factor";
+      paths: readonly PublicLossPath[];
       met: (character: CharacterId) => boolean;
     }> = [
       {
         role: "keyPerson",
-        met: (character) =>
-          publicCharacterAtLoss(context, character)?.status === "dead",
+        paths: ["immediate", "lastDayImmediate"],
+        met: (character) => deaths.has(character),
       },
       {
         role: "friend",
+        paths: ["naturalLoopEnd"],
         met: (character) =>
           publicCharacterAtLoss(context, character)?.status === "dead",
       },
       {
         role: "timeTraveler",
-        met: (character) => context.lastDay &&
+        paths: ["lastDayImmediate"],
+        met: (character) =>
           (publicCharacterAtLoss(context, character)?.goodwill ?? 3) <= 2,
       },
       {
         role: "factor",
-        met: (character) => context.locationIntrigue.City >= 2 &&
-          publicCharacterAtLoss(context, character)?.status === "dead",
+        paths: ["immediate", "lastDayImmediate"],
+        met: (character) => factorDeaths.has(character),
       },
     ];
-    for (const { role, met } of roleConditions) {
-      if (role === "friend" && observation.timing === "effect") continue;
+    for (const { role, paths, met } of roleConditions) {
+      if (!paths.includes(path)) continue;
       if (lossRoleCandidates(
         tragedySet,
         combination,
