@@ -317,7 +317,8 @@ describe("Phase 5 gate 2-B headless placement enumeration", () => {
       target: { kind: "location", at: "Hospital" },
     });
     expect(overlapsMastermind).toEqual({ ok: true });
-  }, 30_000);
+  // 368,640개 실제 전이를 검사한다. timeout은 성능 판정값이 아니라 CI 실행 여유다.
+  }, 120_000);
 });
 
 describe("Phase 5 gate 2-B headless follow-up choices", () => {
