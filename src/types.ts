@@ -169,6 +169,15 @@ export interface Counters {
 
 export type IncidentCounter = keyof Counters;
 
+/** 신수 특성으로 옮길 수 있는 캐릭터 카운터. */
+export type SacredTreeCounter = keyof Counters | "protection";
+
+export interface SacredTreeTransferCondition {
+  sacredTreeStatus: BoardCharacterState["status"] | "missing";
+  transferableCounters: SacredTreeCounter[];
+  eligibleTargets: CharacterId[];
+}
+
 export interface IncidentSelection {
   day: number;
   incident: IncidentId;
@@ -372,6 +381,20 @@ export type PhaseLogEntry = (
   | {
     loop: number;
     day: number;
+    phase: "P5_MASTERMIND_ABILITY";
+    kind: "sacredTreeTransferJudged";
+    actor: "mastermind";
+    eligible: boolean;
+    performed: boolean;
+    condition: SacredTreeTransferCondition;
+    counter?: SacredTreeCounter;
+    target?: CharacterId;
+    publicChanges?: PublicBoardChange[];
+    publicContext?: PublicObservationContext;
+  }
+  | {
+    loop: number;
+    day: number;
     phase: "P6_GOODWILL";
     kind: "goodwillUsed";
     character: CharacterId;
@@ -547,6 +570,12 @@ export interface LoopState {
 
   /** P4 안에서 카드 공개·효과 해결을 마치고 결과 확인을 기다리는 상태 */
   actionResolutionComplete: boolean;
+
+  /** 현재 날짜의 P4 후 신수 리더 선택을 처리한 시점. */
+  sacredTreeLeaderResolvedAt?: { loop: number; day: number };
+
+  /** 현재 날짜의 P5 신수 강제 발동 여부 판정을 처리한 시점. */
+  sacredTreeMastermindResolvedAt?: { loop: number; day: number };
 
   /** 자동 통과·사건 판정·리더 교대 기록 */
   phaseLog?: PhaseLogEntry[];

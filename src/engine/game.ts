@@ -26,6 +26,7 @@ import { recordPhaseLog } from "./phase-log";
 import { nextPublicObservationAt } from "./public-information";
 import { publicObservationContext } from "./public-observation";
 import { initLoop } from "./setup";
+import { sacredTreeMastermindChoiceRequired } from "./sacred-tree";
 
 const TIME_GAP_SECONDS = 10 * 60;
 
@@ -434,7 +435,9 @@ export function advanceAutomaticRoundPhases(
     const phase = state.loop.phase;
     const noActiveHook = (
       phase === "P1_ROUND_START" || phase === "P5_MASTERMIND_ABILITY"
-    ) && !activeHookExists(state, phase);
+    ) && !activeHookExists(state, phase) &&
+      !(phase === "P5_MASTERMIND_ABILITY" &&
+        sacredTreeMastermindChoiceRequired(state));
 
     if (noActiveHook) {
       recordPhaseLog(state, {

@@ -20,6 +20,7 @@ import {
   type PublicObservationAt,
   type RoundDeathBatch,
   type RoundEvidence,
+  type SacredTreeTransferCondition,
   type RoleId,
   type Target,
 } from "../types";
@@ -151,6 +152,16 @@ export type ProtagonistObservation = (
     character: CharacterId;
   }
   | {
+    kind: "sacredTreeMastermindTransferJudged";
+    loop: number;
+    day: number;
+    eligible: boolean;
+    performed: boolean;
+    condition: SacredTreeTransferCondition;
+    changes?: PublicBoardChange[];
+    context?: PublicObservationContext;
+  }
+  | {
     kind: "roundEvidence";
     loop: number;
     record: RoundEvidence;
@@ -262,6 +273,20 @@ export type RolePossibilityReason =
   | {
     code: "mandatoryGoodwillRefusalMissing";
     observation: Extract<ProtagonistObservation, { kind: "goodwillAccepted" }>;
+  }
+  | {
+    code: "sacredTreeGoodwillRefusalRequired";
+    observation: Extract<
+      ProtagonistObservation,
+      { kind: "sacredTreeMastermindTransferJudged" }
+    >;
+  }
+  | {
+    code: "sacredTreeGoodwillRefusalAbsent";
+    observation: Extract<
+      ProtagonistObservation,
+      { kind: "sacredTreeMastermindTransferJudged" }
+    >;
   }
   | {
     code: "abilityLocationIntersection";
@@ -574,6 +599,22 @@ function refusalObservationContradiction(
     observation,
     reason: `${observation.character}의 우호 능력 거부를 설명할 ` +
       "우호 무시 역할이 이 조합에 없습니다.",
+  };
+}
+
+function sacredTreeTransferContradiction(
+  observation: Extract<
+    ProtagonistObservation,
+    { kind: "sacredTreeMastermindTransferJudged" }
+  >,
+  ranges: ReadonlyMap<RoleId, RoleRange>,
+): RuleContradiction | undefined {
+  if (!observation.eligible || !observation.performed) return undefined;
+  if (activeRefusalRoleExists(ranges)) return undefined;
+  return {
+    code: "goodwillRefusalUnavailable",
+    observation,
+    reason: "각본가가 신수 카운터를 옮겼지만 이 조합에는 우호 무시 역할이 없습니다.",
   };
 }
 
@@ -2009,6 +2050,9 @@ function contradictionsForCombination(
           ranges,
         );
         break;
+      case "sacredTreeMastermindTransferJudged":
+        contradiction = sacredTreeTransferContradiction(observation, ranges);
+        break;
       case "subplotRevealed":
         if (!combination.subPlots.includes(observation.revealedSubplot)) {
           contradiction = {
@@ -2542,6 +2586,18 @@ function observedRoleExclusionReason(
       ROLE_IMPL[role]?.goodwillRefusal === "Mandatory"
     ) {
       return { code: "mandatoryGoodwillRefusalMissing", observation };
+    }
+    if (
+      observation.kind === "sacredTreeMastermindTransferJudged" &&
+      observation.eligible &&
+      character === "sacredTree"
+    ) {
+      if (observation.performed && !roleCanRefuseGoodwill(role)) {
+        return { code: "sacredTreeGoodwillRefusalRequired", observation };
+      }
+      if (!observation.performed && roleCanRefuseGoodwill(role)) {
+        return { code: "sacredTreeGoodwillRefusalAbsent", observation };
+      }
     }
     if (
       observation.kind === "goodwillForbidApplied" &&
@@ -3365,7 +3421,28 @@ export function collectProtagonistObservations(
       });
     }
     for (const entry of loop.phaseLog ?? []) {
-      if (entry.kind === "goodwillUsed" && entry.response === "resolve") {
+      if (
+        entry.kind === "sacredTreeTransferJudged" &&
+        entry.actor === "mastermind"
+      ) {
+        observations.push({
+          kind: "sacredTreeMastermindTransferJudged",
+          loop: entry.loop,
+          day: entry.day,
+          eligible: entry.eligible,
+          performed: entry.performed,
+          condition: structuredClone(entry.condition),
+          ...(entry.publicChanges === undefined
+            ? {}
+            : { changes: structuredClone(entry.publicChanges) }),
+          ...(entry.publicContext === undefined
+            ? {}
+            : { context: entry.publicContext }),
+          ...(entry.observedAt === undefined
+            ? {}
+            : { observedAt: entry.observedAt }),
+        });
+      } else if (entry.kind === "goodwillUsed" && entry.response === "resolve") {
         const ability = characterDataOf(entry.character)
           .goodwillAbilities[entry.abilityIndex];
         // 거부 불가 능력은 절대 우호 무시 역할도 해결할 수 있으므로 근거가 아니다.

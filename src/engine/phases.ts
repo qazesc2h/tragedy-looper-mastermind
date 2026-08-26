@@ -23,6 +23,10 @@ import {
   publicObservationContext,
 } from "./public-observation";
 import { recordRoundEndPairs } from "./round-evidence";
+import {
+  finalizeSacredTreeMastermindStep,
+  sacredTreeLeaderChoiceRequired,
+} from "./sacred-tree";
 
 function requestEndForActivatedLosses(s: GameState): void {
   // LOOP_END 조건은 라운드 종료 훅과 LAST_DAY 처리를 마친 뒤 finishLoop()에서
@@ -225,6 +229,9 @@ export function advance(
 
     case "P4_RESOLVE":
       if (s.loop.actionResolutionComplete) {
+        if (sacredTreeLeaderChoiceRequired(s)) {
+          throw new Error("sacred-tree Leader choice is required");
+        }
         s.loop.actionResolutionComplete = false;
         break;
       }
@@ -236,6 +243,7 @@ export function advance(
       return undefined;
 
     case "P5_MASTERMIND_ABILITY":
+      finalizeSacredTreeMastermindStep(s);
       resolveHooks(s, "P5_MASTERMIND_ABILITY");
       break;
 

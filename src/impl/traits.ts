@@ -7,6 +7,7 @@ import {
 } from "../types";
 import type { CharacterId, GameState, Hook } from "../types";
 import { SERVANT_TRAIT_SOURCE } from "../engine/servant";
+import { SACRED_TREE_TRAIT_SOURCE } from "../engine/sacred-tree";
 
 function placeEnteringCharacter(
   state: GameState,
@@ -256,9 +257,9 @@ export const TRAIT_IMPL: Record<CharacterId, {
       kind: "mandatory",
       source: {
         timing: "Each turn / Mastermind Ability",
-        description: `Each turn, the Leader may move 1 counter on this character to another character at this location. If this character has :goodwill: Refusel, the Mastermind must also do this during the Mastermind's ability step.`,
+        description: SACRED_TREE_TRAIT_SOURCE,
       },
-      // STATIC_GUIDANCE_ONLY: 양 진영의 카운터 이동 UI·엔진은 B의 범위가 아니다.
+      // IMPLEMENTED_ELSEWHERE: sacred-tree.ts와 P4/P5 입력 동선.
       when: () => false,
       effect: () => {},
     }],

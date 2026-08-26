@@ -1310,6 +1310,145 @@
         });
       }
 
+      async function runSacredTreeCase() {
+        const scenarioId = "basicTragedy:1";
+        await loadScenario(scenarioId, "sacred-tree-transfer");
+        const storageKey = "tragedy-looper-mastermind:tracker";
+        const storage = frameWindow().localStorage;
+        const raw = storage.getItem(storageKey);
+        if (raw === null) throw new Error("신수 UI 검사용 저장 상태가 없습니다.");
+        const tracker = JSON.parse(raw);
+        const state = tracker.games[scenarioId].state;
+        {
+          state.gamePhase = "ROUND";
+          state.scenario.cast.sacredTree = "killer";
+          state.scenario.cast.servant = "person";
+          state.scenario.cast.girlStudent = "person";
+          state.loop.phase = "P4_RESOLVE";
+          state.loop.actionResolutionComplete = true;
+          state.loop.board.sacredTree = { status: "alive", at: "Shrine" };
+          state.loop.board.servant = { status: "alive", at: "Shrine" };
+          state.loop.board.girlStudent = { status: "alive", at: "Shrine" };
+          state.loop.charCounters.sacredTree = {
+            goodwill: 2,
+            paranoia: 0,
+            intrigue: 0,
+            protection: 0,
+          };
+          state.loop.charCounters.servant = {
+            goodwill: 0,
+            paranoia: 0,
+            intrigue: 0,
+            protection: 0,
+          };
+          state.loop.charCounters.girlStudent = {
+            goodwill: 0,
+            paranoia: 0,
+            intrigue: 0,
+            protection: 0,
+          };
+          delete state.loop.sacredTreeLeaderResolvedAt;
+          delete state.loop.sacredTreeMastermindResolvedAt;
+          state.loop.phaseLog = [];
+        }
+        storage.setItem(storageKey, JSON.stringify(tracker));
+        await reloadFrame("sacred-tree-transfer-state");
+        await openOperationSheet("신수 리더 선택 패널");
+
+        await waitFor(
+          () => frameDocument().querySelector(
+            "[data-action='sacred-tree-leader-decline']",
+          ),
+          "신수 리더 옮기지 않음",
+        );
+        assert(
+          frameDocument().querySelector(
+            ".dock-primary[data-action='advance']",
+          )?.disabled,
+          "신수 리더 선택 전 P4 진행 버튼이 활성화됨",
+        );
+        click("[data-action='sacred-tree-leader-decline']");
+        await waitFor(
+          () => !frameDocument().querySelector(
+            ".dock-primary[data-action='advance']",
+          )?.disabled,
+          "신수 리더 미이전 선택 완료",
+        );
+        assert(
+          storedState(scenarioId).loop.charCounters.sacredTree.goodwill === 2,
+          "리더가 옮기지 않았는데 신수 카운터가 바뀜",
+        );
+
+        click(".dock-primary[data-action='advance']");
+        await waitFor(
+          () => currentPhase() === "각본가 능력",
+          "신수 강제 이전 P5",
+        );
+        await openOperationSheet("신수 각본가 강제 선택 패널");
+        await waitFor(
+          () => frameDocument().querySelector(
+            "[data-action='sacred-tree-mastermind-transfer']",
+          ),
+          "신수 각본가 강제 이전",
+        );
+        assert(
+          frameDocument().querySelector(
+            ".dock-primary[data-action='advance']",
+          )?.disabled,
+          "신수 강제 이전 전 P5 진행 버튼이 활성화됨",
+        );
+        changeSelect(
+          "[data-ui-draft-key='sacred-tree:mastermind:counter']",
+          "goodwill",
+        );
+        changeSelect(
+          "[data-ui-draft-key='sacred-tree:mastermind:target']",
+          "servant",
+        );
+        await waitFor(
+          () => !frameDocument().querySelector(
+            "[data-action='sacred-tree-mastermind-transfer']",
+          )?.disabled,
+          "신수 각본가 대상 선택 완료",
+        );
+        click("[data-action='sacred-tree-mastermind-transfer']");
+        await waitFor(
+          () => storedState(scenarioId).loop.charCounters.servant.goodwill === 1,
+          "신수 각본가 카운터 이전 적용",
+        );
+        const applied = storedState(scenarioId);
+        const observation = applied.loop.phaseLog.find(
+          (entry) => entry.kind === "sacredTreeTransferJudged" &&
+            entry.actor === "mastermind",
+        );
+        assert(
+          applied.loop.charCounters.sacredTree.goodwill === 1 &&
+            applied.loop.charCounters.servant.goodwill === 1,
+          `신수 P5 이전 결과: ${JSON.stringify({
+            sacredTree: applied.loop.charCounters.sacredTree,
+            servant: applied.loop.charCounters.servant,
+          })}`,
+        );
+        assert(
+          observation?.eligible === true &&
+            observation.performed === true &&
+            observation.condition.transferableCounters.includes("goodwill") &&
+            observation.condition.eligibleTargets.includes("servant"),
+          `신수 P5 관측 기록: ${JSON.stringify(observation)}`,
+        );
+        assert(
+          !frameDocument().querySelector(
+            ".dock-primary[data-action='advance']",
+          )?.disabled,
+          "신수 강제 이전 뒤 P5 진행 버튼이 비활성화됨",
+        );
+        click(".dock-primary[data-action='advance']");
+        await waitFor(() => currentPhase() === "우호", "신수 처리 뒤 P6");
+        reports.push({
+          sacredTree: "P4 decline; P5 mandatory transfer; condition observed; servant target",
+        });
+      }
+
       async function run() {
         await runTimeGapTimerCases();
         await runDraftInputCases();
@@ -1326,6 +1465,7 @@
         await runCultistToggleCase();
         await runUnsettlingRumorTransactionCase();
         await runServantMovementCase();
+        await runSacredTreeCase();
         restoreStorage();
         const passed = failures.length === 0;
         const report = { reports, failures };

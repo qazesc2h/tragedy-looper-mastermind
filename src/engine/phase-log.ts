@@ -9,6 +9,7 @@ function isPublicObservation(entry: PhaseLogEntry): boolean {
     case "incidentJudged":
     case "leaderPassed":
     case "roundEnded":
+    case "sacredTreeTransferJudged":
       return true;
     case "abilityActivated":
       return (entry.publicChanges?.length ?? 0) > 0;

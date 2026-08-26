@@ -76,6 +76,17 @@ import {
   publicObservationContext,
 } from "../engine/public-observation";
 import {
+  resolveSacredTreeLeaderTransfer,
+  resolveSacredTreeMastermindTransfer,
+  sacredTreeHasGoodwillRefusal,
+  sacredTreeLeaderChoiceRequired,
+  sacredTreeLeaderStepResolved,
+  sacredTreeMastermindChoiceRequired,
+  sacredTreeMastermindStepResolved,
+  sacredTreeTransferCondition,
+  sacredTreeTransferEligible,
+} from "../engine/sacred-tree";
+import {
   loadScenarioCatalog,
   scenarioSourceLabel,
   scenarioValidationHeading,
@@ -115,6 +126,7 @@ import {
   type PhaseLogEntry,
   type PlacedCard,
   type Scenario,
+  type SacredTreeCounter,
   type Target,
   withCharacterLife,
   withCharacterLocation,
@@ -1172,6 +1184,18 @@ function renderPhaseLog(state: GameState): string {
     }
     if (entry.kind === "abilitySkipped") {
       return ["발동한 능력 없음"];
+    }
+    if (entry.kind === "sacredTreeTransferJudged") {
+      const result = !entry.eligible
+        ? "발동 조건 불충족"
+        : entry.performed
+        ? `${entry.counter === undefined
+          ? "카운터 없음"
+          : sacredTreeCounterName(entry.counter)} → ${
+          entry.target === undefined ? "대상 없음" : characterName(entry.target)
+        }`
+        : "옮기지 않음";
+      return [`각본가 · 신수 특성 · ${result}`];
     }
     if (entry.kind === "goodwillUsed") {
       const result = entry.response === "refuse"
@@ -2360,13 +2384,17 @@ function renderPhaseControls(state: GameState): string {
         <div class="resolve-control-copy operation-panel-scroll">
           ${heading(4, phaseName(state.loop.phase))}
           ${state.loop.actionResolutionComplete
-            ? `<p>카드 공개와 효과 해결이 완료되었습니다. 결과 요약을 확인한 뒤 진행하세요.</p>`
+            ? `<p>카드 공개와 효과 해결이 완료되었습니다. 결과 요약을 확인한 뒤 진행하세요.</p>
+              ${renderSacredTreeTransferChoice(state, "leader")}`
             : `${renderPlacementSummary(state)}${renderServantMovementChoice(state)}${renderHookList(state, state.loop.phase, true)}`}
         </div>
         <div class="operation-footer">
           <span>${state.loop.actionResolutionComplete ? "P4 해결 완료" : "6장 배치 확정"}</span>
           ${state.loop.actionResolutionComplete
-            ? renderAdvanceButton()
+            ? renderAdvanceButton(
+              undefined,
+              sacredTreeLeaderChoiceRequired(state),
+            )
             : renderAdvanceButton(
               "카드 공개·해결",
               state.loop.placed.length !== 6 || servantMovementChoiceMissing(state),
@@ -2380,10 +2408,11 @@ function renderPhaseControls(state: GameState): string {
           ${heading(5, phaseName(state.loop.phase))}
           ${loopEndPending
             ? "<p>능력 결과를 확인한 뒤 승패 판정으로 진행하세요.</p>"
-            : renderHookList(state, state.loop.phase, true)}
+            : `${renderSacredTreeTransferChoice(state, "mastermind")}${renderHookList(state, state.loop.phase, true)}`}
         </div>
           <div class="operation-footer">${renderAdvanceButton(
             loopEndPending ? resultConfirmation : undefined,
+            !loopEndPending && sacredTreeMastermindChoiceRequired(state),
           )}</div>
         </section>`;
     case "P6_GOODWILL":
@@ -2467,6 +2496,79 @@ function renderServantMovementChoice(state: GameState): string {
   </article>`;
 }
 
+type SacredTreeActor = "leader" | "mastermind";
+
+function sacredTreeDraftKey(
+  actor: SacredTreeActor,
+  field: "counter" | "target",
+): string {
+  return `sacred-tree:${actor}:${field}`;
+}
+
+function sacredTreeCounterName(counter: SacredTreeCounter): string {
+  return counter === "protection" ? "보호" : counterLabel(counter);
+}
+
+function renderSacredTreeTransferChoice(
+  state: GameState,
+  actor: SacredTreeActor,
+): string {
+  const condition = sacredTreeTransferCondition(state);
+  const eligible = sacredTreeTransferEligible(condition);
+  const resolved = actor === "leader"
+    ? sacredTreeLeaderStepResolved(state)
+    : sacredTreeMastermindStepResolved(state);
+  if (!eligible) return "";
+  if (actor === "mastermind" && !sacredTreeHasGoodwillRefusal(state)) {
+    return "";
+  }
+  if (resolved) {
+    return `<article class="hook-card sacred-tree-transfer-choice is-selected">
+      <div><span>${actor === "leader" ? "리더 선택" : "강제"} · 신수 특성</span>
+        <strong>이번 라운드의 카운터 이전을 처리했습니다.</strong></div>
+    </article>`;
+  }
+
+  const counterKey = sacredTreeDraftKey(actor, "counter");
+  const targetKey = sacredTreeDraftKey(actor, "target");
+  const selectedCounter = draftValue(counterKey);
+  const selectedTarget = draftValue(targetKey);
+  const selectionComplete = condition.transferableCounters.some(
+    (counter) => counter === selectedCounter,
+  ) && condition.eligibleTargets.includes(selectedTarget);
+  return `<article class="hook-card sacred-tree-transfer-choice">
+    <div>
+      <span>${actor === "leader" ? "리더 선택" : "강제"} · 신수 특성</span>
+      <strong>${actor === "leader"
+        ? "신수의 카운터 1개를 같은 장소의 다른 캐릭터에게 옮길 수 있습니다."
+        : "우호 무시 역할이므로 카운터 1개를 반드시 옮겨야 합니다."}</strong>
+    </div>
+    <label><span>카운터</span>
+      <select data-ui-draft-key="${counterKey}">
+        <option value="">미선택</option>
+        ${condition.transferableCounters.map((counter) =>
+          `<option value="${counter}" ${selectedCounter === counter ? "selected" : ""}>${escapeHtml(sacredTreeCounterName(counter))}</option>`
+        ).join("")}
+      </select>
+    </label>
+    <label><span>받을 캐릭터</span>
+      <select data-ui-draft-key="${targetKey}">
+        <option value="">미선택</option>
+        ${condition.eligibleTargets.map((target) =>
+          `<option value="${escapeHtml(target)}" ${selectedTarget === target ? "selected" : ""}>${escapeHtml(characterName(target))}</option>`
+        ).join("")}
+      </select>
+    </label>
+    <div class="hook-actions">
+      ${actor === "leader"
+        ? `<button type="button" data-action="sacred-tree-leader-decline">옮기지 않음</button>`
+        : ""}
+      <button type="button" data-action="sacred-tree-${actor}-transfer"
+        ${selectionComplete ? "" : "disabled"}>카운터 옮기기</button>
+    </div>
+  </article>`;
+}
+
 interface DockPrimaryAction {
   action: "advance" | "reveal-cards";
   label: string;
@@ -2499,7 +2601,11 @@ function dockPrimaryAction(state: GameState): DockPrimaryAction {
       };
     case "P4_RESOLVE":
       return state.loop.actionResolutionComplete
-        ? { action: "advance", label: "다음 단계", disabled: false }
+        ? {
+          action: "advance",
+          label: "다음 단계",
+          disabled: sacredTreeLeaderChoiceRequired(state),
+        }
         : {
           action: "reveal-cards",
           label: "카드 공개·해결",
@@ -2508,6 +2614,12 @@ function dockPrimaryAction(state: GameState): DockPrimaryAction {
         };
     case "P7_INCIDENT":
       return { action: "advance", label: "사건 판정", disabled: false };
+    case "P5_MASTERMIND_ABILITY":
+      return {
+        action: "advance",
+        label: "다음 단계",
+        disabled: sacredTreeMastermindChoiceRequired(state),
+      };
     case "P9_ROUND_END":
       return {
         action: "advance",
@@ -3518,6 +3630,14 @@ function hypothesisObservationLabel(
       return `음모 금지 무시 · ${targetLabel(observation.target)} 음모 증가`;
     case "goodwillForbidApplied":
       return `${observation.loop}루프 ${observation.day}일 · ${characterName(observation.character)} 우호 금지 발동`;
+    case "sacredTreeMastermindTransferJudged":
+      return `${observation.loop}루프 ${observation.day}일 · 각본가 신수 특성 ${
+        !observation.eligible
+          ? "발동 조건 불충족"
+          : observation.performed
+          ? "카운터 이전"
+          : "미발동"
+      }`;
     case "roundEvidence": {
       const deaths = observation.record.deathBatches?.flatMap(
         ({ characters }) => characters,
@@ -3667,6 +3787,8 @@ function roleCellReasonLabel(code: string): string {
     case "ruleUnavailable": return "남은 룰에서 불가";
     case "goodwillRefusalRequired": return "우호 거부 관측";
     case "mandatoryGoodwillRefusalMissing": return "절대 우호 거부 없음";
+    case "sacredTreeGoodwillRefusalRequired": return "신수 강제 이전 관측";
+    case "sacredTreeGoodwillRefusalAbsent": return "신수 강제 이전 없음";
     case "abilityLocationIntersection": return "능력 위치 교집합";
     case "loopEndRoleRevealMissing": return "루프 종료 역할 공개 없음";
     case "lossConditionOnlyCandidate": return "패배 조건 유일 후보";
@@ -3724,6 +3846,15 @@ function renderRoleInferenceTraces(
   const noDeathPartners = new Map<CharacterId, Set<CharacterId>>();
 
   for (const observation of summary.observations) {
+    if (observation.kind === "sacredTreeMastermindTransferJudged") {
+      if (!observation.eligible) continue;
+      traces.push(`<li>
+        <strong>신수 · 우호 무시 계열 ${observation.performed ? "확정" : "배제"}</strong>
+        <span>근거: ${observation.loop}루프 ${observation.day}일 · 발동 조건 충족 · 각본가 강제 이전 ${observation.performed ? "수행" : "없음"}</span>
+        <small>카운터나 동소 생존 대상이 없던 날은 이 배제 근거를 만들지 않습니다.</small>
+      </li>`);
+      continue;
+    }
     if (observation.kind === "goodwillForbidApplied") {
       const cell = summary.roleTable.cells[observation.character]
         ?.timeTraveler;
@@ -4850,6 +4981,22 @@ function revealActionCards(): void {
   }
 }
 
+function sacredTreeSelectionFromDraft(
+  state: GameState,
+  actor: SacredTreeActor,
+): { counter: SacredTreeCounter; target: CharacterId } {
+  const condition = sacredTreeTransferCondition(state);
+  const counterValue = draftValue(sacredTreeDraftKey(actor, "counter"));
+  const counter = condition.transferableCounters.find(
+    (candidate) => candidate === counterValue,
+  );
+  const target = draftValue(sacredTreeDraftKey(actor, "target"));
+  if (counter === undefined || !condition.eligibleTargets.includes(target)) {
+    throw new Error("신수의 카운터와 받을 캐릭터를 모두 선택해야 합니다.");
+  }
+  return { counter, target };
+}
+
 function resolveGoodwillFromButton(button: HTMLButtonElement): void {
   const entry = activeScenarioEntry();
   const game = tracker.games[entry.id];
@@ -5284,6 +5431,37 @@ root.addEventListener("click", (event) => {
     return;
   }
 
+  if (action === "sacred-tree-leader-decline") {
+    runLockedUiAction(button, () => {
+      commit("sacred-tree-leader-decline", (state) => {
+        resolveSacredTreeLeaderTransfer(state);
+      });
+    });
+    return;
+  }
+
+  if (
+    action === "sacred-tree-leader-transfer" ||
+    action === "sacred-tree-mastermind-transfer"
+  ) {
+    const actor: SacredTreeActor = action === "sacred-tree-leader-transfer"
+      ? "leader"
+      : "mastermind";
+    runLockedUiAction(button, () => {
+      commit(`sacred-tree-${actor}-transfer`, (state) => {
+        const selection = sacredTreeSelectionFromDraft(state, actor);
+        if (actor === "leader") {
+          resolveSacredTreeLeaderTransfer(state, selection);
+        } else {
+          resolveSacredTreeMastermindTransfer(state, selection);
+        }
+        uiInputDrafts.delete(sacredTreeDraftKey(actor, "counter"));
+        uiInputDrafts.delete(sacredTreeDraftKey(actor, "target"));
+      });
+    });
+    return;
+  }
+
   if (action === "goodwill") {
     runLockedUiAction(button, () => resolveGoodwillFromButton(button));
     return;
@@ -5350,6 +5528,10 @@ root.addEventListener("change", (event) => {
       return;
     }
     if (draftKey === "new-game:difficulty") {
+      render();
+      return;
+    }
+    if (draftKey.startsWith("sacred-tree:")) {
       render();
       return;
     }
