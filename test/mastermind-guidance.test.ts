@@ -2,7 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import { createGameState } from "../src/engine/game";
 import { mastermindGuidance } from "../src/engine/mastermind-guidance";
+import { applyScenarioStartLocationInputs } from "../src/engine/scenario-inputs";
 import { loadScenarioCatalog } from "../src/scenario-catalog";
+import type { Scenario } from "../src/types";
+
+function createCatalogState(scenario: Scenario) {
+  return createGameState(applyScenarioStartLocationInputs(scenario, {
+    servant: "City",
+  }));
+}
 
 function stateFor(id: string, difficultyIndex = 0) {
   const entry = loadScenarioCatalog().find((candidate) => candidate.id === id);
@@ -13,19 +21,19 @@ function stateFor(id: string, difficultyIndex = 0) {
   if (difficulty === undefined) {
     throw new Error(`missing scenario difficulty ${id}#${difficultyIndex}`);
   }
-  return createGameState(difficulty.scenario);
+  return createCatalogState(difficulty.scenario);
 }
 
 describe("mastermind pre-game guidance", () => {
-  it("generates static guidance for all 47 bundled difficulties", () => {
+  it("generates static guidance for all 48 bundled difficulties", () => {
     const results = loadScenarioCatalog().flatMap((entry) =>
       entry.difficulties.map((difficulty) => ({
         key: `${entry.id}#${difficulty.index}`,
-        guidance: mastermindGuidance(createGameState(difficulty.scenario)),
+        guidance: mastermindGuidance(createCatalogState(difficulty.scenario)),
       }))
     );
 
-    expect(results).toHaveLength(47);
+    expect(results).toHaveLength(48);
     for (const { key, guidance } of results) {
       expect(guidance.routes.length, key).toBeGreaterThan(0);
       expect(guidance.primary, key).toBeDefined();
@@ -117,7 +125,7 @@ describe("mastermind pre-game guidance", () => {
   it("does not emit permanently ineffective black-cat incident deaths", () => {
     for (const entry of loadScenarioCatalog()) {
       for (const difficulty of entry.difficulties) {
-        const guidance = mastermindGuidance(createGameState(difficulty.scenario));
+        const guidance = mastermindGuidance(createCatalogState(difficulty.scenario));
         const blackCatDays = new Set(difficulty.scenario.incidents
           .filter(({ culprit }) => culprit === "blackCat")
           .map(({ day, incident }) => `${incident}:${day}`));

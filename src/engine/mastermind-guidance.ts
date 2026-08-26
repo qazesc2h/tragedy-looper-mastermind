@@ -10,6 +10,7 @@ import {
   type LossRoute,
   type LossRouteControl,
 } from "./loss";
+import { actionCardRestriction } from "./legal";
 
 export interface GuidanceActions {
   cards: number;
@@ -362,13 +363,33 @@ function guidanceTiming(
 }
 
 function interferenceFor(
+  state: GameState,
   condition: LossDistance,
   route: LossRoute,
 ): { difficulty: InterferenceDifficulty; text: string } {
   if (condition.role === "timeTraveler") {
+    const forbidUnavailable = actionCardRestriction(
+      state,
+      "mastermind",
+      "forbidGoodwill",
+    ) !== undefined;
     return {
       difficulty: "보통",
-      text: "마지막 날까지 시간 여행자에게 우호를 3개 이상 놓는다. 우호 금지는 무시된다.",
+      text: forbidUnavailable
+        ? "특수 규칙 때문에 우호 금지를 사용할 수 없다. 마지막 날까지 시간 여행자에게 우호를 3개 이상 놓는 주인공 행동만이 이 경로를 막는다."
+        : "마지막 날까지 시간 여행자에게 우호를 3개 이상 놓는다. 우호 금지는 무시된다.",
+    };
+  }
+  if (condition.plot === "changeOfFuture") {
+    const incident = state.scenario.incidents.find(
+      ({ incident: id }) => id === "butterflyEffect",
+    );
+    const culprit = incident?.culprit;
+    return {
+      difficulty: "보통",
+      text: incident === undefined || culprit === undefined
+        ? "나비의 날갯짓 발생을 막는다."
+        : `${incident.day}일 사건 전에 ${characterDataOf(culprit).ko}를 사망시키거나 사건 발생을 억제한다.`,
     };
   }
   if (route.control === "protagonist") {
@@ -447,8 +468,15 @@ function guidanceRoute(
   const cards = unpack(planned.plan.cards);
   const abilities = unpack(planned.plan.abilities);
   const day = minimumDay(state, condition, planned.plan, planned.fixedDay);
-  const interference = interferenceFor(condition, route);
-  const warning = condition.role === "timeTraveler"
+  const interference = interferenceFor(state, condition, route);
+  const butterflyIncident = condition.plot === "changeOfFuture"
+    ? state.scenario.incidents.find(({ incident }) =>
+      incident === "butterflyEffect"
+    )
+    : undefined;
+  const warning = butterflyIncident !== undefined
+    ? `${butterflyIncident.day}일 나비의 날갯짓 범인은 ${characterDataOf(butterflyIncident.culprit).ko}다. 사건 단계까지 범인을 생존·등장 상태로 유지해야 하며, 검은 고양이가 범인이면 효과는 없어도 발생 이력은 남는다.`
+    : condition.role === "timeTraveler"
     ? "각본가 행동은 0회다. 주인공이 우호를 쌓지 않고 방치하면 마지막 날에 성립한다."
     : route.control === "protagonist"
     ? "사용 여부와 대상은 주인공이 고른다. 노릴 경로가 아니다."

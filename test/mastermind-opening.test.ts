@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { createGameState } from "../src/engine/game";
 import { validatePlacement } from "../src/engine/legal";
+import { applyScenarioStartLocationInputs } from "../src/engine/scenario-inputs";
 import {
   mastermindOpeningGuidance,
   type OpeningPlacement,
@@ -13,7 +14,14 @@ import {
   characterLocation,
   type GameState,
   type PlacedCard,
+  type Scenario,
 } from "../src/types";
+
+function createCatalogState(scenario: Scenario) {
+  return createGameState(applyScenarioStartLocationInputs(scenario, {
+    servant: "City",
+  }));
+}
 
 function stateFor(id: string, difficultyIndex = 0): GameState {
   const entry = loadScenarioCatalog().find((candidate) => candidate.id === id);
@@ -21,19 +29,19 @@ function stateFor(id: string, difficultyIndex = 0): GameState {
     index === difficultyIndex
   );
   if (difficulty === undefined) throw new Error(`missing ${id}#${difficultyIndex}`);
-  return createGameState(difficulty.scenario);
+  return createCatalogState(difficulty.scenario);
 }
 
 describe("mastermind opening guidance E", () => {
-  it("exhaustively generates a legal three-card recommendation for all 47 difficulties", () => {
+  it("exhaustively generates a legal three-card recommendation for all 48 difficulties", () => {
     const rows = loadScenarioCatalog().flatMap((entry) =>
       entry.difficulties.map((difficulty) => ({
         key: `${entry.id}#${difficulty.index}`,
-        state: createGameState(difficulty.scenario),
+        state: createCatalogState(difficulty.scenario),
       }))
     );
 
-    expect(rows).toHaveLength(47);
+    expect(rows).toHaveLength(48);
     for (const { key, state } of rows) {
       const guidance = mastermindOpeningGuidance(state);
       expect(guidance.contributingPlacementCount, key).toBeLessThan(63_360);
@@ -66,7 +74,7 @@ describe("mastermind opening guidance E", () => {
     for (const entry of loadScenarioCatalog()) {
       for (const difficulty of entry.difficulties) {
         const key = `${entry.id}#${difficulty.index}`;
-        const state = createGameState(difficulty.scenario);
+        const state = createCatalogState(difficulty.scenario);
         const recommendations = mastermindOpeningGuidance(state).recommendations;
         for (const recommendation of recommendations) {
           for (const placement of recommendation.placements) {
@@ -145,7 +153,7 @@ describe("mastermind opening guidance E", () => {
 
     for (const entry of loadScenarioCatalog()) {
       for (const difficulty of entry.difficulties) {
-        const state = createGameState(difficulty.scenario);
+        const state = createCatalogState(difficulty.scenario);
         const profile = mastermindOpeningGuidance(state).recommendations[0];
         if (profile === undefined) throw new Error(`missing ${entry.id}`);
         const intrigueIndexes = profile.placements.flatMap(({ card }, index) =>

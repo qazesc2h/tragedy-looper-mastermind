@@ -1,6 +1,8 @@
 import basicTragedyScriptsJson from "../data/basic-tragedy-scripts.json";
 import firstStepsScriptsJson from "../data/first-steps-scripts.json";
 import scenarioSourceJson from "../data/scenario-source.json";
+import communityScriptsJson from "../scenarios/community-scripts.json";
+import communityScenarioSourceJson from "../scenarios/scenario-source.json";
 import {
   adaptTragedyScript,
   scriptDifficulties,
@@ -23,6 +25,9 @@ export interface ScenarioDifficultyOption extends ScriptDifficulty {
 export interface ScenarioCatalogEntry {
   id: string;
   rawTitle: string;
+  creator?: string;
+  victoryConditions?: string;
+  mastermindHints?: string;
   scenario: Scenario;
   difficulties: readonly ScenarioDifficultyOption[];
   source: ScenarioSource;
@@ -36,10 +41,25 @@ const SCENARIO_SOURCES: readonly ScenarioSource[] = [
   "unknown",
 ];
 
-const BUNDLED_SCRIPTS: Readonly<Record<string, readonly unknown[]>> = {
-  firstSteps: firstStepsScriptsJson,
-  basicTragedy: basicTragedyScriptsJson,
-};
+interface BundledScriptGroup {
+  scripts: readonly unknown[];
+  idOf: (raw: unknown, index: number) => string;
+}
+
+const BUNDLED_SCRIPT_GROUPS: readonly BundledScriptGroup[] = [
+  {
+    scripts: firstStepsScriptsJson,
+    idOf: (_raw, index) => `firstSteps:${index + 1}`,
+  },
+  {
+    scripts: basicTragedyScriptsJson,
+    idOf: (_raw, index) => `basicTragedy:${index + 1}`,
+  },
+  {
+    scripts: communityScriptsJson,
+    idOf: (raw, index) => rawScriptId(raw, index),
+  },
+];
 
 function requireScenarioSourceIds(
   value: unknown,
@@ -51,41 +71,71 @@ function requireScenarioSourceIds(
   return value;
 }
 
-function parseScenarioSourceOverlay(): ReadonlyMap<string, ScenarioSource> {
-  const raw = scenarioSourceJson as Record<string, unknown>;
-  const byId = new Map<string, ScenarioSource>();
+function addScenarioSourceOverlay(
+  byId: Map<string, ScenarioSource>,
+  value: unknown,
+  label: string,
+): void {
+  const raw = value as Record<string, unknown>;
 
   for (const source of SCENARIO_SOURCES) {
     for (const id of requireScenarioSourceIds(raw[source], source)) {
       const previous = byId.get(id);
       if (previous !== undefined) {
         throw new Error(
-          `scenario-source duplicates "${id}" in ${previous} and ${source}`,
+          `${label} duplicates "${id}" in ${previous} and ${source}`,
         );
       }
       byId.set(id, source);
     }
   }
+}
 
+function parseScenarioSourceOverlays(): ReadonlyMap<string, ScenarioSource> {
+  const byId = new Map<string, ScenarioSource>();
+  addScenarioSourceOverlay(byId, scenarioSourceJson, "data/scenario-source");
+  addScenarioSourceOverlay(
+    byId,
+    communityScenarioSourceJson,
+    "scenarios/scenario-source",
+  );
   return byId;
 }
 
-const scenarioSourceById = parseScenarioSourceOverlay();
+const scenarioSourceById = parseScenarioSourceOverlays();
+
+function rawScriptRecord(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : undefined;
+}
+
+function rawScriptId(value: unknown, index: number): string {
+  const id = rawScriptRecord(value)?.id;
+  if (typeof id !== "string" || id.length === 0) {
+    throw new Error(`community script ${index + 1} must have a non-empty id`);
+  }
+  return id;
+}
 
 function rawScriptTitle(value: unknown, index: number): string {
-  if (
-    typeof value === "object" && value !== null && !Array.isArray(value) &&
-    typeof (value as Record<string, unknown>).title === "string"
-  ) {
-    return (value as Record<string, unknown>).title as string;
-  }
+  const title = rawScriptRecord(value)?.title;
+  if (typeof title === "string") return title;
   return `Script ${index + 1}`;
 }
 
+function optionalRawScriptString(
+  value: unknown,
+  field: string,
+): string | undefined {
+  const raw = rawScriptRecord(value)?.[field];
+  return typeof raw === "string" ? raw : undefined;
+}
+
 function buildScenarioCatalog(): ScenarioCatalogEntry[] {
-  const entries = Object.entries(BUNDLED_SCRIPTS).flatMap(
-    ([tragedySet, scripts]) => scripts.map((raw, index) => {
-      const id = `${tragedySet}:${index + 1}`;
+  const entries = BUNDLED_SCRIPT_GROUPS.flatMap(
+    ({ scripts, idOf }) => scripts.map((raw, index) => {
+      const id = idOf(raw, index);
       const source = scenarioSourceById.get(id);
       if (source === undefined) {
         throw new Error(`scenario-source is missing "${id}"`);
@@ -111,6 +161,9 @@ function buildScenarioCatalog(): ScenarioCatalogEntry[] {
       return {
         id,
         rawTitle: rawScriptTitle(raw, index),
+        creator: optionalRawScriptString(raw, "creator"),
+        victoryConditions: optionalRawScriptString(raw, "victory-conditions"),
+        mastermindHints: optionalRawScriptString(raw, "mastermindHints"),
         scenario: defaultDifficulty.scenario,
         difficulties,
         source,

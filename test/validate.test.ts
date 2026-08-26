@@ -18,8 +18,8 @@ const scenarioCatalog = loadBasicTragedyScenarioCatalog();
 const scenarios = scenarioCatalog.map(({ scenario }) => scenario);
 
 describe("validateScenario", () => {
-  it("loads all 22 bundled basic tragedy scripts for validation", () => {
-    expect(scenarios).toHaveLength(22);
+  it("loads all 23 bundled basic tragedy scripts for validation", () => {
+    expect(scenarios).toHaveLength(23);
   });
 
   it("keeps plotLessRole in runtime character data", () => {
@@ -128,11 +128,11 @@ describe("validateScenario", () => {
     const mysteryBoyScenarios = scenarios.filter(
       ({ cast }) => "mysteryBoy" in cast,
     );
-    expect(mysteryBoyScenarios).toHaveLength(7);
+    expect(mysteryBoyScenarios).toHaveLength(8);
     const results = mysteryBoyScenarios.map((scenario) =>
       validateScenario(scenario)
     );
-    expect(results.filter(({ ok }) => ok)).toHaveLength(6);
+    expect(results.filter(({ ok }) => ok)).toHaveLength(7);
     expect(results.filter(({ ok }) => !ok)).toEqual([{
       ok: false,
       errors: [
@@ -250,12 +250,12 @@ describe("validateScenario", () => {
 
 describe("bundled scenario source policy", () => {
   it("classifies every bundled scenario exactly once", () => {
-    expect(scenarioCatalog).toHaveLength(22);
-    expect(new Set(scenarioCatalog.map(({ id }) => id)).size).toBe(22);
+    expect(scenarioCatalog).toHaveLength(23);
+    expect(new Set(scenarioCatalog.map(({ id }) => id)).size).toBe(23);
     expect(scenarioCatalog.filter(({ source }) => source === "official"))
       .toHaveLength(8);
     expect(scenarioCatalog.filter(({ source }) => source === "community"))
-      .toHaveLength(14);
+      .toHaveLength(15);
     expect(scenarioCatalog.filter(({ source }) => source === "unknown"))
       .toHaveLength(0);
     expect(scenarioSourceJson._basis).toEqual({

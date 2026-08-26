@@ -1,0 +1,277 @@
+import { describe, expect, it } from "vitest";
+
+import communityScripts from "../scenarios/community-scripts.json";
+import { killCharacter } from "../src/engine/death";
+import {
+  advanceGame,
+  chooseInitialLeader,
+  continueAfterLoopJudgment,
+  continueFromTimeGap,
+  createGameState,
+} from "../src/engine/game";
+import { actionCardRestriction, validatePlacement } from "../src/engine/legal";
+import { mastermindCautions } from "../src/engine/mastermind-cautions";
+import { mastermindCoverGuidance } from "../src/engine/mastermind-cover";
+import { mastermindDecoyGuidance } from "../src/engine/mastermind-decoys";
+import { mastermindGuidance } from "../src/engine/mastermind-guidance";
+import { mastermindOpeningGuidance } from "../src/engine/mastermind-opening";
+import { resolveHooks } from "../src/engine/phases";
+import {
+  resolveSacredTreeMastermindTransfer,
+  sacredTreeMastermindChoiceRequired,
+} from "../src/engine/sacred-tree";
+import {
+  applyScenarioStartLocationInputs,
+  requiredScenarioStartLocationInputs,
+} from "../src/engine/scenario-inputs";
+import {
+  currentServantFollowOptions,
+  resolveActions,
+  setServantMovementChoice,
+} from "../src/engine/resolve";
+import { loadScenarioCatalog } from "../src/scenario-catalog";
+import type { GameState, Location, PlacedCard, Scenario } from "../src/types";
+import { boardIsAlive, boardLocation } from "./helpers";
+
+function catalogEntry() {
+  const entry = loadScenarioCatalog().find(({ id }) =>
+    id === "community:naughty-cat"
+  );
+  if (entry === undefined) throw new Error("missing community:naughty-cat");
+  return entry;
+}
+
+function scenarioAt(servant: Location): Scenario {
+  return applyScenarioStartLocationInputs(catalogEntry().scenario, { servant });
+}
+
+function stateAt(servant: Location = "City"): GameState {
+  return createGameState(scenarioAt(servant));
+}
+
+describe("community scenario: 못된 고양이", () => {
+  it("preserves its author metadata, source text, and validation result", () => {
+    const entry = catalogEntry();
+    const source = communityScripts[0];
+
+    expect(entry).toMatchObject({
+      id: "community:naughty-cat",
+      rawTitle: "못된 고양이",
+      creator: "갱하",
+      source: "community",
+      validation: { ok: true, errors: [] },
+    });
+    expect(entry.mastermindHints).toBe(source.mastermindHints);
+    expect(entry.victoryConditions).toBe(source["victory-conditions"]);
+    expect(entry.scenario).toMatchObject({
+      tragedySet: "basicTragedy",
+      mainPlot: "changeOfFuture",
+      subPlots: ["paranoiaVirus", "threadsFate"],
+      loops: 5,
+      daysPerLoop: 5,
+      difficulty: 5,
+      specialRules: ["각본가는 '우호 금지' 카드를 사용할 수 없다."],
+      specialRuleIds: ["mastermindCannotUseForbidGoodwill"],
+    });
+  });
+
+  it("requires the missing Servant start location without inventing a default", () => {
+    expect(requiredScenarioStartLocationInputs(catalogEntry().scenario)).toEqual([{
+      character: "servant",
+      choices: ["City", "School"],
+    }]);
+    for (const servant of ["City", "School"] as const) {
+      const scenario = scenarioAt(servant);
+      expect(requiredScenarioStartLocationInputs(scenario)).toEqual([]);
+      expect(scenario.scriptSpecified?.["startLocation:servant"]).toBe(servant);
+      expect(() => createGameState(scenario)).not.toThrow();
+    }
+
+    const ordinary = loadScenarioCatalog().find(({ id }) =>
+      id === "basicTragedy:1"
+    )?.scenario;
+    if (ordinary === undefined) throw new Error("missing basicTragedy:1");
+    expect(ordinary.scriptSpecified).toBeUndefined();
+    expect(applyScenarioStartLocationInputs(ordinary, {}).scriptSpecified)
+      .toBeUndefined();
+  });
+
+  it("keeps Forbid Goodwill in hand semantics but blocks only the Mastermind", () => {
+    const state = stateAt();
+    const target = { kind: "character", id: "informer" } as const;
+    const mastermind: PlacedCard = {
+      owner: "mastermind",
+      card: "forbidGoodwill",
+      target,
+    };
+    const protagonist: PlacedCard = {
+      owner: 0,
+      card: "forbidGoodwill",
+      target,
+    };
+
+    expect(actionCardRestriction(state, "mastermind", "forbidGoodwill"))
+      .toEqual({
+        ok: false,
+        reason: "특수 규칙: 각본가는 우호 금지 카드를 사용할 수 없습니다.",
+      });
+    expect(validatePlacement(state, mastermind)).toEqual(
+      actionCardRestriction(state, "mastermind", "forbidGoodwill"),
+    );
+    expect(actionCardRestriction(state, 0, "forbidGoodwill")).toBeUndefined();
+    expect(validatePlacement(state, protagonist)).toEqual({ ok: true });
+    expect(state.loop.spentOncePerLoop.mastermind).not.toContain(
+      "forbidGoodwill",
+    );
+  });
+
+  it("runs Servant, Sacred Tree, Black Cat, and Mystery Boy through this cast", () => {
+    const servant = stateAt("School");
+    chooseInitialLeader(servant, 0);
+    continueFromTimeGap(servant);
+    expect(servant.loop.locIntrigue.Shrine).toBe(1);
+
+    servant.loop.phase = "P4_RESOLVE";
+    servant.loop.placed = [{
+      owner: "mastermind",
+      card: "moveHorizontal",
+      target: { kind: "character", id: "richStudent" },
+    }];
+    expect(currentServantFollowOptions(servant)).toEqual([{
+      character: "richStudent",
+      to: "City",
+    }]);
+    setServantMovementChoice(servant, "richStudent");
+    resolveActions(servant);
+    expect(boardLocation(servant.loop, "servant")).toBe("City");
+
+    const tree = stateAt();
+    chooseInitialLeader(tree, 0);
+    continueFromTimeGap(tree);
+    tree.loop.phase = "P5_MASTERMIND_ABILITY";
+    tree.loop.charCounters.sacredTree.intrigue = 1;
+    expect(sacredTreeMastermindChoiceRequired(tree)).toBe(true);
+    resolveSacredTreeMastermindTransfer(tree, {
+      counter: "intrigue",
+      target: "blackCat",
+    });
+    expect(tree.loop.charCounters.blackCat.intrigue).toBe(1);
+
+    const outsider = stateAt();
+    killCharacter(outsider, "mysteryBoy");
+    expect(boardIsAlive(outsider.loop, "mysteryBoy")).toBe(false);
+    resolveHooks(outsider, "LOOP_END");
+    expect(outsider.loop.revealedRoleCharacters).toContain("mysteryBoy");
+  });
+
+  it("plays all five days of all five loops and reaches the final guess", () => {
+    const state = stateAt();
+    chooseInitialLeader(state, 0);
+    const visited = new Map<number, Set<number>>();
+
+    for (let loop = 1; loop <= 5; loop += 1) {
+      continueFromTimeGap(state);
+      expect(state.loop.locIntrigue.Shrine).toBe(1);
+      const days = visited.get(loop) ?? new Set<number>();
+      visited.set(loop, days);
+
+      for (let guard = 0; guard < 80 && state.gamePhase === "ROUND"; guard += 1) {
+        days.add(state.loop.day);
+        advanceGame(state);
+      }
+
+      expect(state.gamePhase).toBe("LOOP_JUDGMENT");
+      expect(days).toEqual(new Set([1, 2, 3, 4, 5]));
+      expect(state.loop.incidentOccurrencesFiredThisLoop).toContainEqual({
+        day: 5,
+        incident: "butterflyEffect",
+        culprit: "blackCat",
+      });
+      expect(state.loopOutcomes.at(-1)).toMatchObject({
+        loop,
+        day: 5,
+        result: "protagonistsLost",
+      });
+      continueAfterLoopJudgment(state);
+    }
+
+    expect(state.history).toHaveLength(5);
+    expect(state.loopOutcomes).toHaveLength(5);
+    expect(state.gamePhase).toBe("FINAL_GUESS");
+  });
+
+  it("recovers the scenario author's seven key guidance intentions in A-E", () => {
+    for (const servant of ["City", "School"] as const) {
+      const state = stateAt(servant);
+      const guidance = mastermindGuidance(state);
+      const cautions = mastermindCautions(state);
+      const decoys = mastermindDecoyGuidance(state);
+      const cover = mastermindCoverGuidance(state);
+      const opening = mastermindOpeningGuidance(state);
+      const future = guidance.routes.find(({ conditionKey }) =>
+        conditionKey === "plot:changeOfFuture"
+      );
+      const cautionRows = [
+        ...cautions.identityExposure,
+        ...cautions.uncontrolledRisks,
+        ...cautions.operationalNotes,
+        ...cautions.protagonistTools,
+      ];
+
+      expect(future).toMatchObject({ minimumDay: 5 });
+      expect(future?.warning).toContain(
+        "5일 나비의 날갯짓 범인은 검은 고양이",
+      );
+      expect(future?.warning).toContain("사건 단계까지 범인을 생존");
+      expect(cautionRows).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          key: "risk:trait:black-cat-loop-start",
+          description: expect.stringContaining("매 루프 시작 시 신사에 음모 1개"),
+        }),
+        expect.objectContaining({
+          key: "risk:incident:5:butterflyEffect:blackCat",
+          title: expect.stringContaining("범인 검은 고양이"),
+        }),
+        expect.objectContaining({
+          key: "tool:goodwill:informer:0",
+          description: expect.stringContaining("룰 X"),
+        }),
+        expect.objectContaining({
+          key: "risk:trait:sacred-tree-refusal-range",
+          description: expect.stringMatching(/후보는 5개.*광신도는 그중 하나/),
+        }),
+      ]));
+      expect(cautionRows.some(({ key }) =>
+        key === "identity:time-traveler:informer"
+      )).toBe(false);
+
+      const girlDecoy = decoys.fakeLossConditions.find(({ key }) =>
+        key === "fake:plot:signWithMe"
+      );
+      expect(girlDecoy).toMatchObject({
+        requirement: "소녀인 핵심 인물 후보(캐릭터)에 음모 2개",
+        candidateCharacters: ["popIdol", "richStudent"],
+      });
+      expect(decoys.locationIntrigueSources).toContainEqual(
+        expect.objectContaining({
+          key: "trait:blackCat",
+          targetScope: "신사",
+          condition: "신사(장소)에 음모 1개",
+        }),
+      );
+      expect(cover.rolePoolPressure).toContain("역할은 3종");
+      expect(cover.rolePoolPressure).toContain("최후의 싸움에서 역전하기 쉬우므로");
+      expect(cover.candidates.find(({ character }) =>
+        character === "informer"
+      )?.exposurePaths.some(({ key }) =>
+        key === "role:timeTraveler:forbid-goodwill"
+      )).toBe(false);
+      expect(opening.recommendations.flatMap(({ placements }) => placements)
+        .some(({ card }) => card === "forbidGoodwill")).toBe(false);
+      expect(opening.recommendations.flatMap(({ placements }) => placements)
+        .some(({ contributions }) => contributions.some(({ source, key }) =>
+          source === "C" && key === "C:fake:plot:signWithMe"
+        ))).toBe(true);
+    }
+  });
+});

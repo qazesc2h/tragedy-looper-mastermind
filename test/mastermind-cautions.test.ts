@@ -3,7 +3,15 @@ import { describe, expect, it } from "vitest";
 import { characterDataOf } from "../src/data";
 import { mastermindCautions } from "../src/engine/mastermind-cautions";
 import { createGameState } from "../src/engine/game";
+import { applyScenarioStartLocationInputs } from "../src/engine/scenario-inputs";
 import { loadScenarioCatalog } from "../src/scenario-catalog";
+import type { Scenario } from "../src/types";
+
+function createCatalogState(scenario: Scenario) {
+  return createGameState(applyScenarioStartLocationInputs(scenario, {
+    servant: "City",
+  }));
+}
 
 function stateFor(id: string, difficultyIndex = 0) {
   const entry = loadScenarioCatalog().find((candidate) => candidate.id === id);
@@ -14,14 +22,14 @@ function stateFor(id: string, difficultyIndex = 0) {
   if (difficulty === undefined) {
     throw new Error(`missing scenario difficulty ${id}#${difficultyIndex}`);
   }
-  return createGameState(difficulty.scenario);
+  return createCatalogState(difficulty.scenario);
 }
 
 describe("mastermind scenario cautions", () => {
-  it("generates filtered cautions and every cast goodwill ability for all 47 difficulties", () => {
+  it("generates filtered cautions and every cast goodwill ability for all 48 difficulties", () => {
     const results = loadScenarioCatalog().flatMap((entry) =>
       entry.difficulties.map((difficulty) => {
-        const state = createGameState(difficulty.scenario);
+        const state = createCatalogState(difficulty.scenario);
         return {
           key: `${entry.id}#${difficulty.index}`,
           state,
@@ -30,7 +38,7 @@ describe("mastermind scenario cautions", () => {
       })
     );
 
-    expect(results).toHaveLength(47);
+    expect(results).toHaveLength(48);
     for (const { key, state, cautions } of results) {
       const expectedGoodwillAbilities = Object.keys(state.scenario.cast)
         .reduce((sum, character) => sum + characterDataOf(character)

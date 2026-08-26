@@ -2,6 +2,7 @@ import { characterDataOf, type GoodwillAbilityData } from "../data";
 import { INCIDENT_IMPL } from "../impl/incidents";
 import { PLOT_IMPL } from "../impl/plots";
 import { ROLE_IMPL } from "../impl/roles";
+import { rolesForTragedySet } from "../tragedy-sets";
 import {
   characterEntryTiming,
   effectiveRole,
@@ -10,6 +11,7 @@ import {
   type Location,
   type RoleId,
 } from "../types";
+import { actionCardRestriction } from "./legal";
 
 export type MastermindCautionCategory =
   | "identityExposure"
@@ -157,6 +159,10 @@ function addIdentityExposure(
   }
 
   for (const character of holders(state, "timeTraveler")) {
+    if (
+      actionCardRestriction(state, "mastermind", "forbidGoodwill") !==
+        undefined
+    ) continue;
     output.push({
       key: `identity:time-traveler:${character}`,
       category: "identityExposure",
@@ -389,6 +395,21 @@ function addTraitRisks(
       source: "신수 특성 원문",
       severity: hasRefusal ? "critical" : "warning",
     });
+    if (hasRefusal) {
+      const refusalRoles = rolesForTragedySet(state.scenario.tragedySet)
+        .filter((candidate) =>
+          ROLE_IMPL[candidate]?.goodwillRefusal !== undefined
+        );
+      output.push({
+        key: "risk:trait:sacred-tree-refusal-range",
+        category: "identityExposure",
+        title: "신수 · 우호 무시 계열까지만 공개",
+        condition: "P5 강제 카운터 이동이 실제로 관측됨",
+        description: `강제 이동은 신수가 우호 무시 역할임을 밝히지만 특정 역할 하나를 확정하지 않습니다. 이 참극 세트의 후보는 ${refusalRoles.length}개(${refusalRoles.map(roleName).join(" · ")})이며 광신도는 그중 하나입니다.`,
+        source: "신수 특성 원문 + 참극 세트 역할 목록",
+        severity: "critical",
+      });
+    }
   }
 
   for (const character of ["godlyBeing", "transferStudent"] as const) {

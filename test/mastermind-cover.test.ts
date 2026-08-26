@@ -2,7 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import { mastermindCoverGuidance } from "../src/engine/mastermind-cover";
 import { createGameState } from "../src/engine/game";
+import { applyScenarioStartLocationInputs } from "../src/engine/scenario-inputs";
 import { loadScenarioCatalog } from "../src/scenario-catalog";
+import type { Scenario } from "../src/types";
+
+function createCatalogState(scenario: Scenario) {
+  return createGameState(applyScenarioStartLocationInputs(scenario, {
+    servant: "City",
+  }));
+}
 
 function stateFor(id: string, difficultyIndex = 0) {
   const entry = loadScenarioCatalog().find((candidate) => candidate.id === id);
@@ -13,11 +21,11 @@ function stateFor(id: string, difficultyIndex = 0) {
   if (difficulty === undefined) {
     throw new Error(`missing scenario difficulty ${id}#${difficultyIndex}`);
   }
-  return createGameState(difficulty.scenario);
+  return createCatalogState(difficulty.scenario);
 }
 
 describe("mastermind cover guidance", () => {
-  it("generates a complete ranking for all 47 bundled difficulties", () => {
+  it("generates a complete ranking for all 48 bundled difficulties", () => {
     const results = loadScenarioCatalog().flatMap((entry) =>
       entry.difficulties.map((difficulty) => ({
         key: `${entry.id}#${difficulty.index}`,
@@ -25,12 +33,12 @@ describe("mastermind cover guidance", () => {
           (role) => role !== "person",
         ).length,
         guidance: mastermindCoverGuidance(
-          createGameState(difficulty.scenario),
+          createCatalogState(difficulty.scenario),
         ),
       }))
     );
 
-    expect(results).toHaveLength(47);
+    expect(results).toHaveLength(48);
     for (const { key, roleHolderCount, guidance } of results) {
       expect(guidance.candidates, key).toHaveLength(roleHolderCount);
       expect(guidance.recommendation, key).toBeDefined();
@@ -54,7 +62,7 @@ describe("mastermind cover guidance", () => {
   it("separates passive witch ability pressure from mandatory-refusal exposure", () => {
     const witches = loadScenarioCatalog().flatMap((entry) =>
       entry.difficulties.flatMap((difficulty) =>
-        mastermindCoverGuidance(createGameState(difficulty.scenario))
+        mastermindCoverGuidance(createCatalogState(difficulty.scenario))
           .candidates.filter(({ role }) => role === "witch")
       )
     );
@@ -74,7 +82,7 @@ describe("mastermind cover guidance", () => {
   it("marks forced serial-killer and lovers paths as hard to hide", () => {
     const candidates = loadScenarioCatalog().flatMap((entry) =>
       entry.difficulties.flatMap((difficulty) =>
-        mastermindCoverGuidance(createGameState(difficulty.scenario))
+        mastermindCoverGuidance(createCatalogState(difficulty.scenario))
           .candidates
       )
     );
@@ -90,7 +98,7 @@ describe("mastermind cover guidance", () => {
   it("counts both time-traveler immortality and forbid-goodwill exposure", () => {
     const timeTraveler = loadScenarioCatalog().flatMap((entry) =>
       entry.difficulties.flatMap((difficulty) =>
-        mastermindCoverGuidance(createGameState(difficulty.scenario))
+        mastermindCoverGuidance(createCatalogState(difficulty.scenario))
           .candidates
       )
     ).find(({ role }) => role === "timeTraveler");
@@ -111,7 +119,7 @@ describe("mastermind cover guidance", () => {
   it("shows the victory-route tradeoff for controlled abilities", () => {
     const candidates = loadScenarioCatalog().flatMap((entry) =>
       entry.difficulties.flatMap((difficulty) =>
-        mastermindCoverGuidance(createGameState(difficulty.scenario))
+        mastermindCoverGuidance(createCatalogState(difficulty.scenario))
           .candidates
       )
     );

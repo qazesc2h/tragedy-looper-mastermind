@@ -143,6 +143,13 @@ export interface PlacedCard {
 }
 
 // ─────────────────────────────────────────────────────────── 시나리오 (불변)
+export const SCENARIO_SPECIAL_RULE_IDS = [
+  "mastermindCannotUseForbidGoodwill",
+] as const;
+
+export type ScenarioSpecialRuleId =
+  typeof SCENARIO_SPECIAL_RULE_IDS[number];
+
 export interface Scenario {
   tragedySet: string;
   mainPlot: PlotId;
@@ -156,6 +163,8 @@ export interface Scenario {
   daysPerLoop: number;
   /** 원본 각본에 적힌 별도 진행 규칙. 빈 문자열은 어댑터에서 제거한다. */
   specialRules?: string[];
+  /** 엔진이 강제할 수 있는 구조화된 별도 진행 규칙. */
+  specialRuleIds?: ScenarioSpecialRuleId[];
   /** 하수인 시작 장소 등 각본가가 루프마다 지정하는 값 */
   scriptSpecified?: Record<string, unknown>;
 }

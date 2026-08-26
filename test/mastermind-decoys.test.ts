@@ -8,7 +8,15 @@ import {
   PLOT_OBSERVATION_PROFILES,
 } from "../src/engine/mastermind-decoys";
 import { PLOT_IMPL } from "../src/impl/plots";
+import { applyScenarioStartLocationInputs } from "../src/engine/scenario-inputs";
 import { loadScenarioCatalog } from "../src/scenario-catalog";
+import type { Scenario } from "../src/types";
+
+function createCatalogState(scenario: Scenario) {
+  return createGameState(applyScenarioStartLocationInputs(scenario, {
+    servant: "City",
+  }));
+}
 
 function stateFor(id: string, difficultyIndex = 0) {
   const entry = loadScenarioCatalog().find((candidate) => candidate.id === id);
@@ -19,21 +27,21 @@ function stateFor(id: string, difficultyIndex = 0) {
   if (difficulty === undefined) {
     throw new Error(`missing scenario difficulty ${id}#${difficultyIndex}`);
   }
-  return createGameState(difficulty.scenario);
+  return createCatalogState(difficulty.scenario);
 }
 
 describe("mastermind decoy guidance", () => {
-  it("generates C for all 47 bundled difficulties", () => {
+  it("generates C for all 48 bundled difficulties", () => {
     const results = loadScenarioCatalog().flatMap((entry) =>
       entry.difficulties.map((difficulty) => ({
         key: `${entry.id}#${difficulty.index}`,
         guidance: mastermindDecoyGuidance(
-          createGameState(difficulty.scenario),
+          createCatalogState(difficulty.scenario),
         ),
       }))
     );
 
-    expect(results).toHaveLength(47);
+    expect(results).toHaveLength(48);
     for (const { key, guidance } of results) {
       expect(guidance.confusableRules.length, key).toBeGreaterThan(0);
       expect(guidance.fakeLossConditions.length, key).toBeGreaterThan(0);
@@ -130,7 +138,7 @@ describe("mastermind decoy guidance", () => {
     const catalog = loadScenarioCatalog();
     const sourceKeys = new Set(catalog.flatMap((entry) =>
       entry.difficulties.flatMap((difficulty) =>
-        mastermindDecoyGuidance(createGameState(difficulty.scenario))
+        mastermindDecoyGuidance(createCatalogState(difficulty.scenario))
           .locationIntrigueSources.map(({ key }) => key)
       )
     ));

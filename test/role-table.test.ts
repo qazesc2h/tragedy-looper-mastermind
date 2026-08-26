@@ -18,6 +18,7 @@ import {
   finishLoop,
 } from "../src/engine/game";
 import { initLoop } from "../src/engine/setup";
+import { applyScenarioStartLocationInputs } from "../src/engine/scenario-inputs";
 import {
   loadBasicTragedyScenarioCatalog,
   loadFirstStepsScenarioCatalog,
@@ -866,7 +867,10 @@ describe("role table to rule propagation", () => {
       ...loadBasicTragedyScenarioCatalog(),
     ];
     for (const { id, scenario } of catalog) {
-      const state = createGameState(structuredClone(scenario));
+      const state = createGameState(applyScenarioStartLocationInputs(
+        scenario,
+        { servant: "City" },
+      ));
       const evaluation = evaluateRoleTableHypotheses(
         scenario.tragedySet,
         Object.keys(scenario.cast),

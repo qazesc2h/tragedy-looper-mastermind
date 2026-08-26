@@ -1,0 +1,58 @@
+[
+  {
+    "id": "community:naughty-cat",
+    "title": "못된 고양이",
+    "creator": "갱하",
+    "tragedySet": "basicTragedy",
+    "daysPerLoop": 5,
+    "difficultySets": [
+      {
+        "numberOfLoops": 5,
+        "difficulty": 5
+      }
+    ],
+    "mainPlot": [
+      "changeOfFuture"
+    ],
+    "subPlots": [
+      "paranoiaVirus",
+      "threadsFate"
+    ],
+    "cast": {
+      "sacredTree": "cultist",
+      "informer": "timeTraveler",
+      "popIdol": "conspiracyTheorist",
+      "patient": "person",
+      "nurse": "person",
+      "richStudent": "person",
+      "servant": "person",
+      "blackCat": "person",
+      "mysteryBoy": "friend"
+    },
+    "incidents": [
+      {
+        "day": 2,
+        "incident": "increasingUnease",
+        "culprit": "mysteryBoy"
+      },
+      {
+        "day": 4,
+        "incident": "missingPerson",
+        "culprit": "popIdol"
+      },
+      {
+        "day": 5,
+        "incident": "butterflyEffect",
+        "culprit": "blackCat"
+      }
+    ],
+    "specialRules": [
+      "각본가는 '우호 금지' 카드를 사용할 수 없다."
+    ],
+    "specialRuleIds": [
+      "mastermindCannotUseForbidGoodwill"
+    ],
+    "victory-conditions": "1. [루프 종료 단계] 미래 변경 계획 - 나비의 날갯짓 발생 - 검은 고양이\n2. [마지막 날의 라운드 종료 단계] 미래 변경 계획 - 시간 여행자 능력 - 정보원\n3. [루프 종료 단계] 친구의 사망 - 아웃사이더",
+    "mastermindHints": "전체적으로, 룰 Y에 대한 추리를 막아내고, 연쇄 살인마로부터 역할을 잘\n숨기는 것을 목표로 한다.\n\n패배 조건의 경우, 검은 고양이를 5일 낮까지 살린 채로 신사에 음모 2개를\n쌓는 것을 목표로 한다.\n\n초반에는 소녀 중 한 명에게 음모를 2개 쌓는 것도 의미가 있을 것이다.\n\n룰 X의 경우, 정보원에 의해 쉽게 밝혀질 것이므로 가능하다면 들키기 쉬운\n인과율 먼저 공개한 다음, 망상 확대 바이러스를 밝힌다.\n\n게다가 역할이 3개 뿐이라 최후의 추리에서 역전 당하기도 쉽기 때문에\n어떻게든 룰 Y를 헷갈리게 하는 것이 주 목표가 된다.\n\n룰 Y는 1루프에 살인 계획, 2루프 이후로는 알아챈 역할에 따라 배제가\n될 것입니다.\n\n신수가 광신도라는 게 들키고 나서부터는 첫날에 대놓고 음모+1 카드를\n사용하도록 하자.\n\n단, 신수가 우호 무시라고 해서 무조건 광신도는 아니므로 추리 과정을\n잘 파악할 것."
+  }
+]

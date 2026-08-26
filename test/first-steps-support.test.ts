@@ -153,13 +153,13 @@ describe("bundled firstSteps scenarios", () => {
 });
 
 describe("basic tragedy regression", () => {
-  it("keeps all 22 scripts and all difficulty variants", () => {
+  it("keeps 22 upstream scripts plus the local community scenario", () => {
     const entries = loadBasicTragedyScenarioCatalog();
-    expect(entries).toHaveLength(22);
+    expect(entries).toHaveLength(23);
     expect(entries.reduce(
       (sum, entry) => sum + entry.difficulties.length,
       0,
-    )).toBe(38);
-    expect(loadScenarioCatalog()).toHaveLength(29);
+    )).toBe(39);
+    expect(loadScenarioCatalog()).toHaveLength(30);
   });
 });

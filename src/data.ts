@@ -2,6 +2,7 @@ import basicTragedyScriptsJson from "../data/basic-tragedy-scripts.json";
 import charactersJson from "../data/characters.json";
 import firstStepsScriptsJson from "../data/first-steps-scripts.json";
 import goodwillAbilitiesJson from "../data/goodwill-abilities.json";
+import koTranslationsJson from "../data/ko-translations.json";
 import { validateScenario } from "./engine/validate";
 import { applyScenarioErrata } from "./errata";
 
@@ -10,7 +11,9 @@ import type {
   Location,
   RoleId,
   Scenario,
+  ScenarioSpecialRuleId,
 } from "./types";
+import { SCENARIO_SPECIAL_RULE_IDS } from "./types";
 
 export interface CharacterData {
   id: CharacterId;
@@ -95,6 +98,18 @@ function requireStringArray(value: unknown, context: string): string[] {
   return requireArray(value, context).map((entry, index) =>
     requireString(entry, `${context}[${index}]`)
   );
+}
+
+function parseScenarioSpecialRuleIds(
+  value: unknown,
+  context: string,
+): ScenarioSpecialRuleId[] {
+  return requireStringArray(value, context).map((id) => {
+    if (!(SCENARIO_SPECIAL_RULE_IDS as readonly string[]).includes(id)) {
+      throw new Error(`${context} contains unknown special rule "${id}"`);
+    }
+    return id as ScenarioSpecialRuleId;
+  });
 }
 
 function parseLocation(value: unknown, context: string): Location {
@@ -191,10 +206,11 @@ function parseCharacterData(id: CharacterId, value: unknown): CharacterData {
 
     const metadata = goodwillAbilityMetadata(id, index);
     const en = requireString(entry.en, `${context}.en`);
+    const translated = (koTranslationsJson as Record<string, unknown>)[en];
     return {
       rank: requireNullableNumber(entry.rank, `${context}.rank`),
       en,
-      ko: metadata.ko ?? en,
+      ko: metadata.ko ?? (typeof translated === "string" ? translated : en),
       timesPerLoop: requireNullableNumber(
         entry.timesPerLoop,
         `${context}.timesPerLoop`,
@@ -362,6 +378,12 @@ export function adaptTragedyScript(
     : requireStringArray(raw.specialRules, `${context}.specialRules`)
       .map((rule) => rule.trim())
       .filter((rule) => rule.length > 0);
+  const specialRuleIds = raw.specialRuleIds === undefined
+    ? []
+    : parseScenarioSpecialRuleIds(
+      raw.specialRuleIds,
+      `${context}.specialRuleIds`,
+    );
 
   const scenario: Scenario = {
     tragedySet: requireString(raw.tragedySet, `${context}.tragedySet`),
@@ -374,6 +396,8 @@ export function adaptTragedyScript(
     difficulty: selectedDifficulty.difficulty,
     daysPerLoop: requireNumber(raw.daysPerLoop, `${context}.daysPerLoop`),
     specialRules: specialRules.length > 0 ? specialRules : undefined,
+    specialRuleIds:
+      specialRuleIds.length > 0 ? specialRuleIds : undefined,
     scriptSpecified:
       Object.keys(scriptSpecified).length > 0 ? scriptSpecified : undefined,
   };

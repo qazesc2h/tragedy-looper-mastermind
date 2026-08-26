@@ -2,6 +2,7 @@ import { characterDataOf, type GoodwillAbilityData } from "../data";
 import { PLOT_IMPL } from "../impl/plots";
 import { ROLE_IMPL } from "../impl/roles";
 import { tragedySetDefinition } from "../tragedy-sets";
+import { actionCardRestriction } from "./legal";
 import {
   effectiveRole,
   type CharacterId,
@@ -62,6 +63,7 @@ export interface MastermindCoverGuidance {
   earlyPrinciple: string;
   latePrinciple: string;
   finalDefensePrinciple: string;
+  rolePoolPressure: string;
   commonExposure: CommonRoleExposure[];
   recommendation?: RoleCoverCandidate;
   candidates: RoleCoverCandidate[];
@@ -179,6 +181,11 @@ function goodwillRevealPaths(
         !roleRevealAbilityTargets(state, target, target, ability)) {
         return [];
       }
+      const forbidAvailable = actionCardRestriction(
+        state,
+        "mastermind",
+        "forbidGoodwill",
+      ) === undefined;
       return [{
         key: `goodwill-reveal:${target}:${abilityIndex}:${target}`,
         title: `${characterDataOf(target).ko} [우호${ability.rank}] 역할 공개`,
@@ -187,8 +194,12 @@ function goodwillRevealPaths(
         avoidable: true,
         avoidance: ROLE_IMPL[effectiveRole(state, target)]?.goodwillRefusal
           ? "능력을 거부하거나 우호 기준 도달을 막는다. 거부 자체가 역할 후보를 좁힐 수 있다."
-          : "우호 금지, 이동, 우호 기준 미달 유지로 사용 기회를 막는다.",
-        sacrifice: "우호 금지 카드와 배치 여유를 쓰며, 다른 위험 캐릭터의 우호 능력 견제를 포기한다.",
+          : forbidAvailable
+          ? "우호 금지, 이동, 우호 기준 미달 유지로 사용 기회를 막는다."
+          : "특수 규칙상 우호 금지를 쓸 수 없으므로 이동과 우호 기준 미달 유지로 사용 기회를 막는다.",
+        sacrifice: forbidAvailable
+          ? "우호 금지 카드와 배치 여유를 쓰며, 다른 위험 캐릭터의 우호 능력 견제를 포기한다."
+          : "이동 카드와 배치 여유를 쓰며, 우호 금지 없이 기준 도달을 막아야 한다.",
       }];
     },
   );
@@ -229,14 +240,23 @@ function mandatoryRefusalPath(
     isRefusable,
   );
   if (abilities.length === 0) return [];
+  const forbidAvailable = actionCardRestriction(
+    state,
+    "mastermind",
+    "forbidGoodwill",
+  ) === undefined;
   return [{
     key: `role:${role}:mandatory-refusal`,
     title: "절대 우호 무시 · 반드시 거부",
     observation: `거부 가능한 우호 능력 ${abilities.length}개 중 하나가 선언되면 반드시 거부해 광신도·마녀 후보로 좁혀진다.`,
     control: "protagonist",
     avoidable: true,
-    avoidance: "우호 금지와 이동으로 이 캐릭터의 우호 기준 도달을 막는다.",
-    sacrifice: "이 캐릭터의 우호 능력 활용을 미끼로 쓰기 어렵고, 우호 금지 카드·이동을 계속 배정해야 한다.",
+    avoidance: forbidAvailable
+      ? "우호 금지와 이동으로 이 캐릭터의 우호 기준 도달을 막는다."
+      : "특수 규칙상 우호 금지를 쓸 수 없으므로 이동과 우호 기준 미달 유지로 막는다.",
+    sacrifice: forbidAvailable
+      ? "이 캐릭터의 우호 능력 활용을 미끼로 쓰기 어렵고, 우호 금지 카드·이동을 계속 배정해야 한다."
+      : "우호 금지 없이 이동과 배치만으로 우호 능력 사용 기회를 막아야 한다.",
   }];
 }
 
@@ -321,14 +341,19 @@ function roleSpecificPaths(
       });
       break;
     case "timeTraveler":
-      add({
-        key: "role:timeTraveler:forbid-goodwill",
-        title: "우호 금지 무시",
-        observation: "이 캐릭터의 우호 금지가 무시되면 시간 여행자임이 강하게 드러난다.",
-        control: "mastermind", avoidable: true,
-        avoidance: "이 캐릭터에게 우호 금지를 놓지 않는다.",
-        sacrifice: "우호 2 이하를 유지하는 마지막 날 승리 경로를 주인공의 우호 배치에 맡긴다.",
-      });
+      if (
+        actionCardRestriction(state, "mastermind", "forbidGoodwill") ===
+          undefined
+      ) {
+        add({
+          key: "role:timeTraveler:forbid-goodwill",
+          title: "우호 금지 무시",
+          observation: "이 캐릭터의 우호 금지가 무시되면 시간 여행자임이 강하게 드러난다.",
+          control: "mastermind", avoidable: true,
+          avoidance: "이 캐릭터에게 우호 금지를 놓지 않는다.",
+          sacrifice: "우호 2 이하를 유지하는 마지막 날 승리 경로를 주인공의 우호 배치에 맡긴다.",
+        });
+      }
       add({
         key: "role:timeTraveler:immortal",
         title: "불사 · 사망 무효",
@@ -551,6 +576,11 @@ export function mastermindCoverGuidance(
     } satisfies RoleCoverCandidate;
   }).sort(compareCandidates);
   const definition = tragedySetDefinition(state.scenario.tragedySet);
+  const plotRoleNames = [...new Set(
+    [state.scenario.mainPlot, ...state.scenario.subPlots].flatMap((plot) =>
+      Object.keys(PLOT_IMPL[plot]?.addsRoles ?? {})
+    ),
+  )].map((role) => ROLE_IMPL[role]?.ko ?? role);
   const recommendation = candidates.find(({ alreadyRevealed }) =>
     !alreadyRevealed
   );
@@ -561,6 +591,9 @@ export function mastermindCoverGuidance(
     finalDefensePrinciple: definition.hasFinalGuess
       ? "최후의 싸움: 주인공은 전원의 역할을 맞혀야 하므로 한 명만 틀려도 각본가가 이긴다. 이는 최종 방어선이며 루프 전략의 주축은 아니다."
       : "이 참극 세트에는 최후의 싸움이 없다. 후보 순서는 룰 은폐 비용만 비교한다.",
+    rolePoolPressure: definition.hasFinalGuess
+      ? `선택한 룰이 공급하는 역할은 ${plotRoleNames.length}종(${plotRoleNames.join(" · ")})뿐입니다. 아웃사이더의 룰 외 역할은 별도지만, 현재 룰 역할 후보 폭이 좁아 주인공이 최후의 싸움에서 역전하기 쉬우므로 룰 Y와 역할 대응을 흐릴 필요가 있습니다.`
+      : "최후의 싸움이 없어 역할 후보 수 자체가 최종 판정으로 이어지지 않습니다.",
     commonExposure,
     ...(recommendation === undefined ? {} : { recommendation }),
     candidates,

@@ -33,7 +33,14 @@ import {
   incidentFailureReasons,
   incidentFires,
 } from "../engine/incident";
-import { validatePlacement } from "../engine/legal";
+import {
+  actionCardRestriction,
+  validatePlacement,
+} from "../engine/legal";
+import {
+  applyScenarioStartLocationInputs,
+  requiredScenarioStartLocationInputs,
+} from "../engine/scenario-inputs";
 import {
   distanceToLoss,
   setOptionalLossActivation,
@@ -454,6 +461,22 @@ function createGame(entry: ScenarioEntry, difficultyIndex = 0): GameState {
   return createGameState(scenario);
 }
 
+function scenarioWithStartLocationDrafts(
+  scenario: Scenario,
+): Scenario | undefined {
+  const inputs = requiredScenarioStartLocationInputs(scenario);
+  const selections: Partial<Record<CharacterId, Location>> = {};
+  for (const { character, choices } of inputs) {
+    const selected = draftValue(`new-game:start-location:${character}`);
+    if (!choices.some((choice) => choice === selected)) return undefined;
+    selections[character] = selected as Location;
+  }
+  return applyScenarioStartLocationInputs(
+    scenario,
+    selections,
+  );
+}
+
 function scenarioErrataLines(entry: ScenarioEntry): string[] {
   return entry.errata.map((correction) => {
     const character = correction.field.slice("cast.".length);
@@ -596,6 +619,7 @@ function resetTransientUi(): void {
 function startFreshScenario(
   entry: ScenarioEntry,
   difficultyIndex: number,
+  resolvedScenario?: Scenario,
 ): void {
   const difficulty = scenarioAtDifficulty(entry, difficultyIndex);
   if (!difficulty.validation.ok) {
@@ -607,7 +631,13 @@ function startFreshScenario(
   tracker.activeScenarioId = entry.id;
   resetTransientUi();
   notice = "";
-  saveState(entry.id, createGame(entry, difficultyIndex), "scenario-start");
+  saveState(
+    entry.id,
+    resolvedScenario === undefined
+      ? createGame(entry, difficultyIndex)
+      : createGameState(resolvedScenario),
+    "scenario-start",
+  );
   render();
 }
 
@@ -1360,6 +1390,7 @@ function renderHand(
         const selected = selectedHandCard?.owner === owner &&
           selectedHandCard.key === entry.key;
         const spent = ownerCardIsSpent(state, owner, entry.card);
+        const restriction = actionCardRestriction(state, owner, entry.card);
         const once = owner === "mastermind"
           ? MASTERMIND_ONCE_PER_LOOP.has(entry.card)
           : PROTAGONIST_ONCE_PER_LOOP.has(entry.card);
@@ -1368,15 +1399,16 @@ function renderHand(
         const status = [
           once ? misc("Once per {type}").replace("{type}", misc("Loop")) : "",
           spent ? misc("Spent", "Spent") : "",
+          restriction?.reason ?? "",
         ].filter(Boolean).join(" · ");
-        const unavailable = !enabled || placed || spent;
-        const disabledReason = spent
+        const unavailable = !enabled || placed || spent || restriction !== undefined;
+        const disabledReason = restriction?.reason ?? (spent
           ? `${misc("Spent", "Spent")} · 선택 불가`
           : placed
             ? "이미 배치함"
             : !enabled
               ? "현재 차례 아님"
-              : "";
+              : "");
         return `
           <button type="button"
             class="hand-card owner-${owner} ${placed ? "is-placed" : ""} ${selected ? "is-selected" : ""} ${spent ? "is-spent" : ""}"
@@ -3157,6 +3189,7 @@ function renderMastermindCover(cover: MastermindCoverGuidance): string {
       <p>${escapeHtml(cover.earlyPrinciple)}</p>
       <p>${escapeHtml(cover.latePrinciple)}</p>
       <p>${escapeHtml(cover.finalDefensePrinciple)}</p>
+      <p>${escapeHtml(cover.rolePoolPressure)}</p>
     </div>
     ${cover.commonExposure.length === 0 ? "" : `<details class="guidance-caution-category cover-common-exposure">
       <summary><strong>공통 역할 공개 수단</strong><span>${cover.commonExposure.length}개</span></summary>
@@ -4611,9 +4644,16 @@ function renderScenarioSelection(): void {
   const selectedDifficulty = selectedEntry?.difficulties.find(
     ({ index }) => index === selectedDifficultyIndex,
   ) ?? selectedEntry?.difficulties[0];
+  const startLocationInputs = selectedDifficulty === undefined
+    ? []
+    : requiredScenarioStartLocationInputs(selectedDifficulty.scenario);
+  const resolvedPreviewScenario = selectedDifficulty === undefined
+    ? undefined
+    : scenarioWithStartLocationDrafts(selectedDifficulty.scenario);
   const mysteryBoyRole = selectedDifficulty?.scenario.cast.mysteryBoy;
-  const previewState = selectedDifficulty?.validation.ok === true
-    ? createGameState(structuredClone(selectedDifficulty.scenario))
+  const previewState = selectedDifficulty?.validation.ok === true &&
+      resolvedPreviewScenario !== undefined
+    ? createGameState(resolvedPreviewScenario)
     : undefined;
   const previewRuleSummary = previewState === undefined
     ? undefined
@@ -4639,7 +4679,7 @@ function renderScenarioSelection(): void {
             <select data-new-game-scenario
               data-ui-draft-key="${scenarioDraftKey}">
               ${scenarioEntries.map((entry) => `
-                <option value="${entry.id}" ${selectedScenario === entry.id ? "selected" : ""}>${escapeHtml(entry.title)} · ${escapeHtml(scenarioSourceLabel(entry.source))}${entry.errata.length > 0 ? " · 정오표 적용" : ""}${entry.validation.ok ? "" : " · 시작 불가"}</option>`).join("")}
+                <option value="${entry.id}" ${selectedScenario === entry.id ? "selected" : ""}>${escapeHtml(entry.title)} · ${escapeHtml(scenarioSourceLabel(entry.source))}${entry.creator === undefined ? "" : ` · ${escapeHtml(entry.creator)}`}${entry.errata.length > 0 ? " · 정오표 적용" : ""}${entry.validation.ok ? "" : " · 시작 불가"}</option>`).join("")}
             </select>
           </label>
           ${selectedEntry === undefined || selectedEntry.difficulties.length < 2
@@ -4654,10 +4694,24 @@ function renderScenarioSelection(): void {
                     </option>`).join("")}
                 </select>
               </label>`}
+          ${startLocationInputs.map(({ character, choices }) => {
+            const key = `new-game:start-location:${character}`;
+            const selected = draftValue(key);
+            return `<label class="new-game-scenario-picker">
+              <span>${escapeHtml(characterName(character))} · 시작 장소</span>
+              <select data-ui-draft-key="${key}">
+                <option value="" ${selected === "" ? "selected" : ""}>선택 필요</option>
+                ${choices.map((choice) => `<option value="${choice}" ${selected === choice ? "selected" : ""}>${escapeHtml(locationName(choice))}</option>`).join("")}
+              </select>
+            </label>`;
+          }).join("")}
           ${selectedEntry === undefined
             ? ""
             : `<p class="scenario-source-summary">
                 출처: <strong>${escapeHtml(scenarioSourceLabel(selectedEntry.source))}</strong>
+                ${selectedEntry.creator === undefined
+                  ? ""
+                  : ` · 제작 ${escapeHtml(selectedEntry.creator)}`}
                 ${selectedDifficulty === undefined
                   ? ""
                   : ` · ${selectedDifficulty.numberOfLoops}루프 · ${selectedDifficulty.difficulty === 0 ? "난이도 미확인" : `난이도 ${selectedDifficulty.difficulty}`}`}
@@ -4688,7 +4742,7 @@ function renderScenarioSelection(): void {
               </aside>`}
           <div class="flow-actions primary-actions">
             <button type="button" class="next-phase" data-action="start-selected-scenario"
-              ${selectedDifficulty?.validation.ok === true ? "" : "disabled"}>게임 시작</button>
+              ${selectedDifficulty?.validation.ok === true && resolvedPreviewScenario !== undefined ? "" : "disabled"}>게임 시작</button>
           </div>
           ${previewState === undefined || previewRuleSummary === undefined ||
               previewDeductionSummary === undefined
@@ -5196,7 +5250,16 @@ root.addEventListener("click", (event) => {
     const difficultyIndex = Number(
       draftValue("new-game:difficulty") || "0",
     );
-    if (entry !== undefined) startFreshScenario(entry, difficultyIndex);
+    if (entry !== undefined) {
+      const difficulty = scenarioAtDifficulty(entry, difficultyIndex);
+      const scenario = scenarioWithStartLocationDrafts(difficulty.scenario);
+      if (scenario === undefined) {
+        notice = "시나리오에 필요한 시작 장소를 선택해 주세요.";
+        render();
+        return;
+      }
+      startFreshScenario(entry, difficultyIndex, scenario);
+    }
     return;
   }
 
@@ -5371,6 +5434,12 @@ root.addEventListener("click", (event) => {
       ? "mastermind"
       : Number(ownerValue) as 0 | 1 | 2;
     const state = currentState();
+    const restriction = actionCardRestriction(state, owner, card);
+    if (restriction !== undefined) {
+      notice = restriction.reason ?? "특수 규칙 때문에 사용할 수 없습니다.";
+      render();
+      return;
+    }
     if (ownerCardIsSpent(state, owner, card)) {
       notice = `${actionCardName(card)} · 소진되어 선택할 수 없습니다`;
       render();
@@ -5524,10 +5593,19 @@ root.addEventListener("change", (event) => {
     uiInputDrafts.set(draftKey, control.value);
     if (draftKey === "new-game:scenario") {
       uiInputDrafts.delete("new-game:difficulty");
+      for (const key of [...uiInputDrafts.keys()]) {
+        if (key.startsWith("new-game:start-location:")) {
+          uiInputDrafts.delete(key);
+        }
+      }
       render();
       return;
     }
     if (draftKey === "new-game:difficulty") {
+      render();
+      return;
+    }
+    if (draftKey.startsWith("new-game:start-location:")) {
       render();
       return;
     }

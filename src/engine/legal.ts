@@ -1,9 +1,47 @@
 import { isCharacterPresent } from "../types";
-import type { GameState, PlacedCard, Target } from "../types";
+import type {
+  ActionCard,
+  GameState,
+  PlacedCard,
+  ScenarioSpecialRuleId,
+  Target,
+} from "../types";
 
 export interface LegalResult {
   ok: boolean;
   reason?: string;
+}
+
+type CardOwner = PlacedCard["owner"];
+
+interface ActionCardRestrictionDefinition {
+  applies: (owner: CardOwner, card: ActionCard) => boolean;
+  reason: string;
+}
+
+const ACTION_CARD_RESTRICTIONS: Readonly<
+  Record<ScenarioSpecialRuleId, ActionCardRestrictionDefinition>
+> = {
+  mastermindCannotUseForbidGoodwill: {
+    applies: (owner, card) =>
+      owner === "mastermind" && card === "forbidGoodwill",
+    reason: "특수 규칙: 각본가는 우호 금지 카드를 사용할 수 없습니다.",
+  },
+};
+
+/** 시나리오 특수 규칙 때문에 손패의 카드 자체를 사용할 수 없는지 검사한다. */
+export function actionCardRestriction(
+  state: GameState,
+  owner: CardOwner,
+  card: ActionCard,
+): LegalResult | undefined {
+  for (const id of state.scenario.specialRuleIds ?? []) {
+    const restriction = ACTION_CARD_RESTRICTIONS[id];
+    if (restriction.applies(owner, card)) {
+      return { ok: false, reason: restriction.reason };
+    }
+  }
+  return undefined;
 }
 
 function sameTarget(left: Target, right: Target): boolean {
@@ -61,6 +99,13 @@ export function validatePlacement(
   state: GameState,
   placement: PlacedCard,
 ): LegalResult {
+  const restriction = actionCardRestriction(
+    state,
+    placement.owner,
+    placement.card,
+  );
+  if (restriction) return restriction;
+
   if (
     placement.target.kind === "character" &&
     placement.target.id === "illusion"
