@@ -153,6 +153,9 @@
           preservesRuleXOrder: privateSheet?.textContent.includes("룰 X1") &&
             privateSheet.textContent.includes("룰 X2"),
           callsRuleXUnordered: privateSheet?.textContent.includes("순서 없음") ?? false,
+          selectionSecondaryCount: privateSheet?.querySelectorAll(
+            ".scenario-rule-list small, .scenario-cast-list small, .incident-schedule tbody td > span, .incident-schedule tbody td > small",
+          ).length ?? -1,
           showsRemovedCalculationReason: text.includes(
             "이 계산이 1일차만 다루는 이유",
           ),
@@ -173,6 +176,7 @@
           !report.showsIncidentSchedule ||
           !report.preservesRuleXOrder ||
           report.callsRuleXUnordered ||
+          report.selectionSecondaryCount !== 0 ||
           report.showsRemovedCalculationReason ||
           report.hasTargetKindChip ||
           report.horizontal.scrollWidth > WIDTH

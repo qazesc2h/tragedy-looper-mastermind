@@ -3210,6 +3210,7 @@ function renderScenarioInformation(
   state: GameState,
   ruleSummary: RuleHypothesisSummary,
   deductionSummary: DeductionTablesSummary,
+  mode: "full" | "selection" = "full",
 ): string {
   const mainPlotCandidates = ruleSummary.mainPlotCandidates.map(plotName);
   const subPlotCandidates = ruleSummary.subPlotCandidates.map(plotName);
@@ -3240,9 +3241,11 @@ function renderScenarioInformation(
           )}">${ruleSummary.ruleYFixed
             ? "확정 · 위험"
             : `후보 ${ruleSummary.mainPlotCandidates.length}개`}</i>
-          <small>공개 후보 · ${escapeHtml(
-            mainPlotCandidates.join(" / ") || "없음",
-          )}</small>
+          ${mode === "selection"
+            ? ""
+            : `<small>공개 후보 · ${escapeHtml(
+              mainPlotCandidates.join(" / ") || "없음",
+            )}</small>`}
         </dd>
       </div>
       ${state.scenario.subPlots.length === 0
@@ -3260,15 +3263,17 @@ function renderScenarioInformation(
               ${included
                 ? `<i class="scenario-deduction-chip is-confirmed" title="룰 X에 반드시 포함되지만 X1/X2 위치는 미확정">포함 확정</i>`
                 : `<i class="scenario-deduction-chip">전체 후보 ${ruleSummary.subPlotCandidates.length}개</i>`}
-              <small title="룰 X 전체 공개 후보: ${escapeHtml(
-                subPlotCandidates.join(" / ") || "없음",
-              )}">룰 X 전체 공개 후보 · ${escapeHtml(
-                subPlotCandidates.join(" / ") || "없음",
-              )}</small>
+              ${mode === "selection"
+                ? ""
+                : `<small title="룰 X 전체 공개 후보: ${escapeHtml(
+                  subPlotCandidates.join(" / ") || "없음",
+                )}">룰 X 전체 공개 후보 · ${escapeHtml(
+                  subPlotCandidates.join(" / ") || "없음",
+                )}</small>`}
             </dd>
           </div>`;
         }).join("")}
-      ${ruleSummary.fixedSubPlots.length === 0
+      ${mode === "selection" || ruleSummary.fixedSubPlots.length === 0
         ? ""
         : `<div class="scenario-rule-row scenario-rule-x-inclusion">
             <dt>룰 X 공통</dt>
@@ -3329,12 +3334,13 @@ function renderScenarioInformation(
           ${culpritDays.length === 0
             ? ""
             : `<em>범인 · ${culpritDays.map((day) => `${day}일`).join(" · ")}</em>`}
-          ${traitText
-            ? `<small class="scenario-cast-trait"><strong>특성</strong> · ${escapeHtml(traitText)}</small>`
-            : ""}
-          ${facts.map((fact) =>
-            `<small class="scenario-cast-fact">${escapeHtml(fact)}</small>`
-          ).join("")}
+          ${mode === "selection"
+            ? ""
+            : `${traitText
+              ? `<small class="scenario-cast-trait"><strong>특성</strong> · ${escapeHtml(traitText)}</small>`
+              : ""}${facts.map((fact) =>
+                `<small class="scenario-cast-fact">${escapeHtml(fact)}</small>`
+              ).join("")}`}
         </li>`;
       }).join("")}
     </ul>
@@ -3370,7 +3376,10 @@ function pendingIncidentStatus(row: IncidentScheduleRow): string {
   return `${row.daysUntil}일 남음 · ${urgency}`;
 }
 
-function renderIncidentSchedule(state: GameState): string {
+function renderIncidentSchedule(
+  state: GameState,
+  mode: "full" | "selection" = "full",
+): string {
   const rows = incidentScheduleRows(state);
   return `<section class="incident-schedule-panel">
     <div class="overlay-heading">
@@ -3391,17 +3400,20 @@ function renderIncidentSchedule(state: GameState): string {
               ? recordedIncidentStatus(row)
               : pendingIncidentStatus(row);
             return `<tr class="is-${row.timing}">
-              <td><strong>${row.day}일</strong><span>${timingLabel}</span></td>
+              <td><strong>${row.day}일</strong>${
+                mode === "selection" ? "" : `<span>${timingLabel}</span>`
+              }</td>
               <td>${escapeHtml(incidentName(row.incident))}</td>
               <td>${escapeHtml(characterName(row.culprit))}${
-                row.culpritEntryLabel
+                mode !== "selection" && row.culpritEntryLabel
                   ? `<span>${escapeHtml(row.culpritEntryLabel)}</span>`
                   : ""
               }</td>
               <td>${row.timing === "past"
                 ? ""
-                : `<strong>${row.allCountersCountAsParanoia ? "판정 불안" : "불안"} ${row.paranoia}/${row.paranoiaLimit}</strong>`}<span>${escapeHtml(status)}</span>${
-                  row.aiEffectResolvedOnDays.map((day) =>
+                : `<strong>${row.allCountersCountAsParanoia ? "판정 불안" : "불안"} ${row.paranoia}/${row.paranoiaLimit}</strong>`}${
+                  mode === "selection" ? "" : `<span>${escapeHtml(status)}</span>`
+                }${mode === "selection" ? "" : row.aiEffectResolvedOnDays.map((day) =>
                     `<small class="incident-advance-effect">└ ${day}일차에 AI 능력으로 효과 선행 해결됨</small>`
                   ).join("")
                 }</td>
@@ -4522,8 +4534,9 @@ function renderScenarioSelection(): void {
                   previewState,
                   previewRuleSummary,
                   previewDeductionSummary,
+                  "selection",
                 )}
-                ${renderIncidentSchedule(previewState)}
+                ${renderIncidentSchedule(previewState, "selection")}
               </section>
               ${renderMastermindGuidance(previewState, "beforeStart")}`}
         </section>
