@@ -144,6 +144,7 @@
             "조건이 갖춰지면 강제 발동한다. 각본가도 멈출 수 없다.",
           ),
           mentionsOtherTragedySet: text.includes("다른 참극 세트"),
+          repeatsActualRuleAboveList: text.includes("이번 게임의 룰 ·"),
           hasTargetKindChip: Boolean(guidance.querySelector(
             ".decoy-target-kind, .opening-target-kind",
           )),
@@ -156,6 +157,7 @@
           !report.hasATitle ||
           report.hasRepeatedAutomaticWarning ||
           report.mentionsOtherTragedySet ||
+          report.repeatsActualRuleAboveList ||
           report.hasTargetKindChip ||
           report.horizontal.scrollWidth > WIDTH
         ) {

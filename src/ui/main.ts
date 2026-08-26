@@ -2843,7 +2843,6 @@ function renderConfusableRule(rule: ConfusableRule): string {
       <strong>${escapeHtml(rule.observationLabel)}</strong>
       <span>관측</span>
     </div>
-    <p>이번 게임의 룰 · <strong>${escapeHtml(rule.selectedPlotName)}</strong></p>
     <small class="decoy-rule-explanation">이 관측을 설명하는 룰 목록</small>
     <ul class="decoy-rule-list">
       <li class="is-actual"><span>${escapeHtml(rule.selectedPlotName)}</span><small>이번 게임</small></li>
