@@ -21,10 +21,10 @@ import type { PublicEvent } from "./public-events";
  * Phase 5 상태 키 계약의 버전이다. 이 값을 바꾸지 않고 필드를 더하거나 빼면
  * 서로 다른 계측 결과가 같은 캐시를 공유하게 되므로 반드시 명시적으로 올린다.
  */
-export const CANONICAL_ENGINE_STATE_VERSION = "phase5-engine-v1" as const;
+export const CANONICAL_ENGINE_STATE_VERSION = "phase5-engine-v2" as const;
 export const PROTAGONIST_POLICY_STATE_VERSION = "phase5-policy-v1" as const;
-export const CANONICAL_DECISION_STATE_VERSION = "phase5-decision-v3" as const;
-export const ENGINE_TRANSITION_VERSION = "headless-transition-v2" as const;
+export const CANONICAL_DECISION_STATE_VERSION = "phase5-decision-v4" as const;
+export const ENGINE_TRANSITION_VERSION = "headless-transition-v3" as const;
 
 export type ProtagonistPolicyModel =
   | "worst-legal-response"
@@ -64,6 +64,8 @@ export const CANONICAL_DECISION_STATE_PARTITIONS = {
     "abilitiesUsedThisLoop",
     "abilitiesUsedThisRound",
     "locationRestrictionsRemoved",
+    "servantAdditionalServedCharacters",
+    "servantMovementChoice",
     "cultistsIgnoringForbidIntrigue",
     "timeTravelersIgnoringForbidGoodwill",
     "incidentsFiredThisLoop",
@@ -275,6 +277,9 @@ export function projectCanonicalEngineState(state: GameState): unknown {
       abilitiesUsedThisLoop: state.loop.abilitiesUsedThisLoop,
       abilitiesUsedThisRound: state.loop.abilitiesUsedThisRound,
       locationRestrictionsRemoved: state.loop.locationRestrictionsRemoved,
+      servantAdditionalServedCharacters:
+        state.loop.servantAdditionalServedCharacters,
+      servantMovementChoice: state.loop.servantMovementChoice,
       cultistsIgnoringForbidIntrigue:
         state.loop.cultistsIgnoringForbidIntrigue,
       timeTravelersIgnoringForbidGoodwill:

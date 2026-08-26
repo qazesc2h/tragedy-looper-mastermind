@@ -88,7 +88,9 @@ import {
 import {
   MASTERMIND_ONCE_PER_LOOP,
   PROTAGONIST_ONCE_PER_LOOP,
+  currentServantFollowOptions,
   resolveMovement,
+  setServantMovementChoice,
 } from "../engine/resolve";
 import { INCIDENT_IMPL } from "../impl/incidents";
 import { ROLE_IMPL } from "../impl/roles";
@@ -2359,13 +2361,17 @@ function renderPhaseControls(state: GameState): string {
           ${heading(4, phaseName(state.loop.phase))}
           ${state.loop.actionResolutionComplete
             ? `<p>카드 공개와 효과 해결이 완료되었습니다. 결과 요약을 확인한 뒤 진행하세요.</p>`
-            : `${renderPlacementSummary(state)}${renderHookList(state, state.loop.phase, true)}`}
+            : `${renderPlacementSummary(state)}${renderServantMovementChoice(state)}${renderHookList(state, state.loop.phase, true)}`}
         </div>
         <div class="operation-footer">
           <span>${state.loop.actionResolutionComplete ? "P4 해결 완료" : "6장 배치 확정"}</span>
           ${state.loop.actionResolutionComplete
             ? renderAdvanceButton()
-            : renderAdvanceButton("카드 공개·해결", state.loop.placed.length !== 6, "reveal-cards")}
+            : renderAdvanceButton(
+              "카드 공개·해결",
+              state.loop.placed.length !== 6 || servantMovementChoiceMissing(state),
+              "reveal-cards",
+            )}
         </div>
       </section>`;
     case "P5_MASTERMIND_ABILITY":
@@ -2435,6 +2441,32 @@ function renderPhaseControls(state: GameState): string {
   }
 }
 
+function servantMovementChoiceMissing(state: GameState): boolean {
+  return currentServantFollowOptions(state).length > 0 &&
+    state.loop.servantMovementChoice === undefined;
+}
+
+function renderServantMovementChoice(state: GameState): string {
+  const options = currentServantFollowOptions(state);
+  if (options.length === 0) return "";
+  const choice = state.loop.servantMovementChoice ?? "";
+  return `<article class="hook-card servant-movement-choice">
+    <div>
+      <span>리더 선택 · 메이드 특성</span>
+      <strong>이동할 주인을 따라갈지 선택합니다. 동행하면 메이드 자신의 이동과 이동 금지는 모두 무시됩니다.</strong>
+    </div>
+    <label>
+      <span>동행 대상</span>
+      <select data-action="servant-movement-choice">
+        <option value="" ${choice === "" ? "selected" : ""}>선택 필요</option>
+        <option value="decline" ${choice === "decline" ? "selected" : ""}>동행하지 않음 · 자신의 이동 해결</option>
+        ${options.map(({ character, to }) => `<option value="${escapeHtml(character)}"
+          ${choice === character ? "selected" : ""}>${escapeHtml(characterName(character))} → ${escapeHtml(locationName(to))}</option>`).join("")}
+      </select>
+    </label>
+  </article>`;
+}
+
 interface DockPrimaryAction {
   action: "advance" | "reveal-cards";
   label: string;
@@ -2471,7 +2503,8 @@ function dockPrimaryAction(state: GameState): DockPrimaryAction {
         : {
           action: "reveal-cards",
           label: "카드 공개·해결",
-          disabled: state.loop.placed.length !== 6,
+          disabled: state.loop.placed.length !== 6 ||
+            servantMovementChoiceMissing(state),
         };
     case "P7_INCIDENT":
       return { action: "advance", label: "사건 판정", disabled: false };
@@ -4769,6 +4802,11 @@ function revealActionCards(): void {
     render();
     return;
   }
+  if (servantMovementChoiceMissing(state)) {
+    notice = "리더가 메이드의 동행 여부를 선택해야 합니다.";
+    render();
+    return;
+  }
 
   const transaction = captureUiTransaction(game);
   const cards = structuredClone(state.loop.placed);
@@ -5360,6 +5398,16 @@ root.addEventListener("change", (event) => {
         state,
         character,
         counterValue === "" ? undefined : counterValue,
+      );
+    });
+    return;
+  }
+  if (action === "servant-movement-choice") {
+    const value = control.value;
+    commit("servant-movement-choice", (state) => {
+      setServantMovementChoice(
+        state,
+        value === "" ? undefined : value,
       );
     });
     return;

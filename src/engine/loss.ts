@@ -23,6 +23,7 @@ import {
   protagonistDeathBlocker,
   type ProtagonistDeathResult,
 } from "./death";
+import { servantDeathReplacement } from "./servant";
 import { requestLoopEnd } from "./flow";
 import { incidentFires, incidentParanoia } from "./incident";
 
@@ -461,6 +462,13 @@ function targetCanDieRequirements(
       effectiveRole(state, target) !== "timeTraveler",
       "사망 가능",
       "시간 여행자라 사망하지 않음",
+    ),
+    booleanRequirement(
+      "servantNotReplacingDeath",
+      "메이드 대신 사망 없음",
+      servantDeathReplacement(state, target) === undefined,
+      "메이드 대신 사망 없음",
+      "동소의 살아 있는 메이드가 대신 사망",
     ),
   ];
 }

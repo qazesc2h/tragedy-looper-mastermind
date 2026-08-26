@@ -95,6 +95,7 @@ const IMPLEMENTED_GOODWILL_ABILITIES: ReadonlySet<string> = new Set([
   "popIdol:0",
   "popIdol:1",
   "richStudent:0",
+  "servant:1",
   "shrineMaiden:0",
   "shrineMaiden:1",
   "soldier:0",
@@ -517,6 +518,23 @@ function applySimpleBaseAbility(
 
     case "richStudent:0":
       return applyRichStudentAbility(state, declaration);
+
+    case "servant:1": {
+      const target = requireCharacterTarget(state, declaration);
+      if (
+        target === declaration.user ||
+        !isCharacterAlive(state.loop.board[target])
+      ) {
+        throw new Error(
+          "servant rank 4 goodwill ability requires another living character",
+        );
+      }
+      const served = state.loop.servantAdditionalServedCharacters ??= [];
+      return addCharacterOnce(
+        served,
+        target,
+      );
+    }
 
     case "classRep:0": {
       if (!declaration.card) {

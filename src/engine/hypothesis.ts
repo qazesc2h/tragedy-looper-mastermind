@@ -94,6 +94,8 @@ export type ProtagonistObservation = (
     incident: IncidentId;
     occurred: boolean;
     context?: PublicObservationContext;
+    /** 공개된 메이드 특성으로 사건 사망 대상이 교체되었는가. */
+    servantSubstitutionObserved?: boolean;
     /** ON_DEATH 반응 전 사건 효과 자체의 공개 변화. */
     changes?: PublicBoardChange[];
     deaths?: CharacterId[];
@@ -3264,6 +3266,25 @@ export function collectProtagonistObservations(
 
   for (const loop of loops) {
     const exactRoleReveals = new Set<CharacterId>();
+    const servantSubstitutionSequencesByDay = new Map<number, number[]>();
+    for (const entry of loop.phaseLog ?? []) {
+      if (
+        entry.kind === "abilityActivated" &&
+        entry.character === "servant" &&
+        entry.timing === "P7_INCIDENT" &&
+        entry.observedAt !== undefined &&
+        entry.publicChanges?.some((change) =>
+          change.kind === "status" &&
+          change.character === "servant" &&
+          change.from === "alive" &&
+          change.to === "dead"
+        )
+      ) {
+        const sequences = servantSubstitutionSequencesByDay.get(entry.day) ?? [];
+        sequences.push(entry.observedAt.sequence);
+        servantSubstitutionSequencesByDay.set(entry.day, sequences);
+      }
+    }
     for (const information of loop.publicInformationThisLoop ?? []) {
       switch (information.kind) {
         case "roleReveal":
@@ -3362,12 +3383,19 @@ export function collectProtagonistObservations(
           });
         }
       } else if (entry.kind === "incidentJudged") {
+        const incidentSequence = entry.observedAt?.sequence;
         observations.push({
           kind: "incidentOccurred",
           loop: entry.loop,
           day: entry.day,
           incident: entry.incident,
           occurred: entry.fired,
+          ...(incidentSequence !== undefined &&
+              (servantSubstitutionSequencesByDay.get(entry.day) ?? []).some(
+                (sequence) => sequence < incidentSequence,
+              )
+            ? { servantSubstitutionObserved: true }
+            : {}),
           ...(entry.publicContext === undefined
             ? {}
             : { context: entry.publicContext }),

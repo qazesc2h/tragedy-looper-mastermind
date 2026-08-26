@@ -1185,6 +1185,131 @@
         });
       }
 
+      async function runServantMovementCase() {
+        const scenarioId = "basicTragedy:1";
+        await loadScenario(scenarioId, "servant-movement");
+        const storageKey = "tragedy-looper-mastermind:tracker";
+        const servantStorage = frameWindow().localStorage;
+        const servantStorageRaw = servantStorage.getItem(storageKey);
+        if (servantStorageRaw === null) {
+          throw new Error("메이드 UI 검사용 저장 상태가 없습니다.");
+        }
+        const servantTracker = JSON.parse(servantStorageRaw);
+        const state = servantTracker.games[scenarioId].state;
+        {
+          state.gamePhase = "ROUND";
+          state.scenario.cast.servant = "person";
+          state.scenario.cast.richStudent = "person";
+          state.loop.phase = "P4_RESOLVE";
+          state.loop.actionResolutionComplete = false;
+          state.loop.board.servant = { status: "alive", at: "City" };
+          state.loop.board.richStudent = { status: "alive", at: "City" };
+          state.loop.charCounters.servant = {
+            goodwill: 0,
+            paranoia: 0,
+            intrigue: 0,
+            protection: 0,
+          };
+          state.loop.charCounters.richStudent = {
+            goodwill: 0,
+            paranoia: 0,
+            intrigue: 0,
+            protection: 0,
+          };
+          state.loop.servantAdditionalServedCharacters = [];
+          delete state.loop.servantMovementChoice;
+          state.loop.placed = [
+            {
+              owner: "mastermind",
+              card: "moveHorizontal",
+              target: { kind: "character", id: "richStudent" },
+            },
+            {
+              owner: 0,
+              card: "forbidMove",
+              target: { kind: "character", id: "servant" },
+            },
+            {
+              owner: "mastermind",
+              card: "paranoiaPlus1",
+              target: { kind: "location", at: "Hospital" },
+            },
+            {
+              owner: "mastermind",
+              card: "goodwillPlus1",
+              target: { kind: "location", at: "Shrine" },
+            },
+            {
+              owner: 1,
+              card: "paranoiaMinus1",
+              target: { kind: "location", at: "City" },
+            },
+            {
+              owner: 2,
+              card: "forbidGoodwill",
+              target: { kind: "location", at: "School" },
+            },
+          ];
+          state.loop.phaseLog = [];
+        }
+        servantStorage.setItem(storageKey, JSON.stringify(servantTracker));
+        const reloaded = new Promise((resolve) => {
+          frame.addEventListener("load", resolve, { once: true });
+        });
+        frameWindow().location.reload();
+        await reloaded;
+        await openOperationSheet("메이드 동행 선택 패널");
+
+        const selector = await waitFor(
+          () => frameDocument().querySelector(
+            "[data-action='servant-movement-choice']",
+          ),
+          "메이드 동행 선택",
+        );
+        const primaryBefore = frameDocument().querySelector(
+          ".dock-primary[data-action='reveal-cards']",
+        );
+        assert(primaryBefore?.disabled, "동행 선택 전 카드 해결 버튼이 활성화됨");
+        assert(
+          Array.from(selector.options).some((option) =>
+            option.value === "richStudent" &&
+            option.textContent.includes("재벌가 손녀") &&
+            option.textContent.includes("학교")
+          ),
+          `재벌가 손녀 동행 선택지: ${selector.textContent}`,
+        );
+
+        changeSelect("[data-action='servant-movement-choice']", "richStudent");
+        await waitFor(
+          () => !frameDocument().querySelector(
+            ".dock-primary[data-action='reveal-cards']",
+          )?.disabled,
+          "메이드 동행 선택 확정",
+        );
+        click(".dock-primary[data-action='reveal-cards']");
+        await waitFor(
+          () => storedState(scenarioId).loop.actionResolutionComplete,
+          "메이드 동행 이동 해결",
+        );
+
+        const applied = storedState(scenarioId);
+        assert(
+          applied.loop.board.richStudent.at === "School" &&
+            applied.loop.board.servant.at === "School",
+          `FAQ Q25 UI 이동 결과: ${JSON.stringify({
+            richStudent: applied.loop.board.richStudent,
+            servant: applied.loop.board.servant,
+          })}`,
+        );
+        assert(
+          applied.loop.servantMovementChoice === undefined,
+          "P4 해결 뒤 메이드 동행 선택이 남음",
+        );
+        reports.push({
+          servant: "Leader choice shown; own Forbid Movement ignored",
+        });
+      }
+
       async function run() {
         await runTimeGapTimerCases();
         await runDraftInputCases();
@@ -1200,6 +1325,7 @@
         await runFatalIncidentResultCase();
         await runCultistToggleCase();
         await runUnsettlingRumorTransactionCase();
+        await runServantMovementCase();
         restoreStorage();
         const passed = failures.length === 0;
         const report = { reports, failures };

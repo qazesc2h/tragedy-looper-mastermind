@@ -61,6 +61,7 @@ export function initLoop(scenario: Scenario, loopNumber = 1): LoopState {
     },
     abilitiesUsedThisLoop: [],
     abilitiesUsedThisRound: [],
+    servantAdditionalServedCharacters: [],
     placed: [],
     actionResolutionComplete: false,
     phaseLog: [],

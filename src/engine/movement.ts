@@ -2,9 +2,15 @@
 // 근거: 주인공 설명서 42~43p(카드 목록), 각본가 설명서 7p(무녀 예시), FAQ Q2.
 
 import {
-  type ActionCard, type CharacterId, type Location,
+  characterLocation,
+  isCharacterAlive,
+  withCharacterLocation,
+  type ActionCard, type CharacterId, type GameState, type Location,
+  type PlacedCard,
   VERTICAL, HORIZONTAL, DIAGONAL,
 } from "../types";
+import { characterDataOf } from "../data";
+import { servantServedCharacters } from "./servant";
 
 export type MoveCard = "moveVertical" | "moveHorizontal" | "moveDiagonal";
 const MOVE_CARDS: MoveCard[] = ["moveVertical", "moveHorizontal", "moveDiagonal"];
@@ -61,6 +67,16 @@ export interface MoveResult {
   reason?: "no-card" | "forbid-card" | "forbidden-location";
 }
 
+export interface ServantFollowOption {
+  character: CharacterId;
+  to: Location;
+}
+
+interface MovementPlan {
+  results: Map<CharacterId, MoveResult>;
+  servantFollowOptions: ServantFollowOption[];
+}
+
 /**
  * 해결 순서가 중요하다.
  *   ① 겹침 합성 → ② 이동 금지 검사 → ③ 금지 장소 검사
@@ -81,6 +97,113 @@ export function resolveMove(input: MoveInput): MoveResult {
     return { to: input.from, moved: false, reason: "forbidden-location" };
   }
   return { to: dest, moved: true };
+}
+
+function movementPlan(
+  state: GameState,
+  placed: readonly PlacedCard[],
+): MovementPlan {
+  const cardsByCharacter = new Map<CharacterId, MoveCard[]>();
+  const forbiddenCharacters = new Set<CharacterId>();
+
+  for (const placedCard of placed) {
+    if (placedCard.target.kind !== "character") continue;
+
+    const character = placedCard.target.id;
+    if (isMoveCard(placedCard.card)) {
+      const cards = cardsByCharacter.get(character) ?? [];
+      cards.push(placedCard.card);
+      cardsByCharacter.set(character, cards);
+    } else if (placedCard.card === "forbidMove") {
+      forbiddenCharacters.add(character);
+    }
+  }
+
+  const results = new Map<CharacterId, MoveResult>();
+  for (const [character, cards] of cardsByCharacter) {
+    const position = state.loop.board[character];
+    if (!position) {
+      throw new Error(
+        `cannot resolve movement for unknown character "${character}"`,
+      );
+    }
+    results.set(character, resolveMove({
+      character,
+      from: characterLocation(position, character),
+      cards,
+      forbidden: forbiddenCharacters.has(character),
+      forbiddenLocations:
+        state.loop.locationRestrictionsRemoved?.includes(character)
+          ? []
+          : [...characterDataOf(character).forbiddenLocation],
+    }));
+  }
+
+  const servantPosition = state.loop.board.servant;
+  const servantFollowOptions = servantPosition === undefined ||
+      !isCharacterAlive(servantPosition)
+    ? []
+    : servantServedCharacters(state).flatMap((character) => {
+      const position = state.loop.board[character];
+      const result = results.get(character);
+      if (
+        !isCharacterAlive(position) ||
+        result?.moved !== true ||
+        characterLocation(position, character) !==
+          characterLocation(servantPosition, "servant")
+      ) {
+        return [];
+      }
+      return [{ character, to: result.to }];
+    });
+
+  return { results, servantFollowOptions };
+}
+
+/** 카드 해결 전 리더에게 보여 줄 실제 이동 가능한 주인 목록. */
+export function servantFollowOptions(
+  state: GameState,
+  placed: readonly PlacedCard[],
+): ServantFollowOption[] {
+  return movementPlan(state, placed).servantFollowOptions;
+}
+
+/**
+ * 일반 이동을 모두 먼저 판정한 뒤 메이드 동행 선택을 적용한다.
+ * 동행 시 메이드 자신의 이동 카드·이동 금지·금지 장소를 모두 무시한다.
+ */
+export function resolveMovementPlan(
+  state: GameState,
+  placed: readonly PlacedCard[],
+): void {
+  const plan = movementPlan(state, placed);
+  const choice = state.loop.servantMovementChoice;
+  if (plan.servantFollowOptions.length > 0 && choice === undefined) {
+    throw new Error("servant movement choice is required");
+  }
+
+  if (choice !== undefined && choice !== "decline") {
+    const selected = plan.servantFollowOptions.find(
+      ({ character }) => character === choice,
+    );
+    if (selected === undefined) {
+      throw new Error(`invalid servant movement choice "${choice}"`);
+    }
+    plan.results.set("servant", { to: selected.to, moved: true });
+  }
+
+  for (const [character, result] of plan.results) {
+    const position = state.loop.board[character];
+    if (position === undefined) {
+      throw new Error(`cannot move unknown character "${character}"`);
+    }
+    state.loop.board[character] = withCharacterLocation(
+      position,
+      result.to,
+      character,
+    );
+  }
+  delete state.loop.servantMovementChoice;
 }
 
 /**

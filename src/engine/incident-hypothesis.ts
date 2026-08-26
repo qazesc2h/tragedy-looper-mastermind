@@ -127,6 +127,12 @@ function matchingColumns(
   );
 }
 
+function servantSubstitutionObserved(
+  incident: Extract<ProtagonistObservation, { kind: "incidentOccurred" }>,
+): boolean {
+  return incident.servantSubstitutionObserved === true;
+}
+
 function initialConfirmations(
   columns: readonly IncidentHypothesisColumn[],
   observations: readonly ProtagonistObservation[],
@@ -147,7 +153,8 @@ function initialConfirmations(
     } else if (
       observation.kind === "incidentOccurred" &&
       observation.occurred &&
-      observation.incident === "suicide"
+      observation.incident === "suicide" &&
+      !servantSubstitutionObserved(observation)
     ) {
       const directDeaths = observation.changes?.flatMap((change) =>
         change.kind === "status" &&
@@ -237,7 +244,10 @@ function traceExclusionReason(
           ? [change.character]
           : []
       );
-      if (victims.includes(character)) {
+      if (
+        victims.includes(character) &&
+        !servantSubstitutionObserved(observation)
+      ) {
         return { code: "murderVictimCannotBeCulprit", observation };
       }
       traceLocations = victims.flatMap((victim) => {

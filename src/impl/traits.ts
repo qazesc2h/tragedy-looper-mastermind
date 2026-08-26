@@ -6,6 +6,7 @@ import {
   startLocationOf,
 } from "../types";
 import type { CharacterId, GameState, Hook } from "../types";
+import { SERVANT_TRAIT_SOURCE } from "../engine/servant";
 
 function placeEnteringCharacter(
   state: GameState,
@@ -33,6 +34,20 @@ export const TRAIT_IMPL: Record<CharacterId, {
   ko: string;
   hooks: Hook[];
 }> = {
+  servant: {
+    ko: "메이드",
+    hooks: [{
+      phase: "ALWAYS",
+      kind: "mandatory",
+      source: {
+        timing: "Always",
+        description: SERVANT_TRAIT_SOURCE,
+      },
+      // IMPLEMENTED_ELSEWHERE: movement.ts, death.ts
+      when: () => false,
+      effect: () => {},
+    }],
+  },
   copycat: {
     ko: "모방자",
     hooks: [{

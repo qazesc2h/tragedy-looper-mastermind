@@ -130,9 +130,35 @@ export function aiIncidentChoiceFields(
   }
 }
 
-const GOODWILL_ABILITIES = goodwillAbilitiesJson as unknown as Readonly<
+const GENERATED_GOODWILL_ABILITIES = goodwillAbilitiesJson as unknown as Readonly<
   Record<CharacterId, readonly StructuredGoodwillAbility[]>
 >;
+
+/** 생성물을 다시 만들지 않고 추가 지원하는 확장 캐릭터 능력. */
+const SERVANT_GOODWILL_ABILITIES: readonly StructuredGoodwillAbility[] = [{
+  abilityIndex: 1,
+  rank: 4,
+  ko: "다른 캐릭터 1명을 선택합니다. 이번 루프가 끝날 때까지, 이 캐릭터는 그 캐릭터도 섬깁니다.",
+  target: {
+    scope: "anyCharacter",
+    excludeSelf: true,
+    tags: [],
+    predicates: ["alive"],
+  },
+  effect: { operation: "addServedCharacterUntilLoopEnd" },
+  choices: null,
+  timesPerLoop: 1,
+  restrictedToLocation: null,
+  implemented: true,
+  _source: "Choose any other character. For the remainder of the Loop, she also serves that character.",
+}];
+
+function goodwillAbilitiesFor(
+  character: CharacterId,
+): readonly StructuredGoodwillAbility[] {
+  if (character === "servant") return SERVANT_GOODWILL_ABILITIES;
+  return GENERATED_GOODWILL_ABILITIES[character] ?? [];
+}
 
 export function encodeIncidentSelection(
   selection: IncidentSelection,
@@ -438,7 +464,7 @@ export function goodwillAbilityViews(state: GameState): GoodwillAbilityView[] {
     // 하는 이세계인[우호5]·감식관[우호5]은 살아 있는 사용자의 target predicate
     // "dead" 경로로 계속 표시된다.
     if (!isCharacterAlive(state.loop.board[character])) return [];
-    return (GOODWILL_ABILITIES[character] ?? []).flatMap((schema) => {
+    return goodwillAbilitiesFor(character).flatMap((schema) => {
       if (state.loop.charCounters[character].goodwill < schema.rank) return [];
       const targets = targetsFor(state, character, schema);
       const choice = choiceFor(state, schema.choices);

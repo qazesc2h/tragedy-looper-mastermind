@@ -1,9 +1,7 @@
-import { characterDataOf } from "../data";
 import {
   abilityLocationsOf,
   characterLocation,
   isCharacterAlive,
-  withCharacterLocation,
   type ActionCard,
   type CharacterId,
   type GameState,
@@ -12,9 +10,9 @@ import {
 } from "../types";
 import {
   intrigueForbidActive,
-  isMoveCard,
-  resolveMove,
-  type MoveCard,
+  resolveMovementPlan,
+  servantFollowOptions,
+  type ServantFollowOption,
 } from "./movement";
 
 export const PROTAGONIST_ONCE_PER_LOOP: ReadonlySet<ActionCard> = new Set([
@@ -54,7 +52,7 @@ export function locationCardAppliesToIllusion(
     illusion.at === placedCard.target.at;
 }
 
-function placementsWithIllusionCopies(
+export function placementsWithIllusionCopies(
   state: GameState,
   placed: readonly PlacedCard[],
 ): PlacedCard[] {
@@ -73,46 +71,40 @@ export function resolveMovement(
   state: GameState,
   placed: readonly PlacedCard[],
 ): void {
-  const cardsByCharacter = new Map<CharacterId, MoveCard[]>();
-  const forbiddenCharacters = new Set<CharacterId>();
+  resolveMovementPlan(state, placed);
+}
 
-  for (const placedCard of placed) {
-    if (placedCard.target.kind !== "character") continue;
+/** 현재 P4 카드 전체를 반영한 메이드 동행 후보. */
+export function currentServantFollowOptions(
+  state: GameState,
+): ServantFollowOption[] {
+  return servantFollowOptions(
+    state,
+    placementsWithIllusionCopies(state, state.loop.placed),
+  );
+}
 
-    const character = placedCard.target.id;
-    if (isMoveCard(placedCard.card)) {
-      const cards = cardsByCharacter.get(character) ?? [];
-      cards.push(placedCard.card);
-      cardsByCharacter.set(character, cards);
-    } else if (placedCard.card === "forbidMove") {
-      forbiddenCharacters.add(character);
-    }
+/** P4 공개 전에 리더의 메이드 동행 선택을 검증해 저장한다. */
+export function setServantMovementChoice(
+  state: GameState,
+  choice: CharacterId | "decline" | undefined,
+): void {
+  if (state.loop.phase !== "P4_RESOLVE" || state.loop.actionResolutionComplete) {
+    throw new Error("servant movement choice can only change before P4 resolve");
   }
-
-  for (const [character, cards] of cardsByCharacter) {
-    const position = state.loop.board[character];
-    if (!position) {
-      throw new Error(
-        `cannot resolve movement for unknown character "${character}"`,
-      );
-    }
-
-    const result = resolveMove({
-      character,
-      from: characterLocation(position, character),
-      cards,
-      forbidden: forbiddenCharacters.has(character),
-      forbiddenLocations:
-        state.loop.locationRestrictionsRemoved?.includes(character)
-          ? []
-          : [...characterDataOf(character).forbiddenLocation],
-    });
-    state.loop.board[character] = withCharacterLocation(
-      position,
-      result.to,
-      character,
-    );
+  if (choice === undefined) {
+    delete state.loop.servantMovementChoice;
+    return;
   }
+  if (
+    choice !== "decline" &&
+    !currentServantFollowOptions(state).some(
+      ({ character }) => character === choice,
+    )
+  ) {
+    throw new Error(`invalid servant movement choice "${choice}"`);
+  }
+  state.loop.servantMovementChoice = choice;
 }
 
 function forbiddenTargets(
