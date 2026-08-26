@@ -111,7 +111,8 @@ describe("mastermind opening guidance E", () => {
       reason.includes("1일차")
     )).toBe(true);
     expect(decoyContributions.every(({ amount }) => amount > 0)).toBe(true);
-    expect(guidance.axisContract).toContain("A의 승리 경로");
+    expect(guidance.axisContract).toContain("실제 패배 조건");
+    expect(guidance.axisContract).toContain("오해할 수 있는 공개 상태");
     expect(guidance.axisContract).not.toContain("224개");
     expect(guidance.horizonReason).toContain("2일차부터는 주인공이 낸 카드");
   });

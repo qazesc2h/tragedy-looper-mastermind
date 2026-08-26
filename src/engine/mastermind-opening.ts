@@ -534,6 +534,6 @@ export function mastermindOpeningGuidance(state: GameState): MastermindOpeningGu
     eligibleDecoyCount: generated.eligibleDecoyCount,
     excludedDecoys: generated.excludedDecoys,
     recommendations: candidateProfiles.slice(0, 3),
-    axisContract: "각 배치가 A의 승리 경로 또는 C의 성립 가능한 미끼를 실제로 진척시키는지 계산합니다. 주인공 대응은 음모 배치 한 곳과 모든 이동·불안 배치를 막을 수 있는 가장 불리한 합법 조합으로 평가합니다.",
+    axisContract: "각 배치가 실제 패배 조건을 얼마나 앞당기는지, 또는 주인공이 다른 패배 조건으로 오해할 수 있는 공개 상태를 얼마나 만드는지 계산합니다. 주인공 대응은 음모 배치 한 곳과 모든 이동·불안 배치를 막을 수 있는 가장 불리한 합법 조합으로 평가합니다.",
   };
 }

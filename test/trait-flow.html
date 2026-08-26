@@ -279,10 +279,11 @@
         await loadScenario("basicTragedy:1", "final-guess-draft");
         click("[data-action='choose-leader']");
         await waitFor(
-          () => frameDocument().querySelector("[data-action='skip-final-guess']"),
+          () => frameDocument().querySelector("[data-action='open-final-guess-confirmation']"),
           "최후의 싸움 이동",
         );
-        click("[data-action='skip-final-guess']");
+        click("[data-action='open-final-guess-confirmation']");
+        click("[data-action='confirm-skip-final-guess']");
         await waitFor(
           () => frameDocument().querySelector('[data-final-field="character"]'),
           "최후의 싸움 입력",
@@ -712,10 +713,11 @@
         await loadScenario(scenarioId, "아웃사이더 최후의 싸움");
         click("[data-action='choose-leader']");
         await waitFor(
-          () => frameDocument().querySelector("[data-action='skip-final-guess']"),
+          () => frameDocument().querySelector("[data-action='open-final-guess-confirmation']"),
           "아웃사이더 최후의 싸움 이동",
         );
-        click("[data-action='skip-final-guess']");
+        click("[data-action='open-final-guess-confirmation']");
+        click("[data-action='confirm-skip-final-guess']");
         const roleSelect = await waitFor(
           () => frameDocument().querySelector("[data-final-field='role']"),
           "아웃사이더 최후의 싸움 역할 선택",

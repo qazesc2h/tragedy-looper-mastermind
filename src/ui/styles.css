@@ -1462,6 +1462,23 @@ select {
   min-width: 0;
 }
 
+.pre-game-scenario-information {
+  display: grid;
+  min-width: 0;
+  gap: 16px;
+  margin-top: 18px;
+  border-top: 1px solid #57472f;
+  padding-top: 16px;
+}
+
+.pre-game-scenario-information > section {
+  min-width: 0;
+  border: 1px solid #4e402d;
+  border-radius: 10px;
+  background: #191611;
+  padding: 11px;
+}
+
 .mastermind-overlay > section {
   padding: 11px;
 }
@@ -1507,6 +1524,10 @@ select {
 
 .scenario-rule-list > .is-rule-x.is-confirmed {
   border-color: #6b7546;
+}
+
+.scenario-rule-list > .scenario-rule-x-inclusion {
+  border-style: dashed;
 }
 
 .scenario-rule-list dt {
@@ -2253,8 +2274,7 @@ select {
 
 .opening-axis-contract,
 .opening-worst-response,
-.opening-concealment,
-.opening-method p {
+.opening-concealment {
   margin: 0;
   color: #bfb19b;
   font-size: 0.68rem;
@@ -2363,27 +2383,6 @@ select {
   color: #aac5a7;
 }
 
-.opening-method ul {
-  display: grid;
-  gap: 5px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.opening-method li {
-  display: grid;
-  gap: 2px;
-  color: #a99c88;
-  font-size: 0.64rem;
-  line-height: 1.4;
-}
-
-.opening-method li strong {
-  color: #cbbba2;
-}
-
-.opening-excluded-title,
 .decoy-rule-explanation {
   color: #b8aa94;
   font-size: 0.65rem;
@@ -3673,6 +3672,21 @@ select {
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 11px 12px calc(14px + env(safe-area-inset-bottom));
+}
+
+.confirmation-modal {
+  grid-template-rows: auto auto;
+}
+
+.confirmation-modal .confirmation-note {
+  margin: 0;
+  color: #bfb19b;
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.confirmation-actions {
+  grid-template-columns: 1fr 1fr;
 }
 
 .detail-modal-header h2 {

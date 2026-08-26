@@ -286,6 +286,7 @@ let selectedHandCard: SelectedHandCard | undefined;
 let resolutionReceipt: ResolutionReceipt | undefined;
 let openCharacterModal: CharacterId | undefined;
 let openLocationModal: Location | undefined;
+let finalGuessConfirmationOpen = false;
 let operationSheetOpen = false;
 const optionalHookSelections = new Map<string, OptionalHookSelection>();
 const uiInputDrafts = new Map<string, string>();
@@ -301,6 +302,7 @@ interface UiTransactionSnapshot {
   resolutionReceipt?: ResolutionReceipt;
   openCharacterModal?: CharacterId;
   openLocationModal?: Location;
+  finalGuessConfirmationOpen: boolean;
   operationSheetOpen: boolean;
   optionalHookSelections: Map<string, OptionalHookSelection>;
   uiInputDrafts: Map<string, string>;
@@ -477,6 +479,7 @@ function captureUiTransaction(game: StoredGame): UiTransactionSnapshot {
     resolutionReceipt: structuredClone(resolutionReceipt),
     openCharacterModal,
     openLocationModal,
+    finalGuessConfirmationOpen,
     operationSheetOpen,
     optionalHookSelections: structuredClone(optionalHookSelections),
     uiInputDrafts: structuredClone(uiInputDrafts),
@@ -516,6 +519,7 @@ function rollbackUiTransaction(
   resolutionReceipt = snapshot.resolutionReceipt;
   openCharacterModal = snapshot.openCharacterModal;
   openLocationModal = snapshot.openLocationModal;
+  finalGuessConfirmationOpen = snapshot.finalGuessConfirmationOpen;
   operationSheetOpen = snapshot.operationSheetOpen;
   optionalHookSelections.clear();
   for (const [key, selection] of snapshot.optionalHookSelections) {
@@ -568,6 +572,7 @@ function resetTransientUi(): void {
   resolutionReceipt = undefined;
   openCharacterModal = undefined;
   openLocationModal = undefined;
+  finalGuessConfirmationOpen = false;
   operationSheetOpen = false;
   optionalHookSelections.clear();
   uiInputDrafts.clear();
@@ -1085,6 +1090,38 @@ function renderLocationModal(state: GameState): string {
         </div>
       </section>
     </div>`;
+}
+
+function renderFinalGuessConfirmationModal(state: GameState): string {
+  if (!finalGuessConfirmationOpen || state.gamePhase !== "LOOP_TIME_GAP") {
+    return "";
+  }
+  return `<div class="modal-layer final-guess-confirmation-layer">
+    <button type="button" class="modal-scrim"
+      data-action="close-final-guess-confirmation"
+      aria-label="최후의 싸움 이동 취소"></button>
+    <section class="detail-modal confirmation-modal" role="dialog"
+      aria-modal="true" aria-labelledby="final-guess-confirmation-title"
+      aria-describedby="final-guess-confirmation-description">
+      <header class="detail-modal-header">
+        <div>
+          <span class="eyebrow">진행 확인</span>
+          <h2 id="final-guess-confirmation-title">최후의 싸움으로 이동할까요?</h2>
+        </div>
+        <button type="button" class="icon-button"
+          data-action="close-final-guess-confirmation" aria-label="취소">×</button>
+      </header>
+      <div class="detail-modal-body">
+        <p id="final-guess-confirmation-description" class="flow-warning">⚠ 남은 루프를 진행하지 않으므로 주인공 측이 더 불리해집니다.</p>
+        <p class="confirmation-note">이동하면 현재 루프 준비를 건너뛰고 역할 추리를 시작합니다.</p>
+        <div class="flow-actions confirmation-actions">
+          <button type="button" data-action="close-final-guess-confirmation">취소</button>
+          <button type="button" class="danger-action"
+            data-action="confirm-skip-final-guess">그래도 이동</button>
+        </div>
+      </div>
+    </section>
+  </div>`;
 }
 
 function renderPhases(state: GameState): string {
@@ -3039,16 +3076,6 @@ function renderMastermindOpening(opening: MastermindOpeningGuidance): string {
         renderOpeningProfile(profile, `${index + 2}순위`)
       ).join("")}</div>
     </details>`}
-    <details class="guidance-caution-category opening-method">
-      <summary><strong>이 계산이 1일차만 다루는 이유</strong><span>계산 근거</span></summary>
-      <div class="guidance-caution-list">
-        <p>${escapeHtml(opening.horizonReason)}</p>
-        <p>검토 범위 · 전체 배치 ${opening.allP2Count.toLocaleString("ko-KR")}개 중 기여 배치 ${opening.contributingPlacementCount}개, 합법 조합 ${opening.candidateProfileCount.toLocaleString("ko-KR")}개, 1일차 미끼 ${opening.eligibleDecoyCount}개.</p>
-        ${opening.excludedDecoys.length === 0 ? "" : `<strong class="opening-excluded-title">1일차 카드로 직접 진척되지 않아 개시 후보에서 뺀 미끼</strong><ul>${opening.excludedDecoys.map((decoy) =>
-          `<li><strong>${escapeHtml(decoy.title)}</strong><span>${escapeHtml(decoy.reason)}</span></li>`
-        ).join("")}</ul>`}
-      </div>
-    </details>
   </section>`;
 }
 
@@ -3169,17 +3196,14 @@ function renderLoopStartInformation(state: GameState): string {
   </section>`;
 }
 
-function subPlotDeductionLabel(summary: RuleHypothesisSummary): string {
+function subPlotInclusionDeductionLabel(
+  summary: RuleHypothesisSummary,
+): string {
   if (summary.remainingCombinations.length === 0) return "후보 없음";
   const fixed = summary.fixedSubPlots.map(plotName);
-  if (summary.unresolvedSubPlotSlots === 0) {
-    return fixed.length === 0 ? "룰 X 없음" : `${fixed.join(" / ")} 확정`;
-  }
-  const unresolved = summary.unresolvedSubPlotCandidates.length;
-  if (fixed.length === 0) {
-    return `후보 ${unresolved}개 중 ${summary.unresolvedSubPlotSlots}개`;
-  }
-  return `${fixed.join(" / ")} 확정 + 나머지 ${summary.unresolvedSubPlotSlots}개 (후보 ${unresolved}개)`;
+  return fixed.length === 0
+    ? "포함 확정 없음"
+    : `${fixed.join(" / ")} 포함 확정`;
 }
 
 function renderScenarioInformation(
@@ -3221,26 +3245,39 @@ function renderScenarioInformation(
           )}</small>
         </dd>
       </div>
-      <div class="scenario-rule-row is-rule-x ${
-        ruleSummary.fixedSubPlots.length > 0 ? "is-confirmed" : ""
-      }">
-        <dt>룰 X <small>순서 없음</small></dt>
-        <dd>
-          <span class="scenario-rule-values">${
-            state.scenario.subPlots.length === 0
-              ? escapeHtml(misc("None", "None"))
-              : state.scenario.subPlots.map((plot) => `
-                <span>${escapeHtml(plotName(plot))}${
-                  fixedSubPlotSet.has(plot)
-                    ? `<i class="scenario-deduction-chip is-confirmed">확정</i>`
-                    : ""
-                }</span>`).join("")
-          }</span>
-          <small class="scenario-rule-deduction" title="공개 후보: ${escapeHtml(
-            subPlotCandidates.join(" / ") || "없음",
-          )}">공개 추론 · ${escapeHtml(subPlotDeductionLabel(ruleSummary))}</small>
-        </dd>
-      </div>
+      ${state.scenario.subPlots.length === 0
+        ? `<div class="scenario-rule-row is-rule-x"><dt>룰 X</dt><dd>${escapeHtml(
+          misc("None", "None"),
+        )}</dd></div>`
+        : state.scenario.subPlots.map((plot, index) => {
+          const included = fixedSubPlotSet.has(plot);
+          return `<div class="scenario-rule-row is-rule-x ${
+            included ? "is-confirmed" : ""
+          }">
+            <dt>룰 X${index + 1}</dt>
+            <dd>
+              <span class="scenario-rule-value">${escapeHtml(plotName(plot))}</span>
+              ${included
+                ? `<i class="scenario-deduction-chip is-confirmed" title="룰 X에 반드시 포함되지만 X1/X2 위치는 미확정">포함 확정</i>`
+                : `<i class="scenario-deduction-chip">전체 후보 ${ruleSummary.subPlotCandidates.length}개</i>`}
+              <small title="룰 X 전체 공개 후보: ${escapeHtml(
+                subPlotCandidates.join(" / ") || "없음",
+              )}">룰 X 전체 공개 후보 · ${escapeHtml(
+                subPlotCandidates.join(" / ") || "없음",
+              )}</small>
+            </dd>
+          </div>`;
+        }).join("")}
+      ${ruleSummary.fixedSubPlots.length === 0
+        ? ""
+        : `<div class="scenario-rule-row scenario-rule-x-inclusion">
+            <dt>룰 X 공통</dt>
+            <dd><small class="scenario-rule-deduction" title="전체 공개 후보: ${escapeHtml(
+              subPlotCandidates.join(" / ") || "없음",
+            )}">공개 추론 · ${escapeHtml(
+              subPlotInclusionDeductionLabel(ruleSummary),
+            )}</small></dd>
+          </div>`}
     </dl>
     ${specialRules.length === 0
       ? ""
@@ -3457,13 +3494,12 @@ function ruleCombinationLabel(
   mainPlot: string,
   subPlots: readonly string[],
 ): string {
-  return `${plotName(mainPlot)} + ${subPlots.map(plotName).join(" / ")}`;
+  return `${plotName(mainPlot)} + X 조합 ${subPlots.map(plotName).join(" / ")}`;
 }
 
 function renderRuleHypotheses(summary: RuleHypothesisSummary): string {
   const remainingCount = summary.remainingCombinations.length;
   const mainCandidateNames = summary.mainPlotCandidates.map(plotName);
-  const subCandidateNames = summary.subPlotCandidates.map(plotName);
   const observationRow = ({
     observation,
     excludedCount,
@@ -3539,11 +3575,17 @@ function renderRuleHypotheses(summary: RuleHypothesisSummary): string {
         </section>
         <section class="hypothesis-axis">
           <div>
-            <span>룰 X 후보</span>
+            <span>룰 X 전체 후보</span>
             <strong>${summary.subPlotTotal} → ${summary.subPlotCandidates.length}</strong>
           </div>
-          <p>${escapeHtml(subCandidateNames.join(" / ") || "후보 없음")}</p>
+          <p>${escapeHtml(summary.subPlotCandidates.map(plotName).join(" / ") || "후보 없음")}</p>
         </section>
+        ${summary.fixedSubPlots.length === 0
+          ? ""
+          : `<section class="hypothesis-axis hypothesis-x-inclusion">
+              <div><span>룰 X 포함 확정</span><strong>${summary.fixedSubPlots.length}개</strong></div>
+              <p>${escapeHtml(summary.fixedSubPlots.map(plotName).join(" / "))}</p>
+            </section>`}
         <div class="hypothesis-combination-count">
           <span>조합</span><strong>${remainingCount}개</strong>
         </div>
@@ -4194,12 +4236,9 @@ function renderTimeGap(state: GameState): string {
       <div class="flow-actions primary-actions">
         <button type="button" class="next-phase" data-action="continue-loop-start" ${loopStartTraitChoicesComplete(state) ? "" : "disabled"}>루프 준비 계속 →</button>
         ${hasFinalGuess
-          ? `<button type="button" class="danger-action" data-action="skip-final-guess">최후의 싸움으로 이동</button>`
+          ? `<button type="button" class="danger-action" data-action="open-final-guess-confirmation">최후의 싸움으로 이동</button>`
           : ""}
       </div>
-      ${hasFinalGuess
-        ? `<p class="flow-warning">⚠ 남은 루프를 진행하지 않으므로 주인공 측이 더 불리해집니다.</p>`
-        : ""}
     </section>
     ${renderMastermindOverlay(state)}
   </main>`;
@@ -4397,6 +4436,15 @@ function renderScenarioSelection(): void {
     ({ index }) => index === selectedDifficultyIndex,
   ) ?? selectedEntry?.difficulties[0];
   const mysteryBoyRole = selectedDifficulty?.scenario.cast.mysteryBoy;
+  const previewState = selectedDifficulty?.validation.ok === true
+    ? createGameState(structuredClone(selectedDifficulty.scenario))
+    : undefined;
+  const previewRuleSummary = previewState === undefined
+    ? undefined
+    : ruleHypothesisSummary(previewState);
+  const previewDeductionSummary = previewState === undefined
+    ? undefined
+    : deductionTablesSummary(previewState);
   root.innerHTML = `
     <div class="app-shell">
       <header class="topbar">
@@ -4466,12 +4514,18 @@ function renderScenarioSelection(): void {
             <button type="button" class="next-phase" data-action="start-selected-scenario"
               ${selectedDifficulty?.validation.ok === true ? "" : "disabled"}>게임 시작</button>
           </div>
-          ${selectedDifficulty?.validation.ok === true
-            ? renderMastermindGuidance(
-              createGameState(structuredClone(selectedDifficulty.scenario)),
-              "beforeStart",
-            )
-            : ""}
+          ${previewState === undefined || previewRuleSummary === undefined ||
+              previewDeductionSummary === undefined
+            ? ""
+            : `<section class="pre-game-scenario-information" aria-label="선택한 시나리오 비공개 정보표">
+                ${renderScenarioInformation(
+                  previewState,
+                  previewRuleSummary,
+                  previewDeductionSummary,
+                )}
+                ${renderIncidentSchedule(previewState)}
+              </section>
+              ${renderMastermindGuidance(previewState, "beforeStart")}`}
         </section>
       </main>
       ${notice
@@ -4567,6 +4621,7 @@ function render(): void {
       </header>
 
       ${gameContent}
+      ${renderFinalGuessConfirmationModal(state)}
       ${renderStorageWriteWarning()}
       ${notice
         ? `<div class="notice-toast" role="alert">
@@ -5048,7 +5103,20 @@ root.addEventListener("click", (event) => {
     return;
   }
 
-  if (action === "skip-final-guess") {
+  if (action === "open-final-guess-confirmation") {
+    finalGuessConfirmationOpen = true;
+    render();
+    return;
+  }
+
+  if (action === "close-final-guess-confirmation") {
+    finalGuessConfirmationOpen = false;
+    render();
+    return;
+  }
+
+  if (action === "confirm-skip-final-guess") {
+    finalGuessConfirmationOpen = false;
     commit("final-guess-skip", (state) => {
       skipToFinalGuess(state);
     });
@@ -5356,6 +5424,7 @@ root.addEventListener("change", (event) => {
     resolutionReceipt = undefined;
     openCharacterModal = undefined;
     openLocationModal = undefined;
+    finalGuessConfirmationOpen = false;
     operationSheetOpen = false;
     optionalHookSelections.clear();
     if (!tracker.games[entry.id]) {

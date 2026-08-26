@@ -123,6 +123,9 @@
           "[data-action='start-selected-scenario']",
         );
         const guidance = document.querySelector(".pre-game-guidance");
+        const privateSheet = document.querySelector(
+          ".pre-game-scenario-information",
+        );
         if (!(guidance instanceof frameWindow().HTMLDetailsElement) ||
           !(startButton instanceof frameWindow().HTMLElement)) {
           throw new Error("접을 수 있는 각본가 시작 지침을 찾을 수 없습니다.");
@@ -145,6 +148,14 @@
           ),
           mentionsOtherTragedySet: text.includes("다른 참극 세트"),
           repeatsActualRuleAboveList: text.includes("이번 게임의 룰 ·"),
+          showsPrivateRules: privateSheet?.textContent.includes("룰과 역할") ?? false,
+          showsIncidentSchedule: privateSheet?.textContent.includes("사건 일정") ?? false,
+          preservesRuleXOrder: privateSheet?.textContent.includes("룰 X1") &&
+            privateSheet.textContent.includes("룰 X2"),
+          callsRuleXUnordered: privateSheet?.textContent.includes("순서 없음") ?? false,
+          showsRemovedCalculationReason: text.includes(
+            "이 계산이 1일차만 다루는 이유",
+          ),
           hasTargetKindChip: Boolean(guidance.querySelector(
             ".decoy-target-kind, .opening-target-kind",
           )),
@@ -158,6 +169,11 @@
           report.hasRepeatedAutomaticWarning ||
           report.mentionsOtherTragedySet ||
           report.repeatsActualRuleAboveList ||
+          !report.showsPrivateRules ||
+          !report.showsIncidentSchedule ||
+          !report.preservesRuleXOrder ||
+          report.callsRuleXUnordered ||
+          report.showsRemovedCalculationReason ||
           report.hasTargetKindChip ||
           report.horizontal.scrollWidth > WIDTH
         ) {
@@ -185,6 +201,48 @@
         }
         document.querySelector("[data-action='choose-leader']")?.click();
         await pause();
+        const finalGuessButton = document.querySelector(
+          "[data-action='open-final-guess-confirmation']",
+        );
+        if (finalGuessButton) {
+          const inlineWarning = document.querySelector(
+            ".time-gap-card > .flow-warning",
+          );
+          finalGuessButton.click();
+          const confirmation = await waitFor(
+            () => frameDocument().querySelector(".confirmation-modal"),
+            "최후의 싸움 이동 확인 모달",
+          );
+          const confirmationText = confirmation.textContent
+            .replace(/\s+/g, " ").trim();
+          const report = {
+            inlineWarning: Boolean(inlineWarning),
+            warningInModal: confirmationText.includes(
+              "남은 루프를 진행하지 않으므로 주인공 측이 더 불리해집니다.",
+            ),
+            hasCancel: Boolean(confirmation.querySelector(
+              "[data-action='close-final-guess-confirmation']",
+            )),
+            hasConfirm: Boolean(confirmation.querySelector(
+              "[data-action='confirm-skip-final-guess']",
+            )),
+            horizontal: horizontalOverflow(),
+          };
+          reports.push({ label: "최후의 싸움 이동 확인", ...report });
+          if (
+            report.inlineWarning ||
+            !report.warningInModal ||
+            !report.hasCancel ||
+            !report.hasConfirm ||
+            report.horizontal.scrollWidth > WIDTH
+          ) {
+            failures.push(`최후의 싸움 이동 확인: ${JSON.stringify(report)}`);
+          }
+          confirmation.querySelector(
+            "[data-action='close-final-guess-confirmation']",
+          )?.click();
+          await pause();
+        }
         const henchmanLocation = document.querySelector(
           "[data-action='loop-start-trait-location'][data-character='henchman']",
         );
@@ -1111,15 +1169,15 @@
           ).length,
           horizontal: horizontalOverflow(),
         };
-        reports.push({ label: "순서 없는 룰 X 부분 확정", ...partialXReport });
+        reports.push({ label: "룰 X 기록 순서와 포함 확정", ...partialXReport });
         if (
-          !partialXReport.text.includes(
-            "연애의 풍경 확정 + 나머지 1개 (후보 6개)",
-          ) ||
+          !partialXReport.text.includes("룰 X1") ||
+          !partialXReport.text.includes("연애의 풍경") ||
+          !partialXReport.text.includes("포함 확정") ||
           partialXReport.confirmedChips !== 1 ||
           partialXReport.horizontal.scrollWidth > WIDTH
         ) {
-          failures.push(`순서 없는 룰 X 부분 확정: ${JSON.stringify(partialXReport)}`);
+          failures.push(`룰 X 기록 순서와 포함 확정: ${JSON.stringify(partialXReport)}`);
         }
 
         mutateActiveState((state) => {
