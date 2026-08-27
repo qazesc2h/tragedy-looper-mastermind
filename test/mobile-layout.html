@@ -613,6 +613,42 @@
         await pause();
       }
 
+      async function inspectSpecialRuleCardLabel() {
+        const fullRule = "각본가는 '우호 금지' 카드를 사용할 수 없다.";
+        await selectScenario("community:naughty-cat");
+        click("[data-action='toggle-operation-sheet']");
+        const card = await waitFor(
+          () => frameDocument().querySelector(
+            ".hand-card[data-owner='mastermind'][data-card='forbidGoodwill']",
+          ),
+          "특수 규칙으로 비활성화된 우호 금지 카드",
+        );
+        const reason = card.querySelector(".hand-card-disabled-reason")
+          ?.textContent.trim() ?? "";
+        const panelText = frameDocument().querySelector(
+          ".scenario-special-rules",
+        )?.textContent.replace(/\s+/g, " ").trim() ?? "";
+        const report = {
+          disabled: card.disabled,
+          reason,
+          repeatsFullRule: card.textContent.includes(fullRule),
+          fullRuleInInformationPanel: panelText.includes(fullRule),
+          horizontal: horizontalOverflow(),
+        };
+        reports.push({ label: "특수 규칙 카드 비활성 사유", ...report });
+        if (
+          !report.disabled ||
+          report.reason !== "특수 규칙" ||
+          report.repeatsFullRule ||
+          !report.fullRuleInInformationPanel ||
+          report.horizontal.scrollWidth > WIDTH
+        ) {
+          failures.push(`특수 규칙 카드 비활성 사유: ${JSON.stringify(report)}`);
+        }
+        click("[data-action='close-operation-sheet']");
+        await selectScenario("basicTragedy:1");
+      }
+
       async function inspectP5DisclosurePreview() {
         await selectScenario("firstSteps:4");
         mutateActiveState((state) => {
@@ -1925,7 +1961,7 @@
         };
         reports.push({ label: "환상 행동 카드 특성", ...report });
         if (
-          !directPlacementText.includes("직접 놓을 수 없습니다") ||
+          !directPlacementText.includes("캐릭터 특성") ||
           rejectedPlacedCount !== 0 ||
           revealButtonDisabled ||
           report.placedAfterReveal !== 0 ||
@@ -2018,6 +2054,9 @@
         const current = saved.games[saved.activeScenarioId].state;
         const report = {
           disabledReasons,
+          diagnosticCount: frameDocument().querySelectorAll(
+            ".goodwill-disabled-diagnostic",
+          ).length,
           illusionRank4InitiallyEnabled,
           deadOwnerVisible,
           absentOwnerVisible,
@@ -2035,6 +2074,7 @@
           Object.values(disabledReasons).some(
             ({ disabled, reason }) => !disabled || reason !== "미구현",
           ) ||
+          report.diagnosticCount !== 0 ||
           !illusionRank4InitiallyEnabled ||
           report.deadOwnerVisible ||
           report.absentOwnerVisible ||
@@ -2047,9 +2087,77 @@
         }
       }
 
+      async function inspectGoodwillDisabledLabels() {
+        mutateActiveState((state) => {
+          state.gamePhase = "ROUND";
+          state.loop.phase = "P6_GOODWILL";
+          state.loop.placed = [];
+          state.loop.abilitiesUsedThisRound = [];
+          state.loop.abilitiesUsedThisLoop = [];
+          state.loop.spentOncePerLoop = {
+            mastermind: [],
+            protagonists: [[], [], []],
+          };
+          delete state.pendingLoopEnd;
+          delete state.loop.pendingImmediateLossKeys;
+          state.scenario.cast = {
+            boyStudent: "person",
+            girlStudent: "person",
+            shrineMaiden: "person",
+            classRep: "person",
+          };
+          state.loop.board = {
+            boyStudent: { status: "alive", at: "School" },
+            girlStudent: { status: "alive", at: "City" },
+            shrineMaiden: { status: "alive", at: "City" },
+            classRep: { status: "alive", at: "City" },
+          };
+          state.loop.charCounters = Object.fromEntries(
+            Object.keys(state.scenario.cast).map((character) => [
+              character,
+              {
+                goodwill: character === "shrineMaiden" ? 3 : 2,
+                paranoia: 0,
+                intrigue: 0,
+                protection: 0,
+              },
+            ]),
+          );
+        });
+        await reloadApp("goodwill-disabled-labels");
+        click("[data-action='toggle-operation-sheet']");
+        const labels = Object.fromEntries([
+          ["shrineMaiden", "0"],
+          ["classRep", "0"],
+        ].map(([character, abilityIndex]) => {
+          const button = frameDocument().querySelector(
+            `button[data-action='goodwill'][data-response='resolve'][data-character='${character}'][data-ability-index='${abilityIndex}']`,
+          );
+          return [
+            character,
+            button?.closest(".goodwill-card")?.querySelector(
+              ".goodwill-disabled-reason",
+            )?.textContent.trim() ?? "",
+          ];
+        }));
+        const report = {
+          labels,
+          horizontal: horizontalOverflow(),
+        };
+        reports.push({ label: "우호 능력 비활성 사유", ...report });
+        if (
+          labels.shrineMaiden !== "장소 제한" ||
+          labels.classRep !== "리더의 소진 카드가 없습니다" ||
+          report.horizontal.scrollWidth > WIDTH
+        ) {
+          failures.push(`우호 능력 비활성 사유: ${JSON.stringify(report)}`);
+        }
+      }
+
       async function run() {
         await inspectStartingGuidance();
         await enterRound();
+        await inspectSpecialRuleCardLabel();
         await inspectRuleHypothesisPanels();
         await inspectDeductionTables();
         await inspectScenarioRoleFacts();
@@ -2084,6 +2192,7 @@
         await inspectAiIncidentChoiceFields();
         await inspectIllusionActionTrait();
         await inspectGoodwillImplementationCoverage();
+        await inspectGoodwillDisabledLabels();
         await selectScenario("basicTragedy:5");
         await inspectScrollableModalBodies();
 

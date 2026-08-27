@@ -1882,13 +1882,6 @@ select {
   font-size: 0.72rem;
 }
 
-.goodwill-disabled-diagnostic {
-  color: #817765;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.65rem;
-  overflow-wrap: anywhere;
-}
-
 .goodwill-refusal-log {
   display: grid;
   gap: 7px;

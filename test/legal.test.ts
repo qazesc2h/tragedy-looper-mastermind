@@ -66,7 +66,7 @@ describe("mastermind target duplication", () => {
       characterPlacement("mastermind", "intriguePlus1"),
     )).toEqual({
       ok: false,
-      reason: "각본가는 같은 대상에 행동 카드를 2장 이상 놓을 수 없습니다.",
+      reason: "같은 대상에 이미 배치함",
     });
   });
 
@@ -103,7 +103,7 @@ describe("protagonist target duplication", () => {
       characterPlacement(1, "paranoiaMinus1"),
     )).toEqual({
       ok: false,
-      reason: "주인공끼리는 같은 대상에 행동 카드를 중복해서 놓을 수 없습니다.",
+      reason: "다른 주인공이 같은 대상에 배치함",
     });
   });
 
@@ -140,7 +140,7 @@ describe("dead character targets", () => {
       characterPlacement(0, "goodwillPlus1"),
     )).toEqual({
       ok: false,
-      reason: "사망한 캐릭터에게는 행동 카드를 놓을 수 없습니다.",
+      reason: "대상 사망",
     });
   });
 
@@ -171,7 +171,7 @@ describe("illusion targets", () => {
       characterPlacement("mastermind", "paranoiaPlus1", "illusion"),
     )).toEqual({
       ok: false,
-      reason: "환상에게는 행동 카드를 직접 놓을 수 없습니다.",
+      reason: "캐릭터 특성",
     });
   });
 });
@@ -210,7 +210,7 @@ describe("once-per-loop cards", () => {
       characterPlacement(0, "goodwillPlus2"),
     )).toEqual({
       ok: false,
-      reason: "이미 사용한 1루프당 1회 카드는 다시 낼 수 없습니다.",
+      reason: "이번 루프에 사용함",
     });
   });
 
@@ -233,7 +233,7 @@ describe("once-per-loop cards", () => {
       characterPlacement("mastermind", "moveDiagonal"),
     )).toEqual({
       ok: false,
-      reason: "이미 사용한 1루프당 1회 카드는 다시 낼 수 없습니다.",
+      reason: "이번 루프에 사용함",
     });
   });
 

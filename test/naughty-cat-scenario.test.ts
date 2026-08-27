@@ -126,7 +126,7 @@ describe("community scenario: 못된 고양이", () => {
     expect(actionCardRestriction(state, "mastermind", "forbidGoodwill"))
       .toEqual({
         ok: false,
-        reason: "특수 규칙: 각본가는 우호 금지 카드를 사용할 수 없습니다.",
+        reason: "특수 규칙",
       });
     expect(validatePlacement(state, mastermind)).toEqual(
       actionCardRestriction(state, "mastermind", "forbidGoodwill"),

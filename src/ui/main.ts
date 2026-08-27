@@ -1376,7 +1376,7 @@ function renderHand(
         ].filter(Boolean).join(" · ");
         const unavailable = !enabled || placed || spent || restriction !== undefined;
         const disabledReason = restriction?.reason ?? (spent
-          ? `${misc("Spent", "Spent")} · 선택 불가`
+          ? "이번 루프에 사용함"
           : placed
             ? "이미 배치함"
             : !enabled
@@ -1916,31 +1916,62 @@ function goodwillDisabledMessage(
     case "dead":
       return "사망";
     case "minLoop":
-      return `${view.schema.minLoop}번째 루프부터 사용 가능`;
+      return `${view.schema.minLoop}루프부터`;
     case "notImplemented":
       return "미구현";
     case "usedThisRound":
-      return "오늘 이미 사용한 능력";
+      return "오늘 사용함";
     case "spent":
       return "이번 루프에 사용함";
     case "restrictedLocation":
-      return `${misc("Only at", "Only at")}: ${
-        view.schema.restrictedToLocation?.map(locationName).join(" / ") ?? ""
-      }`;
+      return "장소 제한";
     case "noTarget":
       if (view.schema.target.tags.includes("student")) {
         return "같은 장소에 다른 학생이 없습니다";
       }
-      return misc("No eligible target", "No eligible target");
+      if (view.schema.target.predicates?.includes("dead")) {
+        return "대상 시체가 없습니다";
+      }
+      if (view.schema.target.predicates?.includes("inUserTurf")) {
+        return "세력권에 대상 캐릭터가 없습니다";
+      }
+      if (view.schema.target.predicates?.includes("isPatient")) {
+        return "환자가 없습니다";
+      }
+      if (view.schema.target.predicates?.includes("panicked")) {
+        return "같은 장소에 패닉 상태인 캐릭터가 없습니다";
+      }
+      if (view.schema.target.predicates?.includes("hasIntrigue")) {
+        return "같은 장소에 음모가 있는 다른 캐릭터가 없습니다";
+      }
+      if (
+        view.schema.target.scope === "sameLocation" &&
+        view.schema.target.excludeSelf
+      ) {
+        return "같은 장소에 다른 캐릭터가 없습니다";
+      }
+      if (
+        view.schema.target.scope === "anyCharacter" &&
+        view.schema.target.excludeSelf
+      ) {
+        return "다른 생존 캐릭터가 없습니다";
+      }
+      return "사용 가능한 대상이 없습니다";
     case "noSpentCard":
-      return misc("No spent card to recover", "No spent card to recover");
+      return "리더의 소진 카드가 없습니다";
     case "noChoice":
+      if (view.choice.kind === "pastIncident") {
+        return "이번 루프에 발동한 사건이 없습니다";
+      }
+      if (view.choice.kind === "incident") {
+        return "각본에 사건이 없습니다";
+      }
+      if (view.choice.kind === "subplot") {
+        return "선택 가능한 룰 X가 없습니다";
+      }
       return "선택 가능한 항목이 없습니다";
     case "multipleTargets":
-      return misc(
-        "This ability requires multiple targets",
-        "This ability requires multiple targets",
-      );
+      return "복수 대상 미지원";
   }
 }
 
@@ -2270,7 +2301,6 @@ function renderGoodwillAbilities(state: GameState): string {
       key,
       schema,
       disabledReason,
-      disabledDiagnostic,
     } = view;
     const disabled = disabledReason !== undefined;
     const reason = disabledReason === undefined
@@ -2322,9 +2352,6 @@ function renderGoodwillAbilities(state: GameState): string {
           ? `<small class="goodwill-refusal-disclosed">우호 무시 계열 노출 · ${escapeHtml(occurrenceText(disclosedOccurrences))}</small>`
           : ""}
         ${reason ? `<small class="goodwill-disabled-reason">${escapeHtml(reason)}</small>` : ""}
-        ${disabledDiagnostic
-          ? `<small class="goodwill-disabled-diagnostic">(${escapeHtml(disabledDiagnostic)})</small>`
-          : ""}
       </div>
       <div class="goodwill-inputs">
         ${renderGoodwillTarget(view, disabled)}

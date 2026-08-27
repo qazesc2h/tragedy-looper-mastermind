@@ -251,10 +251,7 @@ describe("structured goodwill ability UI", () => {
       ({ character }) => character === "boyStudent",
     );
     expect(unavailableBoy?.disabledReason).toBe("noTarget");
-    expect(unavailableBoy?.disabledDiagnostic).toBe(
-      'scope=sameLocation, excludeSelf=true, tags=["student"], ' +
-      'predicates=["alive"], candidates=[]',
-    );
+    expect(unavailableBoy).not.toHaveProperty("disabledDiagnostic");
   });
 
   it("offers doctor rank 2 only other living characters nearby and the +1/-1 choice", () => {
@@ -323,7 +320,6 @@ describe("structured goodwill ability UI", () => {
 
     expect(goodwillAbilityViews(state)[0]).toMatchObject({
       disabledReason: "minLoop",
-      disabledDiagnostic: "loop=1, minLoop=2",
       schema: { minLoop: 2 },
     });
 
@@ -340,30 +336,25 @@ describe("structured goodwill ability UI", () => {
       character,
       schema,
       disabledReason,
-      disabledDiagnostic,
     }) => ({
       character,
       rank: schema.rank,
       disabledReason,
-      disabledDiagnostic,
     }))).toEqual([
       {
         character: "scientist",
         rank: 3,
         disabledReason: "notImplemented",
-        disabledDiagnostic: "implemented=false",
       },
       {
         character: "illusion",
         rank: 3,
         disabledReason: "notImplemented",
-        disabledDiagnostic: "implemented=false",
       },
       {
         character: "illusion",
         rank: 4,
         disabledReason: undefined,
-        disabledDiagnostic: undefined,
       },
     ]);
   });
@@ -394,7 +385,6 @@ describe("structured goodwill ability UI", () => {
         character === "forensicSpecialist" && schema.rank === 2,
     )).toMatchObject({
       disabledReason: "notImplemented",
-      disabledDiagnostic: "implemented=false",
     });
   });
 
@@ -411,7 +401,6 @@ describe("structured goodwill ability UI", () => {
     setBoardLocation(state.loop, "shrineMaiden", "City");
     expect(goodwillAbilityViews(state)[0]).toMatchObject({
       disabledReason: "restrictedLocation",
-      disabledDiagnostic: 'at=City, allowed=["Shrine"]',
     });
   });
 
@@ -425,7 +414,6 @@ describe("structured goodwill ability UI", () => {
 
     expect(goodwillAbilityViews(state)[0]).toMatchObject({
       disabledReason: "noSpentCard",
-      disabledDiagnostic: "leader=0, spent=[[],[],[]]",
     });
 
     resolveLeaderCardThroughP4(state, card);
@@ -567,7 +555,6 @@ describe("structured goodwill ability UI", () => {
 
     expect(goodwillAbilityViews(state)[0]).toMatchObject({
       disabledReason: "noChoice",
-      disabledDiagnostic: "choice=pastIncident, candidates=[]",
       choice: { kind: "pastIncident", options: [] },
     });
 

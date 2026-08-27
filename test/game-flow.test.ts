@@ -247,7 +247,7 @@ describe("game setup and loop preparation", () => {
       target: { kind: "character", id: "godlyBeing" },
     })).toEqual({
       ok: false,
-      reason: "게임판에 없는 캐릭터에게는 행동 카드를 놓을 수 없습니다.",
+      reason: "대상 미등장",
     });
 
     state.loop.locIntrigue.Shrine = 2;

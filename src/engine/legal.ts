@@ -25,7 +25,7 @@ const ACTION_CARD_RESTRICTIONS: Readonly<
   mastermindCannotUseForbidGoodwill: {
     applies: (owner, card) =>
       owner === "mastermind" && card === "forbidGoodwill",
-    reason: "특수 규칙: 각본가는 우호 금지 카드를 사용할 수 없습니다.",
+    reason: "특수 규칙",
   },
 };
 
@@ -68,7 +68,7 @@ function conflictsWithExisting(
   ) {
     return {
       ok: false,
-      reason: "각본가는 같은 대상에 행동 카드를 2장 이상 놓을 수 없습니다.",
+      reason: "같은 대상에 이미 배치함",
     };
   }
 
@@ -78,7 +78,7 @@ function conflictsWithExisting(
   ) {
     return {
       ok: false,
-      reason: "주인공끼리는 같은 대상에 행동 카드를 중복해서 놓을 수 없습니다.",
+      reason: "다른 주인공이 같은 대상에 배치함",
     };
   }
 
@@ -112,7 +112,7 @@ export function validatePlacement(
   ) {
     return {
       ok: false,
-      reason: "환상에게는 행동 카드를 직접 놓을 수 없습니다.",
+      reason: "캐릭터 특성",
     };
   }
 
@@ -126,7 +126,7 @@ export function validatePlacement(
   ) {
     return {
       ok: false,
-      reason: "게임판에 없는 캐릭터에게는 행동 카드를 놓을 수 없습니다.",
+      reason: "대상 미등장",
     };
   }
 
@@ -136,14 +136,14 @@ export function validatePlacement(
   ) {
     return {
       ok: false,
-      reason: "사망한 캐릭터에게는 행동 카드를 놓을 수 없습니다.",
+      reason: "대상 사망",
     };
   }
 
   if (isSpent(state, placement)) {
     return {
       ok: false,
-      reason: "이미 사용한 1루프당 1회 카드는 다시 낼 수 없습니다.",
+      reason: "이번 루프에 사용함",
     };
   }
 
