@@ -3657,7 +3657,9 @@ function hypothesisObservationLabel(
       return `${observation.loop}루프 ${observation.record.day}일 라운드 종료 · ${result}${immediate}`;
     }
     case "mandatoryEffectMissing":
-      return `${observation.loop}루프 시작 · ${characterName(observation.character)} 인과율 불안 증가 없음`;
+      return observation.effect === "friend"
+        ? `${observation.loop}루프 시작 · ${characterName(observation.character)} 공개 뒤 우호 증가 없음`
+        : `${observation.loop}루프 시작 · ${characterName(observation.character)} 인과율 불안 증가 없음`;
   }
 }
 
@@ -3797,6 +3799,8 @@ function roleCellReasonLabel(code: string): string {
     case "sacredTreeGoodwillRefusalAbsent": return "신수 강제 이전 없음";
     case "abilityLocationIntersection": return "능력 위치 교집합";
     case "loopEndRoleRevealMissing": return "루프 종료 역할 공개 없음";
+    case "friendLoopStartGoodwill": return "공개 뒤 루프 시작 우호 증가";
+    case "friendLoopStartGoodwillMissing": return "공개 뒤 루프 시작 우호 증가 없음";
     case "lossConditionOnlyCandidate": return "패배 조건 유일 후보";
     case "diedDespiteImmortality": return "사망으로 불사 배제";
     case "deathWithoutImmediateLoss": return "사망했지만 즉시 종료 없음";
@@ -3872,6 +3876,14 @@ function renderRoleInferenceTraces(
       continue;
     }
     if (observation.kind === "mandatoryEffectMissing") {
+      if (observation.effect === "friend") {
+        traces.push(`<li>
+          <strong>${escapeHtml(characterName(observation.character))} · 친구 배제</strong>
+          <span>근거: ${observation.loop}루프 시작 · 이전 역할 공개 뒤 우호 1 증가 없음</span>
+          <small>루프 시작 배치가 끝난 뒤 살아있는 캐릭터에서만 이 관측을 만듭니다.</small>
+        </li>`);
+        continue;
+      }
       traces.push(`<li>
         <strong>인과율 후보 배제</strong>
         <span>근거: ${observation.loop}루프 시작 · ${escapeHtml(characterName(observation.character))}에게 불안 2 증가 없음</span>

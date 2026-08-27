@@ -1095,6 +1095,111 @@ describe("loop-end friend non-reveal observations", () => {
   });
 });
 
+describe("friend loop-start goodwill observations", () => {
+  const revealedBeforeLoopStart = {
+    ...roleRevealed("doctor", "person", false),
+    loop: 1,
+  };
+
+  it("confirms friend from the mandatory +1 goodwill after an earlier reveal", () => {
+    const observation: ProtagonistObservation = {
+      kind: "mastermindAbilityResult",
+      loop: 2,
+      day: 1,
+      timing: "LOOP_START",
+      changes: [{
+        kind: "counter",
+        target: { kind: "character", id: "doctor" },
+        counter: "goodwill",
+        delta: 1,
+      }],
+    };
+    const table = buildRolePossibilityTable(
+      "basicTragedy",
+      fullCast,
+      enumerateRuleCombinations("basicTragedy"),
+      [revealedBeforeLoopStart, observation],
+    );
+
+    expect(table.cells.doctor.friend).toMatchObject({
+      status: "confirmed",
+      reasons: [{ code: "friendLoopStartGoodwill", observation }],
+    });
+  });
+
+  it("does not infer friend from loop-start goodwill without an earlier reveal", () => {
+    const observation: ProtagonistObservation = {
+      kind: "mastermindAbilityResult",
+      loop: 2,
+      day: 1,
+      timing: "LOOP_START",
+      changes: [{
+        kind: "counter",
+        target: { kind: "character", id: "doctor" },
+        counter: "goodwill",
+        delta: 1,
+      }],
+    };
+    const table = buildRolePossibilityTable(
+      "basicTragedy",
+      fullCast,
+      enumerateRuleCombinations("basicTragedy"),
+      [observation],
+    );
+
+    expect(table.cells.doctor.friend.status).toBe("possible");
+  });
+
+  it("excludes friend when its mandatory goodwill is absent after a reveal", () => {
+    const observation: ProtagonistObservation = {
+      kind: "mandatoryEffectMissing",
+      loop: 2,
+      day: 1,
+      effect: "friend",
+      character: "doctor",
+    };
+    const table = buildRolePossibilityTable(
+      "basicTragedy",
+      fullCast,
+      enumerateRuleCombinations("basicTragedy"),
+      [revealedBeforeLoopStart, observation],
+    );
+
+    expect(table.cells.doctor.friend).toMatchObject({
+      status: "impossible",
+      reasons: [{ code: "friendLoopStartGoodwillMissing", observation }],
+    });
+  });
+
+  it("collects the missing mandatory effect after any earlier reveal path", () => {
+    const scenario: Scenario = {
+      tragedySet: "basicTragedy",
+      mainPlot: "murderPlan",
+      subPlots: ["circleFriends"],
+      cast: { doctor: "person", girlStudent: "friend" },
+      incidents: [],
+      loops: 2,
+      daysPerLoop: 5,
+    };
+    const state = createGameState(scenario);
+    state.history.push({
+      ...structuredClone(state.loop),
+      revealedRoleCharacters: ["doctor"],
+    });
+    state.loop = initLoop(scenario, 2);
+    state.gamePhase = "ROUND";
+
+    expect(collectProtagonistObservations(state)).toContainEqual(
+      expect.objectContaining({
+        kind: "mandatoryEffectMissing",
+        loop: 2,
+        effect: "friend",
+        character: "doctor",
+      }),
+    );
+  });
+});
+
 describe("goodwill acceptance observations", () => {
   it("ignores outsider and nurse abilities that cannot be refused", () => {
     const scenario: Scenario = {

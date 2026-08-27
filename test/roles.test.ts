@@ -7,6 +7,7 @@ import {
 } from "../src/engine/death";
 import { settleGameFlow } from "../src/engine/game";
 import { requestLoopEnd } from "../src/engine/flow";
+import { resolveGoodwillAbility } from "../src/engine/goodwill";
 import { evaluateStateRuleHypotheses } from "../src/engine/hypothesis";
 import {
   advance,
@@ -749,6 +750,126 @@ describe("friend / reveal role", () => {
 describe("friend / revealed role bonus", () => {
   const loopStartHook = hook("friend", 1);
 
+  const revealAbilityCases: readonly {
+    label: string;
+    cast: Scenario["cast"];
+    user: string;
+    rank: number;
+    abilityIndex: number;
+    target?: string;
+    revealed: string;
+    loop: number;
+    deadTarget?: boolean;
+    targetLocation?: "Hospital" | "Shrine" | "City" | "School";
+  }[] = [
+    {
+      label: "shrineMaiden rank 5 reveals another friend",
+      cast: { shrineMaiden: "person", [FRIEND]: "friend" },
+      user: "shrineMaiden",
+      rank: 5,
+      abilityIndex: 1,
+      target: FRIEND,
+      revealed: FRIEND,
+      loop: 1,
+    },
+    {
+      label: "mysteryBoy rank 3 reveals its own friend role",
+      cast: { mysteryBoy: "friend" },
+      user: "mysteryBoy",
+      rank: 3,
+      abilityIndex: 1,
+      revealed: "mysteryBoy",
+      loop: 2,
+    },
+    {
+      label: "officeWorker rank 3 reveals its own friend role",
+      cast: { officeWorker: "friend" },
+      user: "officeWorker",
+      rank: 3,
+      abilityIndex: 0,
+      revealed: "officeWorker",
+      loop: 1,
+    },
+    {
+      label: "teacher rank 4 reveals a student friend",
+      cast: { teacher: "person", boyStudent: "friend" },
+      user: "teacher",
+      rank: 4,
+      abilityIndex: 1,
+      target: "boyStudent",
+      revealed: "boyStudent",
+      loop: 1,
+    },
+    {
+      label: "boss rank 5 reveals a friend in its turf",
+      cast: { boss: "person", boyStudent: "friend" },
+      user: "boss",
+      rank: 5,
+      abilityIndex: 1,
+      target: "boyStudent",
+      revealed: "boyStudent",
+      loop: 1,
+      targetLocation: "School",
+    },
+    {
+      label: "forensicSpecialist rank 5 reveals a dead friend",
+      cast: { forensicSpecialist: "person", [FRIEND]: "friend" },
+      user: "forensicSpecialist",
+      rank: 5,
+      abilityIndex: 1,
+      target: FRIEND,
+      revealed: FRIEND,
+      loop: 1,
+      deadTarget: true,
+    },
+  ];
+
+  for (const testCase of revealAbilityCases) {
+    it(`adds next-loop goodwill after ${testCase.label}`, () => {
+      const state = createRoleState(testCase.cast);
+      state.loop.loop = testCase.loop;
+      state.loop.phase = "P6_GOODWILL";
+      state.loop.charCounters[testCase.user].goodwill = testCase.rank;
+      if (
+        testCase.target !== undefined &&
+        testCase.targetLocation !== undefined
+      ) {
+        setBoardLocation(
+          state.loop,
+          testCase.target,
+          testCase.targetLocation,
+        );
+      }
+      if (testCase.deadTarget === true && testCase.target !== undefined) {
+        setBoardLife(state.loop, testCase.target, false);
+      }
+
+      resolveGoodwillAbility(state, {
+        user: testCase.user,
+        rank: testCase.rank,
+        abilityIndex: testCase.abilityIndex,
+        ...(testCase.target === undefined ? {} : { target: testCase.target }),
+      }, "resolve");
+
+      expect(state.loop.revealedRoleCharacters).toEqual([testCase.revealed]);
+      expect(state.loop.publicInformationThisLoop).toContainEqual(
+        expect.objectContaining({
+          kind: "roleReveal",
+          character: testCase.revealed,
+          role: "friend",
+          loop: testCase.loop,
+        }),
+      );
+
+      endLoop(state);
+      state.loop = initLoop(state.scenario, testCase.loop + 1);
+      state.gamePhase = "ROUND";
+      resolveHooks(state, "LOOP_START");
+
+      expect(state.loop.charCounters[testCase.revealed].goodwill).toBe(1);
+    });
+  }
+
   it("adds 1 goodwill in a later loop after the role was revealed", () => {
     const state = createRoleState({ [FRIEND]: "friend" });
     setBoardLife(state.loop, FRIEND, false);
@@ -771,6 +892,28 @@ describe("friend / revealed role bonus", () => {
     resolveHooks(state, "LOOP_START");
 
     expect(state.loop.charCounters[FRIEND].goodwill).toBe(0);
+  });
+
+  it("keeps adding goodwill two loops after the original reveal", () => {
+    const state = createRoleState({ officeWorker: "friend" });
+    state.loop.phase = "P6_GOODWILL";
+    state.loop.charCounters.officeWorker.goodwill = 3;
+    resolveGoodwillAbility(state, {
+      user: "officeWorker",
+      rank: 3,
+      abilityIndex: 0,
+    }, "resolve");
+    endLoop(state);
+
+    state.loop = initLoop(state.scenario, 2);
+    state.gamePhase = "ROUND";
+    resolveHooks(state, "LOOP_START");
+    state.history.push(structuredClone(state.loop));
+
+    state.loop = initLoop(state.scenario, 3);
+    resolveHooks(state, "LOOP_START");
+
+    expect(state.loop.charCounters.officeWorker.goodwill).toBe(1);
   });
 });
 

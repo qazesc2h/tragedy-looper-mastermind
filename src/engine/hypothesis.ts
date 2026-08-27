@@ -3,6 +3,7 @@ import { PLOT_IMPL } from "../impl/plots";
 import { ROLE_IMPL } from "../impl/roles";
 import {
   effectiveRole,
+  isCharacterAlive,
   isCharacterDead,
   startLocationOf,
   type CharacterId,
@@ -179,7 +180,7 @@ export type ProtagonistObservation = (
     kind: "mandatoryEffectMissing";
     loop: number;
     day: number;
-    effect: "threadsFate";
+    effect: "friend" | "threadsFate";
     character: CharacterId;
   }
 ) & {
@@ -300,6 +301,20 @@ export type RolePossibilityReason =
     observation: Extract<
       ProtagonistObservation,
       { kind: "deadAtLoopEndWithoutRoleReveal" }
+    >;
+  }
+  | {
+    code: "friendLoopStartGoodwill";
+    observation: Extract<
+      ProtagonistObservation,
+      { kind: "mastermindAbilityResult" }
+    >;
+  }
+  | {
+    code: "friendLoopStartGoodwillMissing";
+    observation: Extract<
+      ProtagonistObservation,
+      { kind: "mandatoryEffectMissing" }
     >;
   }
   | {
@@ -2574,6 +2589,14 @@ function observedRoleExclusionReason(
       return { code: "loopEndRoleRevealMissing", observation };
     }
     if (
+      observation.kind === "mandatoryEffectMissing" &&
+      observation.effect === "friend" &&
+      observation.character === character &&
+      role === "friend"
+    ) {
+      return { code: "friendLoopStartGoodwillMissing", observation };
+    }
+    if (
       observation.kind === "goodwillRefused" &&
       observation.character === character &&
       !roleCanRefuseGoodwill(role)
@@ -2746,6 +2769,33 @@ export function buildRolePossibilityTable(
       }]
       : []
   );
+  const friendInferences = observations.flatMap((observation) => {
+    if (
+      observation.kind !== "mastermindAbilityResult" ||
+      observation.timing !== "LOOP_START"
+    ) return [];
+    return observation.changes.flatMap((change) => {
+      if (
+        change.kind !== "counter" ||
+        change.target.kind !== "character" ||
+        change.counter !== "goodwill" ||
+        change.delta !== 1
+      ) return [];
+      const character = change.target.id;
+      const wasRevealed = observations.some((candidate) =>
+        candidate.kind === "roleRevealed" &&
+        candidate.character === character &&
+        candidate.loop < observation.loop
+      );
+      return wasRevealed
+        ? [{
+          character,
+          role: "friend" as const,
+          reason: { code: "friendLoopStartGoodwill" as const, observation },
+        }]
+        : [];
+    });
+  });
   const lossInferences = lossRoleCauseCandidates(
     tragedySet,
     combinations,
@@ -2756,7 +2806,11 @@ export function buildRolePossibilityTable(
     role,
     reason: { code: "lossConditionOnlyCandidate" as const, observation },
   }));
-  const rawInferences = [...abilityInferences, ...lossInferences];
+  const rawInferences = [
+    ...abilityInferences,
+    ...friendInferences,
+    ...lossInferences,
+  ];
   const inferredRoles = rawInferences.filter((inferred) =>
     !rawInferences.some((other) =>
       other.character === inferred.character && other.role !== inferred.role
@@ -3644,6 +3698,37 @@ export function collectProtagonistObservations(
         )
         : []
     ));
+    const goodwillIncreased = new Set((loop.phaseLog ?? []).flatMap((entry) =>
+      entry.kind === "abilityActivated" && entry.timing === "LOOP_START"
+        ? (entry.publicChanges ?? []).flatMap((change) =>
+          change.kind === "counter" &&
+            change.target.kind === "character" &&
+            change.counter === "goodwill" &&
+            change.delta === 1
+            ? [change.target.id]
+            : []
+        )
+        : []
+    ));
+    const previouslyRevealed = new Set(observations.flatMap((observation) =>
+      observation.kind === "roleRevealed" && observation.loop < loop.loop
+        ? [observation.character]
+        : []
+    ));
+    for (const character of previouslyRevealed) {
+      if (
+        isCharacterAlive(loop.board[character]) &&
+        !goodwillIncreased.has(character)
+      ) {
+        observations.push({
+          kind: "mandatoryEffectMissing",
+          loop: loop.loop,
+          day: 1,
+          effect: "friend",
+          character,
+        });
+      }
+    }
     for (const [character, previousPosition] of Object.entries(previous.board)) {
       const previousCounters = previous.charCounters[character];
       const currentPosition = loop.board[character];
