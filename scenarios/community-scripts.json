@@ -25,7 +25,12 @@
       "patient": "person",
       "nurse": "person",
       "richStudent": "person",
-      "servant": "person",
+      "servant": [
+        "person",
+        {
+          "startLocation": "School"
+        }
+      ],
       "blackCat": "person",
       "mysteryBoy": "friend"
     },

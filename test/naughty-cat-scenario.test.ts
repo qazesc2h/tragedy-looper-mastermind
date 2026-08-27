@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
+import koRelease from "../data/ko-release.json";
 import communityScripts from "../scenarios/community-scripts.json";
+import { characterDataOf } from "../src/data";
 import { killCharacter } from "../src/engine/death";
 import {
   advanceGame,
@@ -21,16 +23,12 @@ import {
   sacredTreeMastermindChoiceRequired,
 } from "../src/engine/sacred-tree";
 import {
-  applyScenarioStartLocationInputs,
-  requiredScenarioStartLocationInputs,
-} from "../src/engine/scenario-inputs";
-import {
   currentServantFollowOptions,
   resolveActions,
   setServantMovementChoice,
 } from "../src/engine/resolve";
 import { loadScenarioCatalog } from "../src/scenario-catalog";
-import type { GameState, Location, PlacedCard, Scenario } from "../src/types";
+import type { GameState, PlacedCard } from "../src/types";
 import { boardIsAlive, boardLocation } from "./helpers";
 
 function catalogEntry() {
@@ -41,12 +39,8 @@ function catalogEntry() {
   return entry;
 }
 
-function scenarioAt(servant: Location): Scenario {
-  return applyScenarioStartLocationInputs(catalogEntry().scenario, { servant });
-}
-
-function stateAt(servant: Location = "City"): GameState {
-  return createGameState(scenarioAt(servant));
+function stateAt(): GameState {
+  return createGameState(catalogEntry().scenario);
 }
 
 describe("community scenario: 못된 고양이", () => {
@@ -63,6 +57,10 @@ describe("community scenario: 못된 고양이", () => {
     });
     expect(entry.mastermindHints).toBe(source.mastermindHints);
     expect(entry.victoryConditions).toBe(source["victory-conditions"]);
+    expect(source.cast.servant).toEqual([
+      "person",
+      { startLocation: "School" },
+    ]);
     expect(entry.scenario).toMatchObject({
       tragedySet: "basicTragedy",
       mainPlot: "changeOfFuture",
@@ -72,28 +70,43 @@ describe("community scenario: 못된 고양이", () => {
       difficulty: 5,
       specialRules: ["각본가는 '우호 금지' 카드를 사용할 수 없다."],
       specialRuleIds: ["mastermindCannotUseForbidGoodwill"],
+      scriptSpecified: { "startLocation:servant": "School" },
     });
   });
 
-  it("requires the missing Servant start location without inventing a default", () => {
-    expect(requiredScenarioStartLocationInputs(catalogEntry().scenario)).toEqual([{
-      character: "servant",
-      choices: ["City", "School"],
-    }]);
-    for (const servant of ["City", "School"] as const) {
-      const scenario = scenarioAt(servant);
-      expect(requiredScenarioStartLocationInputs(scenario)).toEqual([]);
-      expect(scenario.scriptSpecified?.["startLocation:servant"]).toBe(servant);
-      expect(() => createGameState(scenario)).not.toThrow();
-    }
+  it("fixes the Servant at School as scenario data", () => {
+    const scenario = catalogEntry().scenario;
+    expect(scenario.scriptSpecified?.["startLocation:servant"]).toBe("School");
+    expect(boardLocation(stateAt().loop, "servant")).toBe("School");
+  });
 
-    const ordinary = loadScenarioCatalog().find(({ id }) =>
-      id === "basicTragedy:1"
-    )?.scenario;
-    if (ordinary === undefined) throw new Error("missing basicTragedy:1");
-    expect(ordinary.scriptSpecified).toBeUndefined();
-    expect(applyScenarioStartLocationInputs(ordinary, {}).scriptSpecified)
-      .toBeUndefined();
+  it("classifies every supported character start-location contract", () => {
+    const supported = [
+      ...koRelease.characters["본판"],
+      ...koRelease.characters["프로모"],
+      "servant",
+      "sacredTree",
+    ];
+    const multiple = supported.filter((character) =>
+      characterDataOf(character).startLocation.length > 1
+    );
+    const fixed = supported.filter((character) =>
+      characterDataOf(character).startLocation.length === 1
+    );
+
+    expect(supported).toHaveLength(28);
+    expect(multiple).toEqual(["henchman", "servant"]);
+    expect(fixed).toHaveLength(26);
+    expect(characterDataOf("henchman").startLocation).toEqual([
+      "City",
+      "School",
+      "Shrine",
+      "Hospital",
+    ]);
+    expect(characterDataOf("servant").startLocation).toEqual([
+      "City",
+      "School",
+    ]);
   });
 
   it("keeps Forbid Goodwill in hand semantics but blocks only the Mastermind", () => {
@@ -126,7 +139,7 @@ describe("community scenario: 못된 고양이", () => {
   });
 
   it("runs Servant, Sacred Tree, Black Cat, and Mystery Boy through this cast", () => {
-    const servant = stateAt("School");
+    const servant = stateAt();
     chooseInitialLeader(servant, 0);
     continueFromTimeGap(servant);
     expect(servant.loop.locIntrigue.Shrine).toBe(1);
@@ -170,7 +183,9 @@ describe("community scenario: 못된 고양이", () => {
     const visited = new Map<number, Set<number>>();
 
     for (let loop = 1; loop <= 5; loop += 1) {
+      expect(boardLocation(state.loop, "servant")).toBe("School");
       continueFromTimeGap(state);
+      expect(boardLocation(state.loop, "servant")).toBe("School");
       expect(state.loop.locIntrigue.Shrine).toBe(1);
       const days = visited.get(loop) ?? new Set<number>();
       visited.set(loop, days);
@@ -201,77 +216,75 @@ describe("community scenario: 못된 고양이", () => {
   });
 
   it("recovers the scenario author's seven key guidance intentions in A-E", () => {
-    for (const servant of ["City", "School"] as const) {
-      const state = stateAt(servant);
-      const guidance = mastermindGuidance(state);
-      const cautions = mastermindCautions(state);
-      const decoys = mastermindDecoyGuidance(state);
-      const cover = mastermindCoverGuidance(state);
-      const opening = mastermindOpeningGuidance(state);
-      const future = guidance.routes.find(({ conditionKey }) =>
-        conditionKey === "plot:changeOfFuture"
-      );
-      const cautionRows = [
-        ...cautions.identityExposure,
-        ...cautions.uncontrolledRisks,
-        ...cautions.operationalNotes,
-        ...cautions.protagonistTools,
-      ];
+    const state = stateAt();
+    const guidance = mastermindGuidance(state);
+    const cautions = mastermindCautions(state);
+    const decoys = mastermindDecoyGuidance(state);
+    const cover = mastermindCoverGuidance(state);
+    const opening = mastermindOpeningGuidance(state);
+    const future = guidance.routes.find(({ conditionKey }) =>
+      conditionKey === "plot:changeOfFuture"
+    );
+    const cautionRows = [
+      ...cautions.identityExposure,
+      ...cautions.uncontrolledRisks,
+      ...cautions.operationalNotes,
+      ...cautions.protagonistTools,
+    ];
 
-      expect(future).toMatchObject({ minimumDay: 5 });
-      expect(future?.warning).toContain(
-        "5일 나비의 날갯짓 범인은 검은 고양이",
-      );
-      expect(future?.warning).toContain("사건 단계까지 범인을 생존");
-      expect(cautionRows).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          key: "risk:trait:black-cat-loop-start",
-          description: expect.stringContaining("매 루프 시작 시 신사에 음모 1개"),
-        }),
-        expect.objectContaining({
-          key: "risk:incident:5:butterflyEffect:blackCat",
-          title: expect.stringContaining("범인 검은 고양이"),
-        }),
-        expect.objectContaining({
-          key: "tool:goodwill:informer:0",
-          description: expect.stringContaining("룰 X"),
-        }),
-        expect.objectContaining({
-          key: "risk:trait:sacred-tree-refusal-range",
-          description: expect.stringMatching(/후보는 5개.*광신도는 그중 하나/),
-        }),
-      ]));
-      expect(cautionRows.some(({ key }) =>
-        key === "identity:time-traveler:informer"
-      )).toBe(false);
+    expect(future).toMatchObject({ minimumDay: 5 });
+    expect(future?.warning).toContain(
+      "5일 나비의 날갯짓 범인은 검은 고양이",
+    );
+    expect(future?.warning).toContain("사건 단계까지 범인을 생존");
+    expect(cautionRows).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        key: "risk:trait:black-cat-loop-start",
+        description: expect.stringContaining("매 루프 시작 시 신사에 음모 1개"),
+      }),
+      expect.objectContaining({
+        key: "risk:incident:5:butterflyEffect:blackCat",
+        title: expect.stringContaining("범인 검은 고양이"),
+      }),
+      expect.objectContaining({
+        key: "tool:goodwill:informer:0",
+        description: expect.stringContaining("룰 X"),
+      }),
+      expect.objectContaining({
+        key: "risk:trait:sacred-tree-refusal-range",
+        description: expect.stringMatching(/후보는 5개.*광신도는 그중 하나/),
+      }),
+    ]));
+    expect(cautionRows.some(({ key }) =>
+      key === "identity:time-traveler:informer"
+    )).toBe(false);
 
-      const girlDecoy = decoys.fakeLossConditions.find(({ key }) =>
-        key === "fake:plot:signWithMe"
-      );
-      expect(girlDecoy).toMatchObject({
-        requirement: "소녀인 핵심 인물 후보(캐릭터)에 음모 2개",
-        candidateCharacters: ["popIdol", "richStudent"],
-      });
-      expect(decoys.locationIntrigueSources).toContainEqual(
-        expect.objectContaining({
-          key: "trait:blackCat",
-          targetScope: "신사",
-          condition: "신사(장소)에 음모 1개",
-        }),
-      );
-      expect(cover.rolePoolPressure).toContain("역할은 3종");
-      expect(cover.rolePoolPressure).toContain("최후의 싸움에서 역전하기 쉬우므로");
-      expect(cover.candidates.find(({ character }) =>
-        character === "informer"
-      )?.exposurePaths.some(({ key }) =>
-        key === "role:timeTraveler:forbid-goodwill"
-      )).toBe(false);
-      expect(opening.recommendations.flatMap(({ placements }) => placements)
-        .some(({ card }) => card === "forbidGoodwill")).toBe(false);
-      expect(opening.recommendations.flatMap(({ placements }) => placements)
-        .some(({ contributions }) => contributions.some(({ source, key }) =>
-          source === "C" && key === "C:fake:plot:signWithMe"
-        ))).toBe(true);
-    }
+    const girlDecoy = decoys.fakeLossConditions.find(({ key }) =>
+      key === "fake:plot:signWithMe"
+    );
+    expect(girlDecoy).toMatchObject({
+      requirement: "소녀인 핵심 인물 후보(캐릭터)에 음모 2개",
+      candidateCharacters: ["popIdol", "richStudent"],
+    });
+    expect(decoys.locationIntrigueSources).toContainEqual(
+      expect.objectContaining({
+        key: "trait:blackCat",
+        targetScope: "신사",
+        condition: "신사(장소)에 음모 1개",
+      }),
+    );
+    expect(cover.rolePoolPressure).toContain("역할은 3종");
+    expect(cover.rolePoolPressure).toContain("최후의 싸움에서 역전하기 쉬우므로");
+    expect(cover.candidates.find(({ character }) =>
+      character === "informer"
+    )?.exposurePaths.some(({ key }) =>
+      key === "role:timeTraveler:forbid-goodwill"
+    )).toBe(false);
+    expect(opening.recommendations.flatMap(({ placements }) => placements)
+      .some(({ card }) => card === "forbidGoodwill")).toBe(false);
+    expect(opening.recommendations.flatMap(({ placements }) => placements)
+      .some(({ contributions }) => contributions.some(({ source, key }) =>
+        source === "C" && key === "C:fake:plot:signWithMe"
+      ))).toBe(true);
   });
 });

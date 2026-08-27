@@ -909,6 +909,65 @@
         reports.push({ henchmanLocation: "Hospital", remembered });
       }
 
+      async function runServantFixedStartCase() {
+        const scenarioId = "community:naughty-cat";
+        clearStorage();
+        const loaded = new Promise((resolve) => {
+          frame.addEventListener("load", resolve, { once: true });
+        });
+        frame.src = "/?trait-flow-case=servant-fixed-start";
+        await loaded;
+        await waitFor(
+          () => frameDocument().querySelector(
+            "[data-action='start-selected-scenario']",
+          ),
+          "메이드 고정 시작 시나리오 선택",
+        );
+        changeSelect("[data-new-game-scenario]", scenarioId);
+        await waitFor(
+          () => !frameDocument().querySelector(
+            "[data-ui-draft-key='new-game:start-location:servant']",
+          ),
+          "메이드 런타임 시작 장소 입력 제거",
+        );
+        const selectedStartButton = frameDocument().querySelector(
+          "[data-action='start-selected-scenario']",
+        );
+        assert(
+          selectedStartButton && !selectedStartButton.disabled,
+          "메이드 고정 시작 시나리오 시작 버튼 비활성",
+        );
+        click("[data-action='start-selected-scenario']");
+        await waitFor(
+          () => frameDocument().querySelector("[data-action='choose-leader']"),
+          "메이드 고정 시작 리더 선택",
+        );
+        assert(
+          storedState(scenarioId).loop.board.servant.at === "School",
+          `메이드 시나리오 시작 장소: ${JSON.stringify(storedState(scenarioId).loop.board.servant)}`,
+        );
+        click("[data-action='choose-leader']");
+        const continueButton = await waitFor(
+          () => frameDocument().querySelector("[data-action='continue-loop-start']"),
+          "메이드 고정 시작 시간의 틈",
+        );
+        assert(
+          frameDocument().querySelector(
+            "[data-action='loop-start-trait-location']",
+          ) === null,
+          "메이드에게 매 루프 시작 장소 선택 UI가 표시됨",
+        );
+        assert(!continueButton.disabled, "메이드 고정 시작인데 루프 진행 비활성");
+        click("[data-action='continue-loop-start']");
+        await waitFor(
+          () => frameDocument().querySelector(
+            ".location-school [data-character='servant']",
+          ),
+          "메이드 학교 고정 배치",
+        );
+        reports.push({ servantStart: "scenario-fixed School; no loop choice" });
+      }
+
       async function runFatalIncidentResultCase() {
         const scenarioId = "firstSteps:4";
         await loadScenario(scenarioId, "fatal-incident-result");
@@ -1460,6 +1519,7 @@
         await runScientistChoice("paranoia", "우 0 불 1/2 음 0");
         await runScientistChoice("goodwill", "우 1 불 0/2 음 0");
         await runScientistChoice("intrigue", "우 0 불 0/2 음 1");
+        await runServantFixedStartCase();
         await runHenchmanLocationChoice();
         await runFatalIncidentResultCase();
         await runCultistToggleCase();

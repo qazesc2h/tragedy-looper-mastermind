@@ -14,6 +14,7 @@ interface ValidationCharacterData {
   ko?: unknown;
   tags?: unknown;
   plotLessRole?: unknown;
+  startLocation?: unknown;
 }
 
 export interface ScenarioValidationResult {
@@ -259,6 +260,46 @@ function validateBossTurf(scenario: Scenario): string[] {
   ];
 }
 
+const LOCATION_LABELS: Readonly<Record<string, string>> = {
+  Hospital: "병원",
+  Shrine: "신사",
+  City: "도심",
+  School: "학교",
+};
+
+/** 복수 시작 장소 중 시나리오가 확정해야 하는 값을 검사한다. */
+function validateFixedStartLocations(scenario: Scenario): string[] {
+  return Object.keys(scenario.cast).flatMap((character) => {
+    // 하수인은 공개 특성에 따라 각 루프 시작 때 각본가가 장소를 고른다.
+    if (character === "henchman") return [];
+    const rawChoices = characters[character]?.startLocation;
+    if (!Array.isArray(rawChoices)) return [];
+    const choices = rawChoices.filter(
+      (choice): choice is string => typeof choice === "string",
+    );
+    if (choices.length <= 1) return [];
+
+    const key = `startLocation:${character}`;
+    const selected = scenario.scriptSpecified?.[key];
+    if (typeof selected === "string" && choices.includes(selected)) return [];
+
+    const choiceLabels = choices.map((choice) =>
+      LOCATION_LABELS[choice] ?? choice
+    ).join(" 또는 ");
+    if (selected === undefined) {
+      return [
+        `${characterLabel(character)}의 시작 장소가 지정되지 않았습니다. ` +
+        `${choiceLabels} 중 하나를 선택하세요.`,
+      ];
+    }
+    return [
+      `${characterLabel(character)}의 시작 장소가 올바르지 않습니다. ` +
+      `${choiceLabels} 중 하나를 선택하세요. 현재 값: ` +
+      `${metadataValueLabel(selected)}.`,
+    ];
+  });
+}
+
 /** 시나리오 작성 시 적용되는 제약을 런타임 시작 전에 한 번 검증한다. */
 export function validateScenario(
   scenario: Scenario,
@@ -280,6 +321,7 @@ export function validateScenario(
     ...validateRoleCounts(scenario, definition),
     ...validateHideousScript(scenario),
     ...validateBossTurf(scenario),
+    ...validateFixedStartLocations(scenario),
     ...validateEntryTiming(
       scenario,
       "godlyBeing",

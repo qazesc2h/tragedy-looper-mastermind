@@ -8,14 +8,11 @@ import {
   PLOT_OBSERVATION_PROFILES,
 } from "../src/engine/mastermind-decoys";
 import { PLOT_IMPL } from "../src/impl/plots";
-import { applyScenarioStartLocationInputs } from "../src/engine/scenario-inputs";
 import { loadScenarioCatalog } from "../src/scenario-catalog";
 import type { Scenario } from "../src/types";
 
 function createCatalogState(scenario: Scenario) {
-  return createGameState(applyScenarioStartLocationInputs(scenario, {
-    servant: "City",
-  }));
+  return createGameState(scenario);
 }
 
 function stateFor(id: string, difficultyIndex = 0) {

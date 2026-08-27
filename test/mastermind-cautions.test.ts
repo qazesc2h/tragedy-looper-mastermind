@@ -3,14 +3,11 @@ import { describe, expect, it } from "vitest";
 import { characterDataOf } from "../src/data";
 import { mastermindCautions } from "../src/engine/mastermind-cautions";
 import { createGameState } from "../src/engine/game";
-import { applyScenarioStartLocationInputs } from "../src/engine/scenario-inputs";
 import { loadScenarioCatalog } from "../src/scenario-catalog";
 import type { Scenario } from "../src/types";
 
 function createCatalogState(scenario: Scenario) {
-  return createGameState(applyScenarioStartLocationInputs(scenario, {
-    servant: "City",
-  }));
+  return createGameState(scenario);
 }
 
 function stateFor(id: string, difficultyIndex = 0) {

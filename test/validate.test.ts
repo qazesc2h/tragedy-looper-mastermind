@@ -55,6 +55,43 @@ describe("validateScenario", () => {
     );
   });
 
+  it("rejects a missing fixed start location for a multi-location character", () => {
+    const entry = loadBasicTragedyScenarioCatalog().find(({ id }) =>
+      id === "community:naughty-cat"
+    );
+    if (entry === undefined) throw new Error("missing community:naughty-cat");
+    const scenario = structuredClone(entry.scenario);
+    delete scenario.scriptSpecified?.["startLocation:servant"];
+
+    expect(validateScenario(scenario)).toEqual({
+      ok: false,
+      errors: [
+        "메이드의 시작 장소가 지정되지 않았습니다. 도심 또는 학교 중 " +
+        "하나를 선택하세요.",
+      ],
+    });
+  });
+
+  it("rejects a fixed start location outside the character's candidates", () => {
+    const entry = loadBasicTragedyScenarioCatalog().find(({ id }) =>
+      id === "community:naughty-cat"
+    );
+    if (entry === undefined) throw new Error("missing community:naughty-cat");
+    const scenario = structuredClone(entry.scenario);
+    if (scenario.scriptSpecified === undefined) {
+      throw new Error("missing scenario metadata");
+    }
+    scenario.scriptSpecified["startLocation:servant"] = "Shrine";
+
+    expect(validateScenario(scenario)).toEqual({
+      ok: false,
+      errors: [
+        "메이드의 시작 장소가 올바르지 않습니다. 도심 또는 학교 중 " +
+        '하나를 선택하세요. 현재 값: "Shrine".',
+      ],
+    });
+  });
+
   it("rejects a role from an active plot for mysteryBoy", () => {
     const source = scenarios.find(({ cast }) => "mysteryBoy" in cast);
     if (source === undefined) throw new Error("missing mysteryBoy scenario");

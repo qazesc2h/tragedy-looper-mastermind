@@ -11,12 +11,14 @@ function createState(): GameState {
     subPlots: [],
     cast: {
       henchman: "person",
+      servant: "person",
       patient: "person",
       doctor: "person",
     },
     incidents: [],
     loops: 2,
     daysPerLoop: 4,
+    scriptSpecified: { "startLocation:servant": "School" },
   };
   const state: GameState = {
     scenario,
@@ -36,6 +38,15 @@ describe("character location information", () => {
         startLocations: ["City", "School", "Shrine", "Hospital"],
         startLocationIsMastermindChoice: true,
         selectedStartLocation: "Shrine",
+      });
+  });
+
+  it("shows the Servant's scenario-fixed location without a loop choice", () => {
+    expect(characterLocationInformation(createState(), "servant"))
+      .toMatchObject({
+        startLocations: ["City", "School"],
+        startLocationIsMastermindChoice: false,
+        selectedStartLocation: "School",
       });
   });
 

@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import { createGameState } from "../src/engine/game";
 import { validatePlacement } from "../src/engine/legal";
-import { applyScenarioStartLocationInputs } from "../src/engine/scenario-inputs";
 import {
   mastermindOpeningGuidance,
   type OpeningPlacement,
@@ -18,9 +17,7 @@ import {
 } from "../src/types";
 
 function createCatalogState(scenario: Scenario) {
-  return createGameState(applyScenarioStartLocationInputs(scenario, {
-    servant: "City",
-  }));
+  return createGameState(scenario);
 }
 
 function stateFor(id: string, difficultyIndex = 0): GameState {

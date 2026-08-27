@@ -35,12 +35,12 @@ export function characterLocationInformation(
   character: CharacterId,
 ): CharacterLocationInformation {
   const data = characterDataOf(character);
-  const startLocationIsMastermindChoice = data.startLocation.length > 1;
+  const startLocationIsMastermindChoice = character === "henchman";
 
   return {
     startLocations: data.startLocation,
     startLocationIsMastermindChoice,
-    selectedStartLocation: startLocationIsMastermindChoice
+    selectedStartLocation: data.startLocation.length > 1
       ? selectedStartLocation(state, character)
       : data.startLocation[0],
     forbiddenLocations: data.forbiddenLocation,
