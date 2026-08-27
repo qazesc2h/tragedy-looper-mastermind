@@ -3,7 +3,6 @@ import { PLOT_IMPL } from "../impl/plots";
 import { ROLE_IMPL } from "../impl/roles";
 import {
   effectiveRole,
-  isCharacterAlive,
   isCharacterDead,
   startLocationOf,
   type CharacterId,
@@ -180,7 +179,7 @@ export type ProtagonistObservation = (
     kind: "mandatoryEffectMissing";
     loop: number;
     day: number;
-    effect: "friend" | "threadsFate";
+    effect: "threadsFate";
     character: CharacterId;
   }
 ) & {
@@ -198,7 +197,6 @@ export type RuleContradictionCode =
   | "deathReactionUnavailable"
   | "loopStartEffectUnavailable"
   | "crossObservationRoleUnavailable"
-  | "loopStartGoodwillUnavailable"
   | "intrigueForbidIgnoreUnavailable"
   | "mandatoryEffectMissing"
   | "lossConditionUnavailable";
@@ -301,20 +299,6 @@ export type RolePossibilityReason =
     observation: Extract<
       ProtagonistObservation,
       { kind: "deadAtLoopEndWithoutRoleReveal" }
-    >;
-  }
-  | {
-    code: "friendLoopStartGoodwill";
-    observation: Extract<
-      ProtagonistObservation,
-      { kind: "mastermindAbilityResult" }
-    >;
-  }
-  | {
-    code: "friendLoopStartGoodwillMissing";
-    observation: Extract<
-      ProtagonistObservation,
-      { kind: "mandatoryEffectMissing" }
     >;
   }
   | {
@@ -1560,46 +1544,6 @@ function crossObservationRoleContradiction(
   return undefined;
 }
 
-function loopStartGoodwillContradiction(
-  observation: Extract<
-    ProtagonistObservation,
-    { kind: "mastermindAbilityResult" }
-  >,
-  observations: readonly ProtagonistObservation[],
-  tragedySetRoles: readonly RoleId[],
-  ranges: ReadonlyMap<RoleId, RoleRange>,
-  publicCast: readonly CharacterId[],
-): RuleContradiction | undefined {
-  if (observation.timing !== "LOOP_START") return undefined;
-  const eligibleCharacters = observation.changes.flatMap((change) => {
-    if (
-      change.kind !== "counter" ||
-      change.target.kind !== "character" ||
-      change.counter !== "goodwill" ||
-      change.delta !== 1
-    ) return [];
-    const character = change.target.id;
-    return observations.some((candidate) =>
-        candidate.kind === "roleRevealed" &&
-        candidate.confirmed !== false &&
-        candidate.character === character &&
-        candidate.role === "friend" &&
-        candidate.loop < observation.loop
-      )
-      ? [character]
-      : [];
-  });
-  if (eligibleCharacters.length === 0) return undefined;
-  if (roleCouldAppear(tragedySetRoles, ranges, "friend", publicCast)) {
-    return undefined;
-  }
-  return {
-    code: "loopStartGoodwillUnavailable",
-    observation,
-    reason: "역할 공개 뒤 루프 시작 우호 1 증가를 설명할 친구 역할이 없습니다.",
-  };
-}
-
 function intrigueForbidIgnoredContradiction(
   observation: Extract<
     ProtagonistObservation,
@@ -1690,15 +1634,6 @@ function abilityObservationContradiction(
         reason: "루프 시작에 공개된 복수 캐릭터 불안 2 증가를 이 조합으로 설명할 수 없습니다.",
       };
   }
-
-  const loopStartGoodwill = loopStartGoodwillContradiction(
-    observation,
-    observations,
-    tragedySetRoles,
-    ranges,
-    publicCast,
-  );
-  if (loopStartGoodwill !== undefined) return loopStartGoodwill;
 
   // C-1에서 넓힌 다른 훅 시점은 각 단계 전용 필터가 생기기 전까지 관측만 한다.
   // timing이 없는 구 저장 기록은 기존 P5 관측으로 보수적으로 호환한다.
@@ -2589,14 +2524,6 @@ function observedRoleExclusionReason(
       return { code: "loopEndRoleRevealMissing", observation };
     }
     if (
-      observation.kind === "mandatoryEffectMissing" &&
-      observation.effect === "friend" &&
-      observation.character === character &&
-      role === "friend"
-    ) {
-      return { code: "friendLoopStartGoodwillMissing", observation };
-    }
-    if (
       observation.kind === "goodwillRefused" &&
       observation.character === character &&
       !roleCanRefuseGoodwill(role)
@@ -2769,33 +2696,6 @@ export function buildRolePossibilityTable(
       }]
       : []
   );
-  const friendInferences = observations.flatMap((observation) => {
-    if (
-      observation.kind !== "mastermindAbilityResult" ||
-      observation.timing !== "LOOP_START"
-    ) return [];
-    return observation.changes.flatMap((change) => {
-      if (
-        change.kind !== "counter" ||
-        change.target.kind !== "character" ||
-        change.counter !== "goodwill" ||
-        change.delta !== 1
-      ) return [];
-      const character = change.target.id;
-      const wasRevealed = observations.some((candidate) =>
-        candidate.kind === "roleRevealed" &&
-        candidate.character === character &&
-        candidate.loop < observation.loop
-      );
-      return wasRevealed
-        ? [{
-          character,
-          role: "friend" as const,
-          reason: { code: "friendLoopStartGoodwill" as const, observation },
-        }]
-        : [];
-    });
-  });
   const lossInferences = lossRoleCauseCandidates(
     tragedySet,
     combinations,
@@ -2806,11 +2706,7 @@ export function buildRolePossibilityTable(
     role,
     reason: { code: "lossConditionOnlyCandidate" as const, observation },
   }));
-  const rawInferences = [
-    ...abilityInferences,
-    ...friendInferences,
-    ...lossInferences,
-  ];
+  const rawInferences = [...abilityInferences, ...lossInferences];
   const inferredRoles = rawInferences.filter((inferred) =>
     !rawInferences.some((other) =>
       other.character === inferred.character && other.role !== inferred.role
@@ -3499,8 +3395,26 @@ export function collectProtagonistObservations(
       } else if (entry.kind === "goodwillUsed" && entry.response === "resolve") {
         const ability = characterDataOf(entry.character)
           .goodwillAbilities[entry.abilityIndex];
+        const entryAt = entry.observedAt;
+        const selfRoleRevealedByThisAbility = entryAt !== undefined &&
+          observations.some((observation) => {
+            const observationAt = observation.observedAt;
+            return observation.kind === "roleRevealed" &&
+              observation.confirmed !== false &&
+              observation.character === entry.character &&
+              observationAt !== undefined &&
+              observationAt.loop === entryAt.loop &&
+              observationAt.day === entryAt.day &&
+              observationAt.sequence === entryAt.sequence - 1;
+          });
         // 거부 불가 능력은 절대 우호 무시 역할도 해결할 수 있으므로 근거가 아니다.
-        if (ability !== undefined && !ability.immuneToGoodwillRefusel) {
+        // 자기 역할을 방금 공개한 능력은 역할 자체가 더 강한 확정 정보이므로
+        // 그 뒤의 해결 응답을 별도 역할 관측으로 중복 기록하지 않는다.
+        if (
+          ability !== undefined &&
+          !ability.immuneToGoodwillRefusel &&
+          !selfRoleRevealedByThisAbility
+        ) {
           observations.push({
             kind: "goodwillAccepted",
             loop: entry.loop,
@@ -3614,22 +3528,44 @@ export function collectProtagonistObservations(
         entry.publicChanges !== undefined &&
         entry.publicChanges.length > 0
       ) {
-        observations.push({
-          kind: "mastermindAbilityResult",
-          loop: entry.loop,
-          day: entry.day,
-          changes: entry.publicChanges,
-          ...(entry.timing === undefined ? {} : { timing: entry.timing }),
-          ...(entry.publicTrigger === undefined
-            ? {}
-            : { trigger: entry.publicTrigger }),
-          ...(entry.publicContext === undefined
-            ? {}
-            : { context: entry.publicContext }),
-          ...(entry.observedAt === undefined
-            ? {}
-            : { observedAt: entry.observedAt }),
-        });
+        const friendGoodwillTarget = entry.timing === "LOOP_START" &&
+            entry.publicChanges.length === 1
+          ? entry.publicChanges.flatMap((change) =>
+            change.kind === "counter" &&
+              change.target.kind === "character" &&
+              change.counter === "goodwill" &&
+              change.delta === 1
+              ? [change.target.id]
+              : []
+          )[0]
+          : undefined;
+        const friendAlreadyRevealed = friendGoodwillTarget !== undefined &&
+          observations.some((observation) =>
+            observation.kind === "roleRevealed" &&
+            observation.confirmed !== false &&
+            observation.character === friendGoodwillTarget &&
+            observation.role === "friend" &&
+            observation.loop < entry.loop
+          );
+        // 친구의 +1은 공개된 역할의 강제 결과일 뿐 새 단서가 아니다.
+        if (!friendAlreadyRevealed) {
+          observations.push({
+            kind: "mastermindAbilityResult",
+            loop: entry.loop,
+            day: entry.day,
+            changes: entry.publicChanges,
+            ...(entry.timing === undefined ? {} : { timing: entry.timing }),
+            ...(entry.publicTrigger === undefined
+              ? {}
+              : { trigger: entry.publicTrigger }),
+            ...(entry.publicContext === undefined
+              ? {}
+              : { context: entry.publicContext }),
+            ...(entry.observedAt === undefined
+              ? {}
+              : { observedAt: entry.observedAt }),
+          });
+        }
       }
     }
 
@@ -3698,37 +3634,6 @@ export function collectProtagonistObservations(
         )
         : []
     ));
-    const goodwillIncreased = new Set((loop.phaseLog ?? []).flatMap((entry) =>
-      entry.kind === "abilityActivated" && entry.timing === "LOOP_START"
-        ? (entry.publicChanges ?? []).flatMap((change) =>
-          change.kind === "counter" &&
-            change.target.kind === "character" &&
-            change.counter === "goodwill" &&
-            change.delta === 1
-            ? [change.target.id]
-            : []
-        )
-        : []
-    ));
-    const previouslyRevealed = new Set(observations.flatMap((observation) =>
-      observation.kind === "roleRevealed" && observation.loop < loop.loop
-        ? [observation.character]
-        : []
-    ));
-    for (const character of previouslyRevealed) {
-      if (
-        isCharacterAlive(loop.board[character]) &&
-        !goodwillIncreased.has(character)
-      ) {
-        observations.push({
-          kind: "mandatoryEffectMissing",
-          loop: loop.loop,
-          day: 1,
-          effect: "friend",
-          character,
-        });
-      }
-    }
     for (const [character, previousPosition] of Object.entries(previous.board)) {
       const previousCounters = previous.charCounters[character];
       const currentPosition = loop.board[character];
@@ -3782,7 +3687,17 @@ export function collectProtagonistObservations(
       }
     }
     for (const [character, position] of Object.entries(loop.board)) {
-      if (isCharacterDead(position) && !revealed.has(character)) {
+      const roleWasAlreadyKnown = observations.some((observation) =>
+        observation.kind === "roleRevealed" &&
+        observation.confirmed !== false &&
+        observation.character === character &&
+        observation.loop < loop.loop
+      );
+      if (
+        isCharacterDead(position) &&
+        !revealed.has(character) &&
+        !roleWasAlreadyKnown
+      ) {
         observations.push({
           kind: "deadAtLoopEndWithoutRoleReveal",
           loop: loop.loop,

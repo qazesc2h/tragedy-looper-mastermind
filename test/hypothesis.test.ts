@@ -515,14 +515,12 @@ describe("observation model", () => {
       }),
       observedAt: expect.objectContaining({ sequence: 0 }),
     }));
-    expect(observations.filter(({ kind }) =>
-      kind === "roleRevealed" || kind === "goodwillAccepted"
-    ).map(({ kind, observedAt }) => ({
+    expect(observations.filter(({ kind }) => kind === "roleRevealed")
+      .map(({ kind, observedAt }) => ({
       kind,
       sequence: observedAt?.sequence,
     }))).toEqual([
       { kind: "roleRevealed", sequence: 0 },
-      { kind: "goodwillAccepted", sequence: 1 },
     ]);
   });
 
@@ -1417,7 +1415,7 @@ describe("basicTragedy rule-layer regression", () => {
     )).toBe(true);
   });
 
-  it("requires an earlier friend reveal before interpreting loop-start goodwill", () => {
+  it("uses the friend reveal itself and gains nothing from later goodwill", () => {
     const goodwill: ProtagonistObservation = {
       kind: "mastermindAbilityResult",
       loop: 2,
@@ -1437,18 +1435,16 @@ describe("basicTragedy rule-layer regression", () => {
     ).remaining).toHaveLength(105);
 
     const revealed = roleRevealed("girlStudent", "friend");
-    const withReveal = evaluateRuleHypotheses(
-      "basicTragedy",
-      [revealed, goodwill],
-    );
-    expect(withReveal.remaining).toHaveLength(55);
-    expect(withReveal.excluded).toHaveLength(50);
-    expect(withReveal.remaining.every(({ subPlots }) =>
+    const revealOnly = evaluateRuleHypotheses("basicTragedy", [revealed]);
+    expect(revealOnly.remaining).toHaveLength(55);
+    expect(revealOnly.excluded).toHaveLength(50);
+    expect(revealOnly.remaining.every(({ subPlots }) =>
       subPlots.includes("circleFriends") || subPlots.includes("hiddenFreak")
     )).toBe(true);
-    expect(withReveal.remaining).toEqual(
-      evaluateRuleHypotheses("basicTragedy", [revealed]).remaining,
-    );
+    expect(evaluateRuleHypotheses(
+      "basicTragedy",
+      [revealed, goodwill],
+    ).remaining).toEqual(revealOnly.remaining);
   });
 
   it("keeps only cultist main plots after a valid intrigue forbid is ignored", () => {
@@ -1647,6 +1643,22 @@ describe("basicTragedy rule-layer regression", () => {
     friendState.loop = initLoop(friendState.scenario, 2);
     resolveHooks(friendState, "LOOP_START");
     expect(friendState.loop.charCounters.classRep.goodwill).toBe(1);
+    const friendObservations = collectProtagonistObservations(friendState);
+    expect(friendObservations).toContainEqual(expect.objectContaining({
+      kind: "roleRevealed",
+      character: "classRep",
+      role: "friend",
+    }));
+    expect(friendObservations).not.toContainEqual(expect.objectContaining({
+      kind: "mastermindAbilityResult",
+      timing: "LOOP_START",
+      changes: [expect.objectContaining({
+        kind: "counter",
+        target: { kind: "character", id: "classRep" },
+        counter: "goodwill",
+        delta: 1,
+      })],
+    }));
     expect(evaluateStateRuleHypotheses(friendState).remaining).toHaveLength(55);
     expect(actualCombinationRemains(friendState)).toBe(true);
 

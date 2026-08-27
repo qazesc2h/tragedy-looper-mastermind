@@ -152,6 +152,21 @@ describe("role possibility table", () => {
     });
   });
 
+  it("confirms friend from the role reveal alone", () => {
+    const revealed = roleRevealed("doctor", "friend");
+    const table = buildRolePossibilityTable(
+      "basicTragedy",
+      fullCast,
+      enumerateRuleCombinations("basicTragedy"),
+      [revealed],
+    );
+
+    expect(table.cells.doctor.friend).toMatchObject({
+      status: "confirmed",
+      reasons: [{ code: "roleRevealed", observation: revealed }],
+    });
+  });
+
   it("closes the same role elsewhere when its maximum is confirmed", () => {
     const table = buildRolePossibilityTable(
       "firstSteps",
@@ -1093,110 +1108,36 @@ describe("loop-end friend non-reveal observations", () => {
       }),
     );
   });
-});
 
-describe("friend loop-start goodwill observations", () => {
-  const revealedBeforeLoopStart = {
-    ...roleRevealed("doctor", "person", false),
-    loop: 1,
-  };
-
-  it("confirms friend from the mandatory +1 goodwill after an earlier reveal", () => {
-    const observation: ProtagonistObservation = {
-      kind: "mastermindAbilityResult",
-      loop: 2,
-      day: 1,
-      timing: "LOOP_START",
-      changes: [{
-        kind: "counter",
-        target: { kind: "character", id: "doctor" },
-        counter: "goodwill",
-        delta: 1,
-      }],
-    };
-    const table = buildRolePossibilityTable(
-      "basicTragedy",
-      fullCast,
-      enumerateRuleCombinations("basicTragedy"),
-      [revealedBeforeLoopStart, observation],
-    );
-
-    expect(table.cells.doctor.friend).toMatchObject({
-      status: "confirmed",
-      reasons: [{ code: "friendLoopStartGoodwill", observation }],
-    });
-  });
-
-  it("does not infer friend from loop-start goodwill without an earlier reveal", () => {
-    const observation: ProtagonistObservation = {
-      kind: "mastermindAbilityResult",
-      loop: 2,
-      day: 1,
-      timing: "LOOP_START",
-      changes: [{
-        kind: "counter",
-        target: { kind: "character", id: "doctor" },
-        counter: "goodwill",
-        delta: 1,
-      }],
-    };
-    const table = buildRolePossibilityTable(
-      "basicTragedy",
-      fullCast,
-      enumerateRuleCombinations("basicTragedy"),
-      [observation],
-    );
-
-    expect(table.cells.doctor.friend.status).toBe("possible");
-  });
-
-  it("excludes friend when its mandatory goodwill is absent after a reveal", () => {
-    const observation: ProtagonistObservation = {
-      kind: "mandatoryEffectMissing",
-      loop: 2,
-      day: 1,
-      effect: "friend",
+  it("does not repeat a friend exclusion after the role was already known", () => {
+    const state = createGameState(friendScenario());
+    state.loop.publicInformationThisLoop = [{
+      kind: "roleReveal",
       character: "doctor",
-    };
-    const table = buildRolePossibilityTable(
-      "basicTragedy",
-      fullCast,
-      enumerateRuleCombinations("basicTragedy"),
-      [revealedBeforeLoopStart, observation],
-    );
+      role: "person",
+      loop: 1,
+      day: 1,
+    }];
+    state.loop.revealedRoleCharacters = ["doctor"];
+    state.history.push(structuredClone(state.loop));
 
-    expect(table.cells.doctor.friend).toMatchObject({
-      status: "impossible",
-      reasons: [{ code: "friendLoopStartGoodwillMissing", observation }],
-    });
-  });
-
-  it("collects the missing mandatory effect after any earlier reveal path", () => {
-    const scenario: Scenario = {
-      tragedySet: "basicTragedy",
-      mainPlot: "murderPlan",
-      subPlots: ["circleFriends"],
-      cast: { doctor: "person", girlStudent: "friend" },
-      incidents: [],
-      loops: 2,
-      daysPerLoop: 5,
-    };
-    const state = createGameState(scenario);
-    state.history.push({
-      ...structuredClone(state.loop),
-      revealedRoleCharacters: ["doctor"],
-    });
-    state.loop = initLoop(scenario, 2);
+    state.loop = initLoop(state.scenario, 2);
     state.gamePhase = "ROUND";
+    setBoardLife(state.loop, "doctor", false);
+    expect(attemptProtagonistDeath(state)).toEqual({ died: true });
+    finishLoop(state);
 
-    expect(collectProtagonistObservations(state)).toContainEqual(
-      expect.objectContaining({
-        kind: "mandatoryEffectMissing",
-        loop: 2,
-        effect: "friend",
-        character: "doctor",
-      }),
-    );
+    const observations = collectProtagonistObservations(state);
+    expect(observations).toContainEqual(expect.objectContaining({
+      kind: "roleRevealed",
+      character: "doctor",
+      role: "person",
+    }));
+    expect(observations).not.toContainEqual(expect.objectContaining({
+      kind: "deadAtLoopEndWithoutRoleReveal",
+      loop: 2,
+      character: "doctor",
+    }));
   });
 });
 

@@ -240,6 +240,41 @@ describe("mastermind rule hypothesis summary", () => {
       .toEqual([0, 0]);
   });
 
+  it("does not show a revealed friend's loop-start goodwill as another observation", () => {
+    const state = createState();
+    const revealedLoop = initLoop(state.scenario, 1);
+    revealedLoop.publicInformationThisLoop = [{
+      kind: "roleReveal",
+      character: "girlStudent",
+      role: "friend",
+      loop: 1,
+      day: 1,
+    }];
+    revealedLoop.revealedRoleCharacters = ["girlStudent"];
+    state.history = [revealedLoop];
+    state.loop = initLoop(state.scenario, 2);
+    state.loop.phaseLog?.push({
+      loop: 2,
+      day: 1,
+      phase: "P1_ROUND_START",
+      kind: "abilityActivated",
+      timing: "LOOP_START",
+      character: "girlStudent",
+      description: "This character gets 1 goodwill.",
+      publicChanges: [{
+        kind: "counter",
+        target: { kind: "character", id: "girlStudent" },
+        counter: "goodwill",
+        delta: 1,
+      }],
+    });
+
+    const summary = ruleHypothesisSummary(state);
+    expect(summary.observationImpacts.map(({ observation }) =>
+      observation.kind
+    )).toEqual(["roleRevealed"]);
+  });
+
   it("attributes a newly fixed sealedItem rule to the observed defeat", () => {
     const state = createState();
     delete state.scenario.cast.shrineMaiden;
