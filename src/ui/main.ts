@@ -562,6 +562,58 @@ function rollbackUiTransaction(
   render();
 }
 
+function p4PlacementRecoveryAvailable(state: GameState): boolean {
+  return state.gamePhase === "ROUND" &&
+    state.loop.phase === "P4_RESOLVE" &&
+    !state.loop.actionResolutionComplete &&
+    state.pendingLoopEnd === undefined &&
+    (state.loop.pendingImmediateLossKeys?.length ?? 0) === 0;
+}
+
+function renderEmergencyRecovery(error: unknown): void {
+  root.querySelector(".runtime-error-recovery")?.remove();
+  let p4Recovery = false;
+  try {
+    p4Recovery = tracker.activeScenarioId !== "" &&
+      p4PlacementRecoveryAvailable(currentState());
+  } catch {
+    // 현재 게임 자체를 읽지 못해도 새 게임 경로는 표시한다.
+  }
+  root.insertAdjacentHTML("afterbegin", `
+    <aside class="runtime-error-recovery" role="alert">
+      <strong>화면 처리 중 오류가 발생했습니다.</strong>
+      <span>${escapeHtml(errorMessage(error))}</span>
+      <div>
+        <button type="button" data-action="copy-state">현재 상태 복사</button>
+        ${p4Recovery
+          ? `<button type="button" data-action="recover-p4-placement">배치 단계로 돌아가기</button>`
+          : ""}
+        <button type="button" data-action="new-game">새 게임으로 나가기</button>
+      </div>
+    </aside>`);
+}
+
+function recordUnhandledUiError(action: string, error: unknown): void {
+  try {
+    if (tracker.activeScenarioId !== "") {
+      const entry = activeScenarioEntry();
+      const state = currentState();
+      recordRuntimeError(state, action, error);
+      const saved = persistGameState(
+        window.localStorage,
+        tracker,
+        entry.id,
+        state,
+        `error:${action}`,
+      );
+      storageWriteWarning = saved ? "" : STORAGE_WRITE_WARNING;
+    }
+  } catch {
+    // 오류 기록에 다시 실패해도 복구 UI까지 잃지 않는다.
+  }
+  renderEmergencyRecovery(error);
+}
+
 function runLockedUiAction(
   button: HTMLButtonElement,
   action: () => void,
@@ -643,6 +695,31 @@ function requestCompleteStorageDeletion(): void {
   } catch (error) {
     notice = errorMessage(error);
   }
+  render();
+}
+
+function recoverP4Placement(): void {
+  const entry = activeScenarioEntry();
+  const state = currentState();
+  if (!p4PlacementRecoveryAvailable(state)) {
+    notice = "현재 상태에서는 배치 단계로 돌아갈 수 없습니다.";
+    render();
+    return;
+  }
+  state.loop.phase = "P3_PROTAGONIST_ACTION";
+  state.loop.actionResolutionComplete = false;
+  delete state.loop.servantMovementChoice;
+  state.loop.phaseLog = (state.loop.phaseLog ?? []).filter((log) => !(
+    log.loop === state.loop.loop &&
+    log.day === state.loop.day &&
+    log.phase === "P3_PROTAGONIST_ACTION"
+  ));
+  selectedHandCard = undefined;
+  resolutionReceipt = undefined;
+  operationSheetOpen = false;
+  optionalHookSelections.clear();
+  notice = "배치 단계로 돌아왔습니다. 카드를 확인하고 다시 진행하세요.";
+  saveState(entry.id, state, "recover-p4-placement");
   render();
 }
 
@@ -1642,6 +1719,9 @@ function cultistIgnoreSummary(
   hook: Hook,
 ): string {
   if (hook !== ROLE_IMPL.cultist.hooks[0]) return "";
+  if (servantMovementChoiceMissing(state)) {
+    return "메이드 동행 선택 후 음모 금지 무시 범위 계산";
+  }
 
   const movementResolved = structuredClone(state);
   resolveMovement(movementResolved, movementResolved.loop.placed);
@@ -2687,12 +2767,25 @@ function dockProgress(state: GameState): string {
       ? "주인공 카드 3/3"
       : `${ownerLabel(current)} · ${placed}/3`;
   }
+  if (state.loop.phase === "P4_RESOLVE") {
+    if (!state.loop.actionResolutionComplete) {
+      if (state.loop.placed.length !== 6) {
+        return `배치 카드 ${state.loop.placed.length}/6`;
+      }
+      if (servantMovementChoiceMissing(state)) {
+        return "메이드 동행 여부 선택 필요";
+      }
+    } else if (sacredTreeLeaderChoiceRequired(state)) {
+      return "신수 카운터 이전 선택 필요";
+    }
+  }
   return "조작 열기";
 }
 
 function renderOperationDock(state: GameState): string {
   const phaseIndex = PHASE_ORDER.indexOf(state.loop.phase) + 1;
   const primary = dockPrimaryAction(state);
+  const canRecoverP4 = p4PlacementRecoveryAvailable(state);
   return `
     <section class="operation-dock" aria-label="현재 단계 조작">
       ${operationSheetOpen
@@ -2709,8 +2802,9 @@ function renderOperationDock(state: GameState): string {
             </div>`
         : ""}
       <div class="operation-dock-bar">
-        <button type="button" class="undo-placeholder" disabled>
-          <span>되돌리기</span><small>준비 중</small>
+        <button type="button" class="undo-placeholder"
+          ${canRecoverP4 ? `data-action="recover-p4-placement"` : "disabled"}>
+          <span>되돌리기</span><small>${canRecoverP4 ? "배치 단계" : "준비 중"}</small>
         </button>
         <button type="button" class="phase-dock-status" data-action="toggle-operation-sheet"
           aria-expanded="${operationSheetOpen}">
@@ -5198,6 +5292,17 @@ function advanceCurrentPhase(): void {
   }
 }
 
+window.addEventListener("error", (event) => {
+  recordUnhandledUiError(
+    "window-error",
+    event.error ?? new Error(event.message || "unknown window error"),
+  );
+});
+
+window.addEventListener("unhandledrejection", (event) => {
+  recordUnhandledUiError("unhandled-rejection", event.reason);
+});
+
 root.addEventListener("click", (event) => {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>(
     "button[data-action]",
@@ -5206,8 +5311,14 @@ root.addEventListener("click", (event) => {
   const action = button.dataset.action;
 
   if (action === "toggle-operation-sheet") {
+    const wasOpen = operationSheetOpen;
     operationSheetOpen = !operationSheetOpen;
-    render();
+    try {
+      render();
+    } catch (error) {
+      operationSheetOpen = wasOpen;
+      recordUnhandledUiError("toggle-operation-sheet", error);
+    }
     return;
   }
 
@@ -5218,6 +5329,11 @@ root.addEventListener("click", (event) => {
 
   if (action === "new-game") {
     requestNewGame();
+    return;
+  }
+
+  if (action === "recover-p4-placement") {
+    recoverP4Placement();
     return;
   }
 

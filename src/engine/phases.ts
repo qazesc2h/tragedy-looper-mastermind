@@ -219,13 +219,34 @@ export function advance(
       break;
 
     case "P2_MASTERMIND_ACTION":
-      // TODO: 각본가 카드 3장 배치. 동일 대상 중복 불가 검증.
+      if (
+        s.loop.placed.filter(({ owner }) => owner === "mastermind").length !== 3
+      ) {
+        throw new Error("P2 requires exactly 3 Mastermind cards");
+      }
       break;
 
-    case "P3_PROTAGONIST_ACTION":
-      // TODO: 리더부터 시계방향 1장씩. 주인공끼리만 중복 불가,
-      //       각본가가 놓은 대상 위에는 겹쳐 놓을 수 있음.
+    case "P3_PROTAGONIST_ACTION": {
+      const mastermindCards = s.loop.placed.filter(
+        ({ owner }) => owner === "mastermind",
+      );
+      const protagonistCards = s.loop.placed.filter(
+        ({ owner }) => owner !== "mastermind",
+      );
+      const protagonistOwners = new Set(
+        protagonistCards.map(({ owner }) => owner),
+      );
+      if (
+        mastermindCards.length !== 3 ||
+        protagonistCards.length !== 3 ||
+        protagonistOwners.size !== 3
+      ) {
+        throw new Error(
+          "P3 requires 3 Mastermind cards and 1 card from each Protagonist",
+        );
+      }
       break;
+    }
 
     case "P4_RESOLVE":
       if (s.loop.actionResolutionComplete) {

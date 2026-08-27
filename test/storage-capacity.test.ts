@@ -223,6 +223,43 @@ function playStoredScenarioToGameOver(scenario: Scenario): {
   let saves = 0;
   while (state.gamePhase !== "GAME_OVER") {
     if (state.gamePhase === "ROUND") {
+      if (state.loop.phase === "P2_MASTERMIND_ACTION") {
+        state.loop.placed.push(
+          {
+            owner: "mastermind",
+            card: "moveVertical",
+            target: { kind: "location", at: "Hospital" },
+          },
+          {
+            owner: "mastermind",
+            card: "moveHorizontal",
+            target: { kind: "location", at: "Shrine" },
+          },
+          {
+            owner: "mastermind",
+            card: "paranoiaPlus1",
+            target: { kind: "location", at: "City" },
+          },
+        );
+      } else if (state.loop.phase === "P3_PROTAGONIST_ACTION") {
+        state.loop.placed.push(
+          {
+            owner: 0,
+            card: "moveVertical",
+            target: { kind: "location", at: "Hospital" },
+          },
+          {
+            owner: 1,
+            card: "moveHorizontal",
+            target: { kind: "location", at: "Shrine" },
+          },
+          {
+            owner: 2,
+            card: "paranoiaPlus1",
+            target: { kind: "location", at: "City" },
+          },
+        );
+      }
       if (
         state.loop.day === state.scenario.daysPerLoop &&
         state.loop.phase === "P9_ROUND_END"

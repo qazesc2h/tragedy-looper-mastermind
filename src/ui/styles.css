@@ -287,6 +287,45 @@ select {
   line-height: 1.45;
 }
 
+.runtime-error-recovery {
+  position: fixed;
+  z-index: 100;
+  top: calc(env(safe-area-inset-top) + 10px);
+  right: 10px;
+  left: 10px;
+  display: grid;
+  width: min(calc(100% - 20px), 720px);
+  gap: 8px;
+  margin: 0 auto;
+  border: 1px solid #d06c55;
+  border-radius: 12px;
+  background: #3d1f1b;
+  padding: 12px;
+  color: #ffd6ce;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.58);
+}
+
+.runtime-error-recovery span {
+  overflow-wrap: anywhere;
+  font-size: 0.8rem;
+}
+
+.runtime-error-recovery div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.runtime-error-recovery button {
+  min-height: 44px;
+  flex: 1 1 150px;
+  border: 1px solid #a86150;
+  border-radius: 9px;
+  background: #281a17;
+  padding: 8px 10px;
+  color: #ffe2db;
+}
+
 .phase-panel {
   max-width: 760px;
   margin: 8px auto;

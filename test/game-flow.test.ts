@@ -403,6 +403,39 @@ describe("game setup and loop preparation", () => {
 });
 
 describe("automatic empty round phases", () => {
+  it("rejects incomplete P2 and P3 transitions before P4", () => {
+    const state = createGameState(scenario());
+    startRound(state);
+
+    expect(() => advanceGame(state)).toThrow(
+      "P2 requires exactly 3 Mastermind cards",
+    );
+    expect(state.loop.phase).toBe("P2_MASTERMIND_ACTION");
+
+    state.loop.phase = "P3_PROTAGONIST_ACTION";
+    state.loop.placed = [
+      {
+        owner: "mastermind",
+        card: "intriguePlus1",
+        target: { kind: "character", id: "boyStudent" },
+      },
+      {
+        owner: "mastermind",
+        card: "paranoiaPlus1",
+        target: { kind: "character", id: "girlStudent" },
+      },
+      {
+        owner: "mastermind",
+        card: "moveVertical",
+        target: { kind: "location", at: "School" },
+      },
+    ];
+    expect(() => advanceGame(state)).toThrow(
+      "P3 requires 3 Mastermind cards and 1 card from each Protagonist",
+    );
+    expect(state.loop.phase).toBe("P3_PROTAGONIST_ACTION");
+  });
+
   it("records the cards finalized in P2 and P3", () => {
     const state = createGameState(scenario());
     startRound(state);
@@ -410,6 +443,14 @@ describe("automatic empty round phases", () => {
       owner: "mastermind",
       card: "intriguePlus1",
       target: { kind: "character", id: "boyStudent" },
+    }, {
+      owner: "mastermind",
+      card: "paranoiaPlus1",
+      target: { kind: "character", id: "girlStudent" },
+    }, {
+      owner: "mastermind",
+      card: "moveVertical",
+      target: { kind: "location", at: "School" },
     });
 
     advanceGame(state);
@@ -420,17 +461,25 @@ describe("automatic empty round phases", () => {
       day: 1,
       phase: "P2_MASTERMIND_ACTION",
       kind: "cardsPlaced",
-      placements: [{
+      placements: expect.arrayContaining([{
         owner: "mastermind",
         card: "intriguePlus1",
         target: { kind: "character", id: "boyStudent" },
-      }],
+      }]),
     }));
 
     state.loop.placed.push({
       owner: 0,
       card: "goodwillPlus1",
       target: { kind: "character", id: "boyStudent" },
+    }, {
+      owner: 1,
+      card: "paranoiaMinus1",
+      target: { kind: "character", id: "girlStudent" },
+    }, {
+      owner: 2,
+      card: "forbidMove",
+      target: { kind: "location", at: "Shrine" },
     });
     advanceGame(state);
 
@@ -440,11 +489,11 @@ describe("automatic empty round phases", () => {
       day: 1,
       phase: "P3_PROTAGONIST_ACTION",
       kind: "cardsPlaced",
-      placements: [{
+      placements: expect.arrayContaining([{
         owner: 0,
         card: "goodwillPlus1",
         target: { kind: "character", id: "boyStudent" },
-      }],
+      }]),
     }));
   });
 
@@ -765,9 +814,43 @@ describe("immediate loop interruption and judgment", () => {
     expect(state.loop.pendingImmediateLossKeys).toBeUndefined();
     expect(state.gamePhase).toBe("ROUND");
 
+    state.loop.placed.push(
+      {
+        owner: "mastermind",
+        card: "moveVertical",
+        target: { kind: "location", at: "Hospital" },
+      },
+      {
+        owner: "mastermind",
+        card: "moveHorizontal",
+        target: { kind: "location", at: "Shrine" },
+      },
+      {
+        owner: "mastermind",
+        card: "paranoiaPlus1",
+        target: { kind: "location", at: "City" },
+      },
+    );
     advanceGame(state);
     expect(state.loop.phase).toBe("P3_PROTAGONIST_ACTION");
     expect(state.gamePhase).toBe("ROUND");
+    state.loop.placed.push(
+      {
+        owner: 0,
+        card: "moveVertical",
+        target: { kind: "location", at: "Hospital" },
+      },
+      {
+        owner: 1,
+        card: "moveHorizontal",
+        target: { kind: "location", at: "Shrine" },
+      },
+      {
+        owner: 2,
+        card: "paranoiaPlus1",
+        target: { kind: "location", at: "City" },
+      },
+    );
     advanceGame(state);
     expect(state.loop.phase).toBe("P4_RESOLVE");
     expect(state.gamePhase).toBe("ROUND");

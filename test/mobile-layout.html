@@ -649,6 +649,74 @@
         await selectScenario("basicTragedy:1");
       }
 
+      async function inspectP4RecoveryControls() {
+        mutateActiveState((state) => {
+          state.gamePhase = "ROUND";
+          state.loop.phase = "P4_RESOLVE";
+          state.loop.actionResolutionComplete = false;
+          state.loop.placed = [
+            { owner: "mastermind", card: "moveVertical", target: { kind: "location", at: "Hospital" } },
+            { owner: "mastermind", card: "moveHorizontal", target: { kind: "location", at: "Shrine" } },
+            { owner: "mastermind", card: "paranoiaPlus1", target: { kind: "location", at: "City" } },
+            { owner: 0, card: "moveVertical", target: { kind: "location", at: "Hospital" } },
+            { owner: 1, card: "moveHorizontal", target: { kind: "location", at: "Shrine" } },
+          ];
+          state.runtimeErrors = [];
+          delete state.pendingLoopEnd;
+          delete state.loop.pendingImmediateLossKeys;
+        });
+        await reloadApp("p4-recovery-controls");
+        const undo = frameDocument().querySelector(
+          ".undo-placeholder[data-action='recover-p4-placement']",
+        );
+        const dockText = frameDocument().querySelector(".phase-dock-status")
+          ?.textContent.replace(/\s+/g, " ").trim() ?? "";
+        frameWindow().dispatchEvent(new (frameWindow().Event)("error"));
+        const recovery = await waitFor(
+          () => frameDocument().querySelector(".runtime-error-recovery"),
+          "390px 전역 오류 복구 안내",
+        );
+        const rect = recovery.getBoundingClientRect();
+        const report = {
+          undoEnabled: Boolean(undo) && !undo.disabled,
+          dockText,
+          recoveryButtons: recovery.querySelectorAll("button").length,
+          rect: { left: rect.left, right: rect.right, top: rect.top },
+          horizontal: horizontalOverflow(),
+        };
+        reports.push({ label: "P4 진행 불가 복구", ...report });
+        if (
+          !report.undoEnabled ||
+          !report.dockText.includes("배치 카드 5/6") ||
+          report.recoveryButtons < 3 ||
+          rect.left < -0.5 ||
+          rect.right > WIDTH + 0.5 ||
+          report.horizontal.scrollWidth > WIDTH
+        ) {
+          failures.push(`P4 진행 불가 복구: ${JSON.stringify(report)}`);
+        }
+        recovery.querySelector("[data-action='recover-p4-placement']")?.click();
+        await waitFor(
+          () => {
+            const raw = window.localStorage.getItem(
+              "tragedy-looper-mastermind:tracker",
+            );
+            if (raw === null) return false;
+            const tracker = JSON.parse(raw);
+            return tracker.games[tracker.activeScenarioId].state.loop.phase ===
+              "P3_PROTAGONIST_ACTION";
+          },
+          "390px P4 배치 단계 복구",
+        );
+        mutateActiveState((state) => {
+          state.loop.phase = "P2_MASTERMIND_ACTION";
+          state.loop.placed = [];
+          state.loop.actionResolutionComplete = false;
+          state.runtimeErrors = [];
+        });
+        await reloadApp("p4-recovery-controls-restored");
+      }
+
       async function inspectP5DisclosurePreview() {
         await selectScenario("firstSteps:4");
         mutateActiveState((state) => {
@@ -2158,6 +2226,7 @@
         await inspectStartingGuidance();
         await enterRound();
         await inspectSpecialRuleCardLabel();
+        await inspectP4RecoveryControls();
         await inspectRuleHypothesisPanels();
         await inspectDeductionTables();
         await inspectScenarioRoleFacts();

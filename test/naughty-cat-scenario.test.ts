@@ -192,6 +192,43 @@ describe("community scenario: 못된 고양이", () => {
 
       for (let guard = 0; guard < 80 && state.gamePhase === "ROUND"; guard += 1) {
         days.add(state.loop.day);
+        if (state.loop.phase === "P2_MASTERMIND_ACTION") {
+          state.loop.placed.push(
+            {
+              owner: "mastermind",
+              card: "moveVertical",
+              target: { kind: "location", at: "Hospital" },
+            },
+            {
+              owner: "mastermind",
+              card: "moveHorizontal",
+              target: { kind: "location", at: "Shrine" },
+            },
+            {
+              owner: "mastermind",
+              card: "paranoiaPlus1",
+              target: { kind: "location", at: "City" },
+            },
+          );
+        } else if (state.loop.phase === "P3_PROTAGONIST_ACTION") {
+          state.loop.placed.push(
+            {
+              owner: 0,
+              card: "moveVertical",
+              target: { kind: "location", at: "Hospital" },
+            },
+            {
+              owner: 1,
+              card: "moveHorizontal",
+              target: { kind: "location", at: "Shrine" },
+            },
+            {
+              owner: 2,
+              card: "paranoiaPlus1",
+              target: { kind: "location", at: "City" },
+            },
+          );
+        }
         advanceGame(state);
       }
 

@@ -1245,8 +1245,8 @@
       }
 
       async function runServantMovementCase() {
-        const scenarioId = "basicTragedy:1";
-        await loadScenario(scenarioId, "servant-movement");
+        const scenarioId = "community:naughty-cat";
+        await loadScenario(scenarioId, "naughty-cat-p4-reproduction");
         const storageKey = "tragedy-looper-mastermind:tracker";
         const servantStorage = frameWindow().localStorage;
         const servantStorageRaw = servantStorage.getItem(storageKey);
@@ -1257,26 +1257,48 @@
         const state = servantTracker.games[scenarioId].state;
         {
           state.gamePhase = "ROUND";
-          state.scenario.cast.servant = "person";
-          state.scenario.cast.richStudent = "person";
+          state.loop.loop = 1;
+          state.loop.day = 3;
           state.loop.phase = "P4_RESOLVE";
+          state.loop.leader = 2;
           state.loop.actionResolutionComplete = false;
-          state.loop.board.servant = { status: "alive", at: "City" };
-          state.loop.board.richStudent = { status: "alive", at: "City" };
-          state.loop.charCounters.servant = {
-            goodwill: 0,
-            paranoia: 0,
-            intrigue: 0,
-            protection: 0,
+          const locations = {
+            richStudent: "School",
+            servant: "School",
+            mysteryBoy: "School",
+            sacredTree: "Shrine",
+            blackCat: "Shrine",
+            informer: "City",
+            popIdol: "City",
+            patient: "Hospital",
+            nurse: "Hospital",
           };
-          state.loop.charCounters.richStudent = {
-            goodwill: 0,
-            paranoia: 0,
-            intrigue: 0,
-            protection: 0,
+          for (const [character, at] of Object.entries(locations)) {
+            state.loop.board[character] = { status: "alive", at };
+            state.loop.charCounters[character] = {
+              goodwill: 0,
+              paranoia: 0,
+              intrigue: 0,
+              protection: 0,
+            };
+          }
+          state.loop.locIntrigue.Shrine = 1;
+          state.loop.charCounters.richStudent.intrigue = 2;
+          state.loop.charCounters.informer.goodwill = 4;
+          state.loop.charCounters.popIdol.paranoia = 1;
+          state.loop.spentOncePerLoop = {
+            mastermind: ["intriguePlus2"],
+            protagonists: [
+              ["goodwillPlus2"],
+              ["paranoiaMinus1"],
+              ["paranoiaMinus1", "goodwillPlus2"],
+            ],
           };
           state.loop.servantAdditionalServedCharacters = [];
           delete state.loop.servantMovementChoice;
+          delete state.pendingLoopEnd;
+          delete state.loop.pendingImmediateLossKeys;
+          state.runtimeErrors = [];
           state.loop.placed = [
             {
               owner: "mastermind",
@@ -1284,29 +1306,29 @@
               target: { kind: "character", id: "richStudent" },
             },
             {
-              owner: 0,
-              card: "forbidMove",
-              target: { kind: "character", id: "servant" },
-            },
-            {
               owner: "mastermind",
               card: "paranoiaPlus1",
-              target: { kind: "location", at: "Hospital" },
+              target: { kind: "character", id: "popIdol" },
             },
             {
               owner: "mastermind",
+              card: "moveVertical",
+              target: { kind: "character", id: "patient" },
+            },
+            {
+              owner: 0,
               card: "goodwillPlus1",
-              target: { kind: "location", at: "Shrine" },
+              target: { kind: "character", id: "informer" },
             },
             {
               owner: 1,
-              card: "paranoiaMinus1",
-              target: { kind: "location", at: "City" },
+              card: "forbidParanoia",
+              target: { kind: "character", id: "blackCat" },
             },
             {
               owner: 2,
-              card: "forbidGoodwill",
-              target: { kind: "location", at: "School" },
+              card: "forbidMove",
+              target: { kind: "character", id: "servant" },
             },
           ];
           state.loop.phaseLog = [];
@@ -1317,6 +1339,15 @@
         });
         frameWindow().location.reload();
         await reloaded;
+        const dockPrimary = frameDocument().querySelector(
+          ".dock-primary[data-action='reveal-cards']",
+        );
+        assert(dockPrimary?.disabled, "메이드 선택 전 P4 공개 버튼이 활성화됨");
+        assert(
+          frameDocument().querySelector(".phase-dock-status")?.textContent
+            .includes("메이드 동행 여부 선택 필요"),
+          "닫힌 P4 조작 독에 비활성 사유가 표시되지 않음",
+        );
         await openOperationSheet("메이드 동행 선택 패널");
 
         const selector = await waitFor(
@@ -1330,10 +1361,15 @@
         );
         assert(primaryBefore?.disabled, "동행 선택 전 카드 해결 버튼이 활성화됨");
         assert(
+          frameDocument().querySelector(".hook-activation-summary")?.textContent
+            .includes("메이드 동행 선택 후"),
+          "광신도 미리보기가 메이드 선택 전 계산을 보류하지 않음",
+        );
+        assert(
           Array.from(selector.options).some((option) =>
             option.value === "richStudent" &&
             option.textContent.includes("재벌가 손녀") &&
-            option.textContent.includes("학교")
+            option.textContent.includes("도심")
           ),
           `재벌가 손녀 동행 선택지: ${selector.textContent}`,
         );
@@ -1353,8 +1389,8 @@
 
         const applied = storedState(scenarioId);
         assert(
-          applied.loop.board.richStudent.at === "School" &&
-            applied.loop.board.servant.at === "School",
+          applied.loop.board.richStudent.at === "City" &&
+            applied.loop.board.servant.at === "City",
           `FAQ Q25 UI 이동 결과: ${JSON.stringify({
             richStudent: applied.loop.board.richStudent,
             servant: applied.loop.board.servant,
@@ -1364,8 +1400,88 @@
           applied.loop.servantMovementChoice === undefined,
           "P4 해결 뒤 메이드 동행 선택이 남음",
         );
+        assert(
+          (applied.runtimeErrors ?? []).length === 0,
+          `못된 고양이 P4 오류 기록: ${JSON.stringify(applied.runtimeErrors)}`,
+        );
+        assert(
+          !frameDocument().querySelector(".sacred-tree-transfer-choice") &&
+            !frameDocument().querySelector(
+              ".dock-primary[data-action='advance']",
+            )?.disabled,
+          "카운터 0인 신수가 P4 진행을 막음",
+        );
         reports.push({
-          servant: "Leader choice shown; own Forbid Movement ignored",
+          servant: "Naughty Cat P4 opened; Leader choice shown; Cultist preview waited",
+        });
+      }
+
+      async function runP4EmergencyRecoveryCase() {
+        const scenarioId = "community:naughty-cat";
+        const storageKey = "tragedy-looper-mastermind:tracker";
+        const storage = frameWindow().localStorage;
+        const tracker = JSON.parse(storage.getItem(storageKey));
+        const state = tracker.games[scenarioId].state;
+        state.loop.phase = "P4_RESOLVE";
+        state.loop.actionResolutionComplete = false;
+        state.loop.placed = [
+          {
+            owner: "mastermind",
+            card: "moveHorizontal",
+            target: { kind: "character", id: "richStudent" },
+          },
+          {
+            owner: "mastermind",
+            card: "paranoiaPlus1",
+            target: { kind: "character", id: "popIdol" },
+          },
+          {
+            owner: "mastermind",
+            card: "moveVertical",
+            target: { kind: "character", id: "patient" },
+          },
+          {
+            owner: 0,
+            card: "goodwillPlus1",
+            target: { kind: "character", id: "informer" },
+          },
+          {
+            owner: 1,
+            card: "forbidParanoia",
+            target: { kind: "character", id: "blackCat" },
+          },
+        ];
+        state.runtimeErrors = [];
+        storage.setItem(storageKey, JSON.stringify(tracker));
+        await reloadFrame("p4-emergency-recovery");
+
+        frameWindow().dispatchEvent(new (frameWindow().Event)("error"));
+        const recovery = await waitFor(
+          () => frameDocument().querySelector(".runtime-error-recovery"),
+          "전역 오류 복구 안내",
+        );
+        assert(
+          recovery.querySelector("[data-action='new-game']") &&
+            recovery.querySelector("[data-action='recover-p4-placement']"),
+          `전역 오류 복구 버튼: ${recovery.textContent}`,
+        );
+        const failed = storedState(scenarioId);
+        assert(
+          failed.runtimeErrors?.at(-1)?.action === "window-error" &&
+            failed.runtimeErrors.at(-1).loop.placed.length === 5,
+          `전역 오류 기록: ${JSON.stringify(failed.runtimeErrors?.at(-1))}`,
+        );
+        click(".runtime-error-recovery [data-action='recover-p4-placement']");
+        await waitFor(
+          () => storedState(scenarioId).loop.phase === "P3_PROTAGONIST_ACTION",
+          "P4에서 배치 단계 복구",
+        );
+        assert(
+          storedState(scenarioId).loop.placed.length === 5,
+          "배치 단계 복구 중 기존 카드가 유실됨",
+        );
+        reports.push({
+          recovery: "global error recorded; new-game and P4 placement recovery available",
         });
       }
 
@@ -1525,6 +1641,7 @@
         await runCultistToggleCase();
         await runUnsettlingRumorTransactionCase();
         await runServantMovementCase();
+        await runP4EmergencyRecoveryCase();
         await runSacredTreeCase();
         restoreStorage();
         const passed = failures.length === 0;
