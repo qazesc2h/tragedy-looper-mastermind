@@ -1485,9 +1485,18 @@
         const incidentStickyHeader = incidentGridDetails.querySelector(
           ".deduction-grid thead th:first-child",
         );
-        const roleOverflowDetails = rolePanel.querySelector(
-          ".deduction-body > .long-list-details",
-        );
+        const roleRows = [...rolePanel.querySelectorAll(
+          ".deduction-summary-list > .deduction-summary-row",
+        )];
+        const incidentRows = [...incidentPanel.querySelectorAll(
+          ".deduction-summary-list > .deduction-summary-row",
+        )];
+        const roleInferenceDetails = [...rolePanel.querySelectorAll(
+          ".character-inference-details",
+        )];
+        const incidentInferenceDetails = [...incidentPanel.querySelectorAll(
+          ".character-inference-details",
+        )];
         if (
           !roleGridSummary ||
           !incidentGridSummary ||
@@ -1519,11 +1528,40 @@
           roleNarrowedRows: rolePanel.querySelectorAll(
             ".deduction-summary-row.is-narrowed",
           ).length,
-          roleOverflowClosed: Boolean(roleOverflowDetails) &&
-            !roleOverflowDetails.open,
-          roleOverflowSummaryHeight: roleOverflowDetails?.querySelector(
-            "summary",
-          )?.getBoundingClientRect().height ?? 0,
+          roleRows: roleRows.length,
+          incidentRows: incidentRows.length,
+          roleCandidates: rolePanel.querySelectorAll(
+            ".deduction-candidate-chip",
+          ).length,
+          incidentCandidates: incidentPanel.querySelectorAll(
+            ".deduction-candidate-chip",
+          ).length,
+          omittedCandidateLists: rolePanel.querySelectorAll(
+            ".deduction-body > .long-list-details",
+          ).length + incidentPanel.querySelectorAll(
+            ".deduction-body > .long-list-details",
+          ).length,
+          inferenceClosed: [...roleInferenceDetails, ...incidentInferenceDetails]
+            .every((detail) => !detail.open),
+          inferenceSummaryMinHeight: Math.min(
+            ...[...roleInferenceDetails, ...incidentInferenceDetails].map(
+              (detail) => detail.querySelector(":scope > summary")
+                ?.getBoundingClientRect().height ?? 0,
+            ),
+          ),
+          resultBeforeInference: roleRows.every((row) => {
+            const result = row.querySelector(".deduction-character-result");
+            const inference = row.querySelector(".character-inference-details");
+            return inference === null || Boolean(
+              result?.compareDocumentPosition(inference) & Node.DOCUMENT_POSITION_FOLLOWING,
+            );
+          }) && incidentRows.every((row) => {
+            const result = row.querySelector(".deduction-character-result");
+            const inference = row.querySelector(".character-inference-details");
+            return inference === null || Boolean(
+              result?.compareDocumentPosition(inference) & Node.DOCUMENT_POSITION_FOLLOWING,
+            );
+          }),
           incidentConfirmedRows: incidentPanel.querySelectorAll(
             ".deduction-summary-row.is-confirmed",
           ).length,
@@ -1559,8 +1597,24 @@
           report.incidentSummaryHeight < 44 ||
           report.roleConfirmedRows < 1 ||
           report.roleNarrowedRows < 2 ||
-          !report.roleOverflowClosed ||
-          report.roleOverflowSummaryHeight < 44 ||
+          report.roleRows !== rolePanel.querySelectorAll(
+            ".deduction-grid tbody tr",
+          ).length ||
+          report.incidentRows !== incidentPanel.querySelectorAll(
+            ".deduction-grid tbody tr",
+          ).length ||
+          report.roleCandidates !== roleRows.reduce(
+            (count, row) => count + Number(row.dataset.candidateCount),
+            0,
+          ) ||
+          report.incidentCandidates !== incidentRows.reduce(
+            (count, row) => count + Number(row.dataset.candidateCount),
+            0,
+          ) ||
+          report.omittedCandidateLists !== 0 ||
+          !report.inferenceClosed ||
+          report.inferenceSummaryMinHeight < 44 ||
+          !report.resultBeforeInference ||
           report.incidentConfirmedRows < 1 ||
           report.roleCells === 0 ||
           report.incidentCells === 0 ||
@@ -1619,10 +1673,10 @@
         await reloadApp("grouped-inference-5x5", ".game-flow-screen");
         const document = frameDocument();
         const rolePanel = document.querySelector(".role-deduction-information");
-        const traces = rolePanel?.querySelector(".role-inference-traces");
+        const roleList = rolePanel?.querySelector(".deduction-summary-list");
         if (
           !(rolePanel instanceof frameWindow().HTMLDetailsElement) ||
-          !(traces instanceof frameWindow().HTMLElement)
+          !(roleList instanceof frameWindow().HTMLElement)
         ) {
           throw new Error("5루프 5일 역할 추론 목록을 찾을 수 없습니다.");
         }
@@ -1631,18 +1685,28 @@
         }
         rolePanel.scrollIntoView({ block: "start" });
         await pause(100);
-        const groupedHeight = traces.getBoundingClientRect().height;
-        const conclusionCount = Number(traces.dataset.conclusionCount);
-        const reasonCount = Number(traces.dataset.reasonCount);
-        const traceDetails = [...traces.querySelectorAll(
+        const characterDetails = [...roleList.querySelectorAll(
+          ":scope > .deduction-summary-row > .character-inference-details",
+        )];
+        const groupedHeight = characterDetails.reduce(
+          (height, detail) => height + detail.getBoundingClientRect().height,
+          0,
+        );
+        const conclusionCount = Number(roleList.dataset.conclusionCount);
+        const reasonCount = Number(roleList.dataset.reasonCount);
+        for (const detail of characterDetails) detail.open = true;
+        const traceDetails = [...roleList.querySelectorAll(
           ".role-inference-trace",
         )];
         for (const detail of traceDetails) detail.open = true;
-        for (const detail of traces.querySelectorAll(
+        for (const detail of roleList.querySelectorAll(
           ".role-inference-evidence",
         )) detail.open = true;
         await pause(100);
-        const allEvidenceExpandedHeight = traces.getBoundingClientRect().height;
+        const allEvidenceExpandedHeight = characterDetails.reduce(
+          (height, detail) => height + detail.getBoundingClientRect().height,
+          0,
+        );
         const savedHeight = allEvidenceExpandedHeight - groupedHeight;
         const report = {
           scenario: "5루프 × 5일",
@@ -1654,7 +1718,7 @@
           reductionPercent: Math.round(
             savedHeight / allEvidenceExpandedHeight * 100,
           ),
-          summaries: traceDetails.map((detail) =>
+          summaries: characterDetails.map((detail) =>
             detail.querySelector(":scope > summary")?.textContent
               .replace(/\s+/g, " ").trim() ?? ""
           ),
@@ -1676,13 +1740,72 @@
           reasonCount < 25 ||
           conclusionCount >= reasonCount ||
           !report.summaries.every((summary) =>
-            summary.includes("근거 25건") && summary.includes("단,")
+            summary.includes("근거 25건")
           ) ||
           groupedHeight >= allEvidenceExpandedHeight ||
           savedHeight < 500 ||
           report.horizontal.scrollWidth > WIDTH
         ) {
           failures.push(`5×5 역할 추론 묶음 높이: ${JSON.stringify(report)}`);
+        }
+      }
+
+      async function inspectElevenCharacterCandidateHeight() {
+        const document = frameDocument();
+        const rolePanel = document.querySelector(".role-deduction-information");
+        const roleList = rolePanel?.querySelector(".deduction-summary-list");
+        if (
+          !(rolePanel instanceof frameWindow().HTMLDetailsElement) ||
+          !(roleList instanceof frameWindow().HTMLElement)
+        ) {
+          throw new Error("11명 역할 후보 목록을 찾을 수 없습니다.");
+        }
+        rolePanel.open = true;
+        rolePanel.scrollIntoView({ block: "start" });
+        await pause(100);
+        const rows = [...roleList.querySelectorAll(
+          ":scope > .deduction-summary-row",
+        )];
+        const candidateCounts = rows.map((row) =>
+          Number(row.dataset.candidateCount)
+        );
+        const wrappedRows = rows.filter((row) => {
+          const chips = row.querySelector(".deduction-candidate-chips");
+          const firstChip = chips?.querySelector(".deduction-candidate-chip");
+          return chips !== null && firstChip !== null &&
+            chips.getBoundingClientRect().height >
+              firstChip.getBoundingClientRect().height + 4;
+        }).length;
+        const report = {
+          scenario: "기본편 20 · 캐스트 11명",
+          rowCount: rows.length,
+          totalCandidates: candidateCounts.reduce((sum, count) => sum + count, 0),
+          minCandidates: Math.min(...candidateCounts),
+          maxCandidates: Math.max(...candidateCounts),
+          listHeight: Math.round(roleList.getBoundingClientRect().height),
+          maxRowHeight: Math.round(Math.max(...rows.map((row) =>
+            row.getBoundingClientRect().height
+          ))),
+          wrappedRows,
+          inferenceClosed: [...roleList.querySelectorAll(
+            ".character-inference-details",
+          )].every((detail) => !detail.open),
+          omittedCandidateLists: rolePanel.querySelectorAll(
+            ".deduction-body > .long-list-details",
+          ).length,
+          horizontal: horizontalOverflow(),
+        };
+        reports.push({ label: "11명 전체 역할 후보 높이", ...report });
+        if (
+          report.rowCount !== 11 ||
+          report.totalCandidates < 80 ||
+          report.maxCandidates < 10 ||
+          report.wrappedRows < 1 ||
+          !report.inferenceClosed ||
+          report.omittedCandidateLists !== 0 ||
+          report.horizontal.scrollWidth > WIDTH
+        ) {
+          failures.push(`11명 전체 역할 후보 높이: ${JSON.stringify(report)}`);
         }
       }
 
@@ -2442,6 +2565,7 @@
         await inspectScrollableModalBodies();
 
         await selectScenario("basicTragedy:20");
+        await inspectElevenCharacterCandidateHeight();
         const characters = [...frameDocument().querySelectorAll(
           ".character-chip[data-character]",
         )].map((chip) => chip.dataset.character);

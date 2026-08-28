@@ -1286,20 +1286,7 @@ select {
   list-style: none;
 }
 
-.role-inference-traces {
-  margin: 0 0 12px;
-  padding: 10px;
-  border: 1px solid color-mix(in srgb, var(--gold) 35%, transparent);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--gold) 7%, transparent);
-}
-
-.role-inference-traces h3 {
-  margin: 0 0 8px;
-  font-size: 0.82rem;
-}
-
-.role-inference-traces ul {
+.character-inference-body ul {
   display: grid;
   gap: 6px;
   margin: 0;
@@ -1318,23 +1305,23 @@ select {
   border-top: 0;
 }
 
-.role-inference-traces strong,
-.role-inference-traces span,
-.role-inference-traces small {
+.character-inference-body strong,
+.character-inference-body span,
+.character-inference-body small {
   overflow-wrap: anywhere;
 }
 
-.role-inference-traces strong {
+.character-inference-body strong {
   font-size: 0.78rem;
 }
 
-.role-inference-traces span,
-.role-inference-traces small {
+.character-inference-body span,
+.character-inference-body small {
   font-size: 0.7rem;
   line-height: 1.45;
 }
 
-.role-inference-traces small {
+.character-inference-body small {
   color: var(--ink-muted);
 }
 
@@ -1408,32 +1395,155 @@ select {
 
 .deduction-summary-row {
   display: grid;
-  grid-template-columns: minmax(64px, 0.28fr) minmax(0, 1fr) auto;
-  align-items: start;
-  gap: 7px;
+  gap: 0;
   border: 1px solid #443a2c;
   border-radius: 7px;
   background: #1d1a15;
-  padding: 7px;
   font-size: 0.7rem;
   line-height: 1.4;
+  overflow: hidden;
 }
 
-.deduction-summary-row strong {
+.deduction-character-result {
+  display: grid;
+  gap: 7px;
+  padding: 9px;
+}
+
+.deduction-character-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.deduction-character-heading strong {
   color: #d9c7a6;
-  font-size: 0.7rem;
+  font-size: 0.76rem;
 }
 
-.deduction-summary-row span {
-  min-width: 0;
-  color: #afa38f;
-  overflow-wrap: anywhere;
-}
-
-.deduction-summary-row b {
+.deduction-character-heading b {
   color: #a99a80;
   font-size: 0.66rem;
   white-space: nowrap;
+}
+
+.deduction-candidate-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.deduction-candidate-line {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+}
+
+.deduction-candidate-line .deduction-candidate-chips {
+  min-width: 0;
+}
+
+.deduction-confirmed-label {
+  flex: 0 0 auto;
+  color: #a9dfa9;
+  font-size: 0.66rem;
+  white-space: nowrap;
+}
+
+.deduction-candidate-chip {
+  max-width: 100%;
+  padding: 3px 7px;
+  border: 1px solid #4a4236;
+  border-radius: 999px;
+  background: #16130f;
+  color: #c0b39c;
+  font-size: 0.68rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.deduction-candidate-empty {
+  margin: 0;
+  color: var(--danger);
+  font-size: 0.7rem;
+}
+
+.character-inference-details {
+  border-top: 1px solid #443a2c;
+  background: rgba(10, 9, 7, 0.34);
+}
+
+.character-inference-details > summary {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 9px;
+  color: #afa38f;
+  cursor: pointer;
+  list-style: none;
+}
+
+.character-inference-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.character-inference-details > summary::before {
+  content: "▸";
+  flex: 0 0 auto;
+  color: var(--gold);
+}
+
+.character-inference-details[open] > summary::before {
+  content: "▾";
+}
+
+.character-inference-details > summary b {
+  margin-left: auto;
+  color: #a99a80;
+  font-size: 0.66rem;
+  white-space: nowrap;
+}
+
+.character-inference-body {
+  display: grid;
+  gap: 10px;
+  padding: 8px 9px 10px;
+  border-top: 1px solid #352f26;
+}
+
+.character-inference-body h4 {
+  margin: 0 0 6px;
+  color: #d9c7a6;
+  font-size: 0.72rem;
+}
+
+.deduction-constraint-list > li {
+  display: grid;
+  gap: 2px;
+  padding: 5px 0;
+  border-top: 1px solid var(--line);
+}
+
+.deduction-constraint-list > li:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.deduction-constraint-list span {
+  color: var(--ink-muted);
+}
+
+.common-inference-details {
+  border: 1px solid #443a2c;
+  border-radius: 7px;
+  overflow: hidden;
 }
 
 .deduction-summary-row.is-narrowed {
@@ -1450,9 +1560,10 @@ select {
   background: rgba(35, 72, 44, 0.42);
 }
 
-.deduction-summary-row.is-confirmed span,
-.deduction-summary-row.is-confirmed b {
-  color: #a9dfa9;
+.deduction-summary-row.is-confirmed .deduction-candidate-chip {
+  border-color: #4f7d5a;
+  background: rgba(35, 72, 44, 0.65);
+  color: #b9e8b9;
   font-weight: 800;
 }
 

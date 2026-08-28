@@ -92,6 +92,9 @@ try {
   const inferenceMeasurement = decodedDom.match(
     /"label": "5×5 역할 추론 묶음 높이",\s*"scenario": "5루프 × 5일",\s*"conclusionCount": (\d+),\s*"reasonCount": (\d+),\s*"groupedHeight": (\d+),\s*"allEvidenceExpandedHeight": (\d+),\s*"savedHeight": (\d+),\s*"reductionPercent": (\d+)/,
   );
+  const candidateMeasurement = decodedDom.match(
+    /"label": "11명 전체 역할 후보 높이",\s*"scenario": "기본편 20 · 캐스트 11명",\s*"rowCount": (\d+),\s*"totalCandidates": (\d+),\s*"minCandidates": (\d+),\s*"maxCandidates": (\d+),\s*"listHeight": (\d+),\s*"maxRowHeight": (\d+),\s*"wrappedRows": (\d+)/,
+  );
   const layoutPassed = browser.stdout?.includes('data-layout-result="pass"') &&
     browser.stdout.includes("PASS");
   const timedOutAfterResult = browser.error &&
@@ -126,6 +129,23 @@ try {
       `5×5 역할 추론: 결론 ${conclusionCount}건 / 근거 ${reasonCount}건, ` +
         `접힘 ${groupedHeight}px / 전체 펼침 ${allEvidenceExpandedHeight}px, ` +
         `${savedHeight}px (${reductionPercent}%) 절감\n`,
+    );
+  }
+  if (candidateMeasurement !== null) {
+    const [
+      _matched,
+      rowCount,
+      totalCandidates,
+      minCandidates,
+      maxCandidates,
+      listHeight,
+      maxRowHeight,
+      wrappedRows,
+    ] = candidateMeasurement;
+    process.stdout.write(
+      `11명 전체 역할 후보: ${rowCount}행 / 후보 ${totalCandidates}개 ` +
+        `(행별 ${minCandidates}~${maxCandidates}개), 목록 ${listHeight}px / ` +
+        `최대 행 ${maxRowHeight}px / 줄바꿈 ${wrappedRows}행\n`,
     );
   }
 } finally {

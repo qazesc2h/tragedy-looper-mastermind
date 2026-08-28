@@ -6,6 +6,7 @@ export interface InferenceTraceReason {
 }
 
 export interface InferenceTrace {
+  subjects: string[];
   conclusion: string;
   condition?: string;
   reason: InferenceTraceReason;
@@ -22,6 +23,7 @@ export interface InferenceTraceReasonTypeGroup {
 }
 
 export interface InferenceTraceGroup {
+  subjects: string[];
   conclusion: string;
   condition?: string;
   reasons: InferenceTraceReason[];
@@ -65,6 +67,7 @@ export function groupInferenceTraces(
   traces: readonly InferenceTrace[],
 ): InferenceTraceGroup[] {
   const groups = new Map<string, {
+    subjects: Set<string>;
     conclusion: string;
     condition?: string;
     reasons: InferenceTraceReason[];
@@ -74,11 +77,13 @@ export function groupInferenceTraces(
   for (const trace of traces) {
     const key = conclusionKey(trace);
     const group = groups.get(key) ?? {
+      subjects: new Set<string>(),
       conclusion: trace.conclusion,
       ...(trace.condition === undefined ? {} : { condition: trace.condition }),
       reasons: [],
       reasonKeys: new Set<string>(),
     };
+    for (const subject of trace.subjects) group.subjects.add(subject);
     const keyForReason = reasonKey(trace.reason);
     if (!group.reasonKeys.has(keyForReason)) {
       group.reasons.push(trace.reason);
@@ -87,7 +92,12 @@ export function groupInferenceTraces(
     groups.set(key, group);
   }
 
-  return [...groups.values()].map(({ reasonKeys: _reasonKeys, ...group }) => ({
+  return [...groups.values()].map(({
+    reasonKeys: _reasonKeys,
+    subjects,
+    ...group
+  }) => ({
+    subjects: [...subjects],
     ...group,
     reasonTypes: groupReasonTypes(group.reasons),
   }));

@@ -187,6 +187,7 @@ import {
 import {
   groupInferenceTraces,
   type InferenceTrace,
+  type InferenceTraceGroup,
 } from "./inference-traces";
 import {
   clearAppStorage,
@@ -4056,11 +4057,12 @@ function possibilityStatusLabel(
     : "현재 룰 후보에 없음";
 }
 
-function renderRoleInferenceTraces(
+function roleInferenceGroups(
   summary: ReturnType<typeof deductionTablesSummary>,
-): string {
+): InferenceTraceGroup[] {
   const traces: InferenceTrace[] = [];
   const addTrace = (
+    subjects: readonly CharacterId[],
     conclusion: string,
     type: string,
     at: string,
@@ -4068,7 +4070,12 @@ function renderRoleInferenceTraces(
     detail?: string,
     condition?: string,
   ): void => {
-    traces.push({ conclusion, condition, reason: { type, at, fact, detail } });
+    traces.push({
+      subjects: [...subjects],
+      conclusion,
+      condition,
+      reason: { type, at, fact, detail },
+    });
   };
   const virusPossible = summary.remainingCombinations.some(({ subPlots }) =>
     subPlots.includes("paranoiaVirus")
@@ -4082,6 +4089,7 @@ function renderRoleInferenceTraces(
     if (observation.kind === "sacredTreeMastermindTransferJudged") {
       if (!observation.eligible) continue;
       addTrace(
+        ["sacredTree"],
         `신수 · 우호 무시 계열 ${observation.performed ? "확정" : "배제"}`,
         "신수 강제 이전",
         `${observation.loop}루프 ${observation.day}일`,
@@ -4094,6 +4102,7 @@ function renderRoleInferenceTraces(
       const cell = summary.roleTable.cells[observation.character]
         ?.timeTraveler;
       addTrace(
+        [observation.character],
         `${characterName(observation.character)} = ${roleName("timeTraveler")} 아님`,
         "우호 금지 발동",
         `${observation.loop}루프 ${observation.day}일`,
@@ -4104,6 +4113,7 @@ function renderRoleInferenceTraces(
     }
     if (observation.kind === "mandatoryEffectMissing") {
       addTrace(
+        [observation.character],
         "인과율 후보 배제",
         "강제 효과 없음",
         `${observation.loop}루프 시작`,
@@ -4114,6 +4124,7 @@ function renderRoleInferenceTraces(
     }
     if (observation.kind === "deadAtLoopEndWithoutRoleReveal") {
       addTrace(
+        [observation.character],
         `${characterName(observation.character)} = ${roleName("friend")} 아님`,
         "루프 종료 공개 없음",
         `${observation.loop}루프 종료`,
@@ -4166,6 +4177,7 @@ function renderRoleInferenceTraces(
         ? ` · 동시 사망 ${deaths.length}명`
         : "";
       addTrace(
+        deaths,
         `핵심 인물 능력 보유 후보 {${
           candidates.join(", ") || "설명 가능한 후보 없음"
         }}`,
@@ -4186,6 +4198,7 @@ function renderRoleInferenceTraces(
           "impossible"
       ) {
         addTrace(
+          [character],
           `${characterName(character)} = ${roleName("timeTraveler")} 아님`,
           "실제 사망",
           `${observation.loop}루프 ${observation.record.day}일`,
@@ -4210,6 +4223,7 @@ function renderRoleInferenceTraces(
       const deadNames = batch.characters.map(characterName).join(", ");
       const silentNames = silentResponders.map(characterName).join(", ");
       addTrace(
+        silentResponders,
         `연인 강제 반응 제약 · ${silentNames} ← ${deadNames}`,
         "사망 직후 반응 없음",
         `${observation.loop}루프 ${observation.record.day}일`,
@@ -4229,6 +4243,7 @@ function renderRoleInferenceTraces(
         if (!p9Deaths.has(target)) {
           if (protectedTargets.has(target)) {
             addTrace(
+              [actor],
               `${actorName} · 연쇄 살인마 판정 보류`,
               "단둘 비사망",
               `${observation.loop}루프 ${observation.record.day}일`,
@@ -4251,6 +4266,7 @@ function renderRoleInferenceTraces(
             ? ` · ${actorName} 불안 3+: 엑스트라+망상 확대 바이러스 변이도 같은 조건`
             : "";
           addTrace(
+            [actor],
             `${actorName} = ${roleName("serialKiller")} 아님`,
             "단둘 비사망",
             `${observation.loop}루프 ${observation.record.day}일`,
@@ -4274,6 +4290,7 @@ function renderRoleInferenceTraces(
           alternative !== undefined
         );
         addTrace(
+          [actor, target],
           `${actorName}–${targetName} 사망 원인 분기`,
           "단둘 사망",
           `${observation.loop}루프 ${observation.record.day}일`,
@@ -4290,6 +4307,7 @@ function renderRoleInferenceTraces(
     ) {
       for (const character of deaths) {
         addTrace(
+          [character],
           `${characterName(character)} = ${roleName("keyPerson")} 아님`,
           "즉시 종료 없음",
           `${observation.loop}루프 ${observation.record.day}일`,
@@ -4303,6 +4321,7 @@ function renderRoleInferenceTraces(
   for (const [actor, partners] of noDeathPartners) {
     if (partners.size <= immortalMaximum) continue;
     addTrace(
+      [actor],
       `${characterName(actor)} = ${roleName("serialKiller")} 아님`,
       "누적 단둘 비사망",
       "누적",
@@ -4311,10 +4330,11 @@ function renderRoleInferenceTraces(
     );
   }
 
-  if (traces.length === 0) return "";
-  const groups = groupInferenceTraces(traces);
-  const rows = groups.map((group) => {
-    const reasonTypes = group.reasonTypes.map((reasonType) => `<section>
+  return groupInferenceTraces(traces);
+}
+
+function renderInferenceGroup(group: InferenceTraceGroup): string {
+  const reasonTypes = group.reasonTypes.map((reasonType) => `<section>
       <strong>${escapeHtml(reasonType.type)}</strong>
       ${reasonType.facts.map((fact) => `<p>${
         fact.occurrences.length === 0
@@ -4322,11 +4342,11 @@ function renderRoleInferenceTraces(
           : `${escapeHtml(fact.occurrences.join(", "))} · `
       }${escapeHtml(fact.fact)}</p>`).join("")}
     </section>`).join("");
-    const details = group.reasons.map(({ type, at, fact, detail }) => `<li>
+  const details = group.reasons.map(({ type, at, fact, detail }) => `<li>
       <span>${escapeHtml(at)} · ${escapeHtml(type)} · ${escapeHtml(fact)}</span>
       ${detail === undefined ? "" : `<small>${escapeHtml(detail)}</small>`}
     </li>`);
-    return `<li class="role-inference-group">
+  return `<li class="role-inference-group">
       <details class="role-inference-trace">
         <summary>
           <span><strong>${escapeHtml(group.conclusion)}</strong>${
@@ -4347,31 +4367,139 @@ function renderRoleInferenceTraces(
           </details>`}
       </details>
     </li>`;
+}
+
+function renderCandidateChips(
+  labels: readonly string[],
+  confirmed: boolean,
+): string {
+  if (labels.length === 0) {
+    return `<p class="deduction-candidate-empty">가능한 후보 없음</p>`;
+  }
+  return `<ul class="deduction-candidate-chips">${labels.map((label) =>
+    `<li class="deduction-candidate-chip${confirmed ? " is-confirmed" : ""}">${escapeHtml(label)}</li>`
+  ).join("")}</ul>`;
+}
+
+function renderRoleConstraintRows(
+  summary: DeductionTablesSummary,
+  character: CharacterId,
+): { html: string; count: number } {
+  const rows = summary.roleTable.roles.flatMap((role) => {
+    const cell = summary.roleTable.cells[character]?.[role];
+    if (cell === undefined || cell.reasons.length === 0) return [];
+    const reasons = [...new Set(cell.reasons.map(({ code }) =>
+      roleCellReasonLabel(code)
+    ))];
+    if (reasons.length === 0) return [];
+    return [`<li>
+      <strong>${escapeHtml(roleName(role))} ${possibilityStatusLabel(cell.status)}</strong>
+      <span>${escapeHtml(reasons.join(" · "))}</span>
+    </li>`];
   });
-  return `<section class="role-inference-traces" aria-label="역할 추론 과정"
-      data-conclusion-count="${groups.length}" data-reason-count="${traces.length}">
-    <h3>추론 결론 ${groups.length}건 · 근거 ${traces.length}건</h3>
-    ${renderBoundedHtmlList(rows, "role-inference-list", "추가 결론")}
-  </section>`;
+  return { html: rows.join(""), count: rows.length };
+}
+
+function renderCharacterInference(
+  summary: DeductionTablesSummary,
+  character: CharacterId,
+  groups: readonly InferenceTraceGroup[],
+): { html: string; reasonCount: number } {
+  const characterGroups = groups.filter(({ subjects }) =>
+    subjects.includes(character)
+  );
+  const traceReasonCount = characterGroups.reduce(
+    (count, group) => count + group.reasons.length,
+    0,
+  );
+  const constraints = renderRoleConstraintRows(summary, character);
+  const reasonCount = traceReasonCount + constraints.count;
+  if (reasonCount === 0) return { html: "", reasonCount };
+  return {
+    reasonCount,
+    html: `<details class="character-inference-details">
+      <summary>추론 과정 <b>(근거 ${reasonCount}건)</b></summary>
+      <div class="character-inference-body">
+        ${characterGroups.length === 0 ? "" : `<section>
+          <h4>관측 추론</h4>
+          <ul class="role-inference-list">${characterGroups.map(renderInferenceGroup).join("")}</ul>
+        </section>`}
+        ${constraints.count === 0 ? "" : `<section>
+          <h4>역할별 후보 제약</h4>
+          <ul class="deduction-constraint-list">${constraints.html}</ul>
+        </section>`}
+      </div>
+    </details>`,
+  };
+}
+
+function renderIncidentConstraintRows(
+  summary: DeductionTablesSummary,
+  character: CharacterId,
+): { html: string; count: number } {
+  const rows = summary.incidentTable.columns.flatMap((column) => {
+    const cell = summary.incidentTable.cells[character]?.[column.id];
+    if (cell === undefined || cell.reasons.length === 0) return [];
+    const reasons = [...new Set(cell.reasons.map(({ code }) =>
+      incidentCellReasonLabel(code)
+    ))];
+    if (reasons.length === 0) return [];
+    const label = `${column.day}일 ${incidentName(column.incident)}`;
+    return [`<li>
+      <strong>${escapeHtml(label)} ${possibilityStatusLabel(cell.status)}</strong>
+      <span>${escapeHtml(reasons.join(" · "))}</span>
+    </li>`];
+  });
+  return { html: rows.join(""), count: rows.length };
 }
 
 function renderDeductionTables(
   summary: DeductionTablesSummary,
 ): string {
-  const roleInferenceTraces = renderRoleInferenceTraces(summary);
+  const inferenceGroups = roleInferenceGroups(summary);
+  let characterInferenceReasonCount = 0;
   const roleRows = summary.roleRows.map((row) => {
-    const names = row.possibleRoles.map(roleName);
-    const text = row.confirmedRole === undefined
-      ? names.join(" / ") || "가능한 역할 없음"
-      : `${roleName(row.confirmedRole)} 확정`;
+    const labels = row.possibleRoles.map(roleName);
+    const inference = renderCharacterInference(
+      summary,
+      row.character,
+      inferenceGroups,
+    );
+    characterInferenceReasonCount += inference.reasonCount;
     return `<li class="deduction-summary-row ${
       row.confirmedRole === undefined ? "" : "is-confirmed"
-    } ${row.narrowed ? "is-narrowed" : ""}">
-      <strong>${escapeHtml(characterName(row.character))}</strong>
-      <span>${escapeHtml(text)}</span>
-      <b>${row.confirmedRole === undefined ? `(${row.possibleRoles.length})` : "✓"}</b>
+    } ${row.narrowed ? "is-narrowed" : ""}" data-candidate-count="${labels.length}">
+      <div class="deduction-character-result">
+        <div class="deduction-character-heading">
+          <strong>${escapeHtml(characterName(row.character))}</strong>
+          ${row.confirmedRole === undefined ? `<b>(${labels.length})</b>` : ""}
+        </div>
+        <div class="deduction-candidate-line">
+          ${renderCandidateChips(labels, row.confirmedRole !== undefined)}
+          ${row.confirmedRole === undefined ? "" : `<b class="deduction-confirmed-label">확정</b>`}
+        </div>
+      </div>
+      ${inference.html}
     </li>`;
   });
+  const castCharacters = new Set<string>(summary.roleRows.map(({ character }) =>
+    character
+  ));
+  const commonInferenceGroups = inferenceGroups.filter(({ subjects }) =>
+    subjects.every((subject) => !castCharacters.has(subject))
+  );
+  const commonInferenceReasonCount = commonInferenceGroups.reduce(
+    (count, group) => count + group.reasons.length,
+    0,
+  );
+  const commonInference = commonInferenceGroups.length === 0
+    ? ""
+    : `<details class="character-inference-details common-inference-details">
+      <summary>공통 추론 과정 <b>(근거 ${commonInferenceReasonCount}건)</b></summary>
+      <div class="character-inference-body"><section>
+        <ul class="role-inference-list">${commonInferenceGroups.map(renderInferenceGroup).join("")}</ul>
+      </section></div>
+    </details>`;
   const roleHeader = summary.roleTable.roles.map((role) => `
     <th scope="col" title="${escapeHtml(roleName(role))}" aria-label="${escapeHtml(roleName(role))}">
       <span>${escapeHtml(roleName(role))}</span>
@@ -4398,15 +4526,26 @@ function renderDeductionTables(
     const labels = row.possibleColumns.map((column) =>
       `${column.day}일 ${incidentName(column.incident)}`
     );
-    const text = row.confirmedColumn === undefined
-      ? labels.join(" / ") || "가능한 사건 없음"
-      : `${row.confirmedColumn.day}일 ${incidentName(row.confirmedColumn.incident)} 확정`;
+    const constraints = renderIncidentConstraintRows(summary, row.character);
     return `<li class="deduction-summary-row ${
       row.confirmedColumn === undefined ? "" : "is-confirmed"
-    } ${row.narrowed ? "is-narrowed" : ""}">
-      <strong>${escapeHtml(characterName(row.character))}</strong>
-      <span>${escapeHtml(text)}</span>
-      <b>${row.confirmedColumn === undefined ? `(${row.possibleColumns.length})` : "✓"}</b>
+    } ${row.narrowed ? "is-narrowed" : ""}" data-candidate-count="${labels.length}">
+      <div class="deduction-character-result">
+        <div class="deduction-character-heading">
+          <strong>${escapeHtml(characterName(row.character))}</strong>
+          ${row.confirmedColumn === undefined ? `<b>(${labels.length})</b>` : ""}
+        </div>
+        <div class="deduction-candidate-line">
+          ${renderCandidateChips(labels, row.confirmedColumn !== undefined)}
+          ${row.confirmedColumn === undefined ? "" : `<b class="deduction-confirmed-label">확정</b>`}
+        </div>
+      </div>
+      ${constraints.count === 0 ? "" : `<details class="character-inference-details incident-inference-details">
+        <summary>판정 근거 <b>(근거 ${constraints.count}건)</b></summary>
+        <div class="character-inference-body"><section>
+          <ul class="deduction-constraint-list">${constraints.html}</ul>
+        </section></div>
+      </details>`}
     </li>`;
   });
   const incidentHeader = summary.incidentTable.columns.map((column) => {
@@ -4439,12 +4578,9 @@ function renderDeductionTables(
         <i aria-hidden="true"></i>
       </summary>
       <div class="info-accordion-body deduction-body">
-        ${roleInferenceTraces}
-        ${renderBoundedHtmlList(
-          roleRows,
-          "deduction-summary-list",
-          "추가 역할 후보",
-        )}
+        <ul class="deduction-summary-list" data-conclusion-count="${inferenceGroups.length}"
+          data-reason-count="${characterInferenceReasonCount + commonInferenceReasonCount}">${roleRows.join("")}</ul>
+        ${commonInference}
         <details class="deduction-grid-details">
           <summary>전체 역할 격자 보기</summary>
           <div class="deduction-grid-scroll">
@@ -4465,11 +4601,7 @@ function renderDeductionTables(
       <div class="info-accordion-body deduction-body">
         ${summary.incidentTable.columns.length === 0
           ? `<p class="empty-overlay">시나리오에 사건이 없습니다.</p>`
-          : `${renderBoundedHtmlList(
-              incidentRows,
-              "deduction-summary-list",
-              "추가 범인 후보",
-            )}
+          : `<ul class="deduction-summary-list">${incidentRows.join("")}</ul>
             <details class="deduction-grid-details">
               <summary>전체 범인 격자 보기</summary>
               <div class="deduction-grid-scroll">
