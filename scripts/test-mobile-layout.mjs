@@ -86,6 +86,12 @@ try {
   );
 
   const output = `${browser.stdout ?? ""}\n${browser.stderr ?? ""}`;
+  const decodedDom = (browser.stdout ?? "")
+    .replaceAll("&quot;", '"')
+    .replaceAll("&amp;", "&");
+  const inferenceMeasurement = decodedDom.match(
+    /"label": "5×5 역할 추론 묶음 높이",\s*"scenario": "5루프 × 5일",\s*"conclusionCount": (\d+),\s*"reasonCount": (\d+),\s*"groupedHeight": (\d+),\s*"allEvidenceExpandedHeight": (\d+),\s*"savedHeight": (\d+),\s*"reductionPercent": (\d+)/,
+  );
   const layoutPassed = browser.stdout?.includes('data-layout-result="pass"') &&
     browser.stdout.includes("PASS");
   const timedOutAfterResult = browser.error &&
@@ -106,6 +112,22 @@ try {
       ? "390px 실제 브라우저 레이아웃 검사 통과 (결과 출력 후 Chrome 강제 종료)\n"
       : "390px 실제 브라우저 레이아웃 검사 통과\n",
   );
+  if (inferenceMeasurement !== null) {
+    const [
+      _matched,
+      conclusionCount,
+      reasonCount,
+      groupedHeight,
+      allEvidenceExpandedHeight,
+      savedHeight,
+      reductionPercent,
+    ] = inferenceMeasurement;
+    process.stdout.write(
+      `5×5 역할 추론: 결론 ${conclusionCount}건 / 근거 ${reasonCount}건, ` +
+        `접힘 ${groupedHeight}px / 전체 펼침 ${allEvidenceExpandedHeight}px, ` +
+        `${savedHeight}px (${reductionPercent}%) 절감\n`,
+    );
+  }
 } finally {
   vite.kill("SIGTERM");
   rmSync(profile, { recursive: true, force: true });

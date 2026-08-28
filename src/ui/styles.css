@@ -1170,6 +1170,25 @@ select {
   white-space: nowrap;
 }
 
+.hypothesis-observation-evidence {
+  margin-top: 3px;
+  color: var(--ink-muted);
+}
+
+.hypothesis-observation-evidence > summary {
+  min-height: 32px;
+  font-size: 0.68rem;
+  line-height: 32px;
+  cursor: pointer;
+}
+
+.hypothesis-observation-evidence small {
+  display: block;
+  padding: 0 0 3px 8px;
+  font-size: 0.66rem;
+  line-height: 1.45;
+}
+
 .hypothesis-combinations-nested {
   border: 1px solid #4b402f;
   border-radius: 8px;
@@ -1282,20 +1301,19 @@ select {
 
 .role-inference-traces ul {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.role-inference-traces li {
+.role-inference-list > li {
   display: grid;
-  gap: 3px;
-  padding-top: 8px;
+  padding-top: 6px;
   border-top: 1px solid var(--line);
 }
 
-.role-inference-traces li:first-child {
+.role-inference-list > li:first-child {
   padding-top: 0;
   border-top: 0;
 }
@@ -1310,11 +1328,6 @@ select {
   font-size: 0.78rem;
 }
 
-.role-inference-traces strong em {
-  font-style: normal;
-  color: var(--ink-muted);
-}
-
 .role-inference-traces span,
 .role-inference-traces small {
   font-size: 0.7rem;
@@ -1323,6 +1336,74 @@ select {
 
 .role-inference-traces small {
   color: var(--ink-muted);
+}
+
+.role-inference-trace > summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.role-inference-trace > summary::-webkit-details-marker {
+  display: none;
+}
+
+.role-inference-trace > summary > span {
+  display: grid;
+  gap: 1px;
+}
+
+.role-inference-trace > summary b {
+  color: var(--gold);
+  font-size: 0.69rem;
+  white-space: nowrap;
+}
+
+.role-inference-summary {
+  display: grid;
+  gap: 7px;
+  padding: 7px 0 3px 10px;
+  border-left: 2px solid color-mix(in srgb, var(--gold) 35%, transparent);
+}
+
+.role-inference-summary section {
+  display: grid;
+  gap: 2px;
+}
+
+.role-inference-summary p {
+  margin: 0;
+  font-size: 0.7rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.role-inference-single-detail {
+  display: block;
+  margin: 5px 0 0 10px;
+}
+
+.role-inference-evidence {
+  margin: 7px 0 0 10px;
+}
+
+.role-inference-evidence > summary {
+  min-height: 36px;
+  color: var(--ink-muted);
+  font-size: 0.7rem;
+  line-height: 36px;
+  cursor: pointer;
+}
+
+.role-inference-evidence li {
+  display: grid;
+  gap: 2px;
+  padding: 5px 0;
+  border-top: 1px solid var(--line);
 }
 
 .deduction-summary-row {

@@ -185,6 +185,10 @@ import {
   phaseLogLoopIsOpen,
 } from "./phase-log";
 import {
+  groupInferenceTraces,
+  type InferenceTrace,
+} from "./inference-traces";
+import {
   clearAppStorage,
   emptyTrackerStore,
   loadTrackerStore,
@@ -3781,6 +3785,65 @@ function hypothesisObservationLabel(
   }
 }
 
+function hypothesisObservationGroupLabel(
+  observation: ProtagonistObservation,
+): string {
+  switch (observation.kind) {
+    case "deadAtLoopEndWithoutRoleReveal":
+      return `${characterName(observation.character)} 사망 · 역할 공개 없음`;
+    case "lossObserved":
+      return observation.timing === "protagonistDeath"
+        ? "주인공 사망"
+        : "루프 종료 승패 판정 패배";
+    case "goodwillForbidApplied":
+      return `${characterName(observation.character)} 우호 금지 발동`;
+    case "sacredTreeMastermindTransferJudged":
+      return `각본가 신수 특성 ${
+        !observation.eligible
+          ? "발동 조건 불충족"
+          : observation.performed
+          ? "카운터 이전"
+          : "미발동"
+      }`;
+    case "roundEvidence": {
+      const deaths = observation.record.deathBatches?.flatMap(
+        ({ characters }) => characters,
+      ) ?? [];
+      const result = deaths.length === 0
+        ? "사망 없음"
+        : `${deaths.map(characterName).join(", ")} 사망`;
+      return `라운드 종료 · ${result}${
+        observation.record.immediateLoopEnd === undefined
+          ? ""
+          : " · 즉시 루프 종료"
+      }`;
+    }
+    case "mandatoryEffectMissing":
+      return `${characterName(observation.character)} 인과율 불안 증가 없음`;
+    default:
+      return hypothesisObservationLabel(observation);
+  }
+}
+
+function hypothesisObservationOccurrence(
+  observation: ProtagonistObservation,
+): string | undefined {
+  switch (observation.kind) {
+    case "deadAtLoopEndWithoutRoleReveal":
+      return `${observation.loop}루프 종료`;
+    case "lossObserved":
+    case "goodwillForbidApplied":
+    case "sacredTreeMastermindTransferJudged":
+      return `${observation.loop}루프 ${observation.day}일`;
+    case "roundEvidence":
+      return `${observation.loop}루프 ${observation.record.day}일`;
+    case "mandatoryEffectMissing":
+      return `${observation.loop}루프 시작`;
+    default:
+      return undefined;
+  }
+}
+
 function ruleCombinationLabel(
   mainPlot: string,
   subPlots: readonly string[],
@@ -3791,21 +3854,55 @@ function ruleCombinationLabel(
 function renderRuleHypotheses(summary: RuleHypothesisSummary): string {
   const remainingCount = summary.remainingCombinations.length;
   const mainCandidateNames = summary.mainPlotCandidates.map(plotName);
+  type GroupedHypothesisImpact = {
+    label: string;
+    count: number;
+    excludedCount: number;
+    occurrences: string[];
+  };
+  const groupedImpacts = new Map<string, GroupedHypothesisImpact>();
+  for (const { observation, excludedCount } of summary.observationImpacts) {
+    const label = hypothesisObservationGroupLabel(observation);
+    const group = groupedImpacts.get(label) ?? {
+      label,
+      count: 0,
+      excludedCount: 0,
+      occurrences: [],
+    };
+    group.count += 1;
+    group.excludedCount += excludedCount;
+    const occurrence = hypothesisObservationOccurrence(observation);
+    if (occurrence !== undefined && !group.occurrences.includes(occurrence)) {
+      group.occurrences.push(occurrence);
+    }
+    groupedImpacts.set(label, group);
+  }
   const observationRow = ({
-    observation,
+    label,
+    count,
     excludedCount,
-  }: typeof summary.observationImpacts[number]): string => `<li>
-    <span>${escapeHtml(hypothesisObservationLabel(observation))}</span>
+    occurrences,
+  }: GroupedHypothesisImpact): string => `<li>
+    <span>${escapeHtml(label)}${count < 2 ? "" : `
+      <details class="hypothesis-observation-evidence">
+        <summary>관측 ${count}건</summary>
+        ${occurrences.length === 0 ? "" : `<small>${escapeHtml(occurrences.join(", "))}</small>`}
+      </details>`}</span>
     <strong>${excludedCount === 0
       ? "배제 없음"
       : `${excludedCount}개 배제`}</strong>
   </li>`;
-  const impactfulObservations = summary.observationImpacts
+  const groupedObservationImpacts = [...groupedImpacts.values()];
+  const impactfulObservations = groupedObservationImpacts
     .filter(({ excludedCount }) => excludedCount > 0)
     .map(observationRow);
-  const zeroImpactObservations = summary.observationImpacts
-    .filter(({ excludedCount }) => excludedCount === 0)
-    .map(observationRow);
+  const zeroImpactGroups = groupedObservationImpacts
+    .filter(({ excludedCount }) => excludedCount === 0);
+  const zeroImpactObservations = zeroImpactGroups.map(observationRow);
+  const zeroImpactObservationCount = zeroImpactGroups.reduce(
+    (count, group) => count + group.count,
+    0,
+  );
   const remainingList = summary.remainingCombinations.map((combination) => `
     <li>
       <span>${escapeHtml(ruleCombinationLabel(
@@ -3892,7 +3989,7 @@ function renderRuleHypotheses(summary: RuleHypothesisSummary): string {
               )}${renderCollapsedHtmlList(
                 zeroImpactObservations,
                 "hypothesis-observation-list",
-                `배제 없음 ${zeroImpactObservations.length}건`,
+                `배제 없음 ${zeroImpactObservationCount}건`,
               )}`}
         </section>
       </div>
@@ -3962,7 +4059,17 @@ function possibilityStatusLabel(
 function renderRoleInferenceTraces(
   summary: ReturnType<typeof deductionTablesSummary>,
 ): string {
-  const traces: string[] = [];
+  const traces: InferenceTrace[] = [];
+  const addTrace = (
+    conclusion: string,
+    type: string,
+    at: string,
+    fact: string,
+    detail?: string,
+    condition?: string,
+  ): void => {
+    traces.push({ conclusion, condition, reason: { type, at, fact, detail } });
+  };
   const virusPossible = summary.remainingCombinations.some(({ subPlots }) =>
     subPlots.includes("paranoiaVirus")
   );
@@ -3974,36 +4081,44 @@ function renderRoleInferenceTraces(
   for (const observation of summary.observations) {
     if (observation.kind === "sacredTreeMastermindTransferJudged") {
       if (!observation.eligible) continue;
-      traces.push(`<li>
-        <strong>신수 · 우호 무시 계열 ${observation.performed ? "확정" : "배제"}</strong>
-        <span>근거: ${observation.loop}루프 ${observation.day}일 · 발동 조건 충족 · 각본가 강제 이전 ${observation.performed ? "수행" : "없음"}</span>
-        <small>카운터나 동소 생존 대상이 없던 날은 이 배제 근거를 만들지 않습니다.</small>
-      </li>`);
+      addTrace(
+        `신수 · 우호 무시 계열 ${observation.performed ? "확정" : "배제"}`,
+        "신수 강제 이전",
+        `${observation.loop}루프 ${observation.day}일`,
+        `발동 조건 충족 · 각본가 강제 이전 ${observation.performed ? "수행" : "없음"}`,
+        "카운터나 동소 생존 대상이 없던 날은 이 배제 근거를 만들지 않습니다.",
+      );
       continue;
     }
     if (observation.kind === "goodwillForbidApplied") {
       const cell = summary.roleTable.cells[observation.character]
         ?.timeTraveler;
-      traces.push(`<li>
-        <strong>${escapeHtml(characterName(observation.character))} · 불사 배제</strong>
-        <span>근거: ${observation.loop}루프 ${observation.day}일 우호 금지 효과가 실제로 발동</span>
-        <small>→ 시간 여행자 ${possibilityStatusLabel(cell?.status)}</small>
-      </li>`);
+      addTrace(
+        `${characterName(observation.character)} = ${roleName("timeTraveler")} 아님`,
+        "우호 금지 발동",
+        `${observation.loop}루프 ${observation.day}일`,
+        "우호 금지 효과가 실제로 발동",
+        `시간 여행자 ${possibilityStatusLabel(cell?.status)}`,
+      );
       continue;
     }
     if (observation.kind === "mandatoryEffectMissing") {
-      traces.push(`<li>
-        <strong>인과율 후보 배제</strong>
-        <span>근거: ${observation.loop}루프 시작 · ${escapeHtml(characterName(observation.character))}에게 불안 2 증가 없음</span>
-        <small>대상 부재 등 공개 기록으로 발동 여부를 확정할 수 없는 경우에는 이 관측을 만들지 않습니다.</small>
-      </li>`);
+      addTrace(
+        "인과율 후보 배제",
+        "강제 효과 없음",
+        `${observation.loop}루프 시작`,
+        `${characterName(observation.character)}에게 불안 2 증가 없음`,
+        "대상 부재 등 공개 기록으로 발동 여부를 확정할 수 없는 경우에는 이 관측을 만들지 않습니다.",
+      );
       continue;
     }
     if (observation.kind === "deadAtLoopEndWithoutRoleReveal") {
-      traces.push(`<li>
-        <strong>${escapeHtml(characterName(observation.character))} · 친구 배제</strong>
-        <span>근거: ${observation.loop}루프 종료 · 사망했지만 역할 공개 없음</span>
-      </li>`);
+      addTrace(
+        `${characterName(observation.character)} = ${roleName("friend")} 아님`,
+        "루프 종료 공개 없음",
+        `${observation.loop}루프 종료`,
+        "사망했지만 역할 공개 없음",
+      );
       continue;
     }
     if (observation.kind !== "roundEvidence") continue;
@@ -4050,17 +4165,19 @@ function renderRoleInferenceTraces(
       const simultaneous = deaths.length > 1
         ? ` · 동시 사망 ${deaths.length}명`
         : "";
-      traces.push(`<li>
-        <strong>핵심 인물 능력 보유 후보 {${escapeHtml(
-          candidates.join(", ") || "설명 가능한 후보 없음",
-        )}}</strong>
-        <span>근거: ${observation.loop}루프 ${observation.record.day}일 즉시 루프 종료${simultaneous}</span>
-        <small>→ 같은 라운드 사망자 전체를 함께 유지하며 한 명에게 원인을 귀속하지 않습니다.${
+      addTrace(
+        `핵심 인물 능력 보유 후보 {${
+          candidates.join(", ") || "설명 가능한 후보 없음"
+        }}`,
+        "즉시 루프 종료",
+        `${observation.loop}루프 ${observation.record.day}일`,
+        `즉시 루프 종료${simultaneous}`,
+        `같은 라운드 사망자 전체를 함께 유지하며 한 명에게 원인을 귀속하지 않습니다.${
           excluded.length === 0
             ? ""
-            : ` → ${escapeHtml(excluded.map(characterName).join(", "))}: 다른 공개·누적 제약으로 후보에서 제외`
-        }</small>
-      </li>`);
+            : ` ${excluded.map(characterName).join(", ")}: 다른 공개·누적 제약으로 후보에서 제외`
+        }`,
+      );
     }
 
     for (const character of deaths) {
@@ -4068,11 +4185,13 @@ function renderRoleInferenceTraces(
         summary.roleTable.cells[character]?.timeTraveler?.status ===
           "impossible"
       ) {
-        traces.push(`<li>
-          <strong>${escapeHtml(characterName(character))} · 불사 배제</strong>
-          <span>근거: ${observation.loop}루프 ${observation.record.day}일 실제 사망</span>
-          <small>→ 시간 여행자는 사망하지 않으므로 이후 단둘 비발동 제약의 예외가 될 수 없습니다.</small>
-        </li>`);
+        addTrace(
+          `${characterName(character)} = ${roleName("timeTraveler")} 아님`,
+          "실제 사망",
+          `${observation.loop}루프 ${observation.record.day}일`,
+          "실제 사망",
+          "시간 여행자는 사망하지 않으므로 이후 단둘 비발동 제약의 예외가 될 수 없습니다.",
+        );
       }
     }
 
@@ -4088,11 +4207,15 @@ function renderRoleInferenceTraces(
         !reacted.has(character)
       );
       if (silentResponders.length === 0) continue;
-      traces.push(`<li>
-        <strong>연인 강제 반응 제약</strong>
-        <span>근거: ${observation.loop}루프 ${observation.record.day}일 ${escapeHtml(batch.characters.map(characterName).join(", "))} 사망 · ${escapeHtml(silentResponders.map(characterName).join(", "))}에게 불안 6 증가 없음</span>
-        <small>사망 직후 생존자만 판정합니다. 이미 시체이거나 부재였던 캐릭터는 반응 후보에 넣지 않습니다.</small>
-      </li>`);
+      const deadNames = batch.characters.map(characterName).join(", ");
+      const silentNames = silentResponders.map(characterName).join(", ");
+      addTrace(
+        `연인 강제 반응 제약 · ${silentNames} ← ${deadNames}`,
+        "사망 직후 반응 없음",
+        `${observation.loop}루프 ${observation.record.day}일`,
+        `${deadNames} 사망 · ${silentNames}에게 불안 6 증가 없음`,
+        "사망 직후 생존자만 판정합니다. 이미 시체이거나 부재였던 캐릭터는 반응 후보에 넣지 않습니다.",
+      );
     }
 
     const protectedTargets = new Set(observation.protectedAtRoundEnd);
@@ -4105,11 +4228,14 @@ function renderRoleInferenceTraces(
         const targetName = characterName(target);
         if (!p9Deaths.has(target)) {
           if (protectedTargets.has(target)) {
-            traces.push(`<li>
-              <strong>${escapeHtml(actorName)} · 연쇄 살인마 판정 보류</strong>
-              <span>근거: ${observation.loop}루프 ${observation.record.day}일 ${escapeHtml(locationName(pair.location))} 단둘 · ${escapeHtml(targetName)} 사망 없음</span>
-              <small>보호 카운터가 소비되어 강제 사망의 부재를 역할 배제에 쓰지 않습니다.</small>
-            </li>`);
+            addTrace(
+              `${actorName} · 연쇄 살인마 판정 보류`,
+              "단둘 비사망",
+              `${observation.loop}루프 ${observation.record.day}일`,
+              `${locationName(pair.location)}에서 ${targetName}와 단둘 · 사망 없음`,
+              "보호 카운터가 소비되어 강제 사망의 부재를 역할 배제에 쓰지 않습니다.",
+              `${targetName}에게 보호 카운터가 있었음`,
+            );
             continue;
           }
           const partners = noDeathPartners.get(actor) ?? new Set<CharacterId>();
@@ -4124,15 +4250,14 @@ function renderRoleInferenceTraces(
           const mutation = virusPossible && (pair.paranoia[actorIndex] ?? 0) >= 3
             ? ` · ${actorName} 불안 3+: 엑스트라+망상 확대 바이러스 변이도 같은 조건`
             : "";
-          traces.push(`<li>
-            <strong>${escapeHtml(actorName)} · 연쇄 살인마 능력 보유 ${
-              immortalPossible
-                ? `아님 <em>(단, ${escapeHtml(targetName)}가 불사가 아닐 때)</em>`
-                : "배제"
-            }</strong>
-            <span>근거: ${observation.loop}루프 ${observation.record.day}일 ${escapeHtml(locationName(pair.location))} 단둘 · 사망 없음${escapeHtml(mutation)}</span>
-            <small>현재: ${escapeHtml(actorName)} 연쇄 살인마 ${possibilityStatusLabel(serialStatus)} · ${escapeHtml(targetName)} 시간 여행자 ${possibilityStatusLabel(immortalStatus)}</small>
-          </li>`);
+          addTrace(
+            `${actorName} = ${roleName("serialKiller")} 아님`,
+            "단둘 비사망",
+            `${observation.loop}루프 ${observation.record.day}일`,
+            `${locationName(pair.location)}에서 ${targetName}와 단둘 · 사망 없음${mutation}`,
+            `현재: ${actorName} 연쇄 살인마 ${possibilityStatusLabel(serialStatus)} · ${targetName} 시간 여행자 ${possibilityStatusLabel(immortalStatus)}`,
+            immortalPossible ? `${targetName}가 불사가 아닐 때` : undefined,
+          );
           continue;
         }
 
@@ -4148,11 +4273,13 @@ function renderRoleInferenceTraces(
         ].filter((alternative): alternative is string =>
           alternative !== undefined
         );
-        traces.push(`<li>
-          <strong>${escapeHtml(actorName)}–${escapeHtml(targetName)} 사망 원인 분기</strong>
-          <span>근거: ${observation.loop}루프 ${observation.record.day}일 단둘 · ${escapeHtml(targetName)} 사망</span>
-          <small>후보: ${escapeHtml(alternatives.join(" / "))}</small>
-        </li>`);
+        addTrace(
+          `${actorName}–${targetName} 사망 원인 분기`,
+          "단둘 사망",
+          `${observation.loop}루프 ${observation.record.day}일`,
+          `단둘 · ${targetName} 사망`,
+          `후보: ${alternatives.join(" / ")}`,
+        );
       }
     }
 
@@ -4162,28 +4289,69 @@ function renderRoleInferenceTraces(
       observation.record.immediateLoopEnd === undefined
     ) {
       for (const character of deaths) {
-        traces.push(`<li>
-          <strong>${escapeHtml(characterName(character))} · 핵심 인물 능력 보유 배제</strong>
-          <span>근거: ${observation.loop}루프 ${observation.record.day}일 사망 뒤에도 즉시 루프 종료 없음</span>
-          <small>핵심 인물 ${possibilityStatusLabel(summary.roleTable.cells[character]?.keyPerson?.status)}</small>
-        </li>`);
+        addTrace(
+          `${characterName(character)} = ${roleName("keyPerson")} 아님`,
+          "즉시 종료 없음",
+          `${observation.loop}루프 ${observation.record.day}일`,
+          "사망 뒤에도 즉시 루프 종료 없음",
+          `핵심 인물 ${possibilityStatusLabel(summary.roleTable.cells[character]?.keyPerson?.status)}`,
+        );
       }
     }
   }
 
   for (const [actor, partners] of noDeathPartners) {
     if (partners.size <= immortalMaximum) continue;
-    traces.push(`<li>
-      <strong>${escapeHtml(characterName(actor))} · 연쇄 살인마 능력 보유 배제</strong>
-      <span>서로 다른 단둘 상대 ${partners.size}명 · 가능한 불사 최대 ${immortalMaximum}명</span>
-      <small>→ 모든 상대가 불사일 수 없으므로 조건부 제약이 확정 배제로 승격됩니다.</small>
-    </li>`);
+    addTrace(
+      `${characterName(actor)} = ${roleName("serialKiller")} 아님`,
+      "누적 단둘 비사망",
+      "누적",
+      `서로 다른 단둘 상대 ${partners.size}명 · 가능한 불사 최대 ${immortalMaximum}명`,
+      "모든 상대가 불사일 수 없으므로 조건부 제약이 확정 배제로 승격됩니다.",
+    );
   }
 
   if (traces.length === 0) return "";
-  return `<section class="role-inference-traces" aria-label="역할 추론 과정">
-    <h3>추론 과정 ${traces.length}건</h3>
-    ${renderBoundedHtmlList(traces, "role-inference-list", "추가 추론")}
+  const groups = groupInferenceTraces(traces);
+  const rows = groups.map((group) => {
+    const reasonTypes = group.reasonTypes.map((reasonType) => `<section>
+      <strong>${escapeHtml(reasonType.type)}</strong>
+      ${reasonType.facts.map((fact) => `<p>${
+        fact.occurrences.length === 0
+          ? ""
+          : `${escapeHtml(fact.occurrences.join(", "))} · `
+      }${escapeHtml(fact.fact)}</p>`).join("")}
+    </section>`).join("");
+    const details = group.reasons.map(({ type, at, fact, detail }) => `<li>
+      <span>${escapeHtml(at)} · ${escapeHtml(type)} · ${escapeHtml(fact)}</span>
+      ${detail === undefined ? "" : `<small>${escapeHtml(detail)}</small>`}
+    </li>`);
+    return `<li class="role-inference-group">
+      <details class="role-inference-trace">
+        <summary>
+          <span><strong>${escapeHtml(group.conclusion)}</strong>${
+            group.condition === undefined
+              ? ""
+              : `<small>(단, ${escapeHtml(group.condition)})</small>`
+          }</span>
+          <b>근거 ${group.reasons.length}건</b>
+        </summary>
+        <div class="role-inference-summary">${reasonTypes}</div>
+        ${group.reasons.length < 2
+          ? group.reasons[0]?.detail === undefined
+            ? ""
+            : `<small class="role-inference-single-detail">${escapeHtml(group.reasons[0].detail)}</small>`
+          : `<details class="role-inference-evidence">
+            <summary>근거 ${group.reasons.length}건 자세히</summary>
+            <ul>${details.join("")}</ul>
+          </details>`}
+      </details>
+    </li>`;
+  });
+  return `<section class="role-inference-traces" aria-label="역할 추론 과정"
+      data-conclusion-count="${groups.length}" data-reason-count="${traces.length}">
+    <h3>추론 결론 ${groups.length}건 · 근거 ${traces.length}건</h3>
+    ${renderBoundedHtmlList(rows, "role-inference-list", "추가 결론")}
   </section>`;
 }
 
@@ -4214,9 +4382,11 @@ function renderDeductionTables(
       ${summary.roleTable.roles.map((role) => {
         const cell = summary.roleTable.cells[character]?.[role];
         const status = cell?.status ?? "impossible";
-        const reasons = cell?.reasons.map(({ code }) =>
-          roleCellReasonLabel(code)
-        ).join(" · ") || "가능";
+        const reasons = cell === undefined
+          ? "가능"
+          : [...new Set(cell.reasons.map(({ code }) =>
+            roleCellReasonLabel(code)
+          ))].join(" · ") || "가능";
         const label = `${characterName(character)} · ${roleName(role)} · ${
           status === "confirmed" ? "확정" : status === "impossible" ? "불가능" : "가능"
         } · ${reasons}`;
@@ -4249,9 +4419,11 @@ function renderDeductionTables(
       ${summary.incidentTable.columns.map((column) => {
         const cell = summary.incidentTable.cells[character]?.[column.id];
         const status = cell?.status ?? "impossible";
-        const reasons = cell?.reasons.map(({ code }) =>
-          incidentCellReasonLabel(code)
-        ).join(" · ") || "가능";
+        const reasons = cell === undefined
+          ? "가능"
+          : [...new Set(cell.reasons.map(({ code }) =>
+            incidentCellReasonLabel(code)
+          ))].join(" · ") || "가능";
         const label = `${characterName(character)} · ${column.day}일 ${incidentName(column.incident)} · ${
           status === "confirmed" ? "확정" : status === "impossible" ? "불가능" : "가능"
         } · ${reasons}`;

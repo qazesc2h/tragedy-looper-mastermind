@@ -1221,9 +1221,10 @@
           !firstStepsReport.summary.includes("9 → 9") ||
           firstStepsReport.combinationCount !== 9 ||
           firstStepsReport.hasNestedList ||
-          firstStepsReport.impactCount !== 12 ||
+          firstStepsReport.impactCount !== 1 ||
           !firstStepsReport.zeroImpactClosed ||
           !firstStepsReport.zeroImpactSummary.includes("배제 없음 12건") ||
+          !firstStepsReport.text.includes("관측 12건") ||
           firstStepsReport.zeroImpactToggle !== "펼치기" ||
           firstStepsReport.zeroImpactSummaryHeight < 44 ||
           firstStepsReport.horizontal.scrollWidth > WIDTH
@@ -1577,6 +1578,111 @@
           report.horizontal.scrollWidth > WIDTH
         ) {
           failures.push(`역할·범인 추리표: ${JSON.stringify(report)}`);
+        }
+      }
+
+      async function inspectGroupedInferenceHeight() {
+        mutateActiveState((state) => {
+          state.scenario.loops = 5;
+          state.scenario.daysPerLoop = 5;
+          state.gamePhase = "GAME_OVER";
+          state.result = { winner: "protagonists", reason: "loopVictory" };
+          const loops = Array.from({ length: 5 }, (_, loopIndex) => {
+            const loop = JSON.parse(JSON.stringify(state.loop));
+            loop.loop = loopIndex + 1;
+            loop.day = 5;
+            loop.phase = "P9_ROUND_END";
+            loop.phaseLog = [];
+            loop.publicInformationThisLoop = [];
+            loop.revealedRoleCharacters = [];
+            loop.roundEvidence = Array.from({ length: 5 }, (_, dayIndex) => ({
+              day: dayIndex + 1,
+              roundEndPairs: [{
+                location: "Hospital",
+                characters: ["policeOfficer", "shrineMaiden"],
+                paranoia: [0, 0],
+                intrigue: [0, 0],
+              }],
+            }));
+            return loop;
+          });
+          state.history = loops.slice(0, 4);
+          state.loop = loops[4];
+          state.loopOutcomes = loops.map((loop) => ({
+            loop: loop.loop,
+            day: 5,
+            reason: "lastDay",
+            result: "protagonistsWon",
+            losses: [],
+          }));
+        });
+        await reloadApp("grouped-inference-5x5", ".game-flow-screen");
+        const document = frameDocument();
+        const rolePanel = document.querySelector(".role-deduction-information");
+        const traces = rolePanel?.querySelector(".role-inference-traces");
+        if (
+          !(rolePanel instanceof frameWindow().HTMLDetailsElement) ||
+          !(traces instanceof frameWindow().HTMLElement)
+        ) {
+          throw new Error("5루프 5일 역할 추론 목록을 찾을 수 없습니다.");
+        }
+        for (const detail of document.querySelectorAll("details")) {
+          if (detail.contains(rolePanel)) detail.open = true;
+        }
+        rolePanel.scrollIntoView({ block: "start" });
+        await pause(100);
+        const groupedHeight = traces.getBoundingClientRect().height;
+        const conclusionCount = Number(traces.dataset.conclusionCount);
+        const reasonCount = Number(traces.dataset.reasonCount);
+        const traceDetails = [...traces.querySelectorAll(
+          ".role-inference-trace",
+        )];
+        for (const detail of traceDetails) detail.open = true;
+        for (const detail of traces.querySelectorAll(
+          ".role-inference-evidence",
+        )) detail.open = true;
+        await pause(100);
+        const allEvidenceExpandedHeight = traces.getBoundingClientRect().height;
+        const savedHeight = allEvidenceExpandedHeight - groupedHeight;
+        const report = {
+          scenario: "5루프 × 5일",
+          conclusionCount,
+          reasonCount,
+          groupedHeight: Math.round(groupedHeight),
+          allEvidenceExpandedHeight: Math.round(allEvidenceExpandedHeight),
+          savedHeight: Math.round(savedHeight),
+          reductionPercent: Math.round(
+            savedHeight / allEvidenceExpandedHeight * 100,
+          ),
+          summaries: traceDetails.map((detail) =>
+            detail.querySelector(":scope > summary")?.textContent
+              .replace(/\s+/g, " ").trim() ?? ""
+          ),
+          horizontal: horizontalOverflow(),
+        };
+        reports.push({ label: "5×5 역할 추론 묶음 높이", ...report });
+        mutateActiveState((state) => {
+          state.gamePhase = "ROUND";
+          delete state.result;
+          state.history = [];
+          state.loopOutcomes = [];
+          state.loop.loop = 1;
+          state.loop.day = 1;
+          state.loop.phase = "P1_ROUND_START";
+          state.loop.roundEvidence = [];
+        });
+        await reloadApp("grouped-inference-cleanup");
+        if (
+          reasonCount < 25 ||
+          conclusionCount >= reasonCount ||
+          !report.summaries.every((summary) =>
+            summary.includes("근거 25건") && summary.includes("단,")
+          ) ||
+          groupedHeight >= allEvidenceExpandedHeight ||
+          savedHeight < 500 ||
+          report.horizontal.scrollWidth > WIDTH
+        ) {
+          failures.push(`5×5 역할 추론 묶음 높이: ${JSON.stringify(report)}`);
         }
       }
 
@@ -2298,6 +2404,7 @@
         await inspectServantSplitMovementChoice();
         await inspectRuleHypothesisPanels();
         await inspectDeductionTables();
+        await inspectGroupedInferenceHeight();
         await inspectScenarioRoleFacts();
         await inspectLoopPreparationInformation();
         await inspectArchivedInformationAndAiSchedule();
