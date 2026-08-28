@@ -1342,44 +1342,18 @@
         const dockPrimary = frameDocument().querySelector(
           ".dock-primary[data-action='reveal-cards']",
         );
-        assert(dockPrimary?.disabled, "메이드 선택 전 P4 공개 버튼이 활성화됨");
+        assert(!dockPrimary?.disabled, "주인 한 명 이동에 불필요한 선택을 요구함");
         assert(
-          frameDocument().querySelector(".phase-dock-status")?.textContent
-            .includes("메이드 동행 여부 선택 필요"),
-          "닫힌 P4 조작 독에 비활성 사유가 표시되지 않음",
+          !frameDocument().querySelector(".phase-dock-status")?.textContent
+            .includes("메이드 이동 방향 선택 필요"),
+          "주인 한 명 이동을 분기 선택으로 표시함",
         );
-        await openOperationSheet("메이드 동행 선택 패널");
-
-        const selector = await waitFor(
-          () => frameDocument().querySelector(
+        await openOperationSheet("메이드 강제 동행 패널");
+        assert(
+          !frameDocument().querySelector(
             "[data-action='servant-movement-choice']",
           ),
-          "메이드 동행 선택",
-        );
-        const primaryBefore = frameDocument().querySelector(
-          ".dock-primary[data-action='reveal-cards']",
-        );
-        assert(primaryBefore?.disabled, "동행 선택 전 카드 해결 버튼이 활성화됨");
-        assert(
-          frameDocument().querySelector(".hook-activation-summary")?.textContent
-            .includes("메이드 동행 선택 후"),
-          "광신도 미리보기가 메이드 선택 전 계산을 보류하지 않음",
-        );
-        assert(
-          Array.from(selector.options).some((option) =>
-            option.value === "richStudent" &&
-            option.textContent.includes("재벌가 손녀") &&
-            option.textContent.includes("도심")
-          ),
-          `재벌가 손녀 동행 선택지: ${selector.textContent}`,
-        );
-
-        changeSelect("[data-action='servant-movement-choice']", "richStudent");
-        await waitFor(
-          () => !frameDocument().querySelector(
-            ".dock-primary[data-action='reveal-cards']",
-          )?.disabled,
-          "메이드 동행 선택 확정",
+          "주인 한 명 이동에 메이드 선택 UI가 표시됨",
         );
         click(".dock-primary[data-action='reveal-cards']");
         await waitFor(
@@ -1412,7 +1386,115 @@
           "카운터 0인 신수가 P4 진행을 막음",
         );
         reports.push({
-          servant: "Naughty Cat P4 opened; Leader choice shown; Cultist preview waited",
+          servantForced: "single owner followed automatically; own Forbid Movement ignored",
+        });
+
+        const splitStorage = frameWindow().localStorage;
+        const splitTracker = JSON.parse(splitStorage.getItem(storageKey));
+        const split = splitTracker.games[scenarioId].state;
+        split.scenario.cast.boss = "person";
+        split.loop.board.richStudent = { status: "alive", at: "School" };
+        split.loop.board.boss = { status: "alive", at: "School" };
+        split.loop.board.servant = { status: "alive", at: "School" };
+        split.loop.charCounters.boss = {
+          goodwill: 0,
+          paranoia: 0,
+          intrigue: 0,
+          protection: 0,
+        };
+        split.loop.phase = "P4_RESOLVE";
+        split.loop.actionResolutionComplete = false;
+        delete split.loop.servantMovementChoice;
+        split.loop.placed = [
+          {
+            owner: "mastermind",
+            card: "moveHorizontal",
+            target: { kind: "character", id: "richStudent" },
+          },
+          {
+            owner: "mastermind",
+            card: "moveVertical",
+            target: { kind: "character", id: "boss" },
+          },
+          {
+            owner: "mastermind",
+            card: "paranoiaPlus1",
+            target: { kind: "character", id: "popIdol" },
+          },
+          {
+            owner: 0,
+            card: "goodwillPlus1",
+            target: { kind: "character", id: "informer" },
+          },
+          {
+            owner: 1,
+            card: "forbidParanoia",
+            target: { kind: "character", id: "blackCat" },
+          },
+          {
+            owner: 2,
+            card: "moveDiagonal",
+            target: { kind: "character", id: "servant" },
+          },
+        ];
+        splitStorage.setItem(storageKey, JSON.stringify(splitTracker));
+        await reloadFrame("servant-split-destinations");
+        assert(
+          frameDocument().querySelector(".phase-dock-status")?.textContent
+            .includes("메이드 이동 방향 선택 필요"),
+          "서로 다른 목적지에서 선택 필요 사유가 표시되지 않음",
+        );
+        await openOperationSheet("메이드 분기 이동 선택 패널");
+        const selector = await waitFor(
+          () => frameDocument().querySelector(
+            "[data-action='servant-movement-choice']",
+          ),
+          "메이드 분기 이동 선택",
+        );
+        assert(
+          !Array.from(selector.options).some((option) =>
+            option.value === "decline"
+          ),
+          `메이드 거부 선택지가 남음: ${selector.textContent}`,
+        );
+        assert(
+          Array.from(selector.options).some((option) =>
+            option.value === "richStudent" && option.textContent.includes("도심")
+          ) && Array.from(selector.options).some((option) =>
+            option.value === "boss" && option.textContent.includes("신사")
+          ),
+          `메이드 분기 선택지: ${selector.textContent}`,
+        );
+        assert(
+          frameDocument().querySelector(".hook-activation-summary")?.textContent
+            .includes("메이드 동행 선택 후"),
+          "분기 선택 전 광신도 미리보기가 계산을 보류하지 않음",
+        );
+        changeSelect("[data-action='servant-movement-choice']", "boss");
+        await waitFor(
+          () => !frameDocument().querySelector(
+            ".dock-primary[data-action='reveal-cards']",
+          )?.disabled,
+          "메이드 분기 이동 선택 확정",
+        );
+        click(".dock-primary[data-action='reveal-cards']");
+        await waitFor(
+          () => storedState(scenarioId).loop.actionResolutionComplete,
+          "메이드 분기 이동 해결",
+        );
+        const splitApplied = storedState(scenarioId);
+        assert(
+          splitApplied.loop.board.richStudent.at === "City" &&
+            splitApplied.loop.board.boss.at === "Shrine" &&
+            splitApplied.loop.board.servant.at === "Shrine",
+          `메이드 분기 이동 결과: ${JSON.stringify({
+            richStudent: splitApplied.loop.board.richStudent,
+            boss: splitApplied.loop.board.boss,
+            servant: splitApplied.loop.board.servant,
+          })}`,
+        );
+        reports.push({
+          servantSplit: "different destinations required Leader choice; no decline option",
         });
       }
 

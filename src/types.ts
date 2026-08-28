@@ -571,8 +571,8 @@ export interface LoopState {
   /** 메이드 [우호4]로 이번 루프 동안 추가로 섬기는 캐릭터. */
   servantAdditionalServedCharacters: CharacterId[];
 
-  /** P4 공개 전에 리더가 고른 메이드 동행 대상 또는 동행하지 않음. */
-  servantMovementChoice?: CharacterId | "decline";
+  /** 서로 다른 동행 목적지가 둘 이상일 때 P4 공개 전에 리더가 고른 주인. */
+  servantMovementChoice?: CharacterId;
 
   /** 이번 라운드에 놓인 카드 (P4에서 소비) */
   placed: PlacedCard[];

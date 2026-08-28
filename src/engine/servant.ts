@@ -6,9 +6,10 @@ import {
 } from "../types";
 
 export const SERVANT_TRAIT_SOURCE =
-  "The :servant: serves the :richStudent: and the :boss:. If one of them " +
-  "moves and she shares the location, the Leader moves her with one of them " +
-  "ignoring her own movement. If any onf them dies at her location, she dies " +
+  "If the :richStudent: or :boss: would move from this character's location, " +
+  "she moves with that character, ignoring her original movement if needed. " +
+  "(If this could move her in multiple ways, the Leader decides which.) If " +
+  "the :richStudent: or :boss: is at her location and would die, she dies " +
   "instead.";
 
 const BASE_SERVED_CHARACTERS: readonly CharacterId[] = [

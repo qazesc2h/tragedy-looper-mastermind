@@ -104,6 +104,7 @@ import {
   PROTAGONIST_ONCE_PER_LOOP,
   currentServantFollowOptions,
   resolveMovement,
+  servantMovementChoiceRequired,
   setServantMovementChoice,
 } from "../engine/resolve";
 import { INCIDENT_IMPL } from "../impl/incidents";
@@ -2583,24 +2584,22 @@ function renderPhaseControls(state: GameState): string {
 }
 
 function servantMovementChoiceMissing(state: GameState): boolean {
-  return currentServantFollowOptions(state).length > 0 &&
-    state.loop.servantMovementChoice === undefined;
+  return servantMovementChoiceRequired(state);
 }
 
 function renderServantMovementChoice(state: GameState): string {
   const options = currentServantFollowOptions(state);
-  if (options.length === 0) return "";
+  if (options.length <= 1) return "";
   const choice = state.loop.servantMovementChoice ?? "";
   return `<article class="hook-card servant-movement-choice">
     <div>
       <span>리더 선택 · 메이드 특성</span>
-      <strong>이동할 주인을 따라갈지 선택합니다. 동행하면 메이드 자신의 이동과 이동 금지는 모두 무시됩니다.</strong>
+      <strong>주인들의 목적지가 갈립니다. 메이드가 어느 이동을 따를지 선택합니다.</strong>
     </div>
     <label>
       <span>동행 대상</span>
       <select data-action="servant-movement-choice">
         <option value="" ${choice === "" ? "selected" : ""}>선택 필요</option>
-        <option value="decline" ${choice === "decline" ? "selected" : ""}>동행하지 않음 · 자신의 이동 해결</option>
         ${options.map(({ character, to }) => `<option value="${escapeHtml(character)}"
           ${choice === character ? "selected" : ""}>${escapeHtml(characterName(character))} → ${escapeHtml(locationName(to))}</option>`).join("")}
       </select>
@@ -2773,7 +2772,7 @@ function dockProgress(state: GameState): string {
         return `배치 카드 ${state.loop.placed.length}/6`;
       }
       if (servantMovementChoiceMissing(state)) {
-        return "메이드 동행 여부 선택 필요";
+        return "메이드 이동 방향 선택 필요";
       }
     } else if (sacredTreeLeaderChoiceRequired(state)) {
       return "신수 카운터 이전 선택 필요";
@@ -5065,7 +5064,7 @@ function revealActionCards(): void {
     return;
   }
   if (servantMovementChoiceMissing(state)) {
-    notice = "리더가 메이드의 동행 여부를 선택해야 합니다.";
+    notice = "리더가 메이드가 따를 이동을 선택해야 합니다.";
     render();
     return;
   }

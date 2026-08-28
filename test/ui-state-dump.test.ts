@@ -137,8 +137,10 @@ describe("current state dump", () => {
 
     state.scenario.cast.servant = "person";
     state.scenario.cast.richStudent = "person";
+    state.scenario.cast.boss = "person";
     state.loop.board.servant = { status: "alive", at: "School" };
     state.loop.board.richStudent = { status: "alive", at: "School" };
+    state.loop.board.boss = { status: "alive", at: "School" };
     state.loop.charCounters.servant = {
       goodwill: 0,
       paranoia: 0,
@@ -146,6 +148,12 @@ describe("current state dump", () => {
       protection: 0,
     };
     state.loop.charCounters.richStudent = {
+      goodwill: 0,
+      paranoia: 0,
+      intrigue: 0,
+      protection: 0,
+    };
+    state.loop.charCounters.boss = {
       goodwill: 0,
       paranoia: 0,
       intrigue: 0,
@@ -160,7 +168,7 @@ describe("current state dump", () => {
       {
         owner: "mastermind",
         card: "moveVertical",
-        target: { kind: "location", at: "Hospital" },
+        target: { kind: "character", id: "boss" },
       },
       {
         owner: "mastermind",
@@ -187,7 +195,7 @@ describe("current state dump", () => {
       phase: "P4_RESOLVE",
       status: "blocked",
       canProgress: false,
-      reasons: ["메이드 동행 여부 선택 필요"],
+      reasons: ["메이드 이동 방향 선택 필요"],
     });
   });
 });

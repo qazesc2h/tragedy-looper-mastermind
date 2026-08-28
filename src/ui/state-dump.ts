@@ -12,7 +12,7 @@ import {
   sacredTreeLeaderChoiceRequired,
   sacredTreeMastermindChoiceRequired,
 } from "../engine/sacred-tree";
-import { currentServantFollowOptions } from "../engine/resolve";
+import { servantMovementChoiceRequired } from "../engine/resolve";
 import { nextProtagonist, placementsForOwner } from "./action-cards";
 
 export interface PhaseProgressDiagnostic {
@@ -79,11 +79,8 @@ function currentPhaseBlockers(state: GameState): string[] {
       if (state.loop.placed.length !== 6) {
         reasons.push(`배치 카드 6장 필요 (현재 ${state.loop.placed.length}장)`);
       }
-      if (
-        currentServantFollowOptions(state).length > 0 &&
-        state.loop.servantMovementChoice === undefined
-      ) {
-        reasons.push("메이드 동행 여부 선택 필요");
+      if (servantMovementChoiceRequired(state)) {
+        reasons.push("메이드 이동 방향 선택 필요");
       }
       return reasons;
     }

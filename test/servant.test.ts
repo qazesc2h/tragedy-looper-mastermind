@@ -70,16 +70,17 @@ function place(
 }
 
 describe("servant forced accompanying movement", () => {
-  it("requires the Leader to choose whether to follow a moving owner", () => {
+  it("automatically follows a single moving owner", () => {
     const state = servantState();
     state.loop.placed = [place("mastermind", "moveHorizontal", "richStudent")];
 
     expect(currentServantFollowOptions(state)).toEqual([
       { character: "richStudent", to: "School" },
     ]);
-    expect(() => resolveActions(state)).toThrow(
-      "servant movement choice is required",
-    );
+    resolveActions(state);
+
+    expect(boardLocation(state.loop, "richStudent")).toBe("School");
+    expect(boardLocation(state.loop, "servant")).toBe("School");
   });
 
   it("FAQ Q25: ignores the Servant's movement and Forbid Movement when following", () => {
@@ -88,8 +89,6 @@ describe("servant forced accompanying movement", () => {
       place("mastermind", "moveHorizontal", "richStudent"),
       place(1, "forbidMove", "servant"),
     ];
-    setServantMovementChoice(state, "richStudent");
-
     resolveActions(state);
 
     expect(boardLocation(state.loop, "richStudent")).toBe("School");
@@ -103,8 +102,6 @@ describe("servant forced accompanying movement", () => {
       place("mastermind", "moveHorizontal", "richStudent"),
       place(0, "moveVertical", "servant"),
     ];
-    setServantMovementChoice(state, "richStudent");
-
     resolveActions(state);
 
     expect(boardLocation(state.loop, "richStudent")).toBe("School");
@@ -131,17 +128,87 @@ describe("servant forced accompanying movement", () => {
     expect(boardLocation(state.loop, "servant")).toBe("Hospital");
   });
 
-  it("resolves the Servant's own movement when the Leader declines", () => {
+  it("automatically follows when multiple owners have the same destination", () => {
     const state = servantState();
     state.loop.placed = [
       place("mastermind", "moveHorizontal", "richStudent"),
-      place(0, "moveVertical", "servant"),
+      place(0, "moveHorizontal", "boss"),
+      place(1, "moveDiagonal", "servant"),
     ];
-    setServantMovementChoice(state, "decline");
 
+    expect(currentServantFollowOptions(state)).toEqual([
+      { character: "richStudent", to: "School" },
+    ]);
     resolveActions(state);
 
     expect(boardLocation(state.loop, "richStudent")).toBe("School");
+    expect(boardLocation(state.loop, "boss")).toBe("School");
+    expect(boardLocation(state.loop, "servant")).toBe("School");
+  });
+
+  it("resolves the Servant's own movement when no owner moves", () => {
+    const state = servantState();
+    state.loop.placed = [
+      place(0, "moveVertical", "servant"),
+    ];
+
+    resolveActions(state);
+
+    expect(boardLocation(state.loop, "richStudent")).toBe("City");
+    expect(boardLocation(state.loop, "servant")).toBe("Hospital");
+  });
+
+  it("does not follow an owner whose movement is forbidden", () => {
+    const state = servantState();
+    state.loop.placed = [
+      place("mastermind", "moveHorizontal", "richStudent"),
+      place(1, "forbidMove", "richStudent"),
+      place(0, "moveVertical", "servant"),
+    ];
+
+    expect(currentServantFollowOptions(state)).toEqual([]);
+    resolveActions(state);
+
+    expect(boardLocation(state.loop, "richStudent")).toBe("City");
+    expect(boardLocation(state.loop, "servant")).toBe("Hospital");
+  });
+
+  it("does not follow an added owner whose destination is forbidden", () => {
+    const state = servantState({
+      servant: "person",
+      richStudent: "person",
+      boss: "person",
+      officeWorker: "person",
+    });
+    state.loop.servantAdditionalServedCharacters.push("officeWorker");
+    state.loop.placed = [
+      place("mastermind", "moveHorizontal", "officeWorker"),
+      place(0, "moveVertical", "servant"),
+    ];
+
+    expect(currentServantFollowOptions(state)).toEqual([]);
+    resolveActions(state);
+
+    expect(boardLocation(state.loop, "officeWorker")).toBe("City");
+    expect(boardLocation(state.loop, "servant")).toBe("Hospital");
+  });
+
+  it("lets the Leader choose between split destinations with three served owners", () => {
+    const state = servantState();
+    state.loop.servantAdditionalServedCharacters.push("girlStudent");
+    state.loop.placed = [
+      place("mastermind", "moveHorizontal", "richStudent"),
+      place(0, "moveHorizontal", "boss"),
+      place(1, "moveVertical", "girlStudent"),
+    ];
+
+    expect(currentServantFollowOptions(state)).toEqual([
+      { character: "richStudent", to: "School" },
+      { character: "girlStudent", to: "Hospital" },
+    ]);
+    setServantMovementChoice(state, "girlStudent");
+    resolveActions(state);
+
     expect(boardLocation(state.loop, "servant")).toBe("Hospital");
   });
 });
@@ -316,7 +383,6 @@ describe("servant rank 4 goodwill", () => {
     expect(currentServantFollowOptions(state)).toEqual([
       { character: "girlStudent", to: "Shrine" },
     ]);
-    setServantMovementChoice(state, "girlStudent");
     resolveActions(state);
     expect(boardLocation(state.loop, "servant")).toBe("Shrine");
   });

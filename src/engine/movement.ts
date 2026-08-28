@@ -77,6 +77,17 @@ interface MovementPlan {
   servantFollowOptions: ServantFollowOption[];
 }
 
+function distinctServantDestinations(
+  options: readonly ServantFollowOption[],
+): ServantFollowOption[] {
+  const seen = new Set<Location>();
+  return options.filter(({ to }) => {
+    if (seen.has(to)) return false;
+    seen.add(to);
+    return true;
+  });
+}
+
 /**
  * 해결 순서가 중요하다.
  *   ① 겹침 합성 → ② 이동 금지 검사 → ③ 금지 장소 검사
@@ -143,24 +154,26 @@ function movementPlan(
   const servantFollowOptions = servantPosition === undefined ||
       !isCharacterAlive(servantPosition)
     ? []
-    : servantServedCharacters(state).flatMap((character) => {
-      const position = state.loop.board[character];
-      const result = results.get(character);
-      if (
-        !isCharacterAlive(position) ||
-        result?.moved !== true ||
-        characterLocation(position, character) !==
-          characterLocation(servantPosition, "servant")
-      ) {
-        return [];
-      }
-      return [{ character, to: result.to }];
-    });
+    : distinctServantDestinations(
+      servantServedCharacters(state).flatMap((character) => {
+        const position = state.loop.board[character];
+        const result = results.get(character);
+        if (
+          !isCharacterAlive(position) ||
+          result?.moved !== true ||
+          characterLocation(position, character) !==
+            characterLocation(servantPosition, "servant")
+        ) {
+          return [];
+        }
+        return [{ character, to: result.to }];
+      }),
+    );
 
   return { results, servantFollowOptions };
 }
 
-/** 카드 해결 전 리더에게 보여 줄 실제 이동 가능한 주인 목록. */
+/** 카드 해결 전 메이드가 따라갈 수 있는 서로 다른 목적지 목록. */
 export function servantFollowOptions(
   state: GameState,
   placed: readonly PlacedCard[],
@@ -169,8 +182,9 @@ export function servantFollowOptions(
 }
 
 /**
- * 일반 이동을 모두 먼저 판정한 뒤 메이드 동행 선택을 적용한다.
+ * 일반 이동을 모두 먼저 판정한 뒤 메이드의 강제 동행을 적용한다.
  * 동행 시 메이드 자신의 이동 카드·이동 금지·금지 장소를 모두 무시한다.
+ * 서로 다른 목적지가 둘 이상일 때만 리더가 목적지를 고른다.
  */
 export function resolveMovementPlan(
   state: GameState,
@@ -178,11 +192,16 @@ export function resolveMovementPlan(
 ): void {
   const plan = movementPlan(state, placed);
   const choice = state.loop.servantMovementChoice;
-  if (plan.servantFollowOptions.length > 0 && choice === undefined) {
+  if (plan.servantFollowOptions.length > 1 && choice === undefined) {
     throw new Error("servant movement choice is required");
   }
 
-  if (choice !== undefined && choice !== "decline") {
+  if (plan.servantFollowOptions.length === 1) {
+    const [forced] = plan.servantFollowOptions;
+    if (forced !== undefined) {
+      plan.results.set("servant", { to: forced.to, moved: true });
+    }
+  } else if (plan.servantFollowOptions.length > 1) {
     const selected = plan.servantFollowOptions.find(
       ({ character }) => character === choice,
     );

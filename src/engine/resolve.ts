@@ -84,10 +84,18 @@ export function currentServantFollowOptions(
   );
 }
 
-/** P4 공개 전에 리더의 메이드 동행 선택을 검증해 저장한다. */
+/** 서로 다른 동행 목적지가 둘 이상이고 아직 유효한 선택이 없는가. */
+export function servantMovementChoiceRequired(state: GameState): boolean {
+  const options = currentServantFollowOptions(state);
+  return options.length > 1 && !options.some(
+    ({ character }) => character === state.loop.servantMovementChoice,
+  );
+}
+
+/** P4 공개 전에 복수 목적지 중 리더의 메이드 동행 선택을 검증해 저장한다. */
 export function setServantMovementChoice(
   state: GameState,
-  choice: CharacterId | "decline" | undefined,
+  choice: CharacterId | undefined,
 ): void {
   if (state.loop.phase !== "P4_RESOLVE" || state.loop.actionResolutionComplete) {
     throw new Error("servant movement choice can only change before P4 resolve");
@@ -96,12 +104,11 @@ export function setServantMovementChoice(
     delete state.loop.servantMovementChoice;
     return;
   }
-  if (
-    choice !== "decline" &&
-    !currentServantFollowOptions(state).some(
-      ({ character }) => character === choice,
-    )
-  ) {
+  const options = currentServantFollowOptions(state);
+  if (options.length <= 1) {
+    throw new Error("servant movement choice requires multiple destinations");
+  }
+  if (!options.some(({ character }) => character === choice)) {
     throw new Error(`invalid servant movement choice "${choice}"`);
   }
   state.loop.servantMovementChoice = choice;

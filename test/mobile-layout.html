@@ -717,6 +717,74 @@
         await reloadApp("p4-recovery-controls-restored");
       }
 
+      async function inspectServantSplitMovementChoice() {
+        let originalState;
+        mutateActiveState((state) => {
+          originalState = structuredClone(state);
+          state.gamePhase = "ROUND";
+          state.scenario.cast.servant = "person";
+          state.scenario.cast.richStudent = "person";
+          state.scenario.cast.boss = "person";
+          for (const character of ["servant", "richStudent", "boss"]) {
+            state.loop.board[character] = { status: "alive", at: "School" };
+            state.loop.charCounters[character] = {
+              goodwill: 0,
+              paranoia: 0,
+              intrigue: 0,
+              protection: 0,
+            };
+          }
+          state.loop.phase = "P4_RESOLVE";
+          state.loop.actionResolutionComplete = false;
+          state.loop.servantAdditionalServedCharacters = [];
+          delete state.loop.servantMovementChoice;
+          state.loop.placed = [
+            { owner: "mastermind", card: "moveHorizontal", target: { kind: "character", id: "richStudent" } },
+            { owner: "mastermind", card: "moveVertical", target: { kind: "character", id: "boss" } },
+            { owner: "mastermind", card: "paranoiaPlus1", target: { kind: "location", at: "City" } },
+            { owner: 0, card: "goodwillPlus1", target: { kind: "location", at: "Hospital" } },
+            { owner: 1, card: "forbidParanoia", target: { kind: "location", at: "Shrine" } },
+            { owner: 2, card: "moveDiagonal", target: { kind: "character", id: "servant" } },
+          ];
+        });
+        await reloadApp("servant-split-movement-choice");
+        const dockText = frameDocument().querySelector(".phase-dock-status")
+          ?.textContent.replace(/\s+/g, " ").trim() ?? "";
+        click("[data-action='toggle-operation-sheet']");
+        const selector = await waitFor(
+          () => frameDocument().querySelector(
+            "[data-action='servant-movement-choice']",
+          ),
+          "390px 메이드 이동 방향 선택",
+        );
+        const rect = selector.getBoundingClientRect();
+        const optionValues = Array.from(selector.options).map(({ value }) => value);
+        const report = {
+          dockText,
+          optionValues,
+          rect: { left: rect.left, right: rect.right },
+          horizontal: horizontalOverflow(),
+        };
+        reports.push({ label: "메이드 분기 이동 선택", ...report });
+        if (
+          !dockText.includes("메이드 이동 방향 선택 필요") ||
+          optionValues.includes("decline") ||
+          !optionValues.includes("richStudent") ||
+          !optionValues.includes("boss") ||
+          rect.left < -0.5 ||
+          rect.right > WIDTH + 0.5 ||
+          report.horizontal.scrollWidth > WIDTH
+        ) {
+          failures.push(`메이드 분기 이동 선택: ${JSON.stringify(report)}`);
+        }
+        click("[data-action='close-operation-sheet']");
+        mutateActiveState((state) => {
+          for (const key of Object.keys(state)) delete state[key];
+          Object.assign(state, originalState);
+        });
+        await reloadApp("servant-split-movement-choice-restored");
+      }
+
       async function inspectP5DisclosurePreview() {
         await selectScenario("firstSteps:4");
         mutateActiveState((state) => {
@@ -2227,6 +2295,7 @@
         await enterRound();
         await inspectSpecialRuleCardLabel();
         await inspectP4RecoveryControls();
+        await inspectServantSplitMovementChoice();
         await inspectRuleHypothesisPanels();
         await inspectDeductionTables();
         await inspectScenarioRoleFacts();

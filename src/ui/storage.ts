@@ -223,15 +223,28 @@ function restoreStoredGame(
 ): StoredGame {
   validateStoredBoardShapes(saved, path);
   const restored = mergeDefaults(defaults, saved, path);
-  restored.state.history = restored.state.history.map((loop, index) =>
-    mergeDefaults(defaults.state.loop, loop, `${path}.state.history.${index}`)
-  );
+  discardLegacyServantDecline(restored.state.loop);
+  restored.state.history = restored.state.history.map((loop, index) => {
+    const restoredLoop = mergeDefaults(
+      defaults.state.loop,
+      loop,
+      `${path}.state.history.${index}`,
+    );
+    discardLegacyServantDecline(restoredLoop);
+    return restoredLoop;
+  });
   restored.observationsByLoop = restoreObservations(
     defaults,
     restored.observationsByLoop,
     `${path}.observationsByLoop`,
   );
   return restored;
+}
+
+function discardLegacyServantDecline(loop: LoopState): void {
+  if (Reflect.get(loop, "servantMovementChoice") === "decline") {
+    Reflect.deleteProperty(loop, "servantMovementChoice");
+  }
 }
 
 function restoreTrackerStore(

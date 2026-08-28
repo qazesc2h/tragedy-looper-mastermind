@@ -302,6 +302,25 @@ describe("UI localStorage snapshots", () => {
       .not.toHaveProperty("state");
   });
 
+  it("removes the retired Servant decline choice from saved P4 state", () => {
+    const storage = new MemoryStorage();
+    const defaults = storedGameDefaults("basicTragedy:1");
+    if (defaults === undefined) throw new Error("missing defaults");
+    const legacy = structuredClone(defaults);
+    legacy.state.loop.phase = "P4_RESOLVE";
+    Reflect.set(legacy.state.loop, "servantMovementChoice", "decline");
+    storage.setItem(TRACKER_STORAGE_KEY, JSON.stringify({
+      activeScenarioId: "basicTragedy:1",
+      mastermindOverlay: true,
+      games: { "basicTragedy:1": legacy },
+    }));
+
+    const restored = loadTrackerStore(storage, storedGameDefaults);
+
+    expect(restored.games["basicTragedy:1"].state.loop.servantMovementChoice)
+      .toBeUndefined();
+  });
+
   it("keeps in-memory progress when localStorage rejects a write", () => {
     const storage = new QuotaExceededStorage();
     const tracker = emptyTrackerStore();

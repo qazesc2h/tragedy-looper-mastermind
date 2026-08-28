@@ -25,7 +25,6 @@ import {
 import {
   currentServantFollowOptions,
   resolveActions,
-  setServantMovementChoice,
 } from "../src/engine/resolve";
 import { loadScenarioCatalog } from "../src/scenario-catalog";
 import type { GameState, PlacedCard } from "../src/types";
@@ -154,7 +153,6 @@ describe("community scenario: 못된 고양이", () => {
       character: "richStudent",
       to: "City",
     }]);
-    setServantMovementChoice(servant, "richStudent");
     resolveActions(servant);
     expect(boardLocation(servant.loop, "servant")).toBe("City");
 
