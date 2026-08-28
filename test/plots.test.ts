@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { settleGameFlow } from "../src/engine/game";
 import { requestLoopEnd } from "../src/engine/flow";
 import { evaluateStateRuleHypotheses } from "../src/engine/hypothesis";
-import { resolveHooks } from "../src/engine/phases";
+import { collectHooks, resolveHooks } from "../src/engine/phases";
 import { initLoop } from "../src/engine/setup";
 import { PLOT_IMPL } from "../src/impl/plots";
 import { effectiveRole } from "../src/types";
@@ -161,7 +161,7 @@ describe("unsettlingRumor", () => {
 describe("threadsFate", () => {
   const hook = plotHook("threadsFate");
 
-  it("adds 2 paranoia to every living character who had goodwill last loop", () => {
+  it("adds exactly 2 paranoia to every character who had goodwill last loop", () => {
     const state = createPlotState("threadsFate");
     state.loop.charCounters[BOY].goodwill = 1;
     state.loop.charCounters[GIRL].goodwill = 3;
@@ -179,7 +179,55 @@ describe("threadsFate", () => {
     resolveHooks(state, "LOOP_START");
 
     expect(state.loop.charCounters[BOY].paranoia).toBe(2);
-    expect(state.loop.charCounters[GIRL].paranoia).toBe(0);
+    expect(state.loop.charCounters[GIRL].paranoia).toBe(2);
+  });
+
+  it("uses previous goodwill even if that character was absent", () => {
+    const state = createPlotState("threadsFate");
+    state.loop.charCounters[GIRL].goodwill = 1;
+    state.loop.board[GIRL] = { status: "absent" };
+    endLoop(state);
+
+    state.loop = initLoop(state.scenario, 2);
+    state.gamePhase = "ROUND";
+    resolveHooks(state, "LOOP_START");
+
+    expect(state.loop.charCounters[GIRL].paranoia).toBe(2);
+  });
+
+  it("is independent of Friend hook order and does not clamp paranoia", () => {
+    const makeState = (): GameState => {
+      const state = createPlotState("threadsFate");
+      state.scenario.cast[BOY] = "friend";
+      state.loop.charCounters[BOY].goodwill = 3;
+      state.loop.revealedRoleCharacters = [BOY];
+      endLoop(state);
+
+      state.loop = initLoop(state.scenario, 2);
+      state.gamePhase = "ROUND";
+      state.loop.charCounters[BOY].paranoia = 3;
+      return state;
+    };
+    const resolveInOrder = (state: GameState, reverse: boolean): void => {
+      const fired = collectHooks(state, "LOOP_START")
+        .filter(({ hook, self }) => hook.when(state, self));
+      expect(fired).toHaveLength(2);
+      for (const { hook, self } of reverse ? fired.reverse() : fired) {
+        hook.effect(state, self);
+      }
+    };
+    const roleThenPlot = makeState();
+    const plotThenRole = makeState();
+
+    resolveInOrder(roleThenPlot, false);
+    resolveInOrder(plotThenRole, true);
+
+    for (const state of [roleThenPlot, plotThenRole]) {
+      expect(state.loop.charCounters[BOY]).toMatchObject({
+        goodwill: 1,
+        paranoia: 5,
+      });
+    }
   });
 
   it("does nothing in the first loop because no previous snapshot exists", () => {

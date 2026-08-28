@@ -10,7 +10,10 @@ import {
   continueAfterLoopJudgment,
   continueFromTimeGap,
   createGameState,
+  settleGameFlow,
 } from "../src/engine/game";
+import { requestLoopEnd } from "../src/engine/flow";
+import { resolveGoodwillAbility } from "../src/engine/goodwill";
 import { actionCardRestriction, validatePlacement } from "../src/engine/legal";
 import { mastermindCautions } from "../src/engine/mastermind-cautions";
 import { mastermindCoverGuidance } from "../src/engine/mastermind-cover";
@@ -27,8 +30,12 @@ import {
   resolveActions,
 } from "../src/engine/resolve";
 import { loadScenarioCatalog } from "../src/scenario-catalog";
-import type { GameState, PlacedCard } from "../src/types";
-import { boardIsAlive, boardLocation } from "./helpers";
+import { effectiveRole, type GameState, type PlacedCard } from "../src/types";
+import {
+  boardIsAlive,
+  boardLocation,
+  setBoardLocation,
+} from "./helpers";
 
 function catalogEntry() {
   const entry = loadScenarioCatalog().find(({ id }) =>
@@ -173,6 +180,84 @@ describe("community scenario: 못된 고양이", () => {
     expect(boardIsAlive(outsider.loop, "mysteryBoy")).toBe(false);
     resolveHooks(outsider, "LOOP_END");
     expect(outsider.loop.revealedRoleCharacters).toContain("mysteryBoy");
+  });
+
+  it("applies Friend and Threads of Fate after the revealed Mystery Boy dies", () => {
+    const state = stateAt();
+    state.gamePhase = "ROUND";
+    state.loop.loop = 2;
+    state.loop.day = 2;
+    state.loop.phase = "P6_GOODWILL";
+    state.loop.charCounters.mysteryBoy.goodwill = 3;
+
+    resolveGoodwillAbility(state, {
+      user: "mysteryBoy",
+      rank: 3,
+      abilityIndex: 1,
+    }, "resolve");
+    expect(state.loop.revealedRoleCharacters).toContain("mysteryBoy");
+
+    for (const character of [
+      "sacredTree",
+      "informer",
+      "popIdol",
+      "patient",
+      "nurse",
+      "richStudent",
+      "servant",
+      "blackCat",
+      "mysteryBoy",
+    ] as const) {
+      setBoardLocation(state.loop, character, "School");
+    }
+    setBoardLocation(state.loop, "nurse", "Hospital");
+    setBoardLocation(state.loop, "mysteryBoy", "Hospital");
+    state.loop.charCounters.nurse.paranoia = 3;
+    state.loop.phase = "P9_ROUND_END";
+
+    expect(effectiveRole(state, "nurse")).toBe("serialKiller");
+    resolveHooks(state, "P9_ROUND_END");
+    expect(boardIsAlive(state.loop, "mysteryBoy")).toBe(false);
+    expect(state.loop.charCounters.mysteryBoy.goodwill).toBe(3);
+
+    requestLoopEnd(state, "lastDay");
+    expect(settleGameFlow(state)).toMatchObject({
+      loop: 2,
+      result: "protagonistsLost",
+    });
+    expect(state.history.at(-1)?.board.mysteryBoy.status).toBe("dead");
+    expect(state.history.at(-1)?.charCounters.mysteryBoy.goodwill).toBe(3);
+
+    continueAfterLoopJudgment(state);
+    continueFromTimeGap(state);
+
+    expect(state.loop.loop).toBe(3);
+    expect(state.loop.day).toBe(1);
+    expect(state.loop.phase).toBe("P2_MASTERMIND_ACTION");
+    expect(state.loop.charCounters.mysteryBoy).toMatchObject({
+      goodwill: 1,
+      paranoia: 2,
+    });
+    const loopStartChanges = (state.loop.phaseLog ?? [])
+      .flatMap((entry) =>
+        entry.kind === "abilityActivated" && entry.timing === "LOOP_START"
+          ? entry.publicChanges ?? []
+          : []
+      );
+    expect(loopStartChanges).toEqual(expect.arrayContaining([
+      {
+        kind: "counter",
+        target: { kind: "character", id: "mysteryBoy" },
+        counter: "goodwill",
+        delta: 1,
+      },
+      {
+        kind: "counter",
+        target: { kind: "character", id: "mysteryBoy" },
+        counter: "paranoia",
+        delta: 2,
+      },
+    ]));
   });
 
   it("plays all five days of all five loops and reaches the final guess", () => {
