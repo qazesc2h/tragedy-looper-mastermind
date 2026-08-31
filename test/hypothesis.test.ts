@@ -473,6 +473,89 @@ describe("cross-observation role causes", () => {
       [firstDeath, secondDeath],
     ).remaining).toHaveLength(0);
   });
+
+  it("does not share a cross-observation cache entry across School intrigue snapshots", () => {
+    const combination = enumerateRuleCombinations("basicTragedy").find(
+      ({ mainPlot, subPlots }) =>
+        mainPlot === "changeOfFuture" &&
+        subPlots.includes("threadsFate") &&
+        subPlots.includes("unknownFactor"),
+    );
+    if (combination === undefined) throw new Error("factor combination missing");
+    const observedFactorAbility = (
+      schoolIntrigue: number,
+    ): ProtagonistObservation => ({
+      kind: "mastermindAbilityResult",
+      loop: 2,
+      day: 3,
+      timing: "P5_MASTERMIND_ABILITY",
+      changes: [{
+        kind: "counter",
+        target: { kind: "character", id: "blackCat" },
+        counter: "paranoia",
+        delta: 1,
+      }],
+      context: {
+        ...boardObservationContext({
+          blackCat: publicCharacter("Hospital"),
+        }),
+        locationIntrigue: observationContext(schoolIntrigue).locationIntrigue,
+      },
+      observedAt: {
+        loop: 2,
+        day: 3,
+        phase: "P5_MASTERMIND_ABILITY",
+        sequence: 7,
+      },
+    });
+    const evaluate = (schoolIntrigue: number) =>
+      evaluateRuleHypotheses(
+        "basicTragedy",
+        [observedFactorAbility(schoolIntrigue)],
+        { publicCast: ["blackCat"], candidateCombinations: [combination] },
+      ).combinations[0];
+
+    expect(evaluate(0)?.contradictions).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: "crossObservationRoleUnavailable" }),
+    ]));
+    expect(evaluate(2)?.excluded).toBe(false);
+  });
+
+  it("does not share a cross-observation cache entry across paranoia snapshots", () => {
+    const combination = enumerateRuleCombinations("basicTragedy").find(
+      ({ mainPlot, subPlots }) =>
+        mainPlot === "changeOfFuture" &&
+        subPlots.includes("paranoiaVirus") &&
+        subPlots.includes("unknownFactor"),
+    );
+    if (combination === undefined) throw new Error("virus combination missing");
+    const pairDeath = (paranoia: number): ProtagonistObservation => ({
+      ...roundEndDeathObservation({
+        shrineMaiden: publicCharacter("Shrine"),
+        officeWorker: publicCharacter("Shrine", 0, paranoia),
+      }),
+      observedAt: {
+        loop: 1,
+        day: 1,
+        phase: "P9_ROUND_END",
+        sequence: 11,
+      },
+    });
+    const evaluate = (paranoia: number) =>
+      evaluateRuleHypotheses(
+        "basicTragedy",
+        [pairDeath(paranoia)],
+        {
+          publicCast: ["shrineMaiden", "officeWorker"],
+          candidateCombinations: [combination],
+        },
+      ).combinations[0];
+
+    expect(evaluate(2)?.contradictions).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: "crossObservationRoleUnavailable" }),
+    ]));
+    expect(evaluate(3)?.excluded).toBe(false);
+  });
 });
 
 describe("observation model", () => {
