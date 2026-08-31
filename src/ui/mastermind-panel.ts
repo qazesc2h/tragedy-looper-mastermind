@@ -1,11 +1,14 @@
 import { characterDataOf } from "../data";
 import {
+  evaluateRoleTableHypothesesFromRuleEvaluation,
   evaluateRoleTableHypotheses,
+  evaluateRuleHypotheses,
   evaluateStateRoleTableHypotheses,
   ruleCompatibleCombinations,
   type EvaluatedRoleTableRuleCombination,
   type ProtagonistObservation,
   type RuleCombination,
+  type RuleHypothesisEvaluation,
   type RolePossibilityTable,
   type RoleTableHypothesisEvaluation,
 } from "../engine/hypothesis";
@@ -110,11 +113,132 @@ export interface DeductionTablesSummary {
   incidentRows: IncidentPossibilitySummaryRow[];
 }
 
-/** 각본가 패널에 필요한 룰 후보와 관측별 순차 배제 수를 계산한다. */
-export function ruleHypothesisSummary(
+interface LossPrefixCacheNode {
+  children: Map<string, LossPrefixCacheNode>;
+  ruleEvaluations: Map<string, RuleHypothesisEvaluation>;
+  roleEvaluations: Map<string, RoleTableHypothesisEvaluation>;
+}
+
+interface LossPrefixCache {
+  contextKey: string;
+  root: LossPrefixCacheNode;
+  nodeCount: number;
+}
+
+const MAX_LOSS_PREFIX_CACHE_NODES = 512;
+const MAX_LOSS_PREFIX_CACHE_CONTEXTS = 8;
+const lossPrefixCaches = new Map<string, LossPrefixCache>();
+
+function emptyLossPrefixCacheNode(): LossPrefixCacheNode {
+  return {
+    children: new Map(),
+    ruleEvaluations: new Map(),
+    roleEvaluations: new Map(),
+  };
+}
+
+function lossPrefixCacheFor(
   state: GameState,
-  evaluation: RoleTableHypothesisEvaluation =
-    evaluateStateRoleTableHypotheses(state),
+  publicCast: readonly CharacterId[],
+): LossPrefixCache {
+  const contextKey = JSON.stringify([
+    state.scenario.tragedySet,
+    publicCast,
+  ]);
+  const current = lossPrefixCaches.get(contextKey);
+  if (
+    current !== undefined &&
+    current.nodeCount <= MAX_LOSS_PREFIX_CACHE_NODES
+  ) {
+    lossPrefixCaches.delete(contextKey);
+    lossPrefixCaches.set(contextKey, current);
+    return current;
+  }
+
+  const created: LossPrefixCache = {
+    contextKey,
+    root: emptyLossPrefixCacheNode(),
+    nodeCount: 1,
+  };
+  lossPrefixCaches.set(contextKey, created);
+  if (lossPrefixCaches.size > MAX_LOSS_PREFIX_CACHE_CONTEXTS) {
+    const oldest = lossPrefixCaches.keys().next().value;
+    if (oldest !== undefined) lossPrefixCaches.delete(oldest);
+  }
+  return created;
+}
+
+function lossPrefixCacheNodes(
+  cache: LossPrefixCache,
+  observations: readonly ProtagonistObservation[],
+): LossPrefixCacheNode[] {
+  const nodes = [cache.root];
+  let node = cache.root;
+  for (const observation of observations) {
+    const key = JSON.stringify(observation);
+    let child = node.children.get(key);
+    if (child === undefined) {
+      child = emptyLossPrefixCacheNode();
+      node.children.set(key, child);
+      cache.nodeCount += 1;
+    }
+    node = child;
+    nodes.push(node);
+  }
+  return nodes;
+}
+
+function candidateCombinationKey(
+  candidates: readonly RuleCombination[] | undefined,
+): string {
+  return candidates === undefined
+    ? "all"
+    : JSON.stringify(candidates.map(({ id }) => id));
+}
+
+function evaluateLossPrefix(
+  state: GameState,
+  publicCast: readonly CharacterId[],
+  observations: readonly ProtagonistObservation[],
+  prefixLength: number,
+  candidates: readonly RuleCombination[] | undefined,
+  cacheNode: LossPrefixCacheNode | undefined,
+): RoleTableHypothesisEvaluation {
+  if (cacheNode === undefined) {
+    return evaluateRoleTableHypotheses(
+      state.scenario.tragedySet,
+      publicCast,
+      observations.slice(0, prefixLength),
+      candidates,
+    );
+  }
+
+  const candidateKey = candidateCombinationKey(candidates);
+  const cachedRoleEvaluation = cacheNode.roleEvaluations.get(candidateKey);
+  if (cachedRoleEvaluation !== undefined) return cachedRoleEvaluation;
+
+  let ruleEvaluation = cacheNode.ruleEvaluations.get(candidateKey);
+  if (ruleEvaluation === undefined) {
+    ruleEvaluation = evaluateRuleHypotheses(
+      state.scenario.tragedySet,
+      observations.slice(0, prefixLength),
+      { publicCast, candidateCombinations: candidates },
+    );
+    cacheNode.ruleEvaluations.set(candidateKey, ruleEvaluation);
+  }
+  const roleEvaluation = evaluateRoleTableHypothesesFromRuleEvaluation(
+    publicCast,
+    ruleEvaluation,
+  );
+  cacheNode.roleEvaluations.set(candidateKey, roleEvaluation);
+  return roleEvaluation;
+}
+
+/** 각본가 패널에 필요한 룰 후보와 관측별 순차 배제 수를 계산한다. */
+function buildRuleHypothesisSummary(
+  state: GameState,
+  evaluation: RoleTableHypothesisEvaluation,
+  reuseLossPrefixes: boolean,
 ): RuleHypothesisSummary {
   const definition = tragedySetDefinition(state.scenario.tragedySet);
   const remainingMainPlots = new Set(
@@ -152,27 +276,44 @@ export function ruleHypothesisSummary(
     !fixedSubPlotSet.has(plot)
   );
   const lossDeductions: LossHypothesisDeduction[] = [];
+  const publicCast = Object.keys(state.scenario.cast);
+  const prefixNodes = reuseLossPrefixes
+    ? lossPrefixCacheNodes(
+      lossPrefixCacheFor(state, publicCast),
+      evaluation.observations,
+    )
+    : undefined;
   let prefixCandidates: readonly RuleCombination[] | undefined;
   for (let index = 0; index < evaluation.observations.length; index += 1) {
     const observation = evaluation.observations[index];
     if (observation?.kind !== "lossObserved") continue;
-    const beforePrefix = evaluation.observations.slice(0, index);
-    const afterPrefix = evaluation.observations.slice(0, index + 1);
-    const publicCast = Object.keys(state.scenario.cast);
-    const beforeEvaluation = evaluateRoleTableHypotheses(
-      state.scenario.tragedySet,
+    const beforeEvaluation = evaluateLossPrefix(
+      state,
       publicCast,
-      beforePrefix,
+      evaluation.observations,
+      index,
       prefixCandidates,
+      prefixNodes?.[index],
     );
+    const afterCandidates = ruleCompatibleCombinations(beforeEvaluation);
     const afterEvaluation = index + 1 === evaluation.observations.length
       ? evaluation
-      : evaluateRoleTableHypotheses(
-        state.scenario.tragedySet,
+      : evaluateLossPrefix(
+        state,
         publicCast,
-        afterPrefix,
-        ruleCompatibleCombinations(beforeEvaluation),
+        evaluation.observations,
+        index + 1,
+        afterCandidates,
+        prefixNodes?.[index + 1],
       );
+    if (index + 1 === evaluation.observations.length) {
+      prefixNodes?.[index + 1]?.roleEvaluations.set(
+        candidateCombinationKey(afterCandidates),
+        evaluation,
+      );
+    }
+    // 역할표 때문에 빠진 조합은 다음 prefix에서 다시 포함해야 한다.
+    // 캐시된 remaining을 후보로 넘기면 비단조 추론이 깨진다.
     prefixCandidates = ruleCompatibleCombinations(afterEvaluation);
     const allPlots = [...definition.mainPlots, ...definition.subPlots];
     const fixedPlots = allPlots.filter((plot) =>
@@ -220,6 +361,24 @@ export function ruleHypothesisSummary(
       ({ tableContradictions }) => tableContradictions.length > 0
     ).length,
   };
+}
+
+/** 세션 메모리에서 불변인 과거 관측 prefix의 룰 계층만 재사용한다. */
+export function ruleHypothesisSummary(
+  state: GameState,
+  evaluation: RoleTableHypothesisEvaluation =
+    evaluateStateRoleTableHypotheses(state),
+): RuleHypothesisSummary {
+  return buildRuleHypothesisSummary(state, evaluation, true);
+}
+
+/** 증분 결과와 전체 재계산을 대조하는 회귀 검증 기준선. */
+export function ruleHypothesisSummaryFullRecalculation(
+  state: GameState,
+  evaluation: RoleTableHypothesisEvaluation =
+    evaluateStateRoleTableHypotheses(state),
+): RuleHypothesisSummary {
+  return buildRuleHypothesisSummary(state, evaluation, false);
 }
 
 /** 역할표와 범인표를 같은 공개 관측 스냅샷에서 계산한다. */

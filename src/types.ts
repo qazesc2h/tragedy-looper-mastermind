@@ -484,6 +484,8 @@ export interface RoundEndPairEvidence {
 /** 한 날짜의 제약 생성에 필요한 최소 사실. 전체 보드 상태는 저장하지 않는다. */
 export interface RoundEvidence {
   day: number;
+  /** 이 날짜의 증거가 더 이상 바뀌지 않게 된 공개 관측 시점. */
+  observedAt?: PublicObservationAt;
   /** 없으면 사망 묶음이 없었다. */
   deathBatches?: RoundDeathBatch[];
   /** 필드가 존재하면 P9 단둘 검사를 마쳤다. 빈 배열도 관측값이다. */

@@ -10,6 +10,7 @@ import {
   incidentScheduleRowsForCharacter,
   lossDistanceSummary,
   ruleHypothesisSummary,
+  ruleHypothesisSummaryFullRecalculation,
   spentCardsSummary,
 } from "../src/ui/mastermind-panel";
 import type { GameState, Scenario } from "../src/types";
@@ -284,10 +285,12 @@ describe("mastermind rule hypothesis summary", () => {
     for (const counters of Object.values(state.loop.charCounters)) {
       counters.goodwill = 3;
     }
+    const lossDay = state.loop.day;
     state.history = [structuredClone(state.loop)];
+    state.loop = initLoop(state.scenario, 2);
     state.loopOutcomes = [{
       loop: 1,
-      day: state.loop.day,
+      day: lossDay,
       reason: "lastDay",
       result: "protagonistsLost",
       losses: [{
@@ -306,6 +309,68 @@ describe("mastermind rule hypothesis summary", () => {
       fixedPlots: ["sealedItem"],
       fixedRoles: [],
     })]);
+  });
+
+  it("matches full recalculation while reusing immutable loss prefixes", () => {
+    const state = createState();
+    delete state.scenario.cast.shrineMaiden;
+    state.loop.day = state.scenario.daysPerLoop;
+    state.loop.phase = "P9_ROUND_END";
+    state.loop.locIntrigue.Shrine = 2;
+    for (const counters of Object.values(state.loop.charCounters)) {
+      counters.goodwill = 3;
+    }
+    const lossDay = state.loop.day;
+    state.history = [structuredClone(state.loop)];
+    state.loop = initLoop(state.scenario, 2);
+    state.loopOutcomes = [{
+      loop: 1,
+      day: lossDay,
+      reason: "lastDay",
+      result: "protagonistsLost",
+      losses: [{
+        key: "plot:sealedItem",
+        id: "sealedItem",
+        ko: "봉인된 것",
+        label: "hidden exact cause",
+      }],
+    }];
+
+    const fullAtLoss = ruleHypothesisSummaryFullRecalculation(state);
+    expect(ruleHypothesisSummary(state)).toEqual(fullAtLoss);
+    expect(ruleHypothesisSummary(state)).toEqual(fullAtLoss);
+
+    state.loop.publicInformationThisLoop = [{
+      kind: "roleReveal",
+      character: "officeWorker",
+      role: "killer",
+      loop: 2,
+      day: 1,
+    }];
+    expect(ruleHypothesisSummary(state)).toEqual(
+      ruleHypothesisSummaryFullRecalculation(state),
+    );
+
+    state.loop.day = state.scenario.daysPerLoop;
+    state.loop.phase = "P9_ROUND_END";
+    state.loop.locIntrigue.Shrine = 2;
+    state.history.push(structuredClone(state.loop));
+    state.loopOutcomes.push({
+      loop: 2,
+      day: state.loop.day,
+      reason: "lastDay",
+      result: "protagonistsLost",
+      losses: [{
+        key: "plot:sealedItem",
+        id: "sealedItem",
+        ko: "봉인된 것",
+        label: "hidden exact cause",
+      }],
+    });
+    state.loop = initLoop(state.scenario, 3);
+    const fullAfterSecondLoss = ruleHypothesisSummaryFullRecalculation(state);
+    expect(ruleHypothesisSummary(state)).toEqual(fullAfterSecondLoss);
+    expect(ruleHypothesisSummary(state)).toEqual(fullAfterSecondLoss);
   });
 
   it("counts newly excluded combinations once in observation order", () => {

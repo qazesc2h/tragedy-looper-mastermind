@@ -47,6 +47,12 @@ describe("round evidence", () => {
 
     expect(state.loop.roundEvidence?.[0]).toEqual({
       day: 1,
+      observedAt: {
+        loop: 1,
+        day: 1,
+        phase: "P9_ROUND_END",
+        sequence: 0,
+      },
       roundEndPairs: [{
         location: "Hospital",
         characters: ["doctor", "patient"],
@@ -73,6 +79,12 @@ describe("round evidence", () => {
 
     expect(state.loop.roundEvidence?.[0]).toEqual({
       day: 1,
+      observedAt: {
+        loop: 1,
+        day: 1,
+        phase: "P9_ROUND_END",
+        sequence: 1,
+      },
       roundEndPairs: [{
         location: "City",
         characters: ["doctor", "patient"],
@@ -123,6 +135,12 @@ describe("round evidence", () => {
     ]);
     expect(state.history[0]?.roundEvidence).toEqual([{
       day: 1,
+      observedAt: {
+        loop: 1,
+        day: 1,
+        phase: "LOOP_END",
+        sequence: 0,
+      },
       deathBatches: [{
         phase: "P4_RESOLVE",
         characters: ["doctor", "patient"],

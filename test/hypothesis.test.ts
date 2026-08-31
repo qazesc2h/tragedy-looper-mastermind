@@ -981,6 +981,27 @@ describe("loss observation filtering", () => {
         }),
       }),
     );
+    const completedObservations = collectProtagonistObservations(state);
+    const roundEvidence = completedObservations.find(({ kind }) =>
+      kind === "roundEvidence"
+    );
+    const lossObserved = completedObservations.find(({ kind }) =>
+      kind === "lossObserved"
+    );
+    expect(roundEvidence?.observedAt).toEqual(expect.objectContaining({
+      phase: "LOOP_END",
+      sequence: 0,
+    }));
+    expect(lossObserved?.observedAt).toEqual(expect.objectContaining({
+      phase: "LOOP_END",
+      sequence: 1,
+    }));
+    if (roundEvidence === undefined || lossObserved === undefined) {
+      throw new Error("completed loop observations are missing");
+    }
+    expect(completedObservations.indexOf(roundEvidence)).toBeLessThan(
+      completedObservations.indexOf(lossObserved),
+    );
   });
 
   it("keeps multiple rule families when sealedItem and a dead friend both explain defeat", () => {

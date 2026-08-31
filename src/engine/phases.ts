@@ -22,7 +22,10 @@ import {
   publicBoardChanges,
   publicObservationContext,
 } from "./public-observation";
-import { recordRoundEndPairs } from "./round-evidence";
+import {
+  finalizeRoundEvidence,
+  recordRoundEndPairs,
+} from "./round-evidence";
 import {
   finalizeSacredTreeMastermindStep,
   sacredTreeLeaderChoiceRequired,
@@ -311,6 +314,7 @@ export function advance(
         }
         return undefined;
       }
+      finalizeRoundEvidence(s, "P9_ROUND_END");
       delete s.loop.optionalLossActivations;
       s.loop.abilitiesUsedThisRound = [];
       s.loop.day += 1;

@@ -25,6 +25,7 @@ import { advance, collectHooks, resolveHooks } from "./phases";
 import { recordPhaseLog } from "./phase-log";
 import { nextPublicObservationAt } from "./public-information";
 import { publicObservationContext } from "./public-observation";
+import { finalizeRoundEvidence } from "./round-evidence";
 import { initLoop } from "./setup";
 import { sacredTreeMastermindChoiceRequired } from "./sacred-tree";
 
@@ -224,6 +225,10 @@ export function finishLoop(state: GameState): LoopOutcome {
   resolveHooks(state, "LOOP_END");
   const atLoopEnd = evaluateLoss(state);
   const losses = uniqueActivatedLosses([...atTrigger, ...atLoopEnd]);
+
+  // 즉시 종료와 마지막 날은 일반 P9 전환을 지나지 않으므로 여기서 확정한다.
+  // 패배 결과보다 먼저 순번을 받아 과거 패배 prefix가 이후 루프에도 안정적이다.
+  finalizeRoundEvidence(state, "LOOP_END");
 
   // 완료 스냅샷에는 이번 종료를 일으킨 즉시 조건 키를 보존한다. 진행용
   // 임시 선택 상태는 과거 기록에 필요하지 않으므로 제외한다.

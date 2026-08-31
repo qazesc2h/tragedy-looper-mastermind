@@ -2679,6 +2679,18 @@ interface CauseConstraintCellResult {
   observations: ProtagonistObservation[];
 }
 
+interface CauseConstraintEvaluationContext {
+  roundEvidence: Extract<
+    ProtagonistObservation,
+    { kind: "roundEvidence" }
+  >[];
+  confirmedRolesByCombination: Map<
+    string,
+    Map<CharacterId, RoleId>
+  >;
+  exclusionsByCombination: Map<string, RoleCauseExclusion[]>;
+}
+
 function causeConstraintForCell(
   tragedySet: string,
   publicCast: readonly CharacterId[],
@@ -2686,12 +2698,19 @@ function causeConstraintForCell(
   observations: readonly ProtagonistObservation[],
   character: CharacterId,
   role: RoleId,
+  context: CauseConstraintEvaluationContext,
 ): CauseConstraintCellResult {
   const tragedySetRoles = rolesForTragedySet(tragedySet);
   const evidence = new Map<string, ProtagonistObservation>();
   for (const combination of combinations) {
     const ranges = roleRanges(combination);
-    const confirmedRoles = confirmedRoleByCharacter(observations, combination);
+    let confirmedRoles = context.confirmedRolesByCombination.get(
+      combination.id,
+    );
+    if (confirmedRoles === undefined) {
+      confirmedRoles = confirmedRoleByCharacter(observations, combination);
+      context.confirmedRolesByCombination.set(combination.id, confirmedRoles);
+    }
     const alreadyConfirmed = confirmedRoles.get(character);
     if (alreadyConfirmed !== undefined && alreadyConfirmed !== role) continue;
     if (!roleAssignmentCompatible(
@@ -2706,19 +2725,27 @@ function causeConstraintForCell(
     assumedRoles.set(character, role);
     // 기존 P5 위치 교집합은 별도 제약이 담당한다. 여기서는 기록층이 새로
     // 보존하는 라운드 사실만 캐릭터×역할 칸으로 투영한다.
-    const clauses = observations.flatMap((observation) =>
-      observation.kind === "roundEvidence"
-        ? roundEvidenceCauseClauses(
-          observation,
-          combination,
-          tragedySetRoles,
-          ranges,
-          assumedRoles,
-        )
-        : []
+    const clauses = context.roundEvidence.flatMap((observation) =>
+      roundEvidenceCauseClauses(
+        observation,
+        combination,
+        tragedySetRoles,
+        ranges,
+        assumedRoles,
+      )
     );
     for (const clause of clauses) {
       evidence.set(observationKey(clause.observation), clause.observation);
+    }
+    let exclusions = context.exclusionsByCombination.get(combination.id);
+    if (exclusions === undefined) {
+      exclusions = observedRoleExclusions(
+        observations,
+        publicCast,
+        tragedySetRoles,
+        combination,
+      );
+      context.exclusionsByCombination.set(combination.id, exclusions);
     }
     if (causeClausesAreSatisfiable(
       clauses,
@@ -2726,12 +2753,7 @@ function causeConstraintForCell(
       ranges,
       publicCast,
       assumedRoles,
-      observedRoleExclusions(
-        observations,
-        publicCast,
-        tragedySetRoles,
-        combination,
-      ),
+      exclusions,
     )) {
       return { allowed: true, observations: [...evidence.values()] };
     }
@@ -2823,6 +2845,13 @@ export function buildRolePossibilityTable(
     CharacterId,
     Record<RoleId, RolePossibilityCell>
   > = {};
+  const causeConstraintContext: CauseConstraintEvaluationContext = {
+    roundEvidence: observations.flatMap((observation) =>
+      observation.kind === "roundEvidence" ? [observation] : []
+    ),
+    confirmedRolesByCombination: new Map(),
+    exclusionsByCombination: new Map(),
+  };
   for (const character of publicCast) {
     const row: Record<RoleId, RolePossibilityCell> = {};
     const revealed = confirmed.get(character);
@@ -2920,6 +2949,7 @@ export function buildRolePossibilityTable(
         observations,
         character,
         role,
+        causeConstraintContext,
       );
       if (!causeConstraint.allowed) {
         row[role] = {
@@ -3081,28 +3111,22 @@ function tableContradictionsForCombination(
 }
 
 /** 룰과 역할 표의 양방향 전파를 더 이상 변화가 없을 때까지 반복한다. */
-export function evaluateRoleTableHypotheses(
-  tragedySet: string,
+/**
+ * 관측 자체로 판정한 룰 계층은 재사용하되 역할표 고정점은 다시 계산한다.
+ * 역할표에서 배제된 조합이 후속 관측에서 다시 가능해지는 비단조성을 보존한다.
+ */
+export function evaluateRoleTableHypothesesFromRuleEvaluation(
   publicCast: readonly CharacterId[],
-  observations: readonly ProtagonistObservation[],
-  candidateCombinations?: readonly RuleCombination[],
+  ruleEvaluation: RuleHypothesisEvaluation,
 ): RoleTableHypothesisEvaluation {
-  const ruleEvaluation = evaluateRuleHypotheses(
-    tragedySet,
-    observations,
-    { publicCast, candidateCombinations },
-  );
+  const tragedySet = ruleEvaluation.tragedySet;
+  const observations = ruleEvaluation.observations;
   let remaining = [...ruleEvaluation.remaining];
   const tableContradictions = new Map<
     string,
     RoleTableRuleContradiction[]
   >();
-  let table = buildRolePossibilityTable(
-    tragedySet,
-    publicCast,
-    remaining,
-    observations,
-  );
+  let table: RolePossibilityTable;
   let propagationPasses = 0;
 
   while (true) {
@@ -3149,6 +3173,22 @@ export function evaluateRoleTableHypotheses(
     excluded: combinations.filter(({ excluded }) => excluded),
     propagationPasses,
   };
+}
+
+export function evaluateRoleTableHypotheses(
+  tragedySet: string,
+  publicCast: readonly CharacterId[],
+  observations: readonly ProtagonistObservation[],
+  candidateCombinations?: readonly RuleCombination[],
+): RoleTableHypothesisEvaluation {
+  return evaluateRoleTableHypothesesFromRuleEvaluation(
+    publicCast,
+    evaluateRuleHypotheses(
+      tragedySet,
+      observations,
+      { publicCast, candidateCombinations },
+    ),
+  );
 }
 
 /** 역할표 전파와 무관하게 공개 관측의 룰 조건을 통과한 조합만 반환한다. */
@@ -3700,6 +3740,9 @@ export function collectProtagonistObservations(
         kind: "roundEvidence",
         loop: loop.loop,
         record: structuredClone(record),
+        ...(record.observedAt === undefined
+          ? {}
+          : { observedAt: record.observedAt }),
         context: snapshotPublicContext(loop),
         lastDay: record.day === state.scenario.daysPerLoop,
         protectedAtRoundEnd: [...new Set(protectedAtRoundEnd)],

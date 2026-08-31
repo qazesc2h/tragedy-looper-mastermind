@@ -3,10 +3,12 @@ import {
   isCharacterAlive,
   type CharacterId,
   type GameState,
+  type HookPoint,
   type LoopEndRequest,
   type RoundEvidence,
   type RoundEndPairEvidence,
 } from "../types";
+import { nextPublicObservationAt } from "./public-information";
 
 function currentRoundEvidence(state: GameState): RoundEvidence {
   const records = state.loop.roundEvidence ??= [];
@@ -78,4 +80,13 @@ export function recordImmediateLoopEnd(
     phase: request.phase,
     reason: request.reason,
   };
+}
+
+/** 이후 효과가 이 날짜의 공개 증거를 더 바꾸지 않는 경계에서 한 번만 확정한다. */
+export function finalizeRoundEvidence(
+  state: GameState,
+  phase: HookPoint,
+): void {
+  const record = currentRoundEvidence(state);
+  record.observedAt ??= nextPublicObservationAt(state, phase);
 }
