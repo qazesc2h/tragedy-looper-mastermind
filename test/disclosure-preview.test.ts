@@ -489,6 +489,16 @@ describe("P9 disclosure preview", () => {
     expect(preview.newlyFixedPlots).not.toContain("sealedItem");
   });
 
+  it("reuses a precomputed baseline without changing the preview", () => {
+    const state = p9State();
+    state.loop.locIntrigue.Shrine = 2;
+    const baseline = evaluateStateRoleTableHypotheses(state);
+
+    expect(previewCurrentLossDisclosure(state, baseline)).toEqual(
+      previewCurrentLossDisclosure(state),
+    );
+  });
+
   it("matches the inference after a natural loop loss is recorded", () => {
     const state = p9State();
     state.loop.locIntrigue.Shrine = 2;

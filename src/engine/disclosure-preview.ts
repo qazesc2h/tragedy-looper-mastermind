@@ -10,6 +10,7 @@ import {
   evaluateStateRoleTableHypotheses,
   explainableLossConditions,
   hypotheticalLossObservation,
+  ruleCompatibleCombinations,
   type ExplainableLossCondition,
   type RoleTableHypothesisEvaluation,
   type RuleCombination,
@@ -144,14 +145,19 @@ function previewLossAfterAssumption(
   baselineState: GameState,
   assumedState: GameState,
   timing: LoopEndReason,
+  knownBaselineEvaluation?: RoleTableHypothesisEvaluation,
 ): P9DisclosurePreview {
-  const beforeEvaluation = evaluateStateRoleTableHypotheses(baselineState);
+  const beforeEvaluation = knownBaselineEvaluation ??
+    evaluateStateRoleTableHypotheses(baselineState);
   const assumedObservations = collectProtagonistObservations(assumedState);
-  const assumedEvaluation = evaluateRoleTableHypotheses(
-    assumedState.scenario.tragedySet,
-    Object.keys(assumedState.scenario.cast),
-    assumedObservations,
-  );
+  const assumedEvaluation = baselineState === assumedState
+    ? beforeEvaluation
+    : evaluateRoleTableHypotheses(
+      assumedState.scenario.tragedySet,
+      Object.keys(assumedState.scenario.cast),
+      assumedObservations,
+      ruleCompatibleCombinations(beforeEvaluation),
+    );
   const lossObservation = hypotheticalLossObservation(assumedState, timing);
   const explainableConditions = explainableLossConditions(
     assumedState,
@@ -163,6 +169,7 @@ function previewLossAfterAssumption(
     assumedState.scenario.tragedySet,
     Object.keys(assumedState.scenario.cast),
     [...assumedObservations, lossObservation],
+    ruleCompatibleCombinations(assumedEvaluation),
   );
   const result = comparison(beforeEvaluation, afterEvaluation);
   const beforeFixed = fixedPlots(beforeEvaluation.remaining);
@@ -275,15 +282,17 @@ export function previewP6GoodwillRefusal(
 /** 현재 대기 중인 종료 경로 또는 마지막 날 자연 종료의 공개 관측을 예고한다. */
 export function previewCurrentLossDisclosure(
   state: GameState,
+  baselineEvaluation?: RoleTableHypothesisEvaluation,
 ): P9DisclosurePreview {
   const timing = state.pendingLoopEnd?.reason ??
     ((state.loop.pendingImmediateLossKeys?.length ?? 0) > 0
       ? "effect"
       : "lastDay");
   return previewLossAfterAssumption(
-    structuredClone(state),
-    structuredClone(state),
+    state,
+    state,
     timing,
+    baselineEvaluation,
   );
 }
 
@@ -293,6 +302,7 @@ export function previewP9HookDisclosure(
   hook: Hook,
   self: CharacterId,
   target?: Target,
+  baselineEvaluation?: RoleTableHypothesisEvaluation,
 ): P9DisclosurePreview {
   if (hook.phase !== "P9_ROUND_END") {
     throw new Error("P9 disclosure preview requires a P9 hook");
@@ -322,13 +332,19 @@ export function previewP9HookDisclosure(
       true,
     );
   });
-  return previewLossAfterAssumption(baselineState, assumedState, "effect");
+  return previewLossAfterAssumption(
+    baselineState,
+    assumedState,
+    "effect",
+    baselineEvaluation,
+  );
 }
 
 /** 선택 패배 조건 발동 뒤 공개될 주인공 사망/루프 종료를 가정한다. */
 export function previewP9OptionalLossDisclosure(
   state: GameState,
   key: string,
+  baselineEvaluation?: RoleTableHypothesisEvaluation,
 ): P9DisclosurePreview {
   const baselineState = structuredClone(state);
   const assumedState = structuredClone(state);
@@ -341,5 +357,6 @@ export function previewP9OptionalLossDisclosure(
     baselineState,
     assumedState,
     condition.category === "protagonistDeath" ? "protagonistDeath" : "effect",
+    baselineEvaluation,
   );
 }

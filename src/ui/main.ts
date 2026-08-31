@@ -71,7 +71,11 @@ import {
   type OpeningProfile,
 } from "../engine/mastermind-opening";
 import { intrigueForbidActive } from "../engine/movement";
-import { type ProtagonistObservation } from "../engine/hypothesis";
+import {
+  evaluateStateRoleTableHypotheses,
+  type ProtagonistObservation,
+  type RoleTableHypothesisEvaluation,
+} from "../engine/hypothesis";
 import { applyHookEffect, collectHooks } from "../engine/phases";
 import { recordPhaseLog } from "../engine/phase-log";
 import {
@@ -1892,9 +1896,31 @@ function renderP9HookDisclosurePreview(
     return `${baseline}<p class="disclosure-pending">대상 선택 후 노출 계산</p>`;
   }
   return `${baseline}${renderP9DisclosurePreview(
-    previewP9HookDisclosure(state, hook, self, selectedTarget),
+    previewP9HookDisclosure(
+      state,
+      hook,
+      self,
+      selectedTarget,
+      currentRoleEvaluation(state),
+    ),
     "발동 뒤 즉시 종료 예고",
   )}`;
+}
+
+let currentRoleEvaluationCache:
+  | { state: GameState; evaluation: RoleTableHypothesisEvaluation }
+  | undefined;
+
+function currentRoleEvaluation(
+  state: GameState,
+): RoleTableHypothesisEvaluation {
+  if (currentRoleEvaluationCache?.state !== state) {
+    currentRoleEvaluationCache = {
+      state,
+      evaluation: evaluateStateRoleTableHypotheses(state),
+    };
+  }
+  return currentRoleEvaluationCache.evaluation;
 }
 
 let currentLossDisclosureCache:
@@ -1905,7 +1931,10 @@ function currentLossDisclosure(state: GameState): P9DisclosurePreview {
   if (currentLossDisclosureCache?.state !== state) {
     currentLossDisclosureCache = {
       state,
-      preview: previewCurrentLossDisclosure(state),
+      preview: previewCurrentLossDisclosure(
+        state,
+        currentRoleEvaluation(state),
+      ),
     };
   }
   return currentLossDisclosureCache.preview;
@@ -3026,7 +3055,11 @@ function renderLossDistance(state: GameState): string {
           ? `<div class="disclosure-baseline">
               <b>미발동</b><span>변화 없음 · 안전</span>
             </div>${renderP9DisclosurePreview(
-              previewP9OptionalLossDisclosure(state, condition.key),
+              previewP9OptionalLossDisclosure(
+                state,
+                condition.key,
+                currentRoleEvaluation(state),
+              ),
               "발동 뒤 즉시 종료 예고",
             )}`
           : ""}
@@ -4617,8 +4650,9 @@ function renderDeductionTables(
 
 function renderMastermindOverlay(state: GameState): string {
   if (!tracker.mastermindOverlay) return "";
-  const ruleSummary = ruleHypothesisSummary(state);
-  const deductionSummary = deductionTablesSummary(state);
+  const roleEvaluation = currentRoleEvaluation(state);
+  const ruleSummary = ruleHypothesisSummary(state, roleEvaluation);
+  const deductionSummary = deductionTablesSummary(state, roleEvaluation);
   return `
     <aside class="mastermind-overlay" aria-label="각본가 정보">
       ${renderLoopStartInformation(state)}
@@ -5152,6 +5186,7 @@ function renderScenarioSelection(): void {
 }
 
 function render(): void {
+  currentRoleEvaluationCache = undefined;
   currentLossDisclosureCache = undefined;
   if (tracker.activeScenarioId === "") {
     renderScenarioSelection();

@@ -2,10 +2,12 @@ import { characterDataOf } from "../data";
 import {
   evaluateRoleTableHypotheses,
   evaluateStateRoleTableHypotheses,
+  ruleCompatibleCombinations,
   type EvaluatedRoleTableRuleCombination,
   type ProtagonistObservation,
   type RuleCombination,
   type RolePossibilityTable,
+  type RoleTableHypothesisEvaluation,
 } from "../engine/hypothesis";
 import {
   evaluateStateIncidentHypotheses,
@@ -111,9 +113,10 @@ export interface DeductionTablesSummary {
 /** 각본가 패널에 필요한 룰 후보와 관측별 순차 배제 수를 계산한다. */
 export function ruleHypothesisSummary(
   state: GameState,
+  evaluation: RoleTableHypothesisEvaluation =
+    evaluateStateRoleTableHypotheses(state),
 ): RuleHypothesisSummary {
   const definition = tragedySetDefinition(state.scenario.tragedySet);
-  const evaluation = evaluateStateRoleTableHypotheses(state);
   const remainingMainPlots = new Set(
     evaluation.remaining.map(({ mainPlot }) => mainPlot),
   );
@@ -149,6 +152,7 @@ export function ruleHypothesisSummary(
     !fixedSubPlotSet.has(plot)
   );
   const lossDeductions: LossHypothesisDeduction[] = [];
+  let prefixCandidates: readonly RuleCombination[] | undefined;
   for (let index = 0; index < evaluation.observations.length; index += 1) {
     const observation = evaluation.observations[index];
     if (observation?.kind !== "lossObserved") continue;
@@ -159,12 +163,17 @@ export function ruleHypothesisSummary(
       state.scenario.tragedySet,
       publicCast,
       beforePrefix,
+      prefixCandidates,
     );
-    const afterEvaluation = evaluateRoleTableHypotheses(
-      state.scenario.tragedySet,
-      publicCast,
-      afterPrefix,
-    );
+    const afterEvaluation = index + 1 === evaluation.observations.length
+      ? evaluation
+      : evaluateRoleTableHypotheses(
+        state.scenario.tragedySet,
+        publicCast,
+        afterPrefix,
+        ruleCompatibleCombinations(beforeEvaluation),
+      );
+    prefixCandidates = ruleCompatibleCombinations(afterEvaluation);
     const allPlots = [...definition.mainPlots, ...definition.subPlots];
     const fixedPlots = allPlots.filter((plot) =>
       afterEvaluation.remaining.length > 0 &&
@@ -216,8 +225,9 @@ export function ruleHypothesisSummary(
 /** 역할표와 범인표를 같은 공개 관측 스냅샷에서 계산한다. */
 export function deductionTablesSummary(
   state: GameState,
+  roleEvaluation: RoleTableHypothesisEvaluation =
+    evaluateStateRoleTableHypotheses(state),
 ): DeductionTablesSummary {
-  const roleEvaluation = evaluateStateRoleTableHypotheses(state);
   const roleTable = roleEvaluation.table;
   const incidentTable = evaluateStateIncidentHypotheses(state);
   const roleRows = roleTable.characters.map((character) => {

@@ -374,6 +374,8 @@ export interface RoleTableHypothesisEvaluation {
 interface EvaluationOptions {
   /** 캐릭터 정체는 공개 정보이므로 아웃사이더 역할 가능성에만 사용한다. */
   publicCast?: readonly CharacterId[];
+  /** 앞선 관측에서 룰 자체로 살아남은 조합만 다시 검사할 때 사용한다. */
+  candidateCombinations?: readonly RuleCombination[];
 }
 
 interface RoleRange {
@@ -1487,13 +1489,58 @@ function observedRoleExclusions(
   );
 }
 
-function crossObservationRoleContradiction(
+interface CrossObservationCacheContext {
+  observations: ProtagonistObservation[];
+  results: Map<string, number>;
+}
+
+const MAX_CROSS_OBSERVATION_CACHE_ENTRIES = 8;
+const crossObservationCache = new Map<string, Map<string, number>>();
+
+function crossObservationCacheContext(
+  tragedySet: string,
+  publicCast: readonly CharacterId[],
   observations: readonly ProtagonistObservation[],
+): CrossObservationCacheContext {
+  const relevant = observations.filter(crossObservationConstraintsCanChange);
+  const key = JSON.stringify([tragedySet, publicCast, relevant]);
+  const cached = crossObservationCache.get(key);
+  if (cached !== undefined) {
+    crossObservationCache.delete(key);
+    crossObservationCache.set(key, cached);
+    return { observations: relevant, results: cached };
+  }
+
+  const results = new Map<string, number>();
+  crossObservationCache.set(key, results);
+  if (crossObservationCache.size > MAX_CROSS_OBSERVATION_CACHE_ENTRIES) {
+    const oldest = crossObservationCache.keys().next().value;
+    if (oldest !== undefined) crossObservationCache.delete(oldest);
+  }
+  return { observations: relevant, results };
+}
+
+function crossObservationRoleContradiction(
+  context: CrossObservationCacheContext,
   combination: RuleCombination,
   tragedySetRoles: readonly RoleId[],
   ranges: ReadonlyMap<RoleId, RoleRange>,
   publicCast: readonly CharacterId[],
 ): RuleContradiction | undefined {
+  const cachedIndex = context.results.get(combination.id);
+  if (cachedIndex !== undefined) {
+    if (cachedIndex < 0) return undefined;
+    const observation = context.observations[cachedIndex];
+    return observation === undefined
+      ? undefined
+      : {
+        code: "crossObservationRoleUnavailable",
+        observation,
+        reason: "누적된 공개 관측의 원인 후보를 고정된 역할 배정과 역할 수 상한으로 동시에 설명할 수 없습니다.",
+      };
+  }
+
+  const observations = context.observations;
   for (let index = 0; index < observations.length; index += 1) {
     const observation = observations[index];
     if (observation === undefined) continue;
@@ -1534,6 +1581,7 @@ function crossObservationRoleContradiction(
         ),
       )
     ) {
+      context.results.set(combination.id, index);
       return {
         code: "crossObservationRoleUnavailable",
         observation,
@@ -1541,7 +1589,32 @@ function crossObservationRoleContradiction(
       };
     }
   }
+  context.results.set(combination.id, -1);
   return undefined;
+}
+
+function crossObservationConstraintsCanChange(
+  observation: ProtagonistObservation,
+): boolean {
+  switch (observation.kind) {
+    case "roleRevealed":
+    case "deadAtLoopEndWithoutRoleReveal":
+    case "goodwillRefused":
+    case "goodwillAccepted":
+    case "mastermindAbilityResult":
+    case "goodwillForbidApplied":
+    case "sacredTreeMastermindTransferJudged":
+    case "roundEvidence":
+      return true;
+    case "incidentOccurred":
+    case "incidentCulpritRevealed":
+    case "subplotRevealed":
+    case "lossObserved":
+    case "goodwillIncidentEffect":
+    case "intrigueForbidIgnored":
+    case "mandatoryEffectMissing":
+      return false;
+  }
 }
 
 function intrigueForbidIgnoredContradiction(
@@ -1974,6 +2047,7 @@ function contradictionsForCombination(
   combination: RuleCombination,
   observations: readonly ProtagonistObservation[],
   options: EvaluationOptions,
+  crossContext: CrossObservationCacheContext,
 ): RuleContradiction[] {
   const ranges = roleRanges(combination);
   const tragedySetRoles = rolesForTragedySet(tragedySet);
@@ -2066,7 +2140,7 @@ function contradictionsForCombination(
     if (contradiction !== undefined) contradictions.push(contradiction);
   }
   const crossObservation = crossObservationRoleContradiction(
-    observations,
+    crossContext,
     combination,
     tragedySetRoles,
     ranges,
@@ -2081,13 +2155,22 @@ export function evaluateRuleHypotheses(
   observations: readonly ProtagonistObservation[],
   options: EvaluationOptions = {},
 ): RuleHypothesisEvaluation {
-  const combinations = enumerateRuleCombinations(tragedySet).map(
+  const candidates = options.candidateCombinations ??
+    enumerateRuleCombinations(tragedySet);
+  const publicCast = options.publicCast ?? [];
+  const crossContext = crossObservationCacheContext(
+    tragedySet,
+    publicCast,
+    observations,
+  );
+  const combinations = candidates.map(
     (combination): EvaluatedRuleCombination => {
       const contradictions = contradictionsForCombination(
         tragedySet,
         combination,
         observations,
         options,
+        crossContext,
       );
       return {
         combination,
@@ -3002,11 +3085,12 @@ export function evaluateRoleTableHypotheses(
   tragedySet: string,
   publicCast: readonly CharacterId[],
   observations: readonly ProtagonistObservation[],
+  candidateCombinations?: readonly RuleCombination[],
 ): RoleTableHypothesisEvaluation {
   const ruleEvaluation = evaluateRuleHypotheses(
     tragedySet,
     observations,
-    { publicCast },
+    { publicCast, candidateCombinations },
   );
   let remaining = [...ruleEvaluation.remaining];
   const tableContradictions = new Map<
@@ -3065,6 +3149,15 @@ export function evaluateRoleTableHypotheses(
     excluded: combinations.filter(({ excluded }) => excluded),
     propagationPasses,
   };
+}
+
+/** 역할표 전파와 무관하게 공개 관측의 룰 조건을 통과한 조합만 반환한다. */
+export function ruleCompatibleCombinations(
+  evaluation: RoleTableHypothesisEvaluation,
+): RuleCombination[] {
+  return evaluation.combinations.flatMap(({ combination, contradictions }) =>
+    contradictions.length === 0 ? [combination] : []
+  );
 }
 
 function observationKey(observation: ProtagonistObservation): string {
