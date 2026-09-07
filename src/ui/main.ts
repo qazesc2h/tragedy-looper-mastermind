@@ -45,11 +45,13 @@ import {
 } from "../engine/loss";
 import {
   mastermindGuidance,
+  type MastermindGuidance,
   type MastermindGuidanceRoute,
 } from "../engine/mastermind-guidance";
 import {
   mastermindCautions,
   type MastermindCaution,
+  type MastermindCautions,
 } from "../engine/mastermind-cautions";
 import {
   mastermindDecoyGuidance,
@@ -184,9 +186,7 @@ import {
   type RuleHypothesisSummary,
 } from "./mastermind-panel";
 import {
-  phaseLogDayIsOpen,
   phaseLogLoopGroups,
-  phaseLogLoopIsOpen,
 } from "./phase-log";
 import {
   groupInferenceTraces,
@@ -316,12 +316,23 @@ let openLocationModal: Location | undefined;
 let finalGuessConfirmationOpen = false;
 let operationSheetOpen = false;
 const optionalHookSelections = new Map<string, OptionalHookSelection>();
+const openLazyPanels = new Set<string>();
 const uiInputDrafts = new Map<string, string>();
 let uiInputDraftScope = "";
 let noticeDismissTimer: number | undefined;
 let uiActionInProgress = false;
 const NOTICE_DURATION_MS = 5_000;
 const MAX_RUNTIME_ERRORS = 10;
+const MAX_STATIC_GUIDANCE_CACHE_ENTRIES = 16;
+
+interface StaticGuidanceBundle {
+  guidance: MastermindGuidance;
+  cautions: MastermindCautions;
+  decoys: MastermindDecoyGuidance;
+  opening: MastermindOpeningGuidance;
+}
+
+const staticGuidanceCache = new Map<string, StaticGuidanceBundle>();
 
 interface UiTransactionSnapshot {
   game: StoredGame;
@@ -394,6 +405,43 @@ function escapeHtml(value: unknown): string {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function lazyPanelIsOpen(key: string): boolean {
+  return openLazyPanels.has(key);
+}
+
+function lazyPanelAttributes(key: string): string {
+  return `data-lazy-panel="${escapeHtml(key)}" ${
+    lazyPanelIsOpen(key) ? "open" : ""
+  }`;
+}
+
+function staticGuidanceFor(state: GameState): StaticGuidanceBundle {
+  const key = tracker.activeScenarioId === ""
+    ? `preview:${JSON.stringify(state.scenario)}`
+    : `game:${tracker.activeScenarioId}`;
+  const cached = staticGuidanceCache.get(key);
+  if (cached !== undefined) {
+    staticGuidanceCache.delete(key);
+    staticGuidanceCache.set(key, cached);
+    return cached;
+  }
+
+  // A/B/C/E는 현재 보드가 아니라 모든 루프가 공유하는 게임 시작 상태 계약이다.
+  const initialState = createGameState(structuredClone(state.scenario));
+  const created: StaticGuidanceBundle = {
+    guidance: mastermindGuidance(initialState),
+    cautions: mastermindCautions(initialState),
+    decoys: mastermindDecoyGuidance(initialState),
+    opening: mastermindOpeningGuidance(initialState),
+  };
+  staticGuidanceCache.set(key, created);
+  if (staticGuidanceCache.size > MAX_STATIC_GUIDANCE_CACHE_ENTRIES) {
+    const oldest = staticGuidanceCache.keys().next().value;
+    if (oldest !== undefined) staticGuidanceCache.delete(oldest);
+  }
+  return created;
 }
 
 function renderCollapsedHtmlList(
@@ -654,6 +702,7 @@ function resetTransientUi(): void {
   finalGuessConfirmationOpen = false;
   operationSheetOpen = false;
   optionalHookSelections.clear();
+  openLazyPanels.clear();
   uiInputDrafts.clear();
   uiInputDraftScope = "";
 }
@@ -670,6 +719,7 @@ function startFreshScenario(
   }
   delete tracker.games[entry.id];
   tracker.activeScenarioId = entry.id;
+  staticGuidanceCache.delete(`game:${entry.id}`);
   resetTransientUi();
   notice = "";
   saveState(entry.id, createGame(entry, difficultyIndex), "scenario-start");
@@ -1326,33 +1376,37 @@ function renderPhaseLog(state: GameState): string {
         <span>${entryCount}건</span>
       </header>
       <div class="phase-log-loops">
-        ${loopGroups.map((loopGroup) => `
-          <details class="phase-log-loop" ${
-            phaseLogLoopIsOpen(state, loopGroup) ? "open" : ""
-          }>
+        ${loopGroups.map((loopGroup) => {
+          const loopKey = `phase-log-loop:${loopGroup.key}`;
+          const loopOpen = lazyPanelIsOpen(loopKey);
+          return `
+          <details class="phase-log-loop" ${lazyPanelAttributes(loopKey)}>
             <summary>
               <strong>루프 ${loopGroup.loop}</strong>
               <small>${loopGroup.days.length}일</small>
             </summary>
-            <div class="phase-log-days">
-              ${loopGroup.days.map((dayGroup) => `
-                <details class="phase-log-day" ${
-                  phaseLogDayIsOpen(state, dayGroup) ? "open" : ""
-                }>
+            ${loopOpen ? `<div class="phase-log-days">
+              ${loopGroup.days.map((dayGroup) => {
+                const dayKey = `phase-log-day:${dayGroup.key}`;
+                const dayOpen = lazyPanelIsOpen(dayKey);
+                return `
+                <details class="phase-log-day" ${lazyPanelAttributes(dayKey)}>
                   <summary>
                     <strong>${dayGroup.day}일</strong>
                     <small>${dayGroup.entries.length}건</small>
                   </summary>
-                  <ol>${dayGroup.entries.flatMap((entry) =>
+                  ${dayOpen ? `<ol>${dayGroup.entries.flatMap((entry) =>
                     lines(entry).map((line) => `
                       <li>
                         <b>${escapeHtml(phaseName(entry.phase))}</b>
                         <span>${escapeHtml(line)}</span>
                       </li>`)
-                  ).join("")}</ol>
-                </details>`).join("")}
-            </div>
-          </details>`).join("")}
+                  ).join("")}</ol>` : ""}
+                </details>`;
+              }).join("")}
+            </div>` : ""}
+          </details>`;
+        }).join("")}
       </div>
     </section>`;
 }
@@ -3392,11 +3446,34 @@ function renderMastermindGuidance(
   state: GameState,
   context: "beforeStart" | "panel",
 ): string {
-  const guidance = mastermindGuidance(state);
-  const cautions = mastermindCautions(state);
-  const decoys = mastermindDecoyGuidance(state);
-  const cover = mastermindCoverGuidance(state);
-  const opening = mastermindOpeningGuidance(state);
+  const panelKey = context === "beforeStart"
+    ? "mastermind-guidance:before-start"
+    : "mastermind-guidance:panel";
+  const panelOpen = lazyPanelIsOpen(panelKey);
+  if (!panelOpen) {
+    if (context === "beforeStart") {
+      return `<details class="pre-game-guidance" aria-label="각본가 시작 지침"
+        ${lazyPanelAttributes(panelKey)}>
+        <summary class="pre-game-guidance-heading">
+          <span><small class="eyebrow">게임 전 준비 · 게임 중 다시 확인</small><strong>각본가 시작 지침</strong></span>
+          <i aria-hidden="true"></i>
+        </summary>
+      </details>`;
+    }
+    return `<details class="info-accordion mastermind-guidance-information"
+      ${lazyPanelAttributes(panelKey)}>
+      <summary>
+        <span><small>정적 지침</small><strong>각본가 시작 지침</strong></span>
+        <span class="accordion-summary-value">펼쳐서 계산</span>
+        <i aria-hidden="true"></i>
+      </summary>
+    </details>`;
+  }
+
+  const staticGuidance = staticGuidanceFor(state);
+  const { guidance, cautions, decoys, opening } = staticGuidance;
+  // D만 공개 이력을 읽는다. A/B/C/E는 위의 시나리오 캐시를 재사용한다.
+  const cover = mastermindCoverGuidance(state, guidance);
   const primary = guidance.primary;
   const primaryResources = new Set(primary?.resources ?? []);
   const otherRankedRoutes = guidance.rankedRoutes.slice(3);
@@ -3445,7 +3522,8 @@ function renderMastermindGuidance(
     ${renderMastermindOpening(opening)}`;
 
   if (context === "beforeStart") {
-    return `<details class="pre-game-guidance" aria-label="각본가 시작 지침">
+    return `<details class="pre-game-guidance" aria-label="각본가 시작 지침"
+      ${lazyPanelAttributes(panelKey)}>
       <summary class="pre-game-guidance-heading">
         <span><small class="eyebrow">게임 전 준비 · 게임 중 다시 확인</small><strong>각본가 시작 지침</strong></span>
         <i aria-hidden="true"></i>
@@ -3456,7 +3534,8 @@ function renderMastermindGuidance(
       </div>
     </details>`;
   }
-  return `<details class="info-accordion mastermind-guidance-information">
+  return `<details class="info-accordion mastermind-guidance-information"
+    ${lazyPanelAttributes(panelKey)}>
     <summary>
       <span><small>정적 지침</small><strong>각본가 시작 지침</strong></span>
       <span class="accordion-summary-value">${guidance.routes.length}개 경로 · 주의 ${cautions.total}건 · 미끼 ${decoys.total}건 · 은폐 ${cover.recommendation === undefined ? "없음" : escapeHtml(cover.recommendation.characterName)} · 개시 ${opening.candidateProfileCount.toLocaleString("ko-KR")}</span>
@@ -3888,6 +3967,36 @@ function ruleCombinationLabel(
 function renderRuleHypotheses(summary: RuleHypothesisSummary): string {
   const remainingCount = summary.remainingCombinations.length;
   const mainCandidateNames = summary.mainPlotCandidates.map(plotName);
+  const panelKey = "rule-hypotheses";
+  const panelOpen = lazyPanelIsOpen(panelKey);
+  const lossDeductionAlerts = summary.lossDeductions.map((deduction) => {
+    const fixed = [
+      ...deduction.fixedPlots.map(plotName),
+      ...deduction.fixedRoles.map(({ character, role }) =>
+        `${characterName(character)} = ${roleName(role)}`
+      ),
+    ];
+    return `<section class="loss-deduction-alert" role="status">
+      <span>${deduction.observation.loop}루프 패배 추론</span>
+      <strong>이번 패배로 ${escapeHtml(fixed.join(" · "))} 확정됨</strong>
+    </section>`;
+  }).join("");
+  const summaryHtml = `<summary>
+    <strong>룰 후보</strong>
+    <span class="accordion-summary-value">
+      ${summary.totalCombinations} → ${remainingCount}
+      ${summary.ruleYFixed ? `<b>룰 Y 확정</b>` : ""}
+    </span>
+    <i aria-hidden="true"></i>
+  </summary>`;
+  if (!panelOpen) {
+    return `${lossDeductionAlerts}
+      <details class="info-accordion compact-information rule-hypothesis-information ${
+        summary.ruleYFixed ? "is-rule-y-fixed" : ""
+      }" ${lazyPanelAttributes(panelKey)}>
+        ${summaryHtml}
+      </details>`;
+  }
   type GroupedHypothesisImpact = {
     label: string;
     count: number;
@@ -3961,31 +4070,11 @@ function renderRuleHypotheses(summary: RuleHypothesisSummary): string {
         <summary>남은 조합 ${remainingCount}개 보기</summary>
         <ul>${remainingList}</ul>
       </details>`;
-  const lossDeductionAlerts = summary.lossDeductions.map((deduction) => {
-    const fixed = [
-      ...deduction.fixedPlots.map(plotName),
-      ...deduction.fixedRoles.map(({ character, role }) =>
-        `${characterName(character)} = ${roleName(role)}`
-      ),
-    ];
-    return `<section class="loss-deduction-alert" role="status">
-      <span>${deduction.observation.loop}루프 패배 추론</span>
-      <strong>이번 패배로 ${escapeHtml(fixed.join(" · "))} 확정됨</strong>
-    </section>`;
-  }).join("");
-
   return `${lossDeductionAlerts}
     <details class="info-accordion compact-information rule-hypothesis-information ${
       summary.ruleYFixed ? "is-rule-y-fixed" : ""
-    }">
-      <summary>
-        <strong>룰 후보</strong>
-        <span class="accordion-summary-value">
-          ${summary.totalCombinations} → ${remainingCount}
-          ${summary.ruleYFixed ? `<b>룰 Y 확정</b>` : ""}
-        </span>
-        <i aria-hidden="true"></i>
-      </summary>
+    }" ${lazyPanelAttributes(panelKey)}>
+      ${summaryHtml}
       <div class="info-accordion-body hypothesis-body">
         <section class="hypothesis-axis ${summary.ruleYFixed ? "is-danger" : ""}">
           <div>
@@ -4417,6 +4506,7 @@ function renderCandidateChips(
 function renderRoleConstraintRows(
   summary: DeductionTablesSummary,
   character: CharacterId,
+  includeHtml: boolean,
 ): { html: string; count: number } {
   const rows = summary.roleTable.roles.flatMap((role) => {
     const cell = summary.roleTable.cells[character]?.[role];
@@ -4425,10 +4515,10 @@ function renderRoleConstraintRows(
       roleCellReasonLabel(code)
     ))];
     if (reasons.length === 0) return [];
-    return [`<li>
+    return [includeHtml ? `<li>
       <strong>${escapeHtml(roleName(role))} ${possibilityStatusLabel(cell.status)}</strong>
       <span>${escapeHtml(reasons.join(" · "))}</span>
-    </li>`];
+    </li>` : ""];
   });
   return { html: rows.join(""), count: rows.length };
 }
@@ -4445,14 +4535,22 @@ function renderCharacterInference(
     (count, group) => count + group.reasons.length,
     0,
   );
-  const constraints = renderRoleConstraintRows(summary, character);
+  const panelKey = `role-inference:${character}`;
+  const panelOpen = lazyPanelIsOpen(panelKey);
+  const constraints = renderRoleConstraintRows(
+    summary,
+    character,
+    panelOpen,
+  );
   const reasonCount = traceReasonCount + constraints.count;
   if (reasonCount === 0) return { html: "", reasonCount };
   return {
     reasonCount,
-    html: `<details class="character-inference-details">
+    html: `<details class="character-inference-details" ${
+      lazyPanelAttributes(panelKey)
+    }>
       <summary>추론 과정 <b>(근거 ${reasonCount}건)</b></summary>
-      <div class="character-inference-body">
+      ${panelOpen ? `<div class="character-inference-body">
         ${characterGroups.length === 0 ? "" : `<section>
           <h4>관측 추론</h4>
           <ul class="role-inference-list">${characterGroups.map(renderInferenceGroup).join("")}</ul>
@@ -4461,7 +4559,7 @@ function renderCharacterInference(
           <h4>역할별 후보 제약</h4>
           <ul class="deduction-constraint-list">${constraints.html}</ul>
         </section>`}
-      </div>
+      </div>` : ""}
     </details>`,
   };
 }
@@ -4469,6 +4567,7 @@ function renderCharacterInference(
 function renderIncidentConstraintRows(
   summary: DeductionTablesSummary,
   character: CharacterId,
+  includeHtml: boolean,
 ): { html: string; count: number } {
   const rows = summary.incidentTable.columns.flatMap((column) => {
     const cell = summary.incidentTable.cells[character]?.[column.id];
@@ -4478,173 +4577,206 @@ function renderIncidentConstraintRows(
     ))];
     if (reasons.length === 0) return [];
     const label = `${column.day}일 ${incidentName(column.incident)}`;
-    return [`<li>
+    return [includeHtml ? `<li>
       <strong>${escapeHtml(label)} ${possibilityStatusLabel(cell.status)}</strong>
       <span>${escapeHtml(reasons.join(" · "))}</span>
-    </li>`];
+    </li>` : ""];
   });
   return { html: rows.join(""), count: rows.length };
 }
 
 function renderDeductionTables(
-  summary: DeductionTablesSummary,
+  summary: DeductionTablesSummary | undefined,
 ): string {
-  const inferenceGroups = roleInferenceGroups(summary);
-  let characterInferenceReasonCount = 0;
-  const roleRows = summary.roleRows.map((row) => {
-    const labels = row.possibleRoles.map(roleName);
-    const inference = renderCharacterInference(
-      summary,
-      row.character,
-      inferenceGroups,
-    );
-    characterInferenceReasonCount += inference.reasonCount;
-    return `<li class="deduction-summary-row ${
-      row.confirmedRole === undefined ? "" : "is-confirmed"
-    } ${row.narrowed ? "is-narrowed" : ""}" data-candidate-count="${labels.length}">
-      <div class="deduction-character-result">
-        <div class="deduction-character-heading">
-          <strong>${escapeHtml(characterName(row.character))}</strong>
-          ${row.confirmedRole === undefined ? `<b>(${labels.length})</b>` : ""}
-        </div>
-        <div class="deduction-candidate-line">
-          ${renderCandidateChips(labels, row.confirmedRole !== undefined)}
-          ${row.confirmedRole === undefined ? "" : `<b class="deduction-confirmed-label">확정</b>`}
-        </div>
-      </div>
-      ${inference.html}
-    </li>`;
-  });
-  const castCharacters = new Set<string>(summary.roleRows.map(({ character }) =>
-    character
-  ));
-  const commonInferenceGroups = inferenceGroups.filter(({ subjects }) =>
-    subjects.every((subject) => !castCharacters.has(subject))
-  );
-  const commonInferenceReasonCount = commonInferenceGroups.reduce(
-    (count, group) => count + group.reasons.length,
-    0,
-  );
-  const commonInference = commonInferenceGroups.length === 0
-    ? ""
-    : `<details class="character-inference-details common-inference-details">
-      <summary>공통 추론 과정 <b>(근거 ${commonInferenceReasonCount}건)</b></summary>
-      <div class="character-inference-body"><section>
-        <ul class="role-inference-list">${commonInferenceGroups.map(renderInferenceGroup).join("")}</ul>
-      </section></div>
-    </details>`;
-  const roleHeader = summary.roleTable.roles.map((role) => `
-    <th scope="col" title="${escapeHtml(roleName(role))}" aria-label="${escapeHtml(roleName(role))}">
-      <span>${escapeHtml(roleName(role))}</span>
-    </th>`).join("");
-  const roleGrid = summary.roleTable.characters.map((character) => `
-    <tr>
-      <th scope="row">${escapeHtml(characterName(character))}</th>
-      ${summary.roleTable.roles.map((role) => {
-        const cell = summary.roleTable.cells[character]?.[role];
-        const status = cell?.status ?? "impossible";
-        const reasons = cell === undefined
-          ? "가능"
-          : [...new Set(cell.reasons.map(({ code }) =>
-            roleCellReasonLabel(code)
-          ))].join(" · ") || "가능";
-        const label = `${characterName(character)} · ${roleName(role)} · ${
-          status === "confirmed" ? "확정" : status === "impossible" ? "불가능" : "가능"
-        } · ${reasons}`;
-        return `<td class="is-${status}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${possibilityMark(status)}</td>`;
-      }).join("")}
-    </tr>`).join("");
+  const roleKey = "deduction:roles";
+  const incidentKey = "deduction:incidents";
+  const roleOpen = lazyPanelIsOpen(roleKey);
+  const incidentOpen = lazyPanelIsOpen(incidentKey);
+  if ((roleOpen || incidentOpen) && summary === undefined) {
+    throw new Error("open deduction panel requires a computed summary");
+  }
 
-  const incidentRows = summary.incidentRows.map((row) => {
-    const labels = row.possibleColumns.map((column) =>
-      `${column.day}일 ${incidentName(column.incident)}`
-    );
-    const constraints = renderIncidentConstraintRows(summary, row.character);
-    return `<li class="deduction-summary-row ${
-      row.confirmedColumn === undefined ? "" : "is-confirmed"
-    } ${row.narrowed ? "is-narrowed" : ""}" data-candidate-count="${labels.length}">
-      <div class="deduction-character-result">
-        <div class="deduction-character-heading">
-          <strong>${escapeHtml(characterName(row.character))}</strong>
-          ${row.confirmedColumn === undefined ? `<b>(${labels.length})</b>` : ""}
-        </div>
-        <div class="deduction-candidate-line">
-          ${renderCandidateChips(labels, row.confirmedColumn !== undefined)}
-          ${row.confirmedColumn === undefined ? "" : `<b class="deduction-confirmed-label">확정</b>`}
-        </div>
-      </div>
-      ${constraints.count === 0 ? "" : `<details class="character-inference-details incident-inference-details">
-        <summary>판정 근거 <b>(근거 ${constraints.count}건)</b></summary>
-        <div class="character-inference-body"><section>
-          <ul class="deduction-constraint-list">${constraints.html}</ul>
-        </section></div>
-      </details>`}
-    </li>`;
-  });
-  const incidentHeader = summary.incidentTable.columns.map((column) => {
-    const label = `${column.day}일 ${incidentName(column.incident)}`;
-    return `<th scope="col" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}"><span>${escapeHtml(label)}</span></th>`;
-  }).join("");
-  const incidentGrid = summary.incidentTable.characters.map((character) => `
-    <tr>
-      <th scope="row">${escapeHtml(characterName(character))}</th>
-      ${summary.incidentTable.columns.map((column) => {
-        const cell = summary.incidentTable.cells[character]?.[column.id];
-        const status = cell?.status ?? "impossible";
-        const reasons = cell === undefined
-          ? "가능"
-          : [...new Set(cell.reasons.map(({ code }) =>
-            incidentCellReasonLabel(code)
-          ))].join(" · ") || "가능";
-        const label = `${characterName(character)} · ${column.day}일 ${incidentName(column.incident)} · ${
-          status === "confirmed" ? "확정" : status === "impossible" ? "불가능" : "가능"
-        } · ${reasons}`;
-        return `<td class="is-${status}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${possibilityMark(status)}</td>`;
-      }).join("")}
-    </tr>`).join("");
-
-  return `
-    <details class="info-accordion compact-information deduction-information role-deduction-information">
-      <summary>
-        <strong>캐릭터별 역할 후보</strong>
-        <span class="accordion-summary-value">${summary.roleRows.filter(({ confirmedRole }) => confirmedRole !== undefined).length}명 확정</span>
-        <i aria-hidden="true"></i>
-      </summary>
-      <div class="info-accordion-body deduction-body">
-        <ul class="deduction-summary-list" data-conclusion-count="${inferenceGroups.length}"
-          data-reason-count="${characterInferenceReasonCount + commonInferenceReasonCount}">${roleRows.join("")}</ul>
-        ${commonInference}
-        <details class="deduction-grid-details">
-          <summary>전체 역할 격자 보기</summary>
-          <div class="deduction-grid-scroll">
-            <table class="deduction-grid" aria-label="캐릭터별 역할 가능성 격자">
-              <thead><tr><th scope="col">캐릭터</th>${roleHeader}</tr></thead>
-              <tbody>${roleGrid}</tbody>
-            </table>
+  let roleBody = "";
+  let roleConfirmedLabel = "펼쳐서 계산";
+  if (roleOpen && summary !== undefined) {
+    const inferenceGroups = roleInferenceGroups(summary);
+    let characterInferenceReasonCount = 0;
+    const roleRows = summary.roleRows.map((row) => {
+      const labels = row.possibleRoles.map(roleName);
+      const inference = renderCharacterInference(
+        summary,
+        row.character,
+        inferenceGroups,
+      );
+      characterInferenceReasonCount += inference.reasonCount;
+      return `<li class="deduction-summary-row ${
+        row.confirmedRole === undefined ? "" : "is-confirmed"
+      } ${row.narrowed ? "is-narrowed" : ""}" data-candidate-count="${labels.length}">
+        <div class="deduction-character-result">
+          <div class="deduction-character-heading">
+            <strong>${escapeHtml(characterName(row.character))}</strong>
+            ${row.confirmedRole === undefined ? `<b>(${labels.length})</b>` : ""}
           </div>
-        </details>
-      </div>
+          <div class="deduction-candidate-line">
+            ${renderCandidateChips(labels, row.confirmedRole !== undefined)}
+            ${row.confirmedRole === undefined ? "" : `<b class="deduction-confirmed-label">확정</b>`}
+          </div>
+        </div>
+        ${inference.html}
+      </li>`;
+    });
+    const castCharacters = new Set<string>(
+      summary.roleRows.map(({ character }) => character),
+    );
+    const commonInferenceGroups = inferenceGroups.filter(({ subjects }) =>
+      subjects.every((subject) => !castCharacters.has(subject))
+    );
+    const commonInferenceReasonCount = commonInferenceGroups.reduce(
+      (count, group) => count + group.reasons.length,
+      0,
+    );
+    const commonKey = "role-inference:common";
+    const commonOpen = lazyPanelIsOpen(commonKey);
+    const commonInference = commonInferenceGroups.length === 0
+      ? ""
+      : `<details class="character-inference-details common-inference-details"
+          ${lazyPanelAttributes(commonKey)}>
+          <summary>공통 추론 과정 <b>(근거 ${commonInferenceReasonCount}건)</b></summary>
+          ${commonOpen ? `<div class="character-inference-body"><section>
+            <ul class="role-inference-list">${commonInferenceGroups.map(renderInferenceGroup).join("")}</ul>
+          </section></div>` : ""}
+        </details>`;
+    const roleGridKey = "deduction-grid:roles";
+    const roleGridOpen = lazyPanelIsOpen(roleGridKey);
+    const roleGrid = roleGridOpen
+      ? `<div class="deduction-grid-scroll">
+          <table class="deduction-grid" aria-label="캐릭터별 역할 가능성 격자">
+            <thead><tr><th scope="col">캐릭터</th>${summary.roleTable.roles.map((role) => `
+              <th scope="col" title="${escapeHtml(roleName(role))}" aria-label="${escapeHtml(roleName(role))}">
+                <span>${escapeHtml(roleName(role))}</span>
+              </th>`).join("")}</tr></thead>
+            <tbody>${summary.roleTable.characters.map((character) => `
+              <tr><th scope="row">${escapeHtml(characterName(character))}</th>
+                ${summary.roleTable.roles.map((role) => {
+                  const cell = summary.roleTable.cells[character]?.[role];
+                  const status = cell?.status ?? "impossible";
+                  const reasons = cell === undefined
+                    ? "가능"
+                    : [...new Set(cell.reasons.map(({ code }) =>
+                      roleCellReasonLabel(code)
+                    ))].join(" · ") || "가능";
+                  const label = `${characterName(character)} · ${roleName(role)} · ${
+                    status === "confirmed" ? "확정" : status === "impossible" ? "불가능" : "가능"
+                  } · ${reasons}`;
+                  return `<td class="is-${status}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${possibilityMark(status)}</td>`;
+                }).join("")}</tr>`).join("")}</tbody>
+          </table>
+        </div>`
+      : "";
+    roleConfirmedLabel = `${summary.roleRows.filter(({ confirmedRole }) =>
+      confirmedRole !== undefined
+    ).length}명 확정`;
+    roleBody = `<div class="info-accordion-body deduction-body">
+      <ul class="deduction-summary-list" data-conclusion-count="${inferenceGroups.length}"
+        data-reason-count="${characterInferenceReasonCount + commonInferenceReasonCount}">${roleRows.join("")}</ul>
+      ${commonInference}
+      <details class="deduction-grid-details" ${lazyPanelAttributes(roleGridKey)}>
+        <summary>전체 역할 격자 보기</summary>
+        ${roleGrid}
+      </details>
+    </div>`;
+  }
+
+  let incidentBody = "";
+  let incidentConfirmedLabel = "펼쳐서 계산";
+  if (incidentOpen && summary !== undefined) {
+    const incidentRows = summary.incidentRows.map((row) => {
+      const labels = row.possibleColumns.map((column) =>
+        `${column.day}일 ${incidentName(column.incident)}`
+      );
+      const inferenceKey = `incident-inference:${row.character}`;
+      const inferenceOpen = lazyPanelIsOpen(inferenceKey);
+      const constraints = renderIncidentConstraintRows(
+        summary,
+        row.character,
+        inferenceOpen,
+      );
+      return `<li class="deduction-summary-row ${
+        row.confirmedColumn === undefined ? "" : "is-confirmed"
+      } ${row.narrowed ? "is-narrowed" : ""}" data-candidate-count="${labels.length}">
+        <div class="deduction-character-result">
+          <div class="deduction-character-heading">
+            <strong>${escapeHtml(characterName(row.character))}</strong>
+            ${row.confirmedColumn === undefined ? `<b>(${labels.length})</b>` : ""}
+          </div>
+          <div class="deduction-candidate-line">
+            ${renderCandidateChips(labels, row.confirmedColumn !== undefined)}
+            ${row.confirmedColumn === undefined ? "" : `<b class="deduction-confirmed-label">확정</b>`}
+          </div>
+        </div>
+        ${constraints.count === 0 ? "" : `<details class="character-inference-details incident-inference-details"
+          ${lazyPanelAttributes(inferenceKey)}>
+          <summary>판정 근거 <b>(근거 ${constraints.count}건)</b></summary>
+          ${inferenceOpen ? `<div class="character-inference-body"><section>
+            <ul class="deduction-constraint-list">${constraints.html}</ul>
+          </section></div>` : ""}
+        </details>`}
+      </li>`;
+    });
+    const incidentGridKey = "deduction-grid:incidents";
+    const incidentGridOpen = lazyPanelIsOpen(incidentGridKey);
+    const incidentGrid = incidentGridOpen
+      ? `<div class="deduction-grid-scroll">
+          <table class="deduction-grid" aria-label="캐릭터별 사건 범인 가능성 격자">
+            <thead><tr><th scope="col">캐릭터</th>${summary.incidentTable.columns.map((column) => {
+              const label = `${column.day}일 ${incidentName(column.incident)}`;
+              return `<th scope="col" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}"><span>${escapeHtml(label)}</span></th>`;
+            }).join("")}</tr></thead>
+            <tbody>${summary.incidentTable.characters.map((character) => `
+              <tr><th scope="row">${escapeHtml(characterName(character))}</th>
+                ${summary.incidentTable.columns.map((column) => {
+                  const cell = summary.incidentTable.cells[character]?.[column.id];
+                  const status = cell?.status ?? "impossible";
+                  const reasons = cell === undefined
+                    ? "가능"
+                    : [...new Set(cell.reasons.map(({ code }) =>
+                      incidentCellReasonLabel(code)
+                    ))].join(" · ") || "가능";
+                  const label = `${characterName(character)} · ${column.day}일 ${incidentName(column.incident)} · ${
+                    status === "confirmed" ? "확정" : status === "impossible" ? "불가능" : "가능"
+                  } · ${reasons}`;
+                  return `<td class="is-${status}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${possibilityMark(status)}</td>`;
+                }).join("")}</tr>`).join("")}</tbody>
+          </table>
+        </div>`
+      : "";
+    incidentConfirmedLabel = `${summary.incidentRows.filter(
+      ({ confirmedColumn }) => confirmedColumn !== undefined,
+    ).length}건 확정`;
+    incidentBody = `<div class="info-accordion-body deduction-body">
+      ${summary.incidentTable.columns.length === 0
+        ? `<p class="empty-overlay">시나리오에 사건이 없습니다.</p>`
+        : `<ul class="deduction-summary-list">${incidentRows.join("")}</ul>
+          <details class="deduction-grid-details" ${lazyPanelAttributes(incidentGridKey)}>
+            <summary>전체 범인 격자 보기</summary>
+            ${incidentGrid}
+          </details>`}
+    </div>`;
+  }
+
+  return `<details class="info-accordion compact-information deduction-information role-deduction-information"
+      ${lazyPanelAttributes(roleKey)}>
+      <summary><strong>캐릭터별 역할 후보</strong>
+        <span class="accordion-summary-value">${roleConfirmedLabel}</span>
+        <i aria-hidden="true"></i></summary>
+      ${roleBody}
     </details>
-    <details class="info-accordion compact-information deduction-information incident-deduction-information">
-      <summary>
-        <strong>사건 범인 후보</strong>
-        <span class="accordion-summary-value">${summary.incidentRows.filter(({ confirmedColumn }) => confirmedColumn !== undefined).length}건 확정</span>
-        <i aria-hidden="true"></i>
-      </summary>
-      <div class="info-accordion-body deduction-body">
-        ${summary.incidentTable.columns.length === 0
-          ? `<p class="empty-overlay">시나리오에 사건이 없습니다.</p>`
-          : `<ul class="deduction-summary-list">${incidentRows.join("")}</ul>
-            <details class="deduction-grid-details">
-              <summary>전체 범인 격자 보기</summary>
-              <div class="deduction-grid-scroll">
-                <table class="deduction-grid" aria-label="캐릭터별 사건 범인 가능성 격자">
-                  <thead><tr><th scope="col">캐릭터</th>${incidentHeader}</tr></thead>
-                  <tbody>${incidentGrid}</tbody>
-                </table>
-              </div>
-            </details>`}
-      </div>
+    <details class="info-accordion compact-information deduction-information incident-deduction-information"
+      ${lazyPanelAttributes(incidentKey)}>
+      <summary><strong>사건 범인 후보</strong>
+        <span class="accordion-summary-value">${incidentConfirmedLabel}</span>
+        <i aria-hidden="true"></i></summary>
+      ${incidentBody}
     </details>`;
 }
 
@@ -4652,7 +4784,16 @@ function renderMastermindOverlay(state: GameState): string {
   if (!tracker.mastermindOverlay) return "";
   const roleEvaluation = currentRoleEvaluation(state);
   const ruleSummary = ruleHypothesisSummary(state, roleEvaluation);
-  const deductionSummary = deductionTablesSummary(state, roleEvaluation);
+  const scenarioInformationKey = "scenario-information";
+  const deductionSummaryNeeded = lazyPanelIsOpen("deduction:roles") ||
+    lazyPanelIsOpen("deduction:incidents") ||
+    lazyPanelIsOpen(scenarioInformationKey);
+  const deductionSummary = deductionSummaryNeeded
+    ? deductionTablesSummary(state, roleEvaluation)
+    : undefined;
+  const incidentScheduleKey = "incident-schedule";
+  const lossDistanceKey = "loss-distance";
+  const spentCardsKey = "spent-cards";
   return `
     <aside class="mastermind-overlay" aria-label="각본가 정보">
       ${renderLoopStartInformation(state)}
@@ -4669,40 +4810,54 @@ function renderMastermindOverlay(state: GameState): string {
           ${renderTodayIncidents(state)}
         </div>
       </details>
-      <details class="info-accordion">
+      <details class="info-accordion" ${lazyPanelAttributes(scenarioInformationKey)}>
         <summary>
           <span><small>시나리오</small><strong>룰과 역할</strong></span>
           <i aria-hidden="true"></i>
         </summary>
-        <div class="info-accordion-body">${renderScenarioInformation(
-          state,
-          ruleSummary,
-          deductionSummary,
-        )}</div>
+        ${lazyPanelIsOpen(scenarioInformationKey) && deductionSummary !== undefined
+          ? `<div class="info-accordion-body">${renderScenarioInformation(
+              state,
+              ruleSummary,
+              deductionSummary,
+            )}</div>`
+          : ""}
       </details>
-      <details class="info-accordion compact-information">
+      <details class="info-accordion compact-information" ${
+        lazyPanelAttributes(incidentScheduleKey)
+      }>
         <summary>
           <strong>사건 일정</strong>
           <span class="accordion-summary-value">${escapeHtml(incidentScheduleSummary(state))}</span>
           <i aria-hidden="true"></i>
         </summary>
-        <div class="info-accordion-body">${renderIncidentSchedule(state)}</div>
+        ${lazyPanelIsOpen(incidentScheduleKey)
+          ? `<div class="info-accordion-body">${renderIncidentSchedule(state)}</div>`
+          : ""}
       </details>
-      <details class="info-accordion compact-information">
+      <details class="info-accordion compact-information" ${
+        lazyPanelAttributes(lossDistanceKey)
+      }>
         <summary>
           <strong>${escapeHtml(misc("Victory Conditions"))}</strong>
           <span class="accordion-summary-value">${escapeHtml(lossDistanceSummary(state))}</span>
           <i aria-hidden="true"></i>
         </summary>
-        <div class="info-accordion-body loss-list">${renderLossDistance(state)}</div>
+        ${lazyPanelIsOpen(lossDistanceKey)
+          ? `<div class="info-accordion-body loss-list">${renderLossDistance(state)}</div>`
+          : ""}
       </details>
-      <details class="info-accordion spent-information compact-information">
+      <details class="info-accordion spent-information compact-information" ${
+        lazyPanelAttributes(spentCardsKey)
+      }>
         <summary>
           <strong>${escapeHtml(misc("Spent cards", "소진 카드"))}</strong>
           <span class="accordion-summary-value">${escapeHtml(spentCardsSummary(state))}</span>
           <i aria-hidden="true"></i>
         </summary>
-        <div class="info-accordion-body">${renderSpentCards(state)}</div>
+        ${lazyPanelIsOpen(spentCardsKey)
+          ? `<div class="info-accordion-body">${renderSpentCards(state)}</div>`
+          : ""}
       </details>
       ${renderOngoingGoodwillEffects(state)}
     </aside>`;
@@ -4712,14 +4867,15 @@ function renderCollapsedMastermindOverlay(
   state: GameState,
   purpose: "finalGuess" | "review",
 ): string {
-  const overlay = renderMastermindOverlay(state);
-  if (overlay === "") return "";
-  return `<details class="mastermind-archive-information">
+  const key = `mastermind-archive:${purpose}`;
+  return `<details class="mastermind-archive-information" ${
+    lazyPanelAttributes(key)
+  }>
     <summary>
       <strong>각본가 정보 보기</strong>
       <span>${purpose === "finalGuess" ? "역할 선언 대조" : "게임 복기"}</span>
     </summary>
-    ${overlay}
+    ${lazyPanelIsOpen(key) ? renderMastermindOverlay(state) : ""}
   </details>`;
 }
 
@@ -5185,9 +5341,11 @@ function renderScenarioSelection(): void {
   scheduleNoticeDismiss();
 }
 
-function render(): void {
-  currentRoleEvaluationCache = undefined;
-  currentLossDisclosureCache = undefined;
+function render(preserveInferenceCache = false): void {
+  if (!preserveInferenceCache) {
+    currentRoleEvaluationCache = undefined;
+    currentLossDisclosureCache = undefined;
+  }
   if (tracker.activeScenarioId === "") {
     renderScenarioSelection();
     return;
@@ -5640,6 +5798,22 @@ window.addEventListener("error", (event) => {
 window.addEventListener("unhandledrejection", (event) => {
   recordUnhandledUiError("unhandled-rejection", event.reason);
 });
+
+root.addEventListener("toggle", (event) => {
+  const details = event.target;
+  if (!(details instanceof HTMLDetailsElement)) return;
+  const key = details.dataset.lazyPanel;
+  if (key === undefined) return;
+  if (details.open === lazyPanelIsOpen(key)) return;
+  if (details.open) openLazyPanels.add(key);
+  else openLazyPanels.delete(key);
+  render(true);
+  window.requestAnimationFrame(() => {
+    root.querySelector<HTMLElement>(
+      `details[data-lazy-panel="${CSS.escape(key)}"] > summary`,
+    )?.focus();
+  });
+}, true);
 
 root.addEventListener("click", (event) => {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>(
@@ -6167,6 +6341,7 @@ root.addEventListener("change", (event) => {
     finalGuessConfirmationOpen = false;
     operationSheetOpen = false;
     optionalHookSelections.clear();
+    openLazyPanels.clear();
     if (!tracker.games[entry.id]) {
       saveState(entry.id, createGame(entry), "scenario-start");
     } else {

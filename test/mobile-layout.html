@@ -77,16 +77,37 @@
         window.localStorage.setItem(storageKey, JSON.stringify(tracker));
       }
 
+      function mutateTracker(mutate) {
+        const storageKey = "tragedy-looper-mastermind:tracker";
+        const raw = window.localStorage.getItem(storageKey);
+        if (raw === null) throw new Error("검사용 저장 상태가 없습니다.");
+        const tracker = JSON.parse(raw);
+        mutate(tracker);
+        window.localStorage.setItem(storageKey, JSON.stringify(tracker));
+      }
+
       async function reloadApp(label, expectedSelector = ".game-board") {
         const loaded = new Promise((resolve) => {
           frame.addEventListener("load", resolve, { once: true });
         });
         frame.src = `/?mobile-layout-case=${encodeURIComponent(label)}`;
         await loaded;
-        await waitFor(
-          () => frameDocument().querySelector(expectedSelector),
-          `${label} ${expectedSelector}`,
-        );
+        try {
+          await waitFor(
+            () => frameDocument().querySelector(expectedSelector),
+            `${label} ${expectedSelector}`,
+          );
+        } catch (error) {
+          const runtimeError = frameDocument().querySelector(
+            ".runtime-error-recovery",
+          )?.textContent.replace(/\s+/g, " ").trim();
+          const noticeText = frameDocument().querySelector(
+            ".notice-toast",
+          )?.textContent.replace(/\s+/g, " ").trim();
+          throw new Error(`${error instanceof Error ? error.message : String(error)}${
+            runtimeError === undefined ? "" : ` · 화면 오류: ${runtimeError}`
+          }${noticeText === undefined ? "" : ` · 알림: ${noticeText}`}`);
+        }
         await frameDocument().fonts.ready;
       }
 
@@ -96,6 +117,29 @@
           throw new Error(`클릭 대상을 찾을 수 없습니다: ${selector}`);
         }
         element.click();
+      }
+
+      async function openLazyPanel(selector, contentSelector) {
+        const panel = frameDocument().querySelector(selector);
+        if (!(panel instanceof frameWindow().HTMLDetailsElement)) {
+          throw new Error(`지연 패널을 찾을 수 없습니다: ${selector}`);
+        }
+        if (!panel.open) {
+          const summary = panel.querySelector(":scope > summary");
+          if (!(summary instanceof frameWindow().HTMLElement)) {
+            throw new Error(`지연 패널 summary를 찾을 수 없습니다: ${selector}`);
+          }
+          summary.click();
+        }
+        return await waitFor(() => {
+          const refreshed = frameDocument().querySelector(selector);
+          if (!(refreshed instanceof frameWindow().HTMLDetailsElement) ||
+            !refreshed.open ||
+            (contentSelector !== undefined &&
+              refreshed.querySelector(contentSelector) === null)
+          ) return null;
+          return refreshed;
+        }, `${selector} 지연 본문`);
       }
 
       function locationOf(character) {
@@ -135,9 +179,11 @@
             frameWindow().Node.DOCUMENT_POSITION_FOLLOWING,
         );
         const initiallyClosed = !guidance.open;
-        guidance.open = true;
-        await pause();
-        const text = guidance.textContent.replace(/\s+/g, " ").trim();
+        const openedGuidance = await openLazyPanel(
+          ".pre-game-guidance",
+          ".pre-game-guidance-body",
+        );
+        const text = openedGuidance.textContent.replace(/\s+/g, " ").trim();
         const horizontal = horizontalOverflow();
         const report = {
           buttonBeforeGuidance,
@@ -625,7 +671,11 @@
         );
         const reason = card.querySelector(".hand-card-disabled-reason")
           ?.textContent.trim() ?? "";
-        const panelText = frameDocument().querySelector(
+        const scenarioDetails = await openLazyPanel(
+          "details[data-lazy-panel='scenario-information']",
+          ".scenario-special-rules",
+        );
+        const panelText = scenarioDetails.querySelector(
           ".scenario-special-rules",
         )?.textContent.replace(/\s+/g, " ").trim() ?? "";
         const report = {
@@ -718,12 +768,14 @@
       }
 
       async function inspectServantSplitMovementChoice() {
+        await selectScenario("community:naughty-cat");
         let originalState;
+        mutateTracker((tracker) => {
+          tracker.mastermindOverlay = false;
+        });
         mutateActiveState((state) => {
           originalState = structuredClone(state);
           state.gamePhase = "ROUND";
-          state.scenario.cast.servant = "person";
-          state.scenario.cast.richStudent = "person";
           state.scenario.cast.boss = "person";
           for (const character of ["servant", "richStudent", "boss"]) {
             state.loop.board[character] = { status: "alive", at: "School" };
@@ -781,6 +833,9 @@
         mutateActiveState((state) => {
           for (const key of Object.keys(state)) delete state[key];
           Object.assign(state, originalState);
+        });
+        mutateTracker((tracker) => {
+          tracker.mastermindOverlay = true;
         });
         await reloadApp("servant-split-movement-choice-restored");
       }
@@ -860,9 +915,12 @@
           "tragedy-looper-mastermind:tracker",
         ));
         const actualState = stored.games[stored.activeScenarioId].state;
-        const actualRoleText = frameDocument().querySelector(
+        const actualRolePanel = await openLazyPanel(
           ".role-deduction-information",
-        )?.textContent.replace(/\s+/g, " ").trim() ?? "";
+          ".deduction-summary-list",
+        );
+        const actualRoleText = actualRolePanel.textContent
+          .replace(/\s+/g, " ").trim();
         report.actual = {
           phase: actualState.loop.phase,
           shrineMaidenParanoia:
@@ -1127,8 +1185,10 @@
         });
         await reloadApp("rule-y-fixed");
         document = frameDocument();
-        panel = document.querySelector(".rule-hypothesis-information");
-        panel.open = true;
+        panel = await openLazyPanel(
+          ".rule-hypothesis-information",
+          ".hypothesis-body",
+        );
         panel.scrollIntoView({ block: "start" });
         await pause(100);
         const fixedText = panel.textContent.replace(/\s+/g, " ").trim();
@@ -1143,7 +1203,7 @@
         if (
           !fixedReport.fixedClass ||
           fixedReport.axisCount !== 2 ||
-          fixedReport.impactCount !== 2 ||
+          fixedReport.impactCount !== 3 ||
           !fixedText.includes("룰 Y 후보 5 → 1") ||
           !fixedText.includes("확정 · 위험") ||
           !fixedText.includes("관측 목록") ||
@@ -1185,8 +1245,10 @@
         });
         await reloadApp("first-steps-zero-impact-observation");
         document = frameDocument();
-        panel = document.querySelector(".rule-hypothesis-information");
-        panel.open = true;
+        panel = await openLazyPanel(
+          ".rule-hypothesis-information",
+          ".hypothesis-body",
+        );
         await pause(100);
         const zeroImpactDetails = panel.querySelector(
           ".hypothesis-exclusions .long-list-details",
@@ -1279,9 +1341,11 @@
         await reloadApp("loss-deduction-alert");
         document = frameDocument();
         const lossAlert = document.querySelector(".loss-deduction-alert");
-        const fixedRuleY = document.querySelector(
-          ".scenario-information-panel .is-rule-y",
+        const fixedScenarioDetails = await openLazyPanel(
+          "details[data-lazy-panel='scenario-information']",
+          ".scenario-information-panel",
         );
+        const fixedRuleY = fixedScenarioDetails.querySelector(".is-rule-y");
         const lossAlertReport = {
           text: lossAlert?.textContent.replace(/\s+/g, " ").trim() ?? "",
           ruleYText: fixedRuleY?.textContent.replace(/\s+/g, " ").trim() ?? "",
@@ -1329,14 +1393,18 @@
         });
         await reloadApp("unordered-x-partial");
         document = frameDocument();
-        const scenarioPanel = document.querySelector(".scenario-information-panel");
-        const scenarioDetails = scenarioPanel?.closest("details");
-        if (!(scenarioDetails instanceof frameWindow().HTMLDetailsElement)) {
-          throw new Error("부분 확정 룰과 역할 패널을 찾을 수 없습니다.");
-        }
-        scenarioDetails.open = true;
+        const scenarioDetails = await openLazyPanel(
+          "details[data-lazy-panel='scenario-information']",
+          ".scenario-information-panel",
+        );
         scenarioDetails.scrollIntoView({ block: "start" });
         await pause(100);
+        const scenarioPanel = scenarioDetails.querySelector(
+          ".scenario-information-panel",
+        );
+        if (!(scenarioPanel instanceof frameWindow().HTMLElement)) {
+          throw new Error("부분 확정 룰과 역할 본문을 찾을 수 없습니다.");
+        }
         const partialXText = scenarioPanel.querySelector(".is-rule-x")
           ?.textContent.replace(/\s+/g, " ").trim() ?? "";
         const partialXReport = {
@@ -1375,8 +1443,10 @@
         });
         await reloadApp("c2-fixed-observations");
         document = frameDocument();
-        panel = document.querySelector(".rule-hypothesis-information");
-        panel.open = true;
+        panel = await openLazyPanel(
+          ".rule-hypothesis-information",
+          ".hypothesis-body",
+        );
         panel.scrollIntoView({ block: "start" });
         await pause(100);
         const c2Text = panel.textContent.replace(/\s+/g, " ").trim();
@@ -1436,14 +1506,15 @@
         });
         await reloadApp("deduction-tables");
         const document = frameDocument();
-        const rolePanel = document.querySelector(".role-deduction-information");
-        const incidentPanel = document.querySelector(
+        let rolePanel = document.querySelector(".role-deduction-information");
+        let incidentPanel = document.querySelector(
           ".incident-deduction-information",
         );
-        const scenarioPanel = document.querySelector(
-          ".scenario-information-panel",
+        const scenarioDetailsSelector =
+          "details[data-lazy-panel='scenario-information']";
+        const scenarioDetails = document.querySelector(
+          scenarioDetailsSelector,
         );
-        const scenarioDetails = scenarioPanel?.closest("details");
         if (
           !(rolePanel instanceof frameWindow().HTMLDetailsElement) ||
           !(incidentPanel instanceof frameWindow().HTMLDetailsElement) ||
@@ -1456,15 +1527,66 @@
           .getBoundingClientRect();
         const incidentSummaryRect = incidentPanel.querySelector(":scope > summary")
           .getBoundingClientRect();
-        rolePanel.open = true;
-        incidentPanel.open = true;
-        scenarioDetails.open = true;
-        const roleGridDetails = rolePanel.querySelector(".deduction-grid-details");
-        const incidentGridDetails = incidentPanel.querySelector(
+        const collapsedReport = {
+          roleSummary: rolePanel.querySelector(":scope > summary")?.textContent
+            .replace(/\s+/g, " ").trim() ?? "",
+          incidentSummary: incidentPanel.querySelector(":scope > summary")?.textContent
+            .replace(/\s+/g, " ").trim() ?? "",
+          roleBodyAbsent: rolePanel.querySelector(".deduction-summary-list") === null,
+          incidentBodyAbsent:
+            incidentPanel.querySelector(".deduction-summary-list") === null,
+          gridsAbsent: document.querySelector(".deduction-grid") === null,
+        };
+        rolePanel = await openLazyPanel(
+          ".role-deduction-information",
+          ".deduction-summary-list",
+        );
+        incidentPanel = await openLazyPanel(
+          ".incident-deduction-information",
+          ".deduction-summary-list",
+        );
+        const openedScenarioDetails = await openLazyPanel(
+          scenarioDetailsSelector,
+          ".scenario-information-panel",
+        );
+        rolePanel = frameDocument().querySelector(".role-deduction-information");
+        incidentPanel = frameDocument().querySelector(
+          ".incident-deduction-information",
+        );
+        if (!(rolePanel instanceof frameWindow().HTMLDetailsElement) ||
+          !(incidentPanel instanceof frameWindow().HTMLDetailsElement)
+        ) {
+          throw new Error("펼친 역할·범인 패널을 다시 찾을 수 없습니다.");
+        }
+        const scenarioPanel = openedScenarioDetails.querySelector(
+          ".scenario-information-panel",
+        );
+        if (!(scenarioPanel instanceof frameWindow().HTMLElement)) {
+          throw new Error("펼친 룰과 역할 본문을 찾을 수 없습니다.");
+        }
+        let roleGridDetails = await openLazyPanel(
+          ".role-deduction-information .deduction-grid-details",
+          ".deduction-grid-scroll",
+        );
+        let incidentGridDetails = await openLazyPanel(
+          ".incident-deduction-information .deduction-grid-details",
+          ".deduction-grid-scroll",
+        );
+        rolePanel = frameDocument().querySelector(".role-deduction-information");
+        incidentPanel = frameDocument().querySelector(
+          ".incident-deduction-information",
+        );
+        roleGridDetails = rolePanel?.querySelector(".deduction-grid-details");
+        incidentGridDetails = incidentPanel?.querySelector(
           ".deduction-grid-details",
         );
-        roleGridDetails.open = true;
-        incidentGridDetails.open = true;
+        if (!(rolePanel instanceof frameWindow().HTMLDetailsElement) ||
+          !(incidentPanel instanceof frameWindow().HTMLDetailsElement) ||
+          !(roleGridDetails instanceof frameWindow().HTMLDetailsElement) ||
+          !(incidentGridDetails instanceof frameWindow().HTMLDetailsElement)
+        ) {
+          throw new Error("펼친 역할·범인 격자를 다시 찾을 수 없습니다.");
+        }
         rolePanel.scrollIntoView({ block: "start" });
         await pause(100);
 
@@ -1520,6 +1642,7 @@
           ),
         }));
         const report = {
+          collapsed: collapsedReport,
           roleSummaryHeight: roleSummaryRect.height,
           incidentSummaryHeight: incidentSummaryRect.height,
           roleConfirmedRows: rolePanel.querySelectorAll(
@@ -1593,6 +1716,11 @@
         };
         reports.push({ label: "역할·범인 추리표", ...report });
         if (
+          !report.collapsed.roleSummary.includes("펼쳐서 계산") ||
+          !report.collapsed.incidentSummary.includes("펼쳐서 계산") ||
+          !report.collapsed.roleBodyAbsent ||
+          !report.collapsed.incidentBodyAbsent ||
+          !report.collapsed.gridsAbsent ||
           report.roleSummaryHeight < 44 ||
           report.incidentSummaryHeight < 44 ||
           report.roleConfirmedRows < 1 ||
@@ -1671,21 +1799,24 @@
           }));
         });
         await reloadApp("grouped-inference-5x5", ".game-flow-screen");
-        const document = frameDocument();
-        const rolePanel = document.querySelector(".role-deduction-information");
-        const roleList = rolePanel?.querySelector(".deduction-summary-list");
+        await openLazyPanel(
+          ".mastermind-archive-information",
+          ".role-deduction-information",
+        );
+        let rolePanel = await openLazyPanel(
+          ".role-deduction-information",
+          ".deduction-summary-list",
+        );
+        let roleList = rolePanel.querySelector(".deduction-summary-list");
         if (
           !(rolePanel instanceof frameWindow().HTMLDetailsElement) ||
           !(roleList instanceof frameWindow().HTMLElement)
         ) {
           throw new Error("5루프 5일 역할 추론 목록을 찾을 수 없습니다.");
         }
-        for (const detail of document.querySelectorAll("details")) {
-          if (detail.contains(rolePanel)) detail.open = true;
-        }
         rolePanel.scrollIntoView({ block: "start" });
         await pause(100);
-        const characterDetails = [...roleList.querySelectorAll(
+        let characterDetails = [...roleList.querySelectorAll(
           ":scope > .deduction-summary-row > .character-inference-details",
         )];
         const groupedHeight = characterDetails.reduce(
@@ -1694,7 +1825,23 @@
         );
         const conclusionCount = Number(roleList.dataset.conclusionCount);
         const reasonCount = Number(roleList.dataset.reasonCount);
-        for (const detail of characterDetails) detail.open = true;
+        const inferenceKeys = characterDetails.map((detail) =>
+          detail.dataset.lazyPanel
+        ).filter((key) => key !== undefined);
+        for (const key of inferenceKeys) {
+          await openLazyPanel(
+            `.character-inference-details[data-lazy-panel='${key}']`,
+            ".character-inference-body",
+          );
+        }
+        rolePanel = frameDocument().querySelector(".role-deduction-information");
+        roleList = rolePanel?.querySelector(".deduction-summary-list");
+        if (!(roleList instanceof frameWindow().HTMLElement)) {
+          throw new Error("펼친 5루프 5일 역할 추론 목록을 찾을 수 없습니다.");
+        }
+        characterDetails = [...roleList.querySelectorAll(
+          ":scope > .deduction-summary-row > .character-inference-details",
+        )];
         const traceDetails = [...roleList.querySelectorAll(
           ".role-inference-trace",
         )];
@@ -1751,16 +1898,17 @@
       }
 
       async function inspectElevenCharacterCandidateHeight() {
-        const document = frameDocument();
-        const rolePanel = document.querySelector(".role-deduction-information");
-        const roleList = rolePanel?.querySelector(".deduction-summary-list");
+        const rolePanel = await openLazyPanel(
+          ".role-deduction-information",
+          ".deduction-summary-list",
+        );
+        const roleList = rolePanel.querySelector(".deduction-summary-list");
         if (
           !(rolePanel instanceof frameWindow().HTMLDetailsElement) ||
           !(roleList instanceof frameWindow().HTMLElement)
         ) {
           throw new Error("11명 역할 후보 목록을 찾을 수 없습니다.");
         }
-        rolePanel.open = true;
         rolePanel.scrollIntoView({ block: "start" });
         await pause(100);
         const rows = [...roleList.querySelectorAll(
@@ -1836,15 +1984,16 @@
           state.loop.loopStartTraitCounterChoices = { scientist: "intrigue" };
         });
         await reloadApp("scenario-role-facts");
-        const document = frameDocument();
-        const panel = document.querySelector(".scenario-information-panel");
-        const details = panel?.closest("details");
-        if (!(details instanceof frameWindow().HTMLDetailsElement)) {
-          throw new Error("룰과 역할 패널을 찾을 수 없습니다.");
-        }
-        details.open = true;
+        const details = await openLazyPanel(
+          "details[data-lazy-panel='scenario-information']",
+          ".scenario-information-panel",
+        );
         details.scrollIntoView({ block: "start" });
         await pause(100);
+        const panel = details.querySelector(".scenario-information-panel");
+        if (!(panel instanceof frameWindow().HTMLElement)) {
+          throw new Error("룰과 역할 본문을 찾을 수 없습니다.");
+        }
         const text = panel.textContent.replace(/\s+/g, " ").trim();
         const report = {
           text,
@@ -1895,7 +2044,9 @@
             phase,
             timeGapVisible: Boolean(document.querySelector(".time-gap-card")),
             overlayVisible: Boolean(overlay),
-            scenario: Boolean(overlay?.querySelector(".scenario-information-panel")),
+            scenario: Boolean(overlay?.querySelector(
+              "details[data-lazy-panel='scenario-information']",
+            )),
             ruleCandidates: Boolean(
               overlay?.querySelector(".rule-hypothesis-information"),
             ),
@@ -1905,10 +2056,12 @@
             culpritCandidates: Boolean(
               overlay?.querySelector(".incident-deduction-information"),
             ),
-            incidentSchedule: Boolean(
-              overlay?.querySelector(".incident-schedule-panel"),
-            ),
-            lossProgress: Boolean(overlay?.querySelector(".loss-list")),
+            incidentSchedule: Boolean(overlay?.querySelector(
+              "details[data-lazy-panel='incident-schedule']",
+            )),
+            lossProgress: Boolean(overlay?.querySelector(
+              "details[data-lazy-panel='loss-distance']",
+            )),
             horizontal: horizontalOverflow(),
           };
           reports.push({ label: `루프 준비 정보 · ${phase}`, ...report });
@@ -1950,8 +2103,12 @@
             effectApplied: true,
           });
         });
-        await reloadApp("ai-incident-advance", ".incident-advance-effect");
-        const annotation = frameDocument().querySelector(
+        await reloadApp("ai-incident-advance");
+        const incidentSchedule = await openLazyPanel(
+          "details[data-lazy-panel='incident-schedule']",
+          ".incident-advance-effect",
+        );
+        const annotation = incidentSchedule.querySelector(
           ".incident-advance-effect",
         )?.textContent.trim() ?? "";
 
@@ -1973,22 +2130,32 @@
             ".mastermind-archive-information",
           );
           const summary = details?.querySelector(":scope > summary");
+          const initiallyOpen = details?.open;
+          const summaryHeight = summary?.getBoundingClientRect().height ?? 0;
+          const bodyAbsentWhileClosed =
+            details?.querySelector(".mastermind-overlay") === null;
+          const opened = await openLazyPanel(
+            ".mastermind-archive-information",
+            ".mastermind-overlay",
+          );
           const entry = {
             phase,
-            open: details?.open,
-            summaryHeight: summary?.getBoundingClientRect().height ?? 0,
+            initiallyOpen,
+            summaryHeight,
             summaryText: summary?.textContent.replace(/\s+/g, " ").trim() ?? "",
-            hasRoleTable: Boolean(details?.querySelector(".role-deduction-information")),
+            bodyAbsentWhileClosed,
+            hasRoleTable: Boolean(opened.querySelector(".role-deduction-information")),
             hasIncidentTable: Boolean(
-              details?.querySelector(".incident-deduction-information"),
+              opened.querySelector(".incident-deduction-information"),
             ),
             horizontal: horizontalOverflow(),
           };
           archiveReports.push(entry);
           if (
-            entry.open !== false ||
+            entry.initiallyOpen !== false ||
             entry.summaryHeight < 44 ||
             !entry.summaryText.includes(purpose) ||
+            !entry.bodyAbsentWhileClosed ||
             !entry.hasRoleTable ||
             !entry.hasIncidentTable ||
             entry.horizontal.scrollWidth > WIDTH

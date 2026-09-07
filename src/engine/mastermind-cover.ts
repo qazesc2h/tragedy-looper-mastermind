@@ -12,6 +12,7 @@ import {
 } from "../types";
 import {
   mastermindGuidance,
+  type MastermindGuidance,
   type MastermindGuidanceRoute,
 } from "./mastermind-guidance";
 
@@ -497,8 +498,9 @@ function compareCandidates(
 
 export function mastermindCoverGuidance(
   state: GameState,
+  victoryGuidance: MastermindGuidance = mastermindGuidance(state),
 ): MastermindCoverGuidance {
-  const victoryRoutes = mastermindGuidance(state).routes;
+  const victoryRoutes = victoryGuidance.routes;
   const candidateCharacters = Object.keys(state.scenario.cast).filter(
     (character) => effectiveRole(state, character) !== "person",
   );
