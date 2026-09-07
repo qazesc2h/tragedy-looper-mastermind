@@ -12,6 +12,8 @@ import { requestLoopEnd } from "../src/engine/flow";
 import {
   collectProtagonistObservations,
   enumerateRuleCombinations,
+  evaluateRoleTableHypotheses,
+  evaluateRoleTableHypothesesReference,
   evaluateRuleHypotheses,
   evaluateStateRoleTableHypotheses,
   evaluateStateRuleHypotheses,
@@ -472,6 +474,29 @@ describe("cross-observation role causes", () => {
       "basicTragedy",
       [firstDeath, secondDeath],
     ).remaining).toHaveLength(0);
+  });
+
+  it("matches the full prefix reference after every added observation", () => {
+    const observations: ProtagonistObservation[] = [
+      firstLoop,
+      secondLoop,
+      thirdLoop,
+      roleRevealed("doctor", "person"),
+      roleRevealed("patient", "person"),
+    ];
+    const cast = ["doctor", "patient"];
+    for (let length = 0; length <= observations.length; length += 1) {
+      const prefix = observations.slice(0, length);
+      expect(evaluateRoleTableHypotheses(
+        "basicTragedy",
+        cast,
+        prefix,
+      )).toEqual(evaluateRoleTableHypothesesReference(
+        "basicTragedy",
+        cast,
+        prefix,
+      ));
+    }
   });
 
   it("does not share a cross-observation cache entry across School intrigue snapshots", () => {

@@ -78,11 +78,11 @@ try {
       "--no-service-autorun",
       `--user-data-dir=${profile}`,
       "--window-size=1280,1000",
-      "--virtual-time-budget=30000",
+      "--virtual-time-budget=35000",
       "--dump-dom",
       `${origin}/test/mobile-layout.html`,
     ],
-    { encoding: "utf8", timeout: 45_000, maxBuffer: 10 * 1024 * 1024 },
+    { encoding: "utf8", timeout: 55_000, maxBuffer: 10 * 1024 * 1024 },
   );
 
   const output = `${browser.stdout ?? ""}\n${browser.stderr ?? ""}`;

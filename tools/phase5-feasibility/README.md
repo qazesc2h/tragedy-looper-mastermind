@@ -416,3 +416,20 @@ export를 재사용한다.
   `results/firstSteps-2-loss-axis-audit.md`,
   `results/firstSteps-2-axis-relevance.md`,
   `results/disclosure-hypothesis-loss-route-audit.md`
+
+## P9 역할표 증가 계측
+
+`못된 고양이` 3·4·5루프의 43/58/73관측 통제 입력에서 역할표 내부 배타적 시간과
+기준 구현 동등성을 재려면 다음을 실행한다.
+
+```bash
+npx vite-node tools/phase5-feasibility/measure-role-table-scaling.ts /tmp/role-table-scaling.json
+```
+
+390×844 실제 렌더 중앙값은 로컬 Chrome과 두 포트를 쓰는 다음 하네스로 잰다.
+
+```bash
+node tools/phase5-feasibility/measure-role-table-render.mjs
+```
+
+결과와 해석은 `results/p9-render-scaling.md`에 기록한다.

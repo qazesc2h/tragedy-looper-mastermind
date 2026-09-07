@@ -46,6 +46,22 @@
         throw new Error(`대기 시간 초과: ${description}`);
       }
 
+      async function openLazyPanel(selector, contentSelector) {
+        const panel = frameDocument().querySelector(selector);
+        if (!(panel instanceof frameWindow().HTMLDetailsElement)) {
+          throw new Error(`지연 패널을 찾을 수 없습니다: ${selector}`);
+        }
+        if (!panel.open) panel.querySelector(":scope > summary")?.click();
+        return await waitFor(() => {
+          const refreshed = frameDocument().querySelector(selector);
+          if (!(refreshed instanceof frameWindow().HTMLDetailsElement) ||
+            !refreshed.open || refreshed.querySelector(contentSelector) === null) {
+            return null;
+          }
+          return refreshed;
+        }, `${selector} 지연 본문`);
+      }
+
       function frameDocument() {
         const document = frame.contentDocument;
         if (!document) throw new Error("iframe document를 읽을 수 없습니다.");
@@ -666,7 +682,11 @@
           state.loop.revealedRoleCharacters = [];
         });
         await reloadFrame("아웃사이더 플레이 중 특성");
-        const castRow = [...frameDocument().querySelectorAll(
+        const scenarioInformation = await openLazyPanel(
+          "details[data-lazy-panel='scenario-information']",
+          ".scenario-cast-list",
+        );
+        const castRow = [...scenarioInformation.querySelectorAll(
           ".scenario-cast-list li",
         )].find((row) => row.textContent?.includes("아웃사이더"));
         const assignedRoleLabel = castRow?.querySelector("b")?.textContent?.trim();
@@ -1122,9 +1142,12 @@
             ),
           `광신도 P4 공개 상태 로그: ${JSON.stringify(actionLog)}`,
         );
-        const hypothesisText = frameDocument().querySelector(
+        const hypothesis = await openLazyPanel(
           ".rule-hypothesis-information",
-        )?.textContent?.replace(/\s+/g, " ").trim() ?? "";
+          ".hypothesis-exclusions",
+        );
+        const hypothesisText = hypothesis.textContent
+          ?.replace(/\s+/g, " ").trim() ?? "";
         assert(
           hypothesisText.includes("음모 금지 무시") &&
             hypothesisText.includes("음모 증가"),

@@ -221,6 +221,100 @@ export interface RuleHypothesisEvaluation {
   excluded: EvaluatedRuleCombination[];
 }
 
+export interface RoleTablePerformanceProfile {
+  totalMs: number;
+  ruleCombinationObservationsMs: number;
+  observationCauseCandidatesMs: number;
+  crossObservationIntersectionMs: number;
+  conditionalConstraintPropagationMs: number;
+  roleCandidateConstraintsMs: number;
+  abilityLocationIntersectionMs: number;
+  fixedPointPropagationMs: number;
+  ruleTablePropagationMs: number;
+  unclassifiedMs: number;
+  crossObservationPrefixEvaluations: number;
+  conditionalConstraintChecks: number;
+  roleCandidateCellChecks: number;
+  roleTableBuilds: number;
+  roleCellPropagationPasses: number;
+  ruleTablePropagationPasses: number;
+}
+
+type RoleTablePerformanceStage = Exclude<
+  keyof RoleTablePerformanceProfile,
+  | "totalMs"
+  | "unclassifiedMs"
+  | "crossObservationPrefixEvaluations"
+  | "conditionalConstraintChecks"
+  | "roleCandidateCellChecks"
+  | "roleTableBuilds"
+  | "roleCellPropagationPasses"
+  | "ruleTablePropagationPasses"
+>;
+
+interface RoleTablePerformanceFrame {
+  childMs: number;
+}
+
+let activeRoleTableProfile: RoleTablePerformanceProfile | undefined;
+const roleTablePerformanceFrames: RoleTablePerformanceFrame[] = [];
+
+function emptyRoleTablePerformanceProfile(): RoleTablePerformanceProfile {
+  return {
+    totalMs: 0,
+    ruleCombinationObservationsMs: 0,
+    observationCauseCandidatesMs: 0,
+    crossObservationIntersectionMs: 0,
+    conditionalConstraintPropagationMs: 0,
+    roleCandidateConstraintsMs: 0,
+    abilityLocationIntersectionMs: 0,
+    fixedPointPropagationMs: 0,
+    ruleTablePropagationMs: 0,
+    unclassifiedMs: 0,
+    crossObservationPrefixEvaluations: 0,
+    conditionalConstraintChecks: 0,
+    roleCandidateCellChecks: 0,
+    roleTableBuilds: 0,
+    roleCellPropagationPasses: 0,
+    ruleTablePropagationPasses: 0,
+  };
+}
+
+function measureRoleTableStage<T>(
+  stage: RoleTablePerformanceStage,
+  calculate: () => T,
+): T {
+  const profile = activeRoleTableProfile;
+  if (profile === undefined) return calculate();
+
+  const frame: RoleTablePerformanceFrame = { childMs: 0 };
+  roleTablePerformanceFrames.push(frame);
+  const startedAt = performance.now();
+  try {
+    return calculate();
+  } finally {
+    const elapsed = performance.now() - startedAt;
+    roleTablePerformanceFrames.pop();
+    profile[stage] += elapsed - frame.childMs;
+    const parent = roleTablePerformanceFrames.at(-1);
+    if (parent !== undefined) parent.childMs += elapsed;
+  }
+}
+
+function incrementRoleTableProfile(
+  field:
+    | "crossObservationPrefixEvaluations"
+    | "conditionalConstraintChecks"
+    | "roleCandidateCellChecks"
+    | "roleTableBuilds"
+    | "roleCellPropagationPasses"
+    | "ruleTablePropagationPasses",
+): void {
+  if (activeRoleTableProfile !== undefined) {
+    activeRoleTableProfile[field] += 1;
+  }
+}
+
 export type RolePossibilityStatus =
   | "possible"
   | "impossible"
@@ -376,6 +470,8 @@ interface EvaluationOptions {
   publicCast?: readonly CharacterId[];
   /** 앞선 관측에서 룰 자체로 살아남은 조합만 다시 검사할 때 사용한다. */
   candidateCombinations?: readonly RuleCombination[];
+  /** 회귀 대조에서만 기존의 전체 prefix 순회를 선택한다. */
+  crossObservationSearch?: "optimized" | "reference";
 }
 
 interface RoleRange {
@@ -1279,7 +1375,7 @@ function roundEvidenceCauseClauses(
   return clauses;
 }
 
-function causeClausesForObservation(
+function causeClausesForObservationUnprofiled(
   observation: ProtagonistObservation,
   combination: RuleCombination,
   tragedySetRoles: readonly RoleId[],
@@ -1312,6 +1408,25 @@ function causeClausesForObservation(
       confirmedRoles,
     ),
   ];
+}
+
+function causeClausesForObservation(
+  observation: ProtagonistObservation,
+  combination: RuleCombination,
+  tragedySetRoles: readonly RoleId[],
+  ranges: ReadonlyMap<RoleId, RoleRange>,
+  confirmedRoles: ReadonlyMap<CharacterId, RoleId>,
+): ObservationCauseClause[] {
+  return measureRoleTableStage(
+    "observationCauseCandidatesMs",
+    () => causeClausesForObservationUnprofiled(
+      observation,
+      combination,
+      tragedySetRoles,
+      ranges,
+      confirmedRoles,
+    ),
+  );
 }
 
 function holderOptionsForRole(
@@ -1418,7 +1533,7 @@ function roleRequirementsCanCoexist(
   return assign(0, new Set());
 }
 
-function causeClausesAreSatisfiable(
+function causeClausesAreSatisfiableUnprofiled(
   clauses: readonly ObservationCauseClause[],
   tragedySetRoles: readonly RoleId[],
   ranges: ReadonlyMap<RoleId, RoleRange>,
@@ -1468,7 +1583,29 @@ function causeClausesAreSatisfiable(
   return search(0, [], initialExclusions, new Set());
 }
 
-function observedRoleExclusions(
+function causeClausesAreSatisfiable(
+  clauses: readonly ObservationCauseClause[],
+  tragedySetRoles: readonly RoleId[],
+  ranges: ReadonlyMap<RoleId, RoleRange>,
+  publicCast: readonly CharacterId[],
+  confirmedRoles: ReadonlyMap<CharacterId, RoleId>,
+  initialExclusions: readonly RoleCauseExclusion[] = [],
+): boolean {
+  incrementRoleTableProfile("conditionalConstraintChecks");
+  return measureRoleTableStage(
+    "conditionalConstraintPropagationMs",
+    () => causeClausesAreSatisfiableUnprofiled(
+      clauses,
+      tragedySetRoles,
+      ranges,
+      publicCast,
+      confirmedRoles,
+      initialExclusions,
+    ),
+  );
+}
+
+function observedRoleExclusionsUnprofiled(
   observations: readonly ProtagonistObservation[],
   publicCast: readonly CharacterId[],
   tragedySetRoles: readonly RoleId[],
@@ -1489,9 +1626,27 @@ function observedRoleExclusions(
   );
 }
 
+function observedRoleExclusions(
+  observations: readonly ProtagonistObservation[],
+  publicCast: readonly CharacterId[],
+  tragedySetRoles: readonly RoleId[],
+  combination: RuleCombination,
+): RoleCauseExclusion[] {
+  return measureRoleTableStage(
+    "roleCandidateConstraintsMs",
+    () => observedRoleExclusionsUnprofiled(
+      observations,
+      publicCast,
+      tragedySetRoles,
+      combination,
+    ),
+  );
+}
+
 interface CrossObservationCacheContext {
   observations: ProtagonistObservation[];
   results: Map<string, number>;
+  search: "optimized" | "reference";
 }
 
 const MAX_CROSS_OBSERVATION_CACHE_ENTRIES = 8;
@@ -1501,14 +1656,15 @@ function crossObservationCacheContext(
   tragedySet: string,
   publicCast: readonly CharacterId[],
   observations: readonly ProtagonistObservation[],
+  search: "optimized" | "reference",
 ): CrossObservationCacheContext {
   const relevant = observations.filter(crossObservationConstraintsCanChange);
-  const key = JSON.stringify([tragedySet, publicCast, relevant]);
+  const key = JSON.stringify([tragedySet, publicCast, relevant, search]);
   const cached = crossObservationCache.get(key);
   if (cached !== undefined) {
     crossObservationCache.delete(key);
     crossObservationCache.set(key, cached);
-    return { observations: relevant, results: cached };
+    return { observations: relevant, results: cached, search };
   }
 
   const results = new Map<string, number>();
@@ -1517,10 +1673,55 @@ function crossObservationCacheContext(
     const oldest = crossObservationCache.keys().next().value;
     if (oldest !== undefined) crossObservationCache.delete(oldest);
   }
-  return { observations: relevant, results };
+  return { observations: relevant, results, search };
 }
 
-function crossObservationRoleContradiction(
+function crossObservationPrefixIsContradictory(
+  observations: readonly ProtagonistObservation[],
+  prefixLength: number,
+  combination: RuleCombination,
+  tragedySetRoles: readonly RoleId[],
+  ranges: ReadonlyMap<RoleId, RoleRange>,
+  publicCast: readonly CharacterId[],
+): boolean {
+  incrementRoleTableProfile("crossObservationPrefixEvaluations");
+  const prefix = observations.slice(0, prefixLength);
+  const confirmedRoles = confirmedRoleByCharacter(prefix, combination);
+  const contextCharacters = prefix.flatMap((candidate) =>
+    candidate.kind === "mastermindAbilityResult"
+      ? Object.keys(candidate.context?.characters ?? {})
+      : []
+  );
+  const knownCast = [...new Set([
+    ...publicCast,
+    ...contextCharacters,
+    ...confirmedRoles.keys(),
+  ])];
+  const clauses = prefix.flatMap((candidate) =>
+    causeClausesForObservation(
+      candidate,
+      combination,
+      tragedySetRoles,
+      ranges,
+      confirmedRoles,
+    )
+  );
+  return clauses.length > 0 && !causeClausesAreSatisfiable(
+    clauses,
+    tragedySetRoles,
+    ranges,
+    knownCast,
+    confirmedRoles,
+    observedRoleExclusions(
+      prefix,
+      knownCast,
+      tragedySetRoles,
+      combination,
+    ),
+  );
+}
+
+function crossObservationRoleContradictionUnprofiled(
   context: CrossObservationCacheContext,
   combination: RuleCombination,
   tragedySetRoles: readonly RoleId[],
@@ -1541,56 +1742,80 @@ function crossObservationRoleContradiction(
   }
 
   const observations = context.observations;
-  for (let index = 0; index < observations.length; index += 1) {
-    const observation = observations[index];
-    if (observation === undefined) continue;
-    const prefix = observations.slice(0, index + 1);
-    const confirmedRoles = confirmedRoleByCharacter(prefix, combination);
-    const contextCharacters = prefix.flatMap((candidate) =>
-      candidate.kind === "mastermindAbilityResult"
-        ? Object.keys(candidate.context?.characters ?? {})
-        : []
-    );
-    const knownCast = [...new Set([
-      ...publicCast,
-      ...contextCharacters,
-      ...confirmedRoles.keys(),
-    ])];
-    const clauses = prefix.flatMap((candidate) =>
-      causeClausesForObservation(
-        candidate,
+  let contradictoryIndex = -1;
+  if (context.search === "reference") {
+    for (let index = 0; index < observations.length; index += 1) {
+      if (crossObservationPrefixIsContradictory(
+        observations,
+        index + 1,
         combination,
         tragedySetRoles,
         ranges,
-        confirmedRoles,
-      )
-    );
-    if (
-      clauses.length > 0 &&
-      !causeClausesAreSatisfiable(
-        clauses,
+        publicCast,
+      )) {
+        contradictoryIndex = index;
+        break;
+      }
+    }
+  } else if (
+    observations.length > 0 &&
+    crossObservationPrefixIsContradictory(
+      observations,
+      observations.length,
+      combination,
+      tragedySetRoles,
+      ranges,
+      publicCast,
+    )
+  ) {
+    let lower = 1;
+    let upper = observations.length;
+    while (lower < upper) {
+      const middle = Math.floor((lower + upper) / 2);
+      if (crossObservationPrefixIsContradictory(
+        observations,
+        middle,
+        combination,
         tragedySetRoles,
         ranges,
-        knownCast,
-        confirmedRoles,
-        observedRoleExclusions(
-          prefix,
-          knownCast,
-          tragedySetRoles,
-          combination,
-        ),
-      )
-    ) {
-      context.results.set(combination.id, index);
-      return {
-        code: "crossObservationRoleUnavailable",
-        observation,
-        reason: "누적된 공개 관측의 원인 후보를 고정된 역할 배정과 역할 수 상한으로 동시에 설명할 수 없습니다.",
-      };
+        publicCast,
+      )) {
+        upper = middle;
+      } else {
+        lower = middle + 1;
+      }
     }
+    contradictoryIndex = lower - 1;
   }
-  context.results.set(combination.id, -1);
-  return undefined;
+  context.results.set(combination.id, contradictoryIndex);
+  if (contradictoryIndex < 0) return undefined;
+  const observation = observations[contradictoryIndex];
+  return observation === undefined
+    ? undefined
+    : {
+      code: "crossObservationRoleUnavailable",
+      observation,
+      reason: "누적된 공개 관측의 원인 후보를 고정된 역할 배정과 역할 수 상한으로 동시에 설명할 수 없습니다.",
+    };
+}
+
+function crossObservationRoleContradiction(
+  context: CrossObservationCacheContext,
+  combination: RuleCombination,
+  tragedySetRoles: readonly RoleId[],
+  ranges: ReadonlyMap<RoleId, RoleRange>,
+  publicCast: readonly CharacterId[],
+): RuleContradiction | undefined {
+  return measureRoleTableStage(
+    "crossObservationIntersectionMs",
+    () => crossObservationRoleContradictionUnprofiled(
+      context,
+      combination,
+      tragedySetRoles,
+      ranges,
+      publicCast,
+    ),
+  );
 }
 
 function crossObservationConstraintsCanChange(
@@ -2042,7 +2267,7 @@ function lossObservationContradiction(
     };
 }
 
-function contradictionsForCombination(
+function contradictionsForCombinationUnprofiled(
   tragedySet: string,
   combination: RuleCombination,
   observations: readonly ProtagonistObservation[],
@@ -2150,6 +2375,25 @@ function contradictionsForCombination(
   return contradictions;
 }
 
+function contradictionsForCombination(
+  tragedySet: string,
+  combination: RuleCombination,
+  observations: readonly ProtagonistObservation[],
+  options: EvaluationOptions,
+  crossContext: CrossObservationCacheContext,
+): RuleContradiction[] {
+  return measureRoleTableStage(
+    "ruleCombinationObservationsMs",
+    () => contradictionsForCombinationUnprofiled(
+      tragedySet,
+      combination,
+      observations,
+      options,
+      crossContext,
+    ),
+  );
+}
+
 export function evaluateRuleHypotheses(
   tragedySet: string,
   observations: readonly ProtagonistObservation[],
@@ -2162,6 +2406,7 @@ export function evaluateRuleHypotheses(
     tragedySet,
     publicCast,
     observations,
+    options.crossObservationSearch ?? "optimized",
   );
   const combinations = candidates.map(
     (combination): EvaluatedRuleCombination => {
@@ -2691,7 +2936,7 @@ interface CauseConstraintEvaluationContext {
   exclusionsByCombination: Map<string, RoleCauseExclusion[]>;
 }
 
-function causeConstraintForCell(
+function causeConstraintForCellUnprofiled(
   tragedySet: string,
   publicCast: readonly CharacterId[],
   combinations: readonly RuleCombination[],
@@ -2761,6 +3006,30 @@ function causeConstraintForCell(
   return { allowed: false, observations: [...evidence.values()] };
 }
 
+function causeConstraintForCell(
+  tragedySet: string,
+  publicCast: readonly CharacterId[],
+  combinations: readonly RuleCombination[],
+  observations: readonly ProtagonistObservation[],
+  character: CharacterId,
+  role: RoleId,
+  context: CauseConstraintEvaluationContext,
+): CauseConstraintCellResult {
+  incrementRoleTableProfile("roleCandidateCellChecks");
+  return measureRoleTableStage(
+    "roleCandidateConstraintsMs",
+    () => causeConstraintForCellUnprofiled(
+      tragedySet,
+      publicCast,
+      combinations,
+      observations,
+      character,
+      role,
+      context,
+    ),
+  );
+}
+
 /**
  * 살아있는 룰 조합을 합집합으로 투영한다. 각 칸은 독립적으로 계산하며
  * 캐릭터 전체의 역할 배정을 만들거나 세지 않는다.
@@ -2771,23 +3040,27 @@ export function buildRolePossibilityTable(
   combinations: readonly RuleCombination[],
   observations: readonly ProtagonistObservation[],
 ): RolePossibilityTable {
+  incrementRoleTableProfile("roleTableBuilds");
   const tragedySetRoles = rolesForTragedySet(tragedySet);
   const confirmed = confirmedRoleObservations(
     observations,
     tragedySetRoles,
     combinations,
   );
-  const abilityConstraints = [
-    brainLocationConstraint(combinations, publicCast, observations),
-    conspiracyTheoristLocationConstraint(
-      tragedySet,
-      combinations,
-      publicCast,
-      observations,
+  const abilityConstraints = measureRoleTableStage(
+    "abilityLocationIntersectionMs",
+    () => [
+      brainLocationConstraint(combinations, publicCast, observations),
+      conspiracyTheoristLocationConstraint(
+        tragedySet,
+        combinations,
+        publicCast,
+        observations,
+      ),
+    ].filter(
+      (constraint): constraint is AbilityLocationRoleConstraint =>
+        constraint !== undefined,
     ),
-  ].filter(
-    (constraint): constraint is AbilityLocationRoleConstraint =>
-      constraint !== undefined,
   );
   const abilityInferences = abilityConstraints.flatMap((constraint) =>
     constraint.candidates.size === 1
@@ -2981,81 +3254,84 @@ export function buildRolePossibilityTable(
     );
   }
 
-  let changed = true;
-  while (changed) {
-    changed = false;
+  measureRoleTableStage("fixedPointPropagationMs", () => {
+    let changed = true;
+    while (changed) {
+      incrementRoleTableProfile("roleCellPropagationPasses");
+      changed = false;
 
-    for (const character of publicCast) {
-      const row = cells[character];
-      const confirmedRole = roles.find((role) =>
-        row?.[role]?.status === "confirmed"
-      );
-      if (confirmedRole !== undefined) {
-        for (const role of roles) {
-          const cell = row?.[role];
-          if (role === confirmedRole || cell?.status !== "possible") continue;
-          cell.status = "impossible";
-          cell.reasons.push({ code: "otherRoleInferred", role: confirmedRole });
-          changed = true;
+      for (const character of publicCast) {
+        const row = cells[character];
+        const confirmedRole = roles.find((role) =>
+          row?.[role]?.status === "confirmed"
+        );
+        if (confirmedRole !== undefined) {
+          for (const role of roles) {
+            const cell = row?.[role];
+            if (role === confirmedRole || cell?.status !== "possible") continue;
+            cell.status = "impossible";
+            cell.reasons.push({ code: "otherRoleInferred", role: confirmedRole });
+            changed = true;
+          }
+          continue;
         }
-        continue;
+
+        const candidates = roles.filter((role) =>
+          row?.[role]?.status === "possible"
+        );
+        if (candidates.length === 1) {
+          const onlyRole = candidates[0];
+          const cell = onlyRole === undefined ? undefined : row?.[onlyRole];
+          if (cell !== undefined) {
+            cell.status = "confirmed";
+            cell.reasons.push({ code: "onlyRemainingRole" });
+            changed = true;
+          }
+        }
       }
 
-      const candidates = roles.filter((role) =>
-        row?.[role]?.status === "possible"
-      );
-      if (candidates.length === 1) {
-        const onlyRole = candidates[0];
-        const cell = onlyRole === undefined ? undefined : row?.[onlyRole];
-        if (cell !== undefined) {
-          cell.status = "confirmed";
-          cell.reasons.push({ code: "onlyRemainingRole" });
-          changed = true;
+      for (const role of roles) {
+        const confirmedCharacters = publicCast.filter((character) =>
+          cells[character]?.[role]?.status === "confirmed"
+        );
+        const maximum = maximumByRole.get(role) ?? 0;
+        if (maximum > 0 && confirmedCharacters.length >= maximum) {
+          for (const character of publicCast) {
+            const cell = cells[character]?.[role];
+            if (cell?.status !== "possible") continue;
+            cell.status = "impossible";
+            cell.reasons.push({
+              code: "roleMaximumReached",
+              maximum,
+              confirmedCharacters: [...confirmedCharacters],
+            });
+            changed = true;
+          }
+        }
+
+        const minimum = minimumByRole.get(role) ?? 0;
+        const requiredCandidates = minimum - confirmedCharacters.length;
+        if (requiredCandidates <= 0) continue;
+        const candidates = publicCast.filter((character) =>
+          cells[character]?.[role]?.status === "possible"
+        );
+        if (candidates.length === requiredCandidates) {
+          for (const character of candidates) {
+            const cell = cells[character]?.[role];
+            if (cell === undefined) continue;
+            cell.status = "confirmed";
+            cell.reasons.push({ code: "requiredRoleForcedCandidate", minimum });
+            changed = true;
+          }
         }
       }
     }
-
-    for (const role of roles) {
-      const confirmedCharacters = publicCast.filter((character) =>
-        cells[character]?.[role]?.status === "confirmed"
-      );
-      const maximum = maximumByRole.get(role) ?? 0;
-      if (maximum > 0 && confirmedCharacters.length >= maximum) {
-        for (const character of publicCast) {
-          const cell = cells[character]?.[role];
-          if (cell?.status !== "possible") continue;
-          cell.status = "impossible";
-          cell.reasons.push({
-            code: "roleMaximumReached",
-            maximum,
-            confirmedCharacters: [...confirmedCharacters],
-          });
-          changed = true;
-        }
-      }
-
-      const minimum = minimumByRole.get(role) ?? 0;
-      const requiredCandidates = minimum - confirmedCharacters.length;
-      if (requiredCandidates <= 0) continue;
-      const candidates = publicCast.filter((character) =>
-        cells[character]?.[role]?.status === "possible"
-      );
-      if (candidates.length === requiredCandidates) {
-        for (const character of candidates) {
-          const cell = cells[character]?.[role];
-          if (cell === undefined) continue;
-          cell.status = "confirmed";
-          cell.reasons.push({ code: "requiredRoleForcedCandidate", minimum });
-          changed = true;
-        }
-      }
-    }
-  }
+  });
 
   return { characters: [...publicCast], roles, cells };
 }
 
-function tableContradictionsForCombination(
+function tableContradictionsForCombinationUnprofiled(
   tragedySet: string,
   combination: RuleCombination,
   publicCast: readonly CharacterId[],
@@ -3110,6 +3386,23 @@ function tableContradictionsForCombination(
   return contradictions;
 }
 
+function tableContradictionsForCombination(
+  tragedySet: string,
+  combination: RuleCombination,
+  publicCast: readonly CharacterId[],
+  table: RolePossibilityTable,
+): RoleTableRuleContradiction[] {
+  return measureRoleTableStage(
+    "ruleTablePropagationMs",
+    () => tableContradictionsForCombinationUnprofiled(
+      tragedySet,
+      combination,
+      publicCast,
+      table,
+    ),
+  );
+}
+
 /** 룰과 역할 표의 양방향 전파를 더 이상 변화가 없을 때까지 반복한다. */
 /**
  * 관측 자체로 판정한 룰 계층은 재사용하되 역할표 고정점은 다시 계산한다.
@@ -3131,6 +3424,7 @@ export function evaluateRoleTableHypothesesFromRuleEvaluation(
 
   while (true) {
     propagationPasses += 1;
+    incrementRoleTableProfile("ruleTablePropagationPasses");
     table = buildRolePossibilityTable(
       tragedySet,
       publicCast,
@@ -3189,6 +3483,68 @@ export function evaluateRoleTableHypotheses(
       { publicCast, candidateCombinations },
     ),
   );
+}
+
+/** 최적화 결과 대조용: 모든 관측 prefix를 순서대로 다시 판정한다. */
+export function evaluateRoleTableHypothesesReference(
+  tragedySet: string,
+  publicCast: readonly CharacterId[],
+  observations: readonly ProtagonistObservation[],
+  candidateCombinations?: readonly RuleCombination[],
+): RoleTableHypothesisEvaluation {
+  return evaluateRoleTableHypothesesFromRuleEvaluation(
+    publicCast,
+    evaluateRuleHypotheses(
+      tragedySet,
+      observations,
+      {
+        publicCast,
+        candidateCombinations,
+        crossObservationSearch: "reference",
+      },
+    ),
+  );
+}
+
+/** 성능 계측 도구에서 역할표 내부 단계의 배타적 시간을 수집한다. */
+export function profileRoleTableHypotheses(
+  tragedySet: string,
+  publicCast: readonly CharacterId[],
+  observations: readonly ProtagonistObservation[],
+  candidateCombinations?: readonly RuleCombination[],
+): {
+  evaluation: RoleTableHypothesisEvaluation;
+  profile: RoleTablePerformanceProfile;
+} {
+  if (activeRoleTableProfile !== undefined) {
+    throw new Error("role table performance profiling is already active");
+  }
+  const profile = emptyRoleTablePerformanceProfile();
+  activeRoleTableProfile = profile;
+  const startedAt = performance.now();
+  try {
+    const evaluation = evaluateRoleTableHypotheses(
+      tragedySet,
+      publicCast,
+      observations,
+      candidateCombinations,
+    );
+    profile.totalMs = performance.now() - startedAt;
+    const classified =
+      profile.ruleCombinationObservationsMs +
+      profile.observationCauseCandidatesMs +
+      profile.crossObservationIntersectionMs +
+      profile.conditionalConstraintPropagationMs +
+      profile.roleCandidateConstraintsMs +
+      profile.abilityLocationIntersectionMs +
+      profile.fixedPointPropagationMs +
+      profile.ruleTablePropagationMs;
+    profile.unclassifiedMs = Math.max(0, profile.totalMs - classified);
+    return { evaluation, profile };
+  } finally {
+    activeRoleTableProfile = undefined;
+    roleTablePerformanceFrames.length = 0;
+  }
 }
 
 /** 역할표 전파와 무관하게 공개 관측의 룰 조건을 통과한 조합만 반환한다. */
