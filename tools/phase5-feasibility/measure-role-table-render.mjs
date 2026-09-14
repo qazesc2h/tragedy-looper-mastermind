@@ -47,6 +47,8 @@ const timingServer = createServer((request, response) => {
       elements: Number(url.searchParams.get("elements")),
       htmlBytes: Number(url.searchParams.get("htmlBytes")),
       overlayPresent: url.searchParams.get("overlayPresent") === "true",
+      filterResults: Number(url.searchParams.get("filterResults")),
+      filterBodyPresent: url.searchParams.get("filterBodyPresent") === "true",
     });
   }
   if (url.pathname === "/done") {
@@ -131,13 +133,29 @@ try {
       const end = marks.get(`${sample.timingKey}-render-end`);
       const baselineStart = marks.get(`${sample.timingKey}-baseline-start`);
       const baselineEnd = marks.get(`${sample.timingKey}-baseline-end`);
+      const filterStart = marks.get(`${sample.timingKey}-filter-render-start`);
+      const filterEnd = marks.get(`${sample.timingKey}-filter-render-end`);
+      const filterBaselineStart = marks.get(
+        `${sample.timingKey}-filter-baseline-start`,
+      );
+      const filterBaselineEnd = marks.get(
+        `${sample.timingKey}-filter-baseline-end`,
+      );
       if (
         start === undefined || end === undefined ||
-        baselineStart === undefined || baselineEnd === undefined
+        baselineStart === undefined || baselineEnd === undefined ||
+        filterStart === undefined || filterEnd === undefined ||
+        filterBaselineStart === undefined || filterBaselineEnd === undefined
       ) throw new Error(`측정 마커 누락: ${sample.timingKey}`);
       sample.milliseconds = Math.max(
         0,
         Number(end - start - (baselineEnd - baselineStart)) / 1_000_000,
+      );
+      sample.filterMilliseconds = Math.max(
+        0,
+        Number(
+          filterEnd - filterStart - (filterBaselineEnd - filterBaselineStart),
+        ) / 1_000_000,
       );
     }
     row.samples.sort((left, right) => left.milliseconds - right.milliseconds);
@@ -148,6 +166,17 @@ try {
       `${loopCount}루프 ${median.observations}관측: ` +
         `${median.milliseconds.toFixed(1)}ms, DOM ${median.elements}, ` +
         `HTML ${median.htmlBytes} bytes, overlay=${median.overlayPresent}\n`,
+    );
+    const filterSamples = [...report.rows.find((row) =>
+      row.loopCount === loopCount
+    ).samples].sort((left, right) =>
+      left.filterMilliseconds - right.filterMilliseconds
+    );
+    const filterMedian = filterSamples[1];
+    process.stdout.write(
+      `${loopCount}루프 진행 기록 필터 ${filterMedian.filterResults}건: ` +
+        `${filterMedian.filterMilliseconds.toFixed(1)}ms, ` +
+        `body=${filterMedian.filterBodyPresent}\n`,
     );
   }
 } finally {

@@ -408,7 +408,8 @@ select {
 }
 
 .phase-log-loop,
-.phase-log-day {
+.phase-log-day,
+.phase-log-filter {
   overflow: hidden;
   border: 1px solid #4f4333;
   border-radius: 9px;
@@ -416,7 +417,8 @@ select {
 }
 
 .phase-log-loop > summary,
-.phase-log-day > summary {
+.phase-log-day > summary,
+.phase-log-filter > summary {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   min-height: 44px;
@@ -428,12 +430,14 @@ select {
 }
 
 .phase-log-loop summary::-webkit-details-marker,
-.phase-log-day summary::-webkit-details-marker {
+.phase-log-day summary::-webkit-details-marker,
+.phase-log-filter summary::-webkit-details-marker {
   display: none;
 }
 
 .phase-log-loop[open] > summary,
-.phase-log-day[open] > summary {
+.phase-log-day[open] > summary,
+.phase-log-filter[open] > summary {
   border-bottom: 1px solid #4f4333;
   background: #282117;
 }
@@ -441,13 +445,16 @@ select {
 .phase-log-loop summary strong,
 .phase-log-loop summary small,
 .phase-log-day summary strong,
-.phase-log-day summary small {
+.phase-log-day summary small,
+.phase-log-filter summary strong,
+.phase-log-filter summary small {
   min-width: 0;
   font-size: 0.7rem;
 }
 
 .phase-log-loop summary strong,
-.phase-log-day summary strong {
+.phase-log-day summary strong,
+.phase-log-filter summary strong {
   overflow: hidden;
   color: #d8bd86;
   text-overflow: ellipsis;
@@ -455,7 +462,8 @@ select {
 }
 
 .phase-log-loop summary small,
-.phase-log-day summary small {
+.phase-log-day summary small,
+.phase-log-filter summary small {
   color: #7f7565;
 }
 
@@ -490,6 +498,113 @@ select {
 .phase-log-day li b {
   color: #d8bd86;
   font-size: 0.65rem;
+}
+
+.phase-log-filter-body {
+  display: grid;
+  gap: 8px;
+  padding: 8px;
+}
+
+.phase-log-filter-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.phase-log-filter-controls label {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+  color: #968a76;
+  font-size: 0.65rem;
+}
+
+.phase-log-filter-controls select {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  border: 1px solid #514431;
+  border-radius: 7px;
+  background: #17140f;
+  color: #d8c9aa;
+  padding: 6px;
+}
+
+.phase-log-filter-result {
+  display: grid;
+  gap: 3px;
+}
+
+.phase-log-filter-result > header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+}
+
+.phase-log-filter-result > header strong,
+.phase-log-filter-result > header span {
+  min-width: 0;
+  font-size: 0.7rem;
+}
+
+.phase-log-filter-result > header strong {
+  overflow: hidden;
+  color: #d8bd86;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.phase-log-filter-result > header span,
+.phase-log-filter-empty {
+  color: #817766;
+}
+
+.phase-log-filter-result > header button,
+.character-history-link {
+  min-height: 40px;
+  border: 1px solid #66543a;
+  border-radius: 8px;
+  background: #2a2115;
+  color: #d9bf8b;
+  padding: 7px 9px;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.phase-log-filter-result ol {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.phase-log-filter-result li {
+  display: grid;
+  gap: 2px;
+  border-left: 2px solid #8b6b3a;
+  margin: 5px 0;
+  padding: 4px 7px;
+  color: #b9ae99;
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+.phase-log-filter-result li b {
+  color: #d8bd86;
+  font-size: 0.65rem;
+}
+
+.phase-log-filter-empty {
+  margin: 2px 0;
+  font-size: 0.7rem;
+}
+
+.character-history-link {
+  width: 100%;
 }
 
 .workspace,

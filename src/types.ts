@@ -293,6 +293,8 @@ export type PublicBoardChange =
     character: CharacterId;
     from: BoardCharacterState["status"];
     to: BoardCharacterState["status"];
+    /** 상태 변화가 일어난 장소. 구 저장 기록에는 없을 수 있다. */
+    at?: Location;
   };
 
 /** 능력 발동 시점에 주인공도 확인할 수 있었던 공개 게임판 상태. */
@@ -375,6 +377,8 @@ export type PhaseLogEntry = (
     publicTrigger?: PublicAbilityTrigger;
     /** 캐릭터 역할 능력일 때만 존재한다. 룰 능력은 추가 규칙으로 표시한다. */
     character?: CharacterId;
+    /** 선택형 능력의 명시적 대상. 표시는 ID에서 렌더할 때 만든다. */
+    targets?: Target[];
     description: string;
     /** 능력의 정체는 숨기고 게임판에서 관측된 결과만 보존한다. */
     publicChanges?: PublicBoardChange[];
@@ -411,6 +415,8 @@ export type PhaseLogEntry = (
     abilityIndex: number;
     response: "resolve" | "refuse";
     effectApplied: boolean;
+    /** 선언에 포함된 캐릭터·장소 대상. 구 저장 기록에는 없을 수 있다. */
+    targets?: Target[];
     /** 우호 능력으로 공개된 게임판 변화. */
     publicChanges?: PublicBoardChange[];
     /** 우호 능력 해결 직전 공개 상태. */
@@ -432,6 +438,8 @@ export type PhaseLogEntry = (
     fired: boolean;
     effectApplied: boolean;
     failureReasons: IncidentFailureReason[];
+    /** 사건 해결 선언에 포함된 캐릭터·장소 대상. */
+    targets?: Target[];
     /** 사건 발생 판정 직전의 공개 게임판. 구 저장 기록에는 없을 수 있다. */
     publicContext?: PublicObservationContext;
     /** ON_DEATH 반응을 제외한 사건 효과 자체의 공개 변화. */

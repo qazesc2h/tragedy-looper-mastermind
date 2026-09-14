@@ -246,6 +246,24 @@
         toggle.checked = true;
         toggle.dispatchEvent(new (frameWindow().Event)("change", { bubbles: true }));
         await mark(`${key}-render-end`);
+        const overlayElements = frameDocument().querySelectorAll("*").length;
+        const overlayHtmlBytes = new TextEncoder().encode(
+          frameDocument().documentElement.outerHTML,
+        ).length;
+        const filterCharacter = "patient";
+        frameDocument().querySelector(
+          `.character-chip[data-character='${filterCharacter}']`,
+        ).click();
+        await mark(`${key}-filter-baseline-start`);
+        await mark(`${key}-filter-baseline-end`);
+        await mark(`${key}-filter-render-start`);
+        frameDocument().querySelector(
+          "[data-action='show-character-history']",
+        ).click();
+        await mark(`${key}-filter-render-end`);
+        const filterResult = frameDocument().querySelector(
+          ".phase-log-filter-result",
+        );
         const tracker = JSON.parse(localStorage.getItem(STORAGE_KEY));
         const state = tracker.games[tracker.activeScenarioId].state;
         const observations = collectProtagonistObservations(state).length;
@@ -255,11 +273,11 @@
           overlayPresent: Boolean(frameDocument().querySelector(
             ".mastermind-overlay",
           )),
+          filterResults: Number(filterResult?.dataset.resultCount ?? 0),
+          filterBodyPresent: filterResult !== null,
           timingKey: key,
-          elements: frameDocument().querySelectorAll("*").length,
-          htmlBytes: new TextEncoder().encode(
-            frameDocument().documentElement.outerHTML,
-          ).length,
+          elements: overlayElements,
+          htmlBytes: overlayHtmlBytes,
         };
         await recordSample(measured);
         return measured;

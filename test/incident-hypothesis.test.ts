@@ -371,6 +371,9 @@ describe("incident culprit possibility table", () => {
       entry.kind === "incidentJudged"
     );
     expect(judgment).not.toHaveProperty("publicChanges");
+    expect(judgment).toMatchObject({
+      targets: [{ kind: "location", at: "School" }],
+    });
 
     const table = evaluateStateIncidentHypotheses(state);
     const column = table.columns[0].id;

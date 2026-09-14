@@ -110,6 +110,7 @@ function phaseEntry(
         phase,
         kind: "abilityActivated",
         character,
+        targets: [{ kind: "character", id: character }],
         description: "공개 관측 용량 회귀용 각본가 능력",
         publicContext,
         publicChanges: [{
@@ -129,6 +130,7 @@ function phaseEntry(
         abilityIndex: 0,
         response: "resolve",
         effectApplied: true,
+        targets: [{ kind: "character", id: character }],
         publicContext,
         publicChanges: [],
       };
@@ -142,12 +144,14 @@ function phaseEntry(
         fired: true,
         effectApplied: true,
         failureReasons: [],
+        targets: [{ kind: "character", id: character }],
         publicContext,
         publicChanges: [{
           kind: "status",
           character,
           from: "alive",
           to: "dead",
+          at: "School",
         }],
       };
     case "P8_LEADER_PASS":

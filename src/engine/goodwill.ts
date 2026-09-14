@@ -249,6 +249,31 @@ function normalizeTarget(target: GoodwillDeclaration["target"]):
   return target;
 }
 
+function declarationTargets(declaration: GoodwillDeclaration): Target[] {
+  const targets: Target[] = [];
+  const direct = normalizeTarget(declaration.target);
+  if (direct !== undefined) targets.push(structuredClone(direct));
+  const choice = declaration.incidentChoice;
+  if (choice?.target !== undefined) {
+    targets.push({ kind: "character", id: choice.target });
+  }
+  if (choice?.otherTarget !== undefined) {
+    targets.push({ kind: "character", id: choice.otherTarget });
+  }
+  if (choice?.location !== undefined) {
+    targets.push({ kind: "location", at: choice.location });
+  }
+  return targets.filter((target, index) =>
+    targets.findIndex((candidate) =>
+      candidate.kind === target.kind && (
+        candidate.kind === "character"
+          ? target.kind === "character" && candidate.id === target.id
+          : target.kind === "location" && candidate.at === target.at
+      )
+    ) === index
+  );
+}
+
 function requireCharacterTarget(
   state: GameState,
   declaration: GoodwillDeclaration,
@@ -810,6 +835,7 @@ export function resolveGoodwillAbility(
     declaration.user,
     cannotBeRefused,
   );
+  const targets = declarationTargets(declaration);
 
   if (mastermindResponse === "refuse" && cannotBeRefused) {
     throw new Error("this goodwill ability cannot be refused");
@@ -840,6 +866,7 @@ export function resolveGoodwillAbility(
       abilityIndex: selected.index,
       response: "refuse",
       effectApplied: false,
+      ...(targets.length === 0 ? {} : { targets }),
     });
     return {
       user: declaration.user,
@@ -878,6 +905,7 @@ export function resolveGoodwillAbility(
     abilityIndex: selected.index,
     response: "resolve",
     effectApplied,
+    ...(targets.length === 0 ? {} : { targets }),
     publicChanges: publicBoardChanges(beforeAbility, state.loop),
     publicContext: publicObservationContext(beforeAbility),
   });

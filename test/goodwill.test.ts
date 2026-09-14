@@ -831,6 +831,11 @@ describe("ai rank 3 / resolve an incident effect as AI", () => {
       culprit: "ai",
       effectApplied: true,
     })]);
+    expect(state.loop.phaseLog).toContainEqual(expect.objectContaining({
+      kind: "goodwillUsed",
+      character: "ai",
+      targets: [{ kind: "character", id: "girlStudent" }],
+    }));
   });
 
   it("uses the leader's incident choice for an effect that needs a location", () => {

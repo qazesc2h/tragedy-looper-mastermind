@@ -30,11 +30,17 @@ export function publicBoardChanges(
     const afterPosition = after.board[character];
     if (beforePosition === undefined || afterPosition === undefined) continue;
     if (beforePosition.status !== afterPosition.status) {
+      const at = isCharacterPresent(beforePosition)
+        ? characterLocation(beforePosition, character)
+        : isCharacterPresent(afterPosition)
+        ? characterLocation(afterPosition, character)
+        : undefined;
       changes.push({
         kind: "status",
         character,
         from: beforePosition.status,
         to: afterPosition.status,
+        ...(at === undefined ? {} : { at }),
       });
     }
     if (

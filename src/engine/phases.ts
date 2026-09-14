@@ -162,6 +162,7 @@ export function applyHookEffect(
     kind: "abilityActivated",
     timing: at,
     ...(self ? { character: self } : {}),
+    ...(target === undefined ? {} : { targets: [structuredClone(target)] }),
     description:
       hook.source.description ?? hook.source.prerequisite ?? hook.source.timing,
     publicChanges,

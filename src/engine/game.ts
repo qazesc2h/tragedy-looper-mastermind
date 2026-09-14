@@ -13,6 +13,7 @@ import {
   type RecordedLoss,
   type RoleId,
   type Scenario,
+  type Target,
 } from "../types";
 import { tragedySetDefinition } from "../tragedy-sets";
 import { requestLoopEnd } from "./flow";
@@ -30,6 +31,21 @@ import { initLoop } from "./setup";
 import { sacredTreeMastermindChoiceRequired } from "./sacred-tree";
 
 const TIME_GAP_SECONDS = 10 * 60;
+
+function incidentChoiceTargets(choice: IncidentChoice | undefined): Target[] {
+  if (choice === undefined) return [];
+  return [
+    ...(choice.target === undefined
+      ? []
+      : [{ kind: "character" as const, id: choice.target }]),
+    ...(choice.otherTarget === undefined
+      ? []
+      : [{ kind: "character" as const, id: choice.otherTarget }]),
+    ...(choice.location === undefined
+      ? []
+      : [{ kind: "location" as const, at: choice.location }]),
+  ];
+}
 
 function resetTimeGapTimer(state: GameState): void {
   state.timeGapTimer = { remainingSeconds: TIME_GAP_SECONDS };
@@ -381,6 +397,7 @@ function advanceRoundOnce(
         kind: "notApplicable",
       });
     } else if (result) {
+      const targets = incidentChoiceTargets(incidentChoice);
       recordPhaseLog(state, {
         loop,
         day,
@@ -391,6 +408,7 @@ function advanceRoundOnce(
         fired: result.fired,
         effectApplied: result.effectApplied,
         failureReasons: result.fired ? [] : failureReasons,
+        ...(targets.length === 0 ? {} : { targets }),
         ...(incidentContext === undefined
           ? {}
           : { publicContext: incidentContext }),

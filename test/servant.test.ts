@@ -229,6 +229,7 @@ describe("servant substitute death", () => {
         character: "servant",
         from: "alive",
         to: "dead",
+        at: "City",
       }],
     }));
   });

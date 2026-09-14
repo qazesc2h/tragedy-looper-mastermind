@@ -186,7 +186,10 @@ import {
   type RuleHypothesisSummary,
 } from "./mastermind-panel";
 import {
+  phaseLogFilteredTimeline,
   phaseLogLoopGroups,
+  type PhaseLogFilter,
+  type PhaseLogTimelineItem,
 } from "./phase-log";
 import {
   groupInferenceTraces,
@@ -313,6 +316,7 @@ let selectedHandCard: SelectedHandCard | undefined;
 let resolutionReceipt: ResolutionReceipt | undefined;
 let openCharacterModal: CharacterId | undefined;
 let openLocationModal: Location | undefined;
+let phaseLogFilter: PhaseLogFilter | undefined;
 let finalGuessConfirmationOpen = false;
 let operationSheetOpen = false;
 const optionalHookSelections = new Map<string, OptionalHookSelection>();
@@ -699,6 +703,7 @@ function resetTransientUi(): void {
   resolutionReceipt = undefined;
   openCharacterModal = undefined;
   openLocationModal = undefined;
+  phaseLogFilter = undefined;
   finalGuessConfirmationOpen = false;
   operationSheetOpen = false;
   optionalHookSelections.clear();
@@ -799,6 +804,30 @@ function copyCurrentState(): void {
     (error: unknown) => {
       notice = `상태 복사 실패: ${errorMessage(error)}`;
       render();
+    },
+  );
+}
+
+function copyPhaseLogFilter(): void {
+  if (phaseLogFilter === undefined) return;
+  const clipboard = navigator.clipboard;
+  if (clipboard === undefined) {
+    notice = "클립보드를 사용할 수 없습니다.";
+    render(true);
+    return;
+  }
+  const text = phaseLogFilterText(
+    phaseLogFilter,
+    phaseLogFilteredTimeline(currentState(), phaseLogFilter),
+  );
+  void clipboard.writeText(text).then(
+    () => {
+      notice = "필터 기록을 복사했습니다.";
+      render(true);
+    },
+    (error: unknown) => {
+      notice = `기록 복사 실패: ${errorMessage(error)}`;
+      render(true);
     },
   );
 }
@@ -1201,6 +1230,11 @@ function renderCharacterModal(state: GameState): string {
           ${renderCharacterTraitInformation(state, character)}
           ${renderCharacterLocationInformation(state, character)}
           ${renderCharacterIncidentInformation(state, character)}
+          <button type="button" class="character-history-link"
+            data-action="show-character-history"
+            data-character="${escapeHtml(character)}">
+            이 캐릭터의 기록 보기
+          </button>
           <label class="location-select">
             <span>${escapeHtml(misc("Location", "Location"))}</span>
             <select data-action="move-character" data-character="${escapeHtml(character)}">
@@ -1289,12 +1323,173 @@ function renderPhases(state: GameState): string {
             <strong>${escapeHtml(phaseName(phase))}</strong>
           </div>`).join("")}
       </div>
-    </section>`;
+  </section>`;
+}
+
+function phaseLogTargetList(targets: readonly Target[] | undefined): string {
+  if ((targets?.length ?? 0) === 0) return "";
+  return ` · 대상 ${targets?.map(targetLabel).join(" · ")}`;
+}
+
+function phaseLogStatusLabel(status: "alive" | "dead" | "absent"): string {
+  if (status === "alive") return "생존";
+  if (status === "dead") return "사망";
+  return "미등장";
+}
+
+function phaseLogTimelineLine(item: PhaseLogTimelineItem): string {
+  if (item.kind === "card") {
+    return `${ownerLabel(item.placement.owner)} · ${targetLabel(item.placement.target)} · ${
+      actionCardName(item.placement.card)
+    }`;
+  }
+  if (item.kind === "change") {
+    const change = item.change;
+    if (change.kind === "counter") {
+      const delta = change.delta > 0 ? `+${change.delta}` : String(change.delta);
+      return `${targetLabel(change.target)} · ${observedCounterLabel(change.counter)} ${delta}`;
+    }
+    if (change.kind === "movement") {
+      return `${characterName(change.character)} · ${locationName(change.from)} → ${
+        locationName(change.to)
+      }`;
+    }
+    const at = change.at === undefined ? "" : ` · ${locationName(change.at)}`;
+    return `${characterName(change.character)} · ${phaseLogStatusLabel(change.from)} → ${
+      phaseLogStatusLabel(change.to)
+    }${at}`;
+  }
+  if (item.kind === "ability") {
+    const entry = item.entry;
+    if (entry.kind === "abilityActivated") {
+      return `${entry.character ? characterName(entry.character) : misc("Extra Rules")} · ${
+        gameText(entry.description)
+      } 발동${phaseLogTargetList(entry.targets)}`;
+    }
+    if (entry.kind === "goodwillUsed") {
+      const result = entry.response === "refuse"
+        ? misc("Refused", "Refused")
+        : entry.effectApplied
+        ? "해결 · 효과 적용"
+        : "해결 · 효과 없음";
+      return `${characterName(entry.character)}[우호${entry.rank}] · ${result}${
+        phaseLogTargetList(entry.targets)
+      }`;
+    }
+    const result = !entry.eligible
+      ? "발동 조건 불충족"
+      : entry.performed
+      ? `${entry.counter === undefined
+        ? "카운터 없음"
+        : sacredTreeCounterName(entry.counter)} → ${
+        entry.target === undefined ? "대상 없음" : characterName(entry.target)
+      }`
+      : "옮기지 않음";
+    return `각본가 · 신수 특성 · ${result}`;
+  }
+  if (item.kind === "incident") {
+    const entry = item.entry;
+    const result = entry.fired
+      ? entry.effectApplied ? "발생 · 효과 적용" : "발생 · 효과 없음"
+      : `발생하지 않음 (${entry.failureReasons.map(incidentFailureLabel).join(" · ")})`;
+    return `${incidentName(entry.incident)} · 범인 ${characterName(entry.culprit)} · ${result}${
+      phaseLogTargetList(entry.targets)
+    }`;
+  }
+  if (item.kind === "roleReveal") {
+    return `${characterName(item.character)} · 역할 공개 · ${roleName(item.role)}`;
+  }
+  if (item.kind === "incidentCulprit") {
+    return `${incidentName(item.incident)} · 범인 공개 · ${characterName(item.culprit)}`;
+  }
+  return `${locationName(item.pair.location)} · ${
+    item.pair.characters.map(characterName).join(" ↔ ")
+  } · 단둘 조건 성립`;
+}
+
+function phaseLogFilterLabel(filter: PhaseLogFilter): string {
+  return filter.kind === "character"
+    ? characterName(filter.id)
+    : locationName(filter.at);
+}
+
+function phaseLogFilterText(
+  filter: PhaseLogFilter,
+  items: readonly PhaseLogTimelineItem[],
+): string {
+  return [
+    `진행 기록 · ${phaseLogFilterLabel(filter)}`,
+    ...items.map((item) =>
+      `${item.loop}루프 ${item.day}일 · ${phaseName(item.phase)} · ${
+        phaseLogTimelineLine(item)
+      }`
+    ),
+  ].join("\n");
+}
+
+function renderPhaseLogFilter(
+  state: GameState,
+  open: boolean,
+): string {
+  if (!open) return "";
+  const characters = Object.keys(state.scenario.cast).sort((left, right) =>
+    characterName(left).localeCompare(characterName(right), "ko")
+  );
+  const activeFilter = phaseLogFilter;
+  const items = activeFilter === undefined
+    ? undefined
+    : phaseLogFilteredTimeline(state, activeFilter);
+  return `<div class="phase-log-filter-body">
+    <div class="phase-log-filter-controls">
+      <label>
+        <span>캐릭터</span>
+        <select data-action="phase-log-character-filter">
+          <option value="">선택 안 함</option>
+          ${characters.map((character) => `
+            <option value="${escapeHtml(character)}" ${
+              activeFilter?.kind === "character" && activeFilter.id === character
+                ? "selected"
+                : ""
+            }>${escapeHtml(characterName(character))}</option>`).join("")}
+        </select>
+      </label>
+      <label>
+        <span>장소</span>
+        <select data-action="phase-log-location-filter">
+          <option value="">선택 안 함</option>
+          ${LOCATIONS.map((location) => `
+            <option value="${location}" ${
+              activeFilter?.kind === "location" && activeFilter.at === location
+                ? "selected"
+                : ""
+            }>${escapeHtml(locationName(location))}</option>`).join("")}
+        </select>
+      </label>
+    </div>
+    ${items === undefined || activeFilter === undefined
+      ? `<p class="phase-log-filter-empty">캐릭터나 장소를 선택하세요.</p>`
+      : `<div class="phase-log-filter-result" data-phase-log-filter-result
+          data-result-count="${items.length}">
+          <header>
+            <strong>${escapeHtml(phaseLogFilterLabel(activeFilter))}</strong>
+            <span>${items.length}건</span>
+            <button type="button" data-action="copy-phase-log-filter">텍스트 복사</button>
+          </header>
+          ${items.length === 0
+            ? `<p class="phase-log-filter-empty">관련 기록이 없습니다.</p>`
+            : `<ol>${items.map((item) => `
+              <li data-timeline-kind="${item.kind}">
+                <b>${item.loop}루프 · ${item.day}일 · ${escapeHtml(phaseName(item.phase))}</b>
+                <span>${escapeHtml(phaseLogTimelineLine(item))}</span>
+              </li>`).join("")}</ol>`}
+        </div>`}
+  </div>`;
 }
 
 function renderPhaseLog(state: GameState): string {
   const loopGroups = phaseLogLoopGroups(state);
-  if (loopGroups.length === 0) return "";
+  const filterKey = "phase-log-filter";
+  const filterOpen = lazyPanelIsOpen(filterKey);
 
   const lines = (
     entry: (typeof loopGroups)[number]["days"][number]["entries"][number],
@@ -1375,6 +1570,15 @@ function renderPhaseLog(state: GameState): string {
         <strong>진행 기록</strong>
         <span>${entryCount}건</span>
       </header>
+      <details class="phase-log-filter" ${lazyPanelAttributes(filterKey)}>
+        <summary>
+          <strong>캐릭터·장소별 보기</strong>
+          <small>${phaseLogFilter === undefined
+            ? "펼쳐서 계산"
+            : escapeHtml(phaseLogFilterLabel(phaseLogFilter))}</small>
+        </summary>
+        ${renderPhaseLogFilter(state, filterOpen)}
+      </details>
       <div class="phase-log-loops">
         ${loopGroups.map((loopGroup) => {
           const loopKey = `phase-log-loop:${loopGroup.key}`;
@@ -5036,6 +5240,7 @@ function renderTimeGap(state: GameState): string {
           : ""}
       </div>
     </section>
+    ${renderPhaseLog(state)}
     ${renderMastermindOverlay(state)}
   </main>`;
 }
@@ -5083,6 +5288,7 @@ function renderFinalGuess(state: GameState): string {
       </div>
       ${renderFinalGuessAttempts(state)}
     </section>
+    ${renderPhaseLog(state)}
     ${renderCollapsedMastermindOverlay(state, "finalGuess")}
   </main>`;
 }
@@ -5120,6 +5326,7 @@ function renderLoopJudgment(state: GameState): string {
             </button>`}
       </div>
     </section>
+    ${renderPhaseLog(state)}
   </main>`;
 }
 
@@ -5141,6 +5348,7 @@ function renderGameOver(state: GameState): string {
         <button type="button" class="next-phase" data-action="new-game">새 게임</button>
       </div>
     </section>
+    ${renderPhaseLog(state)}
     ${renderCollapsedMastermindOverlay(state, "review")}
   </main>`;
 }
@@ -5839,6 +6047,11 @@ root.addEventListener("click", (event) => {
     return;
   }
 
+  if (action === "copy-phase-log-filter") {
+    copyPhaseLogFilter();
+    return;
+  }
+
   if (action === "new-game") {
     requestNewGame();
     return;
@@ -5880,6 +6093,24 @@ root.addEventListener("click", (event) => {
   if (action === "close-character-modal") {
     openCharacterModal = undefined;
     render();
+    return;
+  }
+
+  if (action === "show-character-history") {
+    const character = button.dataset.character;
+    if (!character || currentState().scenario.cast[character] === undefined) {
+      return;
+    }
+    openCharacterModal = undefined;
+    phaseLogFilter = { kind: "character", id: character };
+    openLazyPanels.add("phase-log-filter");
+    notice = "";
+    render(true);
+    window.requestAnimationFrame(() => {
+      root.querySelector<HTMLElement>(".phase-log-filter")?.scrollIntoView({
+        block: "start",
+      });
+    });
     return;
   }
 
@@ -6191,6 +6422,25 @@ root.addEventListener("change", (event) => {
   const control = event.target as HTMLInputElement | HTMLSelectElement;
   const action = control.dataset.action;
   const draftKey = control.dataset.uiDraftKey;
+  if (action === "phase-log-character-filter") {
+    phaseLogFilter = control.value === ""
+      ? undefined
+      : { kind: "character", id: control.value };
+    notice = "";
+    render(true);
+    return;
+  }
+  if (action === "phase-log-location-filter") {
+    const location = control.value as Location;
+    phaseLogFilter = control.value === ""
+      ? undefined
+      : LOCATIONS.includes(location)
+      ? { kind: "location", at: location }
+      : undefined;
+    notice = "";
+    render(true);
+    return;
+  }
   if (draftKey !== undefined) {
     uiInputDrafts.set(draftKey, control.value);
     if (draftKey === "new-game:scenario") {
@@ -6338,6 +6588,7 @@ root.addEventListener("change", (event) => {
     resolutionReceipt = undefined;
     openCharacterModal = undefined;
     openLocationModal = undefined;
+    phaseLogFilter = undefined;
     finalGuessConfirmationOpen = false;
     operationSheetOpen = false;
     optionalHookSelections.clear();

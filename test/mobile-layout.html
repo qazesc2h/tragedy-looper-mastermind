@@ -2686,6 +2686,222 @@
         }
       }
 
+      async function inspectPhaseLogFilter() {
+        let filteredCharacter;
+        mutateActiveState((state) => {
+          state.scenario.loops = 5;
+          state.scenario.daysPerLoop = 7;
+          state.gamePhase = "ROUND";
+          delete state.result;
+          const characters = Object.keys(state.scenario.cast);
+          filteredCharacter = characters[0];
+          const other = characters[1] ?? characters[0];
+          const loops = Array.from({ length: 5 }, (_, loopIndex) => {
+            const loop = JSON.parse(JSON.stringify(state.loop));
+            loop.loop = loopIndex + 1;
+            loop.day = 7;
+            loop.phase = "P9_ROUND_END";
+            loop.phaseLog = [];
+            loop.publicInformationThisLoop = [];
+            loop.revealedRoleCharacters = [];
+            loop.roundEvidence = [];
+            for (const character of characters) {
+              loop.board[character] = { status: "alive", at: "City" };
+            }
+            let sequence = 0;
+            for (let day = 1; day <= 7; day += 1) {
+              const observedAt = (phase) => ({
+                loop: loop.loop,
+                day,
+                phase,
+                sequence: sequence++,
+              });
+              loop.phaseLog.push({
+                loop: loop.loop,
+                day,
+                phase: "P2_MASTERMIND_ACTION",
+                kind: "cardsPlaced",
+                placements: [{
+                  owner: "mastermind",
+                  card: "intriguePlus1",
+                  target: { kind: "character", id: filteredCharacter },
+                }, {
+                  owner: 0,
+                  card: "forbidIntrigue",
+                  target: { kind: "location", at: "Shrine" },
+                }],
+                observedAt: observedAt("P2_MASTERMIND_ACTION"),
+              });
+              loop.phaseLog.push({
+                loop: loop.loop,
+                day,
+                phase: "P4_RESOLVE",
+                kind: "actionResolved",
+                results: [],
+                publicChanges: [{
+                  kind: "counter",
+                  target: { kind: "character", id: filteredCharacter },
+                  counter: "intrigue",
+                  delta: 1,
+                }, {
+                  kind: "counter",
+                  target: { kind: "location", at: "Shrine" },
+                  counter: "intrigue",
+                  delta: 1,
+                }, {
+                  kind: "movement",
+                  character: filteredCharacter,
+                  from: "City",
+                  to: "Shrine",
+                }, {
+                  kind: "status",
+                  character: other,
+                  from: "alive",
+                  to: "dead",
+                  at: "Shrine",
+                }],
+                observedAt: observedAt("P4_RESOLVE"),
+              });
+              loop.phaseLog.push({
+                loop: loop.loop,
+                day,
+                phase: "P5_MASTERMIND_ABILITY",
+                kind: "abilityActivated",
+                character: filteredCharacter,
+                targets: [{ kind: "character", id: other }],
+                description: "측정용 능력",
+                publicChanges: [],
+                observedAt: observedAt("P5_MASTERMIND_ABILITY"),
+              });
+              loop.phaseLog.push({
+                loop: loop.loop,
+                day,
+                phase: "P7_INCIDENT",
+                kind: "incidentJudged",
+                incident: "murder",
+                culprit: filteredCharacter,
+                fired: true,
+                effectApplied: true,
+                failureReasons: [],
+                targets: [{ kind: "character", id: other }],
+                deaths: [other],
+                observedAt: observedAt("P7_INCIDENT"),
+              });
+              loop.roundEvidence.push({
+                day,
+                roundEndPairs: [{
+                  location: "Shrine",
+                  characters: [filteredCharacter, other],
+                  paranoia: [3, 0],
+                  intrigue: [0, 0],
+                }],
+                observedAt: observedAt("P9_ROUND_END"),
+              });
+            }
+            loop.publicInformationThisLoop.push({
+              kind: "roleReveal",
+              character: filteredCharacter,
+              role: state.scenario.cast[filteredCharacter],
+              loop: loop.loop,
+              day: 2,
+              observedAt: {
+                loop: loop.loop,
+                day: 2,
+                phase: "P6_GOODWILL",
+                sequence: sequence++,
+              },
+            });
+            return loop;
+          });
+          state.history = loops.slice(0, 4);
+          state.loop = loops[4];
+          state.loopOutcomes = [];
+          delete state.pendingLoopEnd;
+        });
+        await reloadApp("phase-log-filter-5x7");
+        const initialFilter = frameDocument().querySelector(".phase-log-filter");
+        const initiallyClosed = initialFilter instanceof frameWindow().HTMLDetailsElement &&
+          !initialFilter.open;
+        const lazyBodyAbsent = initialFilter?.querySelector(
+          ".phase-log-filter-body",
+        ) === null;
+        click(`.character-chip[data-character='${filteredCharacter}']`);
+        click("[data-action='show-character-history']");
+        const renderedResult = frameDocument().querySelector(
+          ".phase-log-filter-result",
+        );
+        if (!(renderedResult instanceof frameWindow().HTMLElement)) {
+          throw new Error("캐릭터 진행 기록 필터 결과를 찾을 수 없습니다.");
+        }
+        const filterResult = frameDocument().querySelector(
+          ".phase-log-filter-result",
+        );
+        const rows = [...(filterResult?.querySelectorAll("li") ?? [])];
+        const first = rows[0]?.textContent.replace(/\s+/g, " ").trim() ?? "";
+        const last = rows.at(-1)?.textContent.replace(/\s+/g, " ").trim() ?? "";
+        let copiedText = "";
+        Object.defineProperty(frameWindow().navigator, "clipboard", {
+          configurable: true,
+          value: {
+            writeText(text) {
+              copiedText = text;
+              return Promise.resolve();
+            },
+          },
+        });
+        click("[data-action='copy-phase-log-filter']");
+        await pause();
+        const copyNotice = frameDocument().querySelector(
+          ".notice-toast span",
+        )?.textContent.trim() ?? "";
+        const locationSelect = frameDocument().querySelector(
+          "[data-action='phase-log-location-filter']",
+        );
+        if (!(locationSelect instanceof frameWindow().HTMLSelectElement)) {
+          throw new Error("장소 진행 기록 필터를 찾을 수 없습니다.");
+        }
+        locationSelect.value = "Shrine";
+        locationSelect.dispatchEvent(new (frameWindow().Event)("change", {
+          bubbles: true,
+        }));
+        const locationResultCount = frameDocument().querySelector(
+          ".phase-log-filter-result",
+        )?.querySelectorAll("li").length ?? 0;
+        const characterSelectCleared = frameDocument().querySelector(
+          "[data-action='phase-log-character-filter']",
+        )?.value === "";
+        const report = {
+          scenario: "5루프 × 7일 종반",
+          initiallyClosed,
+          lazyBodyAbsent,
+          resultCount: rows.length,
+          first,
+          last,
+          copyNotice,
+          copiedFirst: copiedText.split("\n")[0] ?? "",
+          copiedLast: copiedText.split("\n").at(-1) ?? "",
+          locationResultCount,
+          characterSelectCleared,
+          horizontal: horizontalOverflow(),
+        };
+        reports.push({ label: "진행 기록 필터", ...report });
+        if (
+          !report.initiallyClosed ||
+          !report.lazyBodyAbsent ||
+          report.resultCount === 0 ||
+          !report.first.includes("1루프 · 1일") ||
+          !report.last.includes("5루프 · 7일") ||
+          report.copyNotice !== "필터 기록을 복사했습니다." ||
+          !report.copiedFirst.startsWith("진행 기록 · ") ||
+          !report.copiedLast.startsWith("5루프 7일 · ") ||
+          report.locationResultCount === 0 ||
+          !report.characterSelectCleared ||
+          report.horizontal.scrollWidth > WIDTH
+        ) {
+          failures.push(`진행 기록 필터: ${JSON.stringify(report)}`);
+        }
+      }
+
       async function run() {
         await inspectStartingGuidance();
         await enterRound();
@@ -2730,6 +2946,7 @@
         await inspectGoodwillDisabledLabels();
         await selectScenario("basicTragedy:5");
         await inspectScrollableModalBodies();
+        await inspectPhaseLogFilter();
 
         await selectScenario("basicTragedy:20");
         await inspectElevenCharacterCandidateHeight();
