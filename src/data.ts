@@ -127,19 +127,28 @@ function parseLocation(value: unknown, context: string): Location {
 function goodwillAbilityMetadata(
   id: CharacterId,
   abilityIndex: number,
-): { ko?: string; minLoop: number | null } {
+): {
+  ko?: string;
+  minLoop: number | null;
+  immuneToGoodwillRefusel?: boolean;
+} {
+  const additional = id === "copycat" && abilityIndex === 1
+    ? { minLoop: 2, immuneToGoodwillRefusel: true }
+    : undefined;
   const rawAbilities = (
     goodwillAbilitiesJson as unknown as Record<string, unknown>
   )[id];
-  if (!Array.isArray(rawAbilities)) return { minLoop: null };
+  if (!Array.isArray(rawAbilities)) return additional ?? { minLoop: null };
 
   const rawAbility = rawAbilities.find((candidate) =>
     isRecord(candidate) && candidate.abilityIndex === abilityIndex
   );
-  if (!isRecord(rawAbility)) return { minLoop: null };
+  if (!isRecord(rawAbility)) return additional ?? { minLoop: null };
 
   const ko = typeof rawAbility.ko === "string" ? rawAbility.ko : undefined;
-  if (rawAbility.minLoop === undefined) return { ko, minLoop: null };
+  if (rawAbility.minLoop === undefined) {
+    return { ko, minLoop: additional?.minLoop ?? null, ...additional };
+  }
 
   const minLoop = requireNumber(
     rawAbility.minLoop,
@@ -150,7 +159,13 @@ function goodwillAbilityMetadata(
       `goodwill ability "${id}:${abilityIndex}".minLoop must be a positive integer`,
     );
   }
-  return { ko, minLoop };
+  return {
+    ko,
+    minLoop,
+    ...(rawAbility.immuneToGoodwillRefusel === true
+      ? { immuneToGoodwillRefusel: true }
+      : {}),
+  };
 }
 
 function parseCharacterData(id: CharacterId, value: unknown): CharacterData {
@@ -217,6 +232,7 @@ function parseCharacterData(id: CharacterId, value: unknown): CharacterData {
       ),
       restrictedToLocation,
       immuneToGoodwillRefusel:
+        metadata.immuneToGoodwillRefusel === true ||
         entry.immuneToGoodwillRefusel === true,
       minLoop: metadata.minLoop,
     };

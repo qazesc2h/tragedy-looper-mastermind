@@ -708,6 +708,151 @@ describe("role possibility table", () => {
     ).cells.doctor.serialKiller.status).toBe("impossible");
   });
 
+  it("propagates copycat's revealed same-role group as an equivalence", () => {
+    const copycatGroup: ProtagonistObservation = {
+      kind: "sameRoleCharactersRevealed",
+      source: "copycat",
+      loop: 2,
+      day: 1,
+      characters: ["copycat", "soldier"],
+    };
+    const table = buildRolePossibilityTable(
+      "basicTragedy",
+      ["copycat", "soldier", "doctor"],
+      [combination("murderPlan+loveAffair+hiddenFreak")],
+      [copycatGroup, roleRevealed("soldier", "killer")],
+    );
+
+    expect(table.cells.copycat.killer.status).toBe("confirmed");
+    expect(table.cells.soldier.killer.status).toBe("confirmed");
+    expect(table.cells.doctor.killer.status).toBe("impossible");
+    expect(table.cells.copycat.killer.reasons).toContainEqual({
+      code: "sameRoleCharactersRevealed",
+      observation: copycatGroup,
+    });
+  });
+
+  it("excludes a non-member's revealed role from copycat's group", () => {
+    const copycatGroup: ProtagonistObservation = {
+      kind: "sameRoleCharactersRevealed",
+      source: "copycat",
+      loop: 2,
+      day: 1,
+      characters: ["copycat", "girlStudent"],
+      context: {
+        locationIntrigue: { Hospital: 0, Shrine: 0, City: 0, School: 0 },
+        characters: Object.fromEntries(
+          ["copycat", "girlStudent", "doctor"].map((character) => [
+            character,
+            {
+              status: "alive",
+              location: "City",
+              abilityLocations: ["City"],
+              goodwill: 0,
+              paranoia: 0,
+              intrigue: 0,
+            },
+          ]),
+        ),
+      },
+    };
+    const table = buildRolePossibilityTable(
+      "basicTragedy",
+      ["copycat", "girlStudent", "doctor"],
+      [combination("murderPlan+circleFriends+hiddenFreak")],
+      [copycatGroup, roleRevealed("doctor", "friend")],
+    );
+
+    expect(table.cells.copycat.friend.status).toBe("impossible");
+    expect(table.cells.girlStudent.friend.status).toBe("impossible");
+  });
+
+  it("does not exclude a dead non-member that the copycat ability cannot name", () => {
+    const copycatGroup: ProtagonistObservation = {
+      kind: "sameRoleCharactersRevealed",
+      source: "copycat",
+      loop: 2,
+      day: 1,
+      characters: ["copycat", "girlStudent"],
+      context: {
+        locationIntrigue: { Hospital: 0, Shrine: 0, City: 0, School: 0 },
+        characters: {
+          copycat: {
+            status: "alive",
+            location: "City",
+            abilityLocations: ["City"],
+            goodwill: 3,
+            paranoia: 0,
+            intrigue: 0,
+          },
+          girlStudent: {
+            status: "alive",
+            location: "School",
+            abilityLocations: ["School"],
+            goodwill: 0,
+            paranoia: 0,
+            intrigue: 0,
+          },
+          doctor: {
+            status: "dead",
+            location: "Hospital",
+            abilityLocations: ["Hospital"],
+            goodwill: 0,
+            paranoia: 0,
+            intrigue: 0,
+          },
+        },
+      },
+    };
+    const table = buildRolePossibilityTable(
+      "basicTragedy",
+      ["copycat", "girlStudent", "doctor"],
+      [combination("murderPlan+circleFriends+hiddenFreak")],
+      [
+        copycatGroup,
+        roleRevealed("girlStudent", "friend"),
+        roleRevealed("doctor", "friend"),
+      ],
+    );
+
+    expect(table.cells.copycat.friend.status).toBe("confirmed");
+    expect(table.cells.girlStudent.friend.status).toBe("confirmed");
+    expect(table.cells.doctor.friend.status).toBe("confirmed");
+  });
+
+  it("allows copycat to be the extra holder above a role's normal maximum", () => {
+    const table = buildRolePossibilityTable(
+      "basicTragedy",
+      ["copycat", "soldier", "doctor"],
+      [combination("murderPlan+loveAffair+hiddenFreak")],
+      [roleRevealed("soldier", "killer")],
+    );
+
+    expect(table.cells.copycat.killer.status).toBe("possible");
+    expect(table.cells.doctor.killer.status).toBe("possible");
+  });
+
+  it("lets copycat share an inactive role with the outsider", () => {
+    const copycatGroup: ProtagonistObservation = {
+      kind: "sameRoleCharactersRevealed",
+      source: "copycat",
+      loop: 2,
+      day: 1,
+      characters: ["copycat", "mysteryBoy"],
+    };
+    const table = buildRolePossibilityTable(
+      "firstSteps",
+      ["copycat", "mysteryBoy", "doctor"],
+      [combination("murderPlan+unsettlingRumor")],
+      [copycatGroup, roleRevealed("mysteryBoy", "cultist")],
+    );
+
+    expect(table.roles).toContain("cultist");
+    expect(table.cells.mysteryBoy.cultist.status).toBe("confirmed");
+    expect(table.cells.copycat.cultist.status).toBe("confirmed");
+    expect(table.cells.doctor.cultist.status).toBe("impossible");
+  });
+
   it("replays the first-day serial-killer versus Factor immediate loss", () => {
     const scenario: Scenario = {
       tragedySet: "basicTragedy",

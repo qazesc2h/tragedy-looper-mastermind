@@ -115,6 +115,7 @@ import {
 } from "../engine/resolve";
 import { INCIDENT_IMPL } from "../impl/incidents";
 import { ROLE_IMPL } from "../impl/roles";
+import { COPYCAT_TRAIT_KO } from "../impl/traits";
 import {
   abilityLocationsOf,
   characterEntryTiming,
@@ -861,6 +862,7 @@ function characterName(character: CharacterId): string {
 function plotLessRoleTraitText(
   character: CharacterId,
 ): string | undefined {
+  if (character === "copycat") return COPYCAT_TRAIT_KO;
   if (character !== "mysteryBoy") return undefined;
   return characterDataOf(character).plotLessRole
     ? MYSTERY_BOY_PLOT_LESS_ROLE_TEXT
@@ -1412,6 +1414,9 @@ function phaseLogTimelineLine(item: PhaseLogTimelineItem): string {
   }
   if (item.kind === "roleReveal") {
     return `${characterName(item.character)} · 역할 공개 · ${roleName(item.role)}`;
+  }
+  if (item.kind === "sameRoleCharacters") {
+    return `모방자와 같은 역할 · ${item.characters.map(characterName).join(" · ")}`;
   }
   if (item.kind === "incidentCulprit") {
     return `${incidentName(item.incident)} · 범인 공개 · ${characterName(item.culprit)}`;
@@ -4210,6 +4215,8 @@ function hypothesisObservationLabel(
   switch (observation.kind) {
     case "roleRevealed":
       return `${characterName(observation.character)} = ${roleName(observation.role)} 공개`;
+    case "sameRoleCharactersRevealed":
+      return `모방자와 같은 역할 · ${observation.characters.map(characterName).join(" · ")}`;
     case "deadAtLoopEndWithoutRoleReveal":
       return `${observation.loop}루프 종료 · ${characterName(observation.character)} 사망 · 역할 공개 없음`;
     case "goodwillRefused":
@@ -4489,6 +4496,7 @@ function roleCellReasonLabel(code: string): string {
     case "onlyRemainingRole": return "유일 역할 후보";
     case "requiredRoleForcedCandidate": return "필수 역할 남은 후보";
     case "roleMaximumReached": return "최대 인원 도달";
+    case "sameRoleCharactersRevealed": return "모방자 동일 역할 공개";
     case "outsiderConstraint": return "아웃사이더 제약";
     case "characterConstraint": return "캐릭터 제약";
     case "ruleUnavailable": return "남은 룰에서 불가";
@@ -5263,6 +5271,10 @@ function renderPublicInformation(state: GameState): string {
         case "roleReveal":
         case "goodwillRefusal":
           return [];
+        case "sameRoleCharacters":
+          return [
+            `모방자와 같은 역할: ${information.characters.map(characterName).join(" · ")}`,
+          ];
         case "incidentCulprit":
           return [`${characterName(information.source)}: ${misc("Day")} ${information.day} · ` +
             `${incidentName(information.incident)}의 범인은 ${characterName(information.culprit)}`];

@@ -1172,6 +1172,53 @@ describe("factor / gained abilities", () => {
   });
 });
 
+describe("copycat role abilities", () => {
+  it("collects the copied mastermind ability for copycat", () => {
+    const state = createRoleState({
+      copycat: "conspiracyTheorist",
+      journalist: "conspiracyTheorist",
+      doctor: "person",
+    });
+
+    expect(effectiveAbilityRoles(state, "copycat")).toEqual([
+      "conspiracyTheorist",
+    ]);
+    expect(collectHooks(state, "P5_MASTERMIND_ABILITY")).toEqual([
+      expect.objectContaining({ self: "copycat" }),
+      expect.objectContaining({ self: "journalist" }),
+    ]);
+  });
+
+  it("resolves a copied serial-killer ability for both holders", () => {
+    const state = createRoleState({
+      copycat: "serialKiller",
+      shrineMaiden: "serialKiller",
+    });
+
+    resolveHooks(state, "P9_ROUND_END");
+
+    expect(boardIsAlive(state.loop, "copycat")).toBe(false);
+    expect(boardIsAlive(state.loop, "shrineMaiden")).toBe(false);
+  });
+
+  it("ends the loop immediately when a key-person copycat dies", () => {
+    const state = createRoleState({
+      copycat: "keyPerson",
+      boyStudent: "keyPerson",
+    });
+
+    expect(killCharacter(state, "copycat")).toBe(true);
+    settleGameFlow(state);
+
+    expect(state.history).toHaveLength(1);
+    expect(state.loopOutcomes).toContainEqual(expect.objectContaining({
+      loop: 1,
+      result: "protagonistsLost",
+      reason: "effect",
+    }));
+  });
+});
+
 describe("hook owner life state", () => {
   it.each([
     ["cultist", "P4_RESOLVE"],

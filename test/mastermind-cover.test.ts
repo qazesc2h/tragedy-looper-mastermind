@@ -204,4 +204,33 @@ describe("mastermind cover guidance", () => {
     expect(shrineReveal?.excludedCharacterNames).toContain("AI");
     expect(shrineReveal?.targetCharacterNames).not.toContain("AI");
   });
+
+  it("does not treat the copycat's equality reveal as a direct role reveal", () => {
+    const state = stateFor("basicTragedy:1");
+    const copiedCharacter = Object.entries(state.scenario.cast).find(
+      ([character, role]) => character !== "copycat" && role !== "person",
+    );
+    if (copiedCharacter === undefined) {
+      throw new Error("copycat source role expected");
+    }
+    state.scenario.cast.copycat = copiedCharacter[1];
+    state.loop.board.copycat = { status: "alive", at: "City" };
+    state.loop.charCounters.copycat = {
+      goodwill: 0,
+      paranoia: 0,
+      intrigue: 0,
+      protection: 0,
+    };
+
+    const guidance = mastermindCoverGuidance(state);
+
+    expect(guidance.commonExposure.some(({ key }) =>
+      key.startsWith("common-goodwill-reveal:copycat:")
+    )).toBe(false);
+    expect(guidance.candidates.find(({ character }) =>
+      character === "copycat"
+    )?.exposurePaths.some(({ key }) =>
+      key.startsWith("goodwill-reveal:copycat:")
+    )).toBe(false);
+  });
 });

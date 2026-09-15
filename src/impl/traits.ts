@@ -9,6 +9,15 @@ import type { CharacterId, GameState, Hook } from "../types";
 import { SERVANT_TRAIT_SOURCE } from "../engine/servant";
 import { SACRED_TREE_TRAIT_SOURCE } from "../engine/sacred-tree";
 
+export const COPYCAT_TRAIT_SOURCE =
+  "Script Creation: This Character must copy the role of another Character in the script (max amount ignored).";
+export const COPYCAT_TRAIT_KO =
+  "시나리오 작성 시: 이 캐릭터는 시나리오에 있는 다른 캐릭터의 역할을 반드시 복사해야 합니다(최대 인원 무시).";
+export const COPYCAT_GOODWILL_SOURCE =
+  "Loop 2 or later: Reveal the name of all characters with the same Role as :copycat:. This cannot be refused by :goodwill: Refusel.";
+export const COPYCAT_GOODWILL_KO =
+  "2번째 루프부터: :copycat:와(과) 같은 역할을 지닌 모든 캐릭터의 이름을 공개합니다. 이 능력은 :goodwill: 무시로 거부할 수 없습니다.";
+
 function placeEnteringCharacter(
   state: GameState,
   character: CharacterId,
@@ -56,7 +65,7 @@ export const TRAIT_IMPL: Record<CharacterId, {
       kind: "scriptBuild",
       source: {
         timing: "Script Build",
-        description: `Script Creation: This Character must copy the role of another Character in the script (max amount ignored).`,
+        description: COPYCAT_TRAIT_SOURCE,
       },
       // SCRIPT_BUILD는 런타임 훅이 아니므로 원문 보존만 한다.
       when: () => false,

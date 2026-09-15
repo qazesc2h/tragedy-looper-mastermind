@@ -1,6 +1,10 @@
 import goodwillAbilitiesJson from "../../data/goodwill-abilities.json";
 import { characterDataOf } from "../data";
 import {
+  COPYCAT_GOODWILL_KO,
+  COPYCAT_GOODWILL_SOURCE,
+} from "../impl/traits";
+import {
   goodwillAbilityImplemented,
   goodwillResponseAvailability,
 } from "../engine/goodwill";
@@ -164,6 +168,21 @@ const SERVANT_GOODWILL_ABILITIES: readonly StructuredGoodwillAbility[] = [{
   _source: "Choose any other character. For the remainder of the Loop, she also serves that character.",
 }];
 
+const COPYCAT_GOODWILL_ABILITIES: readonly StructuredGoodwillAbility[] = [{
+  abilityIndex: 1,
+  rank: 3,
+  ko: COPYCAT_GOODWILL_KO,
+  target: { scope: "none", excludeSelf: false, tags: [] },
+  effect: { operation: "revealSameRoleCharacterNames" },
+  choices: null,
+  timesPerLoop: null,
+  restrictedToLocation: null,
+  minLoop: 2,
+  immuneToGoodwillRefusel: true,
+  implemented: true,
+  _source: COPYCAT_GOODWILL_SOURCE,
+}];
+
 const YOUNG_GIRL_GOODWILL_ABILITIES: readonly StructuredGoodwillAbility[] = [
   {
     abilityIndex: 0,
@@ -253,6 +272,7 @@ function goodwillAbilitiesFor(
   character: CharacterId,
 ): readonly StructuredGoodwillAbility[] {
   if (character === "servant") return SERVANT_GOODWILL_ABILITIES;
+  if (character === "copycat") return COPYCAT_GOODWILL_ABILITIES;
   if (character === "youngGirl") return YOUNG_GIRL_GOODWILL_ABILITIES;
   if (character === "sectFounder") return SECT_FOUNDER_GOODWILL_ABILITIES;
   if (character === "littleSister") return LITTLE_SISTER_GOODWILL_ABILITIES;

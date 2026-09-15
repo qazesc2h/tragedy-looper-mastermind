@@ -2,6 +2,16 @@
 
 ## 미해결
 
+### Q8. 모방자가 핵심 인물을 복사했을 때 살인 청부업자의 대상
+- source: "The :keyPerson: has at least 2 :intrigue: and is in this character‘s location" / "Kill the :keyPerson:"
+- 전제: 모방자는 다른 캐릭터의 핵심 인물 역할을 복사할 수 있으므로 핵심 인물이 둘일
+  수 있고, 어느 쪽이 죽어도 각자의 핵심 인물 상시 능력으로 즉시 루프가 끝난다.
+- 해석 A: 조건을 만족하는 핵심 인물 중 하나를 각본가가 선택한다.
+- 해석 B: 조건을 만족하는 핵심 인물을 모두 죽인다.
+- 현재 처리: 기존 엔진은 캐스트 순서에서 처음 찾은 핵심 인물 한 명만 대상으로 삼는다.
+  모방자의 핵심 인물 사망 능력 자체는 정상 동작하지만, 살인 청부업자와 핵심 인물 둘의
+  조합은 임의 선택을 새 규칙으로 만들지 않고 공식 근거 확인 전까지 미해결로 남긴다.
+
 ### Q6. 신수 — "카운터 1개"에 보호 카운터도 포함되는가?
 - source: "Each turn, the Leader may move 1 counter on this character to another character at this location."
 - 해석 A: 카운터 종류를 한정하지 않았으므로 우호·불안·음모·보호를 모두 옮길 수 있다.

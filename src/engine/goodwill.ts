@@ -82,6 +82,7 @@ const IMPLEMENTED_GOODWILL_ABILITIES: ReadonlySet<string> = new Set([
   "boss:1",
   "boyStudent:0",
   "classRep:0",
+  "copycat:1",
   "doctor:0",
   "doctor:1",
   "forensicSpecialist:1",
@@ -188,14 +189,12 @@ function assertAbilityAvailable(
       `character "${declaration.user}" is dead and cannot use goodwill abilities`,
     );
   }
-  if (
-    selected.ability.minLoop !== null &&
-    state.loop.loop < selected.ability.minLoop
-  ) {
+  const minLoop = selected.ability.minLoop;
+  if (minLoop !== null && state.loop.loop < minLoop) {
     throw new Error(
       `rank ${declaration.rank} goodwill ability for ` +
       `"${declaration.user}" is available from loop ` +
-      `${selected.ability.minLoop}`,
+      `${minLoop}`,
     );
   }
   if (!options.ignoreGoodwill && counters.goodwill < declaration.rank) {
@@ -382,6 +381,24 @@ function revealRole(state: GameState, character: CharacterId): boolean {
     kind: "roleReveal",
     character,
     role: effectiveRole(state, character),
+    loop: state.loop.loop,
+    day: state.loop.day,
+    context: publicObservationContext(state.loop),
+  });
+  return true;
+}
+
+function revealCopycatRoleCharacters(state: GameState): boolean {
+  const role = effectiveRole(state, "copycat");
+  const characters = Object.keys(state.scenario.cast).filter(
+    (character) =>
+      isCharacterAlive(state.loop.board[character]) &&
+      effectiveRole(state, character) === role,
+  );
+  recordPublicInformation(state, {
+    kind: "sameRoleCharacters",
+    source: "copycat",
+    characters,
     loop: state.loop.loop,
     day: state.loop.day,
     context: publicObservationContext(state.loop),
@@ -612,6 +629,9 @@ function applySimpleBaseAbility(
     case "mysteryBoy:1":
     case "officeWorker:0":
       return revealRole(state, declaration.user);
+
+    case "copycat:1":
+      return revealCopycatRoleCharacters(state);
 
     case "boss:1": {
       const target = requireLivingCharacterInTurf(state, declaration);

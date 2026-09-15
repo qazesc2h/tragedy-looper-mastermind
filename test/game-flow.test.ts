@@ -1192,6 +1192,25 @@ describe("final guess", () => {
     });
   });
 
+  it("accepts the same role as the answer for copycat and its source", () => {
+    const state = createGameState(scenario({
+      cast: {
+        copycat: "keyPerson",
+        boyStudent: "keyPerson",
+      },
+    }));
+    chooseInitialLeader(state, 0);
+    skipToFinalGuess(state);
+
+    expect(submitFinalGuess(state, "copycat", "keyPerson").correct).toBe(true);
+    expect(state.gamePhase).toBe("FINAL_GUESS");
+    expect(submitFinalGuess(state, "boyStudent", "keyPerson").correct).toBe(true);
+    expect(state.result).toEqual({
+      winner: "protagonists",
+      reason: "finalGuessSuccess",
+    });
+  });
+
   it("gives the mastermind the game on the first wrong answer", () => {
     const state = createGameState(scenario());
     chooseInitialLeader(state, 0);

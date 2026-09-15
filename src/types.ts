@@ -529,6 +529,15 @@ export type PublicInformation = (
     day: number;
   }
   | {
+    kind: "sameRoleCharacters";
+    source: "copycat";
+    characters: CharacterId[];
+    loop: number;
+    day: number;
+    /** 이름 공개 순간의 게임판. 동적 역할을 소급 해석하지 않는다. */
+    context?: PublicObservationContext;
+  }
+  | {
     kind: "incidentCulprit";
     source: "godlyBeing" | "policeOfficer";
     day: number;

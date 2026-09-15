@@ -107,6 +107,10 @@ export type PhaseLogTimelineItem = PhaseLogTimelineBase & (
     role: RoleId;
   }
   | {
+    kind: "sameRoleCharacters";
+    characters: CharacterId[];
+  }
+  | {
     kind: "incidentCulprit";
     incident: string;
     culprit: CharacterId;
@@ -297,6 +301,20 @@ export function phaseLogTimeline(state: GameState): PhaseLogTimelineItem[] {
           locations: [],
           character: information.character,
           role: information.role,
+        });
+      } else if (information.kind === "sameRoleCharacters") {
+        items.push({
+          kind: "sameRoleCharacters",
+          loop: information.loop,
+          day: information.day,
+          phase: phaseFromObservation(
+            information.observedAt?.phase,
+            "P6_GOODWILL",
+          ),
+          sequence: information.observedAt?.sequence,
+          sourceOrder: sourceOrder++,
+          characters: [...information.characters],
+          locations: [],
         });
       } else if (information.kind === "incidentCulprit") {
         items.push({

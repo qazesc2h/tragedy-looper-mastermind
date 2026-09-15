@@ -5,6 +5,7 @@ import {
   resolveGoodwillAbility,
   resolveGoodwillPhase,
 } from "../src/engine/goodwill";
+import { collectProtagonistObservations } from "../src/engine/hypothesis";
 import type { GoodwillUse } from "../src/engine/goodwill";
 import { resolveIncident } from "../src/engine/incident";
 import { distanceToLoss } from "../src/engine/loss";
@@ -16,7 +17,7 @@ import {
   setLoopStartTraitCounterChoice,
   setLoopStartTraitLocationChoice,
 } from "../src/engine/game";
-import { advance } from "../src/engine/phases";
+import { advance, collectHooks } from "../src/engine/phases";
 import { resolveActions } from "../src/engine/resolve";
 import { initLoop } from "../src/engine/setup";
 import { effectiveRole } from "../src/types";
@@ -845,6 +846,126 @@ describe("goodwill availability and refusal", () => {
       abilityIndex: 1,
     }, "resolve")).toThrow("available from loop 2");
     expect(state.loop.revealedRoleCharacters).toBeUndefined();
+  });
+
+  it("reveals copycat's same-role names from loop 2 without revealing a role", () => {
+    const scenario: Scenario = {
+      tragedySet: "basicTragedy",
+      mainPlot: "murderPlan",
+      subPlots: ["loveAffair", "hiddenFreak"],
+      cast: {
+        copycat: "killer",
+        soldier: "killer",
+        journalist: "killer",
+        transferStudent: "killer",
+        doctor: "person",
+      },
+      incidents: [],
+      loops: 3,
+      daysPerLoop: 3,
+    };
+    const state: GameState = {
+      scenario,
+      gamePhase: "ROUND",
+      loop: initLoop(scenario, 2),
+      history: [],
+      loopOutcomes: [],
+    };
+    state.loop.phase = "P6_GOODWILL";
+    state.loop.charCounters.copycat.goodwill = 3;
+    setBoardLife(state.loop, "soldier", false);
+    state.loop.board.transferStudent = { status: "absent" };
+
+    expect(resolveGoodwillAbility(state, {
+      user: "copycat",
+      rank: 3,
+      abilityIndex: 1,
+    }, "resolve")).toMatchObject({
+      resolved: true,
+      effectApplied: true,
+    });
+    expect(state.loop.publicInformationThisLoop).toContainEqual(
+      expect.objectContaining({
+        kind: "sameRoleCharacters",
+        source: "copycat",
+        characters: ["copycat", "journalist"],
+        loop: 2,
+        day: 1,
+      }),
+    );
+    expect(state.loop.revealedRoleCharacters).toBeUndefined();
+    expect(collectProtagonistObservations(state)).toContainEqual(
+      expect.objectContaining({
+        kind: "sameRoleCharactersRevealed",
+        characters: ["copycat", "journalist"],
+      }),
+    );
+    expect(collectProtagonistObservations(state).some(({ kind }) =>
+      kind === "roleRevealed" || kind === "goodwillAccepted"
+    )).toBe(false);
+
+    const friendScenario = structuredClone(scenario);
+    friendScenario.cast.copycat = "friend";
+    friendScenario.cast.soldier = "friend";
+    const friendState: GameState = {
+      scenario: friendScenario,
+      gamePhase: "ROUND",
+      loop: initLoop(friendScenario, 2),
+      history: [],
+      loopOutcomes: [],
+    };
+    friendState.loop.phase = "P6_GOODWILL";
+    friendState.loop.charCounters.copycat.goodwill = 3;
+    resolveGoodwillAbility(friendState, {
+      user: "copycat",
+      rank: 3,
+      abilityIndex: 1,
+    }, "resolve");
+    const copycatFriend = collectHooks(friendState, "LOOP_START").find(
+      ({ self, hook }) =>
+        self === "copycat" && hook.source.prerequisite?.includes("revealed"),
+    );
+    expect(copycatFriend).toBeDefined();
+    expect(copycatFriend?.hook.when(friendState, "copycat")).toBe(false);
+    expect(friendState.loop.revealedRoleCharacters).toBeUndefined();
+  });
+
+  it("rejects copycat's protected ability in loop 1 and all refusals", () => {
+    const scenario: Scenario = {
+      tragedySet: "basicTragedy",
+      mainPlot: "murderPlan",
+      subPlots: ["loveAffair", "hiddenFreak"],
+      cast: { copycat: "killer", soldier: "killer" },
+      incidents: [],
+      loops: 3,
+      daysPerLoop: 3,
+    };
+    const firstLoop: GameState = {
+      scenario,
+      gamePhase: "ROUND",
+      loop: initLoop(scenario),
+      history: [],
+      loopOutcomes: [],
+    };
+    firstLoop.loop.phase = "P6_GOODWILL";
+    firstLoop.loop.charCounters.copycat.goodwill = 3;
+    expect(() => resolveGoodwillAbility(firstLoop, {
+      user: "copycat",
+      rank: 3,
+      abilityIndex: 1,
+    }, "resolve")).toThrow("available from loop 2");
+
+    const secondLoop: GameState = {
+      ...firstLoop,
+      loop: initLoop(scenario, 2),
+    };
+    secondLoop.loop.phase = "P6_GOODWILL";
+    secondLoop.loop.charCounters.copycat.goodwill = 3;
+    expect(() => resolveGoodwillAbility(secondLoop, {
+      user: "copycat",
+      rank: 3,
+      abilityIndex: 1,
+    }, "refuse")).toThrow("cannot be refused");
   });
 
   it("allows officeWorker's rank-3 ability in loop 1 to be refused", () => {

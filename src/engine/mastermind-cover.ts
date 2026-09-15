@@ -134,6 +134,7 @@ function roleRevealAbilityTargets(
   ability: GoodwillAbilityData,
 ): boolean {
   const text = ability.en.toLowerCase();
+  if (user === "copycat" && text.includes("same role as")) return false;
   if (!text.includes("role")) return false;
   if (
     text.includes("own role") ||

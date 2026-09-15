@@ -445,6 +445,26 @@ describe("structured goodwill ability UI", () => {
     expect(goodwillAbilityViews(state)[0].disabledReason).toBeUndefined();
   });
 
+  it("shows copycat's exact protected rank-3 ability from loop 2", () => {
+    const state = createState(["copycat", "boyStudent"]);
+    state.scenario.cast.copycat = "person";
+    unlock(state, "copycat", 3);
+
+    expect(goodwillAbilityViews(state)[0]).toMatchObject({
+      character: "copycat",
+      abilityIndex: 1,
+      disabledReason: "minLoop",
+      schema: {
+        minLoop: 2,
+        immuneToGoodwillRefusel: true,
+        ko: "2번째 루프부터: :copycat:와(과) 같은 역할을 지닌 모든 캐릭터의 이름을 공개합니다. 이 능력은 :goodwill: 무시로 거부할 수 없습니다.",
+      },
+    });
+
+    state.loop.loop = 2;
+    expect(goodwillAbilityViews(state)[0].disabledReason).toBeUndefined();
+  });
+
   it("enables implemented illusion rank 4 while disabling unsupported abilities", () => {
     const state = createState(["scientist", "illusion"]);
     unlock(state, "scientist", 3);

@@ -68,6 +68,15 @@ export type ProtagonistObservation = (
     context?: PublicObservationContext;
   }
   | {
+    kind: "sameRoleCharactersRevealed";
+    loop: number;
+    day: number;
+    source: "copycat";
+    characters: CharacterId[];
+    /** 이름 공개 순간의 게임판. 동적 역할 후보를 보수적으로 판정한다. */
+    context?: PublicObservationContext;
+  }
+  | {
     kind: "deadAtLoopEndWithoutRoleReveal";
     loop: number;
     character: CharacterId;
@@ -350,6 +359,13 @@ export type RolePossibilityReason =
     confirmedCharacters: CharacterId[];
   }
   | {
+    code: "sameRoleCharactersRevealed";
+    observation: Extract<
+      ProtagonistObservation,
+      { kind: "sameRoleCharactersRevealed" }
+    >;
+  }
+  | {
     code: "outsiderConstraint";
   }
   | {
@@ -580,9 +596,8 @@ function roleCouldAppear(
   publicCast: readonly CharacterId[],
 ): boolean {
   if (activeRoleIsPossible(ranges, role)) return true;
-  return publicCast.some(
-    (character) => characterDataOf(character).plotLessRole,
-  ) && inactiveSetRoleIsPossible(tragedySetRoles, ranges, role);
+  return publicCast.includes("mysteryBoy") &&
+    inactiveSetRoleIsPossible(tragedySetRoles, ranges, role);
 }
 
 function roleCouldBelongToCharacter(
@@ -590,10 +605,21 @@ function roleCouldBelongToCharacter(
   ranges: ReadonlyMap<RoleId, RoleRange>,
   role: RoleId,
   character: CharacterId,
+  publicCast: readonly CharacterId[] = [],
 ): boolean {
-  return characterDataOf(character).plotLessRole
-    ? inactiveSetRoleIsPossible(tragedySetRoles, ranges, role)
-    : activeRoleIsPossible(ranges, role);
+  if (character === "mysteryBoy") {
+    return inactiveSetRoleIsPossible(tragedySetRoles, ranges, role);
+  }
+  if (character !== "copycat") return activeRoleIsPossible(ranges, role);
+
+  const active = activeRoleIsPossible(ranges, role);
+  const inactive = inactiveSetRoleIsPossible(tragedySetRoles, ranges, role);
+  if (publicCast.length === 0) return active || inactive;
+  return publicCast.some((candidate) =>
+    candidate !== "copycat" && (
+      candidate === "mysteryBoy" ? inactive : active
+    )
+  );
 }
 
 function factorAbilityConditionMet(
@@ -635,13 +661,14 @@ function roleObservationContradiction(
   combination: RuleCombination,
   tragedySetRoles: readonly RoleId[],
   ranges: ReadonlyMap<RoleId, RoleRange>,
+  publicCast: readonly CharacterId[],
 ): RuleContradiction | undefined {
   // 공개 순간 역할이 없는 구 저장의 복원값은 확정 증거로 쓰지 않는다.
   if (observation.confirmed === false) return undefined;
-  const plotLessRole = characterDataOf(observation.character).plotLessRole;
+  const outsider = observation.character === "mysteryBoy";
   const paranoia = observation.context?.characters?.[observation.character]
     ?.paranoia;
-  const paranoiaVirusActive = !plotLessRole &&
+  const paranoiaVirusActive = !outsider &&
     combination.subPlots.includes("paranoiaVirus");
   if (
     observation.role === "person" &&
@@ -662,18 +689,21 @@ function roleObservationContradiction(
     paranoiaVirusActive &&
     (paranoia === undefined || paranoia >= 3) &&
     activeRoleIsPossible(ranges, "person");
-  const compatible = plotLessRole
-    ? inactiveSetRoleIsPossible(tragedySetRoles, ranges, observation.role)
-    : activeRoleIsPossible(ranges, observation.role) ||
-      mutatedPersonCouldExplain;
+  const compatible = roleCouldBelongToCharacter(
+    tragedySetRoles,
+    ranges,
+    observation.role,
+    observation.character,
+    publicCast,
+  ) || mutatedPersonCouldExplain;
   if (compatible) return undefined;
 
   return {
-    code: plotLessRole
+    code: outsider
       ? "outsiderRoleAssociated"
       : "revealedRoleUnavailable",
     observation,
-    reason: plotLessRole
+    reason: outsider
       ? `${observation.character}에게 공개된 ${observation.role} 역할이 ` +
         "이 조합의 룰과 연관되어 있습니다."
       : `${observation.character}에게 공개된 ${observation.role} 역할이 ` +
@@ -685,11 +715,16 @@ function refusalObservationContradiction(
   observation: Extract<ProtagonistObservation, { kind: "goodwillRefused" }>,
   tragedySetRoles: readonly RoleId[],
   ranges: ReadonlyMap<RoleId, RoleRange>,
+  publicCast: readonly CharacterId[],
 ): RuleContradiction | undefined {
-  const plotLessRole = characterDataOf(observation.character).plotLessRole;
-  const refusalPossible = plotLessRole
+  const outsider = observation.character === "mysteryBoy";
+  const refusalPossible = outsider
     ? inactiveRefusalRoleExists(tragedySetRoles, ranges)
-    : activeRefusalRoleExists(ranges);
+    : activeRefusalRoleExists(ranges) || (
+      observation.character === "copycat" &&
+      publicCast.includes("mysteryBoy") &&
+      inactiveRefusalRoleExists(tragedySetRoles, ranges)
+    );
   if (refusalPossible) return undefined;
   return {
     code: "goodwillRefusalUnavailable",
@@ -765,7 +800,7 @@ function confirmedRoleByCharacter(
       const paranoia = observation.context?.characters?.[observation.character]
         ?.paranoia;
       const mutatedPerson = observation.role === "serialKiller" &&
-        !characterDataOf(observation.character).plotLessRole &&
+        observation.character !== "mysteryBoy" &&
         combination.subPlots.includes("paranoiaVirus") &&
         (paranoia === undefined || paranoia >= 3);
       if (
@@ -834,24 +869,26 @@ function roleCapacity(
 ): number {
   if (role === "person") {
     return publicCast.filter((character) =>
-      character !== "ai" && !characterDataOf(character).plotLessRole
+      character !== "ai" && character !== "mysteryBoy"
     ).length;
   }
 
   const activeCount = ranges.get(role)?.max ?? 0;
-  // 모방자는 활성 역할의 정원과 무관하게 한 역할을 복사할 수 있다. 복사 대상
-  // 추론은 아직 미지원이므로 어떤 역할을 복사했는지 모를 때는 상한만 1 늘린다.
+  // 모방자는 활성 역할의 정원과 무관하게 한 역할을 복사할 수 있다. 공개 정보에
+  // 복사 관계가 없을 때에도 어느 역할이 복제됐을 수 있으므로 각 상한을 1 늘린다.
   const copycatAllowance = publicCast.includes("copycat") ? 1 : 0;
   if (activeCount > 0) return activeCount + copycatAllowance;
   if (!inactiveSetRoleIsPossible(tragedySetRoles, ranges, role)) return 0;
 
-  const outsiderCount = publicCast.filter((character) =>
-    characterDataOf(character).plotLessRole
-  ).length;
+  const outsiderCount = publicCast.includes("mysteryBoy") ? 1 : 0;
+  const inactiveCopycatAllowance = outsiderCount > 0 &&
+      publicCast.includes("copycat")
+    ? 1
+    : 0;
   return Math.min(
     outsiderCount,
     ROLE_IMPL[role]?.max ?? Number.POSITIVE_INFINITY,
-  );
+  ) + inactiveCopycatAllowance;
 }
 
 function p5CauseClauses(
@@ -1619,6 +1656,7 @@ function observedRoleExclusionsUnprofiled(
           role,
           tragedySetRoles,
           [combination],
+          publicCast,
         ) === undefined
         ? []
         : [{ character, role }]
@@ -1832,6 +1870,7 @@ function crossObservationConstraintsCanChange(
     case "roundEvidence":
       return true;
     case "incidentOccurred":
+    case "sameRoleCharactersRevealed":
     case "incidentCulpritRevealed":
     case "subplotRevealed":
     case "lossObserved":
@@ -1840,6 +1879,24 @@ function crossObservationConstraintsCanChange(
     case "mandatoryEffectMissing":
       return false;
   }
+}
+
+function sameRoleConstraintIsBaseRoleSafe(
+  observation: Extract<
+    ProtagonistObservation,
+    { kind: "sameRoleCharactersRevealed" }
+  >,
+  combinations: readonly RuleCombination[],
+  publicCast: readonly CharacterId[],
+): boolean {
+  if (!combinations.some(({ subPlots }) => subPlots.includes("paranoiaVirus"))) {
+    return true;
+  }
+  if (observation.context?.characters === undefined) return false;
+  return publicCast.every((character) => {
+    const paranoia = observation.context?.characters?.[character]?.paranoia;
+    return paranoia !== undefined && paranoia < 3;
+  });
 }
 
 function intrigueForbidIgnoredContradiction(
@@ -1868,6 +1925,7 @@ function intrigueForbidIgnoredContradiction(
           ranges,
           "cultist",
           character,
+          publicCast,
         );
     });
   if (cultistPossible) {
@@ -2000,8 +2058,16 @@ function lossRoleCandidates(
         ranges,
         role,
         character,
+        publicCast,
       ) &&
-      observedRoleExclusionReason(observations, character, role) === undefined;
+      observedRoleExclusionReason(
+        observations,
+        character,
+        role,
+        tragedySetRoles,
+        [combination],
+        publicCast,
+      ) === undefined;
   });
 }
 
@@ -2287,7 +2353,11 @@ function contradictionsForCombinationUnprofiled(
           combination,
           tragedySetRoles,
           ranges,
+          options.publicCast ?? [],
         );
+        break;
+      case "sameRoleCharactersRevealed":
+        // 역할표의 등가·비등가 제약에서 캐릭터별 후보로 전파한다.
         break;
       case "deadAtLoopEndWithoutRoleReveal":
         // 역할표에서 친구 후보만 배제한다. 다른 캐릭터가 친구일 수 있다.
@@ -2297,6 +2367,7 @@ function contradictionsForCombinationUnprofiled(
           observation,
           tragedySetRoles,
           ranges,
+          options.publicCast ?? [],
         );
         break;
       case "sacredTreeMastermindTransferJudged":
@@ -2439,6 +2510,7 @@ function confirmedRoleObservations(
   observations: readonly ProtagonistObservation[],
   tragedySetRoles: readonly RoleId[],
   combinations: readonly RuleCombination[],
+  publicCast: readonly CharacterId[],
 ): Map<
   CharacterId,
   Extract<ProtagonistObservation, { kind: "roleRevealed" }>
@@ -2456,6 +2528,7 @@ function confirmedRoleObservations(
         observation,
         tragedySetRoles,
         combinations,
+        publicCast,
       );
       const onlyRole = [...baseRoles][0];
       if (baseRoles.size === 1 && onlyRole === observation.role) {
@@ -2470,6 +2543,7 @@ function revealedBaseRoleCandidates(
   observation: Extract<ProtagonistObservation, { kind: "roleRevealed" }>,
   tragedySetRoles: readonly RoleId[],
   combinations: readonly RuleCombination[],
+  publicCast: readonly CharacterId[] = [],
 ): Set<RoleId> {
   const candidates = new Set<RoleId>();
   for (const combination of combinations) {
@@ -2479,6 +2553,7 @@ function revealedBaseRoleCandidates(
       ranges,
       observation.role,
       observation.character,
+      publicCast,
     )) {
       candidates.add(observation.role);
     }
@@ -2486,7 +2561,7 @@ function revealedBaseRoleCandidates(
       ?.paranoia;
     if (
       observation.role === "serialKiller" &&
-      !characterDataOf(observation.character).plotLessRole &&
+      observation.character !== "mysteryBoy" &&
       combination.subPlots.includes("paranoiaVirus") &&
       (paranoia === undefined || paranoia >= 3)
     ) {
@@ -2510,6 +2585,7 @@ function rolePossibleForCharacter(
   combinations: readonly RuleCombination[],
   role: RoleId,
   character: CharacterId,
+  publicCast: readonly CharacterId[],
 ): boolean {
   if (role === "person" && character === "ai") return false;
   return combinations.some((combination) =>
@@ -2518,6 +2594,7 @@ function rolePossibleForCharacter(
       roleRanges(combination),
       role,
       character,
+      publicCast,
     )
   );
 }
@@ -2828,6 +2905,7 @@ function observedRoleExclusionReason(
   role: RoleId,
   tragedySetRoles?: readonly RoleId[],
   combinations?: readonly RuleCombination[],
+  publicCast: readonly CharacterId[] = [],
 ): RolePossibilityReason | undefined {
   for (const observation of observations) {
     if (
@@ -2840,6 +2918,7 @@ function observedRoleExclusionReason(
         observation,
         tragedySetRoles,
         combinations,
+        publicCast,
       ).has(role)
     ) {
       return { code: "effectiveRoleRevealed", observation };
@@ -3046,6 +3125,7 @@ export function buildRolePossibilityTable(
     observations,
     tragedySetRoles,
     combinations,
+    publicCast,
   );
   const abilityConstraints = measureRoleTableStage(
     "abilityLocationIntersectionMs",
@@ -3095,7 +3175,8 @@ export function buildRolePossibilityTable(
   );
   for (const inferred of inferredRoles) confirmedRoles.add(inferred.role);
   const roles = tragedySetRoles.filter((role) =>
-    roleColumnAppears(role, combinations) || confirmedRoles.has(role)
+    roleColumnAppears(role, combinations) || confirmedRoles.has(role) ||
+    publicCast.includes("mysteryBoy")
   );
   for (const role of confirmedRoles) {
     if (!roles.includes(role)) roles.push(role);
@@ -3162,6 +3243,7 @@ export function buildRolePossibilityTable(
         role,
         tragedySetRoles,
         combinations,
+        publicCast,
       );
       if (observationReason !== undefined) {
         row[role] = {
@@ -3195,6 +3277,7 @@ export function buildRolePossibilityTable(
         combinations,
         role,
         character,
+        publicCast,
       );
       if (!possible) {
         const reason: RolePossibilityReason = character === "ai" &&
@@ -3203,8 +3286,13 @@ export function buildRolePossibilityTable(
             code: "characterConstraint",
             reason: "AI는 엑스트라 역할을 가질 수 없습니다.",
           }
-          : characterDataOf(character).plotLessRole
+          : character === "mysteryBoy"
           ? { code: "outsiderConstraint" }
+          : character === "copycat"
+          ? {
+            code: "characterConstraint",
+            reason: "모방자는 다른 등장 캐릭터가 맡을 수 있는 역할만 복사할 수 있습니다.",
+          }
           : { code: "ruleUnavailable" };
         row[role] = {
           character,
@@ -3253,6 +3341,19 @@ export function buildRolePossibilityTable(
         )),
     );
   }
+
+  const sameRoleObservations = observations.flatMap((observation) =>
+    observation.kind === "sameRoleCharactersRevealed" &&
+        observation.source === "copycat" &&
+        observation.characters.includes("copycat") &&
+        sameRoleConstraintIsBaseRoleSafe(
+          observation,
+          combinations,
+          publicCast,
+        )
+      ? [observation]
+      : []
+  );
 
   measureRoleTableStage("fixedPointPropagationMs", () => {
     let changed = true;
@@ -3321,6 +3422,63 @@ export function buildRolePossibilityTable(
             if (cell === undefined) continue;
             cell.status = "confirmed";
             cell.reasons.push({ code: "requiredRoleForcedCandidate", minimum });
+            changed = true;
+          }
+        }
+      }
+
+      for (const observation of sameRoleObservations) {
+        const members = publicCast.filter((character) =>
+          observation.characters.includes(character)
+        );
+        const eligibleNonMembers = publicCast.filter((character) =>
+          !observation.characters.includes(character) &&
+          observation.context?.characters?.[character]?.status === "alive"
+        );
+        for (const role of roles) {
+          const memberCells = members.flatMap((character) => {
+            const cell = cells[character]?.[role];
+            return cell === undefined ? [] : [cell];
+          });
+          const reason: RolePossibilityReason = {
+            code: "sameRoleCharactersRevealed",
+            observation,
+          };
+
+          if (
+            members.length > (maximumByRole.get(role) ?? 0) ||
+            memberCells.some(({ status }) => status === "impossible") ||
+            eligibleNonMembers.some((character) =>
+              cells[character]?.[role]?.status === "confirmed"
+            )
+          ) {
+            for (const cell of memberCells) {
+              if (cell.status !== "possible") continue;
+              cell.status = "impossible";
+              cell.reasons.push(reason);
+              changed = true;
+            }
+            continue;
+          }
+
+          if (!memberCells.some(({ status }) => status === "confirmed")) {
+            continue;
+          }
+          for (const character of members) {
+            const row = cells[character];
+            for (const candidateRole of roles) {
+              const cell = row?.[candidateRole];
+              if (cell === undefined || cell.status !== "possible") continue;
+              cell.status = candidateRole === role ? "confirmed" : "impossible";
+              cell.reasons.push(reason);
+              changed = true;
+            }
+          }
+          for (const character of eligibleNonMembers) {
+            const cell = cells[character]?.[role];
+            if (cell?.status !== "possible") continue;
+            cell.status = "impossible";
+            cell.reasons.push(reason);
             changed = true;
           }
         }
@@ -3790,6 +3948,21 @@ export function collectProtagonistObservations(
             character: information.character,
             role: information.role,
             confirmed: true,
+            ...(information.context === undefined
+              ? {}
+              : { context: information.context }),
+            ...(information.observedAt === undefined
+              ? {}
+              : { observedAt: information.observedAt }),
+          });
+          break;
+        case "sameRoleCharacters":
+          observations.push({
+            kind: "sameRoleCharactersRevealed",
+            source: information.source,
+            loop: information.loop,
+            day: information.day,
+            characters: [...information.characters],
             ...(information.context === undefined
               ? {}
               : { context: information.context }),

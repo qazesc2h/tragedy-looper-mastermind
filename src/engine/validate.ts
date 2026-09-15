@@ -112,6 +112,22 @@ function validateMysteryBoyRole(
   ];
 }
 
+function validateCopycatRole(scenario: Scenario): string[] {
+  const role = scenario.cast.copycat;
+  if (role === undefined) return [];
+
+  const copiedCharacter = Object.entries(scenario.cast).find(
+    ([character, candidateRole]) =>
+      character !== "copycat" && candidateRole === role,
+  );
+  if (copiedCharacter !== undefined) return [];
+
+  return [
+    "모방자: 시나리오에 등장하는 다른 캐릭터와 같은 역할을 " +
+      `배정해야 합니다. 현재 배정: ${ROLE_IMPL[role]?.ko ?? role}.`,
+  ];
+}
+
 function validateTragedySetPlots(
   scenario: Scenario,
   definition: TragedySetDefinition,
@@ -210,9 +226,10 @@ function validateRoleCounts(
   const allowed = maximumAddedRoleCounts(scenario);
   const actual = new Map<string, number>();
   for (const [character, role] of Object.entries(scenario.cast)) {
-    // 모방자는 최대 인원을 무시해 역할을 복제하고, 아웃사이더는 활성 룰 외
-    // 역할을 맡는다. 둘 다 룰이 공급하는 역할 정원에는 포함하지 않는다.
-    if (characters[character]?.plotLessRole === true || role === "person") {
+    // 모방자는 다른 등장 캐릭터의 역할을 최대 인원과 무관하게 복제한다.
+    // 아웃사이더는 별도 검증에서 활성 룰 밖 역할만 허용한다.
+    if (character === "copycat" || character === "mysteryBoy" ||
+      role === "person") {
       continue;
     }
     if (!rolePool.has(role)) continue;
@@ -330,6 +347,7 @@ export function validateScenario(
     ...validateAiRole(scenario),
     ...validateLittleSisterRole(scenario),
     ...validateMysteryBoyRole(scenario, definition),
+    ...validateCopycatRole(scenario),
     ...validateRoleCounts(scenario, definition),
     ...validateHideousScript(scenario),
     ...validateBossTurf(scenario),

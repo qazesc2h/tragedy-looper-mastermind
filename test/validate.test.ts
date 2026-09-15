@@ -8,7 +8,13 @@ import { initLoop } from "../src/engine/setup";
 import { validateScenario } from "../src/engine/validate";
 import { PLOT_IMPL } from "../src/impl/plots";
 import { ROLE_IMPL } from "../src/impl/roles";
-import { TRAIT_IMPL } from "../src/impl/traits";
+import {
+  COPYCAT_GOODWILL_KO,
+  COPYCAT_GOODWILL_SOURCE,
+  COPYCAT_TRAIT_KO,
+  COPYCAT_TRAIT_SOURCE,
+  TRAIT_IMPL,
+} from "../src/impl/traits";
 import {
   assertOfficialScenariosValid,
   loadBasicTragedyScenarioCatalog,
@@ -26,6 +32,24 @@ describe("validateScenario", () => {
   it("keeps plotLessRole in runtime character data", () => {
     expect(characterDataOf("mysteryBoy").plotLessRole).toBe(true);
     expect(characterDataOf("boyStudent").plotLessRole).toBe(false);
+  });
+
+  it("preserves copycat's exact source and Korean translation text", () => {
+    expect(characterDataOf("copycat").goodwillAbilities[1]).toMatchObject({
+      minLoop: 2,
+      immuneToGoodwillRefusel: true,
+    });
+    expect(TRAIT_IMPL.copycat.hooks[0].source.description)
+      .toBe(COPYCAT_TRAIT_SOURCE);
+    expect(COPYCAT_TRAIT_KO).toBe(
+      "시나리오 작성 시: 이 캐릭터는 시나리오에 있는 다른 캐릭터의 역할을 반드시 복사해야 합니다(최대 인원 무시).",
+    );
+    expect(COPYCAT_GOODWILL_SOURCE).toBe(
+      "Loop 2 or later: Reveal the name of all characters with the same Role as :copycat:. This cannot be refused by :goodwill: Refusel.",
+    );
+    expect(COPYCAT_GOODWILL_KO).toBe(
+      "2번째 루프부터: :copycat:와(과) 같은 역할을 지닌 모든 캐릭터의 이름을 공개합니다. 이 능력은 :goodwill: 무시로 거부할 수 없습니다.",
+    );
   });
 
   it("loads the boss turf counter location into loop state", () => {
@@ -160,6 +184,92 @@ describe("validateScenario", () => {
         "배정해야 합니다.",
       ],
     });
+  });
+
+  it("requires copycat to copy another cast character's role", () => {
+    const scenario = structuredClone(scenarios[0]);
+    scenario.cast.copycat = "killer";
+
+    expect(validateScenario(scenario).errors).toContain(
+      "모방자: 시나리오에 등장하는 다른 캐릭터와 같은 역할을 " +
+        "배정해야 합니다. 현재 배정: 살인 청부업자.",
+    );
+  });
+
+  it("allows copycat to copy person because the source has no exception", () => {
+    const scenario = structuredClone(scenarios[0]);
+    scenario.cast.copycat = "person";
+
+    expect(validateScenario(scenario)).toEqual({ ok: true, errors: [] });
+  });
+
+  it("allows copycat to copy mysteryBoy's inactive role", () => {
+    const source = scenarios.find(({ cast }) => "mysteryBoy" in cast);
+    if (source === undefined) throw new Error("missing mysteryBoy scenario");
+    const scenario = structuredClone(source);
+    scenario.mainPlot = "murderPlan";
+    scenario.subPlots = ["loveAffair", "unsettlingRumor"];
+    for (const character of Object.keys(scenario.cast)) {
+      scenario.cast[character] = "person";
+    }
+    if ("ai" in scenario.cast) scenario.cast.ai = "killer";
+    scenario.cast.mysteryBoy = "witch";
+    scenario.cast.copycat = "witch";
+
+    expect(validateScenario(scenario)).toEqual({ ok: true, errors: [] });
+  });
+
+  it("adds exactly one copycat allowance to an active role maximum", () => {
+    const source = scenarios.find(({ cast }) => "copycat" in cast);
+    if (source === undefined) throw new Error("missing copycat scenario");
+    const allowed = structuredClone(source);
+    expect(validateScenario(allowed)).toEqual({ ok: true, errors: [] });
+
+    allowed.cast.doctor = "killer";
+    expect(validateScenario(allowed).errors).toContain(
+      "역할 수: 살인 청부업자 역할은 선택된 룰에서 최대 1명까지 " +
+        "배정할 수 있지만 현재 2명입니다.",
+    );
+  });
+
+  it.each([
+    {
+      role: "conspiracyTheorist",
+      mainPlot: "murderPlan",
+      subPlots: ["unsettlingRumor", "loveAffair"],
+      label: "선동가",
+    },
+    {
+      role: "timeTraveler",
+      mainPlot: "changeOfFuture",
+      subPlots: ["unsettlingRumor", "loveAffair"],
+      label: "시간 여행자",
+    },
+  ])("allows one $label plus its copycat, but not another ordinary holder", ({
+    role,
+    mainPlot,
+    subPlots,
+    label,
+  }) => {
+    const scenario: Scenario = {
+      tragedySet: "basicTragedy",
+      mainPlot,
+      subPlots,
+      cast: {
+        journalist: role,
+        copycat: role,
+      },
+      incidents: [],
+      loops: 3,
+      daysPerLoop: 5,
+    };
+
+    expect(validateScenario(scenario)).toEqual({ ok: true, errors: [] });
+    scenario.cast.doctor = role;
+    expect(validateScenario(scenario).errors).toContain(
+      `역할 수: ${label} 역할은 선택된 룰에서 최대 1명까지 ` +
+        "배정할 수 있지만 현재 2명입니다.",
+    );
   });
 
   it("identifies script 18 as the only invalid bundled mysteryBoy assignment", () => {
