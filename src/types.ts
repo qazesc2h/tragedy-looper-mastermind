@@ -265,6 +265,8 @@ export interface IncidentChoice {
   otherTarget?: CharacterId;
   location?: Location;
   counter?: IncidentCounter;
+  /** 교주가 범인일 때 두 번째 사건 효과 해결에 쓰는 별도 선택. */
+  secondResolution?: Omit<IncidentChoice, "secondResolution">;
 }
 
 export interface IncidentResult {
@@ -411,6 +413,8 @@ export type PhaseLogEntry = (
     phase: "P6_GOODWILL";
     kind: "goodwillUsed";
     character: CharacterId;
+    /** 여동생이 빌려 쓴 경우 능력과 사용 제한의 원래 소유자. */
+    abilityOwner?: CharacterId;
     rank: number;
     abilityIndex: number;
     response: "resolve" | "refuse";

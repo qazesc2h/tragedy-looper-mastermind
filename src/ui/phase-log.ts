@@ -242,6 +242,9 @@ export function phaseLogTimeline(state: GameState): PhaseLogTimelineItem[] {
           sourceOrder: sourceOrder++,
           characters: unique([
             ...(actor === undefined ? [] : [actor]),
+            ...(entry.kind === "goodwillUsed" && entry.abilityOwner !== undefined
+              ? [entry.abilityOwner]
+              : []),
             ...targetRefs.characters,
             ...triggerCharacters,
             ...changeRefs.flatMap(({ characters }) => characters),

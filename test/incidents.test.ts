@@ -170,6 +170,83 @@ describe("incident resolution", () => {
   });
 });
 
+describe("sectFounder incident trait", () => {
+  it("resolves the effect twice while recording one occurrence", () => {
+    const state = createIncidentState(
+      "foulEvil",
+      "sectFounder",
+      ["sectFounder", "boyStudent"],
+    );
+
+    expect(resolveIncident(state)).toEqual({
+      incident: "foulEvil",
+      culprit: "sectFounder",
+      fired: true,
+      effectApplied: true,
+    });
+    expect(state.loop.locIntrigue.Shrine).toBe(4);
+    expect(state.loop.incidentsFiredThisLoop).toEqual(["foulEvil"]);
+    expect(state.loop.incidentOccurrencesFiredThisLoop).toEqual([{
+      day: 1,
+      incident: "foulEvil",
+      culprit: "sectFounder",
+    }]);
+  });
+
+  it("accepts a different target for each resolution", () => {
+    const state = createIncidentState(
+      "murder",
+      "sectFounder",
+      ["sectFounder", "boyStudent", "girlStudent"],
+    );
+
+    resolveIncident(state, {
+      target: "boyStudent",
+      secondResolution: { target: "girlStudent" },
+    });
+
+    expect(boardIsAlive(state.loop, "boyStudent")).toBe(false);
+    expect(boardIsAlive(state.loop, "girlStudent")).toBe(false);
+    expect(state.loop.incidentOccurrencesFiredThisLoop).toHaveLength(1);
+  });
+
+  it("does not repeat an effect that applies no change", () => {
+    const state = createIncidentState(
+      "suicide",
+      "sectFounder",
+      ["sectFounder"],
+    );
+    state.scenario.cast.sectFounder = "timeTraveler";
+
+    expect(resolveIncident(state)).toMatchObject({
+      fired: true,
+      effectApplied: false,
+    });
+    expect(boardIsAlive(state.loop, "sectFounder")).toBe(true);
+    expect(state.loop.incidentOccurrencesFiredThisLoop).toHaveLength(1);
+  });
+
+  it("does not apply to an incident resolved by AI as the culprit", () => {
+    const state = createIncidentState(
+      "foulEvil",
+      "sectFounder",
+      ["ai", "sectFounder"],
+    );
+    state.loop.phase = "P6_GOODWILL";
+    state.loop.charCounters.ai.goodwill = 3;
+
+    resolveGoodwillAbility(state, {
+      user: "ai",
+      rank: 3,
+      abilityIndex: 2,
+      incident: { day: 1, incident: "foulEvil" },
+    }, "resolve");
+
+    expect(state.loop.locIntrigue.Shrine).toBe(2);
+    expect(state.loop.incidentOccurrencesFiredThisLoop).toBeUndefined();
+  });
+});
+
 describe("AI incident trigger check", () => {
   it("counts goodwill, paranoia, intrigue, and protection at the exact limit", () => {
     const state = createIncidentState(

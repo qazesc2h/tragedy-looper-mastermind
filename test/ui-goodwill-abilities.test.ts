@@ -14,6 +14,8 @@ import {
   encodeIncidentSelection,
   goodwillAbilityViews,
   goodwillRefusalHistory,
+  goodwillTargetWarning,
+  littleSisterBorrowingOptions,
   subplotRevealOptions,
 } from "../src/ui/goodwill-abilities";
 import type {
@@ -113,6 +115,122 @@ describe("goodwill ability owner life state", () => {
       });
     },
   );
+});
+
+describe("group 1 goodwill UI models", () => {
+  it("offers youngGirl only orthogonally adjacent locations and warns without blocking", () => {
+    const state = createState(["youngGirl"]);
+    unlock(state, "youngGirl", 3);
+    const view = goodwillAbilityViews(state).find(
+      ({ character, abilityIndex }) =>
+        character === "youngGirl" && abilityIndex === 1,
+    );
+    if (view === undefined) throw new Error("missing youngGirl rank 3 view");
+
+    expect(view).toMatchObject({
+      disabledReason: undefined,
+      targets: [
+        { kind: "location", at: "Shrine" },
+        { kind: "location", at: "City" },
+      ],
+    });
+    expect(goodwillTargetWarning(state, view, {
+      kind: "location",
+      at: "Shrine",
+    })).toEqual({
+      forbiddenLocation: "Shrine",
+      restrictionRemovalAvailable: true,
+    });
+
+    state.scenario.cast.youngGirl = "witch";
+    expect(goodwillTargetWarning(state, view, {
+      kind: "location",
+      at: "Shrine",
+    })?.restrictionRemovalAvailable).toBe(false);
+  });
+
+  it("uses the nurse panicked predicate for both sectFounder abilities", () => {
+    const state = createState(["sectFounder", "youngGirl", "girlStudent"]);
+    unlock(state, "sectFounder", 4);
+    state.loop.charCounters.youngGirl.paranoia = 1;
+    state.loop.charCounters.girlStudent.paranoia = 2;
+    setBoardLocation(state.loop, "sectFounder", "Shrine");
+    setBoardLocation(state.loop, "youngGirl", "School");
+    setBoardLocation(state.loop, "girlStudent", "Shrine");
+
+    const views = goodwillAbilityViews(state).filter(
+      ({ character }) => character === "sectFounder",
+    );
+    expect(views.map(({ abilityIndex, targets }) => ({
+      abilityIndex,
+      targets,
+    }))).toEqual([
+      {
+        abilityIndex: 1,
+        targets: [{ kind: "character", id: "youngGirl" }],
+      },
+      {
+        abilityIndex: 2,
+        targets: [],
+      },
+    ]);
+  });
+});
+
+describe("littleSister borrowing candidates", () => {
+  it("disables rank 5 when no adult is in the same location", () => {
+    const state = createState(["littleSister", "doctor"]);
+    unlock(state, "littleSister", 5);
+    setBoardLocation(state.loop, "littleSister", "Shrine");
+    setBoardLocation(state.loop, "doctor", "Hospital");
+
+    expect(goodwillAbilityViews(state)[0]).toMatchObject({
+      character: "littleSister",
+      disabledReason: "noAdult",
+    });
+  });
+
+  it("ignores owner goodwill while keeping round and loop usage constraints", () => {
+    const state = createState(["littleSister", "doctor", "policeOfficer"]);
+    unlock(state, "littleSister", 5);
+    setBoardLocation(state.loop, "littleSister", "City");
+    setBoardLocation(state.loop, "doctor", "City");
+    setBoardLocation(state.loop, "policeOfficer", "City");
+    state.loop.abilitiesUsedThisRound.push("doctor:goodwill:0");
+    state.loop.abilitiesUsedThisLoop.push("policeOfficer:goodwill:1");
+
+    const options = littleSisterBorrowingOptions(state);
+    expect(options.find(({ owner }) => owner === "doctor")?.abilities.map(
+      ({ abilityIndex, disabledReason }) => ({ abilityIndex, disabledReason }),
+    )).toEqual([
+      { abilityIndex: 0, disabledReason: "usedThisRound" },
+      { abilityIndex: 1, disabledReason: "noTarget" },
+    ]);
+    expect(options.find(({ owner }) => owner === "policeOfficer")?.abilities)
+      .toContainEqual(expect.objectContaining({
+        abilityIndex: 1,
+        disabledReason: "spent",
+      }));
+  });
+
+  it("omits unsupported forensic, scientist, and illusion rank 3 abilities", () => {
+    const state = createState([
+      "littleSister",
+      "forensicSpecialist",
+      "scientist",
+      "illusion",
+    ]);
+    unlock(state, "littleSister", 5);
+    for (const character of Object.keys(state.loop.board)) {
+      setBoardLocation(state.loop, character, "City");
+    }
+
+    const options = littleSisterBorrowingOptions(state);
+    expect(options.find(({ owner }) => owner === "forensicSpecialist")
+      ?.abilities.map(({ abilityIndex }) => abilityIndex)).toEqual([1]);
+    expect(options.some(({ owner }) => owner === "scientist")).toBe(false);
+    expect(options.some(({ owner }) => owner === "illusion")).toBe(false);
+  });
 });
 
 function resolveLeaderCardThroughP4(

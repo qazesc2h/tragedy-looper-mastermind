@@ -172,6 +172,316 @@ describe("goodwill-chain-and-refusal", () => {
   });
 });
 
+describe("group 1 youngGirl and sectFounder goodwill abilities", () => {
+  it("moves youngGirl only to an orthogonally adjacent location", () => {
+    const state = createInformationState(["youngGirl"], []);
+    state.loop.charCounters.youngGirl.goodwill = 3;
+    state.loop.locationRestrictionsRemoved = ["youngGirl"];
+
+    expect(() => resolveGoodwillAbility(state, {
+      user: "youngGirl",
+      rank: 3,
+      abilityIndex: 1,
+      target: { kind: "location", at: "Hospital" },
+    }, "resolve")).toThrow("target must be adjacent");
+    expect(boardLocation(state.loop, "youngGirl")).toBe("School");
+
+    resolveGoodwillAbility(state, {
+      user: "youngGirl",
+      rank: 3,
+      abilityIndex: 1,
+      target: { kind: "location", at: "Shrine" },
+    }, "resolve");
+    expect(boardLocation(state.loop, "youngGirl")).toBe("Shrine");
+  });
+
+  it("spends youngGirl rank 3 for the loop even when a forbidden move does nothing", () => {
+    const state = createInformationState(["youngGirl"], []);
+    state.loop.charCounters.youngGirl.goodwill = 3;
+
+    const result = resolveGoodwillAbility(state, {
+      user: "youngGirl",
+      rank: 3,
+      abilityIndex: 1,
+      target: { kind: "location", at: "Shrine" },
+    }, "resolve");
+
+    expect(result.effectApplied).toBe(false);
+    expect(boardLocation(state.loop, "youngGirl")).toBe("School");
+    expect(state.loop.abilitiesUsedThisLoop).toEqual([
+      "youngGirl:goodwill:1",
+    ]);
+    state.loop.abilitiesUsedThisRound = [];
+    expect(() => resolveGoodwillAbility(state, {
+      user: "youngGirl",
+      rank: 3,
+      abilityIndex: 1,
+      target: { kind: "location", at: "City" },
+    }, "resolve")).toThrow("already spent this loop");
+  });
+
+  it("lets youngGirl remove her restriction before moving", () => {
+    const state = createInformationState(["youngGirl"], []);
+    state.loop.charCounters.youngGirl.goodwill = 3;
+
+    resolveGoodwillAbility(state, {
+      user: "youngGirl",
+      rank: 1,
+      abilityIndex: 0,
+    }, "resolve");
+    resolveGoodwillAbility(state, {
+      user: "youngGirl",
+      rank: 3,
+      abilityIndex: 1,
+      target: { kind: "location", at: "City" },
+    }, "resolve");
+
+    expect(state.loop.locationRestrictionsRemoved).toEqual(["youngGirl"]);
+    expect(boardLocation(state.loop, "youngGirl")).toBe("City");
+  });
+
+  it("lets sectFounder rank 3 target any panicked character, not the highest paranoia", () => {
+    const state = createInformationState([
+      "sectFounder",
+      "youngGirl",
+      "girlStudent",
+    ], []);
+    state.loop.charCounters.sectFounder.goodwill = 3;
+    state.loop.charCounters.youngGirl.paranoia = 1;
+    state.loop.charCounters.girlStudent.paranoia = 2;
+    setBoardLocation(state.loop, "sectFounder", "Shrine");
+    setBoardLocation(state.loop, "youngGirl", "School");
+
+    resolveGoodwillAbility(state, {
+      user: "sectFounder",
+      rank: 3,
+      abilityIndex: 1,
+      target: "youngGirl",
+    }, "resolve");
+
+    expect(state.loop.charCounters.youngGirl.goodwill).toBe(1);
+  });
+
+  it("limits sectFounder rank 4 to another panicked character in the same location", () => {
+    const state = createInformationState([
+      "sectFounder",
+      "youngGirl",
+    ], []);
+    state.loop.charCounters.sectFounder.goodwill = 4;
+    state.loop.charCounters.youngGirl.paranoia = 1;
+    setBoardLocation(state.loop, "sectFounder", "Shrine");
+    setBoardLocation(state.loop, "youngGirl", "School");
+
+    expect(() => resolveGoodwillAbility(state, {
+      user: "sectFounder",
+      rank: 4,
+      abilityIndex: 2,
+      target: "youngGirl",
+    }, "resolve")).toThrow("same location");
+
+    setBoardLocation(state.loop, "youngGirl", "Shrine");
+    resolveGoodwillAbility(state, {
+      user: "sectFounder",
+      rank: 4,
+      abilityIndex: 2,
+      target: "youngGirl",
+    }, "resolve");
+    expect(state.loop.revealedRoleCharacters).toEqual(["youngGirl"]);
+  });
+
+  it("rejects a sectFounder target below that character's paranoia limit", () => {
+    const state = createInformationState(["sectFounder", "girlStudent"], []);
+    state.loop.charCounters.sectFounder.goodwill = 3;
+    state.loop.charCounters.girlStudent.paranoia = 2;
+
+    expect(() => resolveGoodwillAbility(state, {
+      user: "sectFounder",
+      rank: 3,
+      abilityIndex: 1,
+      target: "girlStudent",
+    }, "resolve")).toThrow("target must be panicked");
+  });
+});
+
+describe("littleSister rank 5 / borrow an adult goodwill ability", () => {
+  function borrowingState(
+    owner: CharacterId,
+    ownerRole: RoleId = "person",
+  ): GameState {
+    const state = createInformationState([
+      "littleSister",
+      owner,
+      "girlStudent",
+    ], []);
+    state.scenario.cast[owner] = ownerRole;
+    state.loop.charCounters.littleSister.goodwill = 5;
+    setBoardLocation(state.loop, "littleSister", "City");
+    setBoardLocation(state.loop, owner, "City");
+    setBoardLocation(state.loop, "girlStudent", "City");
+    return state;
+  }
+
+  it("still requires littleSister to reach her own rank 5 threshold", () => {
+    const state = borrowingState("doctor");
+    state.loop.charCounters.littleSister.goodwill = 4;
+
+    expect(() => resolveGoodwillAbility(state, {
+      user: "littleSister",
+      abilityOwner: "doctor",
+      rank: 2,
+      abilityIndex: 0,
+      target: "girlStudent",
+      paranoiaDelta: 1,
+    }, "resolve")).toThrow('character "littleSister" needs 5 goodwill');
+  });
+
+  it("ignores the adult owner's goodwill counters and mandatory refusal", () => {
+    const state = borrowingState("doctor", "witch");
+    state.loop.charCounters.doctor.goodwill = 0;
+
+    const result = resolveGoodwillAbility(state, {
+      user: "littleSister",
+      abilityOwner: "doctor",
+      rank: 2,
+      abilityIndex: 0,
+      target: "girlStudent",
+      paranoiaDelta: 1,
+    }, "resolve");
+
+    expect(result).toMatchObject({
+      user: "littleSister",
+      abilityOwner: "doctor",
+      response: "resolve",
+      effectApplied: true,
+    });
+    expect(state.loop.charCounters.girlStudent.paranoia).toBe(1);
+    expect(state.loop.publicInformationThisLoop).toBeUndefined();
+    expect(() => resolveGoodwillAbility(borrowingState("doctor", "witch"), {
+      user: "littleSister",
+      abilityOwner: "doctor",
+      rank: 2,
+      abilityIndex: 0,
+      target: "girlStudent",
+      paranoiaDelta: 1,
+    }, "refuse")).toThrow("cannot be refused");
+  });
+
+  it("preserves minLoop and restricted-location checks", () => {
+    const tooEarly = borrowingState("mysteryBoy");
+    expect(() => resolveGoodwillAbility(tooEarly, {
+      user: "littleSister",
+      abilityOwner: "mysteryBoy",
+      rank: 3,
+      abilityIndex: 1,
+    }, "resolve")).toThrow("available from loop 2");
+
+    const wrongLocation = borrowingState("shrineMaiden");
+    expect(() => resolveGoodwillAbility(wrongLocation, {
+      user: "littleSister",
+      abilityOwner: "shrineMaiden",
+      rank: 3,
+      abilityIndex: 0,
+    }, "resolve")).toThrow("cannot be used at City");
+  });
+
+  it("rejects a borrowed ability already used this round", () => {
+    const state = borrowingState("doctor");
+    state.loop.abilitiesUsedThisRound.push("doctor:goodwill:0");
+
+    expect(() => resolveGoodwillAbility(state, {
+      user: "littleSister",
+      abilityOwner: "doctor",
+      rank: 2,
+      abilityIndex: 0,
+      target: "girlStudent",
+      paranoiaDelta: 1,
+    }, "resolve")).toThrow("already used this round");
+  });
+
+  it("rejects a borrowed once-per-loop ability already spent", () => {
+    const state = borrowingState("forensicSpecialist");
+    state.loop.abilitiesUsedThisLoop.push(
+      "forensicSpecialist:goodwill:1",
+    );
+
+    expect(() => resolveGoodwillAbility(state, {
+      user: "littleSister",
+      abilityOwner: "forensicSpecialist",
+      rank: 5,
+      abilityIndex: 1,
+      target: "girlStudent",
+    }, "resolve")).toThrow("already spent this loop");
+  });
+
+  it("records the borrowed use under the owner and shares the round limit", () => {
+    const state = borrowingState("doctor");
+
+    resolveGoodwillAbility(state, {
+      user: "littleSister",
+      abilityOwner: "doctor",
+      rank: 2,
+      abilityIndex: 0,
+      target: "girlStudent",
+      paranoiaDelta: 1,
+    }, "resolve");
+
+    expect(state.loop.abilitiesUsedThisRound).toEqual([
+      "doctor:goodwill:0",
+    ]);
+    expect(state.loop.abilitiesUsedThisLoop).toEqual([]);
+    expect(state.loop.phaseLog).toContainEqual(expect.objectContaining({
+      kind: "goodwillUsed",
+      character: "littleSister",
+      abilityOwner: "doctor",
+      rank: 2,
+      abilityIndex: 0,
+    }));
+    state.loop.charCounters.doctor.goodwill = 2;
+    expect(() => resolveGoodwillAbility(state, {
+      user: "doctor",
+      rank: 2,
+      abilityIndex: 0,
+      target: "girlStudent",
+      paranoiaDelta: -1,
+    }, "resolve")).toThrow("already used this round");
+  });
+
+  it("records a borrowed once-per-loop use under the original owner", () => {
+    const state = borrowingState("forensicSpecialist");
+    setBoardLife(state.loop, "girlStudent", false);
+
+    resolveGoodwillAbility(state, {
+      user: "littleSister",
+      abilityOwner: "forensicSpecialist",
+      rank: 5,
+      abilityIndex: 1,
+      target: "girlStudent",
+    }, "resolve");
+
+    expect(state.loop.abilitiesUsedThisLoop).toEqual([
+      "forensicSpecialist:goodwill:1",
+    ]);
+    state.loop.abilitiesUsedThisRound = [];
+    expect(() => resolveGoodwillAbility(state, {
+      user: "littleSister",
+      abilityOwner: "forensicSpecialist",
+      rank: 5,
+      abilityIndex: 1,
+      target: "girlStudent",
+    }, "resolve")).toThrow("already spent this loop");
+  });
+
+  it("rejects unsupported borrowed abilities before applying an effect", () => {
+    const state = borrowingState("forensicSpecialist");
+    expect(() => resolveGoodwillAbility(state, {
+      user: "littleSister",
+      abilityOwner: "forensicSpecialist",
+      rank: 2,
+      abilityIndex: 0,
+    }, "resolve")).toThrow("effect is not implemented");
+  });
+});
+
 describe("goodwill-comes-after-card-resolve", () => {
   it("does not apply a P6 restriction removal retroactively to P4", () => {
     const testCase = fixture("goodwill-comes-after-card-resolve");

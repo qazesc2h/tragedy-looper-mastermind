@@ -60,6 +60,17 @@ function validateAiRole(scenario: Scenario): string[] {
   return ["AI: AI 캐릭터에는 엑스트라 역할을 배정할 수 없습니다."];
 }
 
+function validateLittleSisterRole(scenario: Scenario): string[] {
+  const role = scenario.cast.littleSister;
+  if (role === undefined || ROLE_IMPL[role]?.goodwillRefusal === undefined) {
+    return [];
+  }
+  return [
+    "여동생: 우호 무시 또는 절대 우호 무시 능력을 지닌 역할을 " +
+      `배정할 수 없습니다. 현재 배정: ${ROLE_IMPL[role]?.ko ?? role}.`,
+  ];
+}
+
 function rolesAssociatedWithActivePlots(scenario: Scenario): Set<string> {
   const roles = new Set<string>();
   for (const plot of activePlots(scenario)) {
@@ -317,6 +328,7 @@ export function validateScenario(
     ...validateRolesInTragedySet(scenario, definition),
     ...validateSignWithMe(scenario),
     ...validateAiRole(scenario),
+    ...validateLittleSisterRole(scenario),
     ...validateMysteryBoyRole(scenario, definition),
     ...validateRoleCounts(scenario, definition),
     ...validateHideousScript(scenario),

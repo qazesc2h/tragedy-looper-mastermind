@@ -154,6 +154,35 @@ function stateWithHistory(): GameState {
 }
 
 describe("phase log structured filters", () => {
+  it("indexes a borrowed goodwill ability by activator and original owner", () => {
+    const state = stateWithHistory();
+    state.loop.phaseLog = [{
+      loop: 2,
+      day: 1,
+      phase: "P6_GOODWILL",
+      kind: "goodwillUsed",
+      character: "littleSister",
+      abilityOwner: "nurse",
+      rank: 2,
+      abilityIndex: 0,
+      response: "resolve",
+      effectApplied: true,
+      publicChanges: [],
+    }];
+
+    for (const character of ["littleSister", "nurse"] as const) {
+      const borrowed = phaseLogFilteredTimeline(state, {
+        kind: "character",
+        id: character,
+      }).filter((item) => item.loop === 2 && item.kind === "ability");
+      expect(borrowed).toHaveLength(1);
+      expect(borrowed[0]?.characters).toEqual([
+        "littleSister",
+        "nurse",
+      ]);
+    }
+  });
+
   it("collects every character event from IDs and keeps loop/day order", () => {
     const items = phaseLogFilteredTimeline(stateWithHistory(), {
       kind: "character",

@@ -3882,7 +3882,7 @@ export function collectProtagonistObservations(
             : { observedAt: entry.observedAt }),
         });
       } else if (entry.kind === "goodwillUsed" && entry.response === "resolve") {
-        const ability = characterDataOf(entry.character)
+        const ability = characterDataOf(entry.abilityOwner ?? entry.character)
           .goodwillAbilities[entry.abilityIndex];
         const entryAt = entry.observedAt;
         const selfRoleRevealedByThisAbility = entryAt !== undefined &&
@@ -3900,6 +3900,7 @@ export function collectProtagonistObservations(
         // 자기 역할을 방금 공개한 능력은 역할 자체가 더 강한 확정 정보이므로
         // 그 뒤의 해결 응답을 별도 역할 관측으로 중복 기록하지 않는다.
         if (
+          entry.abilityOwner === undefined &&
           ability !== undefined &&
           !ability.immuneToGoodwillRefusel &&
           !selfRoleRevealedByThisAbility

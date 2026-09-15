@@ -34,17 +34,21 @@ const TIME_GAP_SECONDS = 10 * 60;
 
 function incidentChoiceTargets(choice: IncidentChoice | undefined): Target[] {
   if (choice === undefined) return [];
-  return [
-    ...(choice.target === undefined
+  return [choice, choice.secondResolution].flatMap((resolution) =>
+    resolution === undefined
       ? []
-      : [{ kind: "character" as const, id: choice.target }]),
-    ...(choice.otherTarget === undefined
-      ? []
-      : [{ kind: "character" as const, id: choice.otherTarget }]),
-    ...(choice.location === undefined
-      ? []
-      : [{ kind: "location" as const, at: choice.location }]),
-  ];
+      : [
+        ...(resolution.target === undefined
+          ? []
+          : [{ kind: "character" as const, id: resolution.target }]),
+        ...(resolution.otherTarget === undefined
+          ? []
+          : [{ kind: "character" as const, id: resolution.otherTarget }]),
+        ...(resolution.location === undefined
+          ? []
+          : [{ kind: "location" as const, at: resolution.location }]),
+      ]
+  );
 }
 
 function resetTimeGapTimer(state: GameState): void {

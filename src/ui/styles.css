@@ -3952,6 +3952,79 @@ select {
   gap: 6px;
 }
 
+.goodwill-actions.is-single,
+.little-sister-complete-action {
+  grid-template-columns: 1fr;
+}
+
+.goodwill-target-warning {
+  margin: 0;
+  border-left: 3px solid #c1813f;
+  background: #302317;
+  padding: 7px 8px;
+  color: #efc57d;
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.little-sister-borrowing-modal {
+  max-height: min(720px, calc(100dvh - 16px));
+}
+
+.little-sister-step-label {
+  margin: 0;
+  color: #d8c9ad;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.little-sister-option-list {
+  display: grid;
+  gap: 7px;
+}
+
+.little-sister-option-list button,
+.little-sister-back {
+  display: grid;
+  width: 100%;
+  min-height: 44px;
+  gap: 3px;
+  border: 1px solid #66543a;
+  border-radius: 9px;
+  background: #2a2115;
+  padding: 9px 10px;
+  color: #d9bf8b;
+  text-align: left;
+}
+
+.little-sister-option-list button:disabled {
+  border-color: #454039;
+  background: #1b1a17;
+  color: #827b70;
+}
+
+.little-sister-option-list small {
+  color: #a99a80;
+  font-size: 0.66rem;
+  line-height: 1.35;
+}
+
+.little-sister-back {
+  place-items: center;
+  background: #211d17;
+  text-align: center;
+}
+
+.incident-choice.is-repeated {
+  display: grid;
+  gap: 7px;
+}
+
+.incident-choice.is-repeated > strong {
+  color: #d8bd86;
+  font-size: 0.7rem;
+}
+
 .goodwill-actions button {
   display: grid;
   align-content: center;

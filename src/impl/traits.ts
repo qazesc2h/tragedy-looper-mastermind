@@ -245,7 +245,22 @@ export const TRAIT_IMPL: Record<CharacterId, {
         timing: "Incident",
         description: `If this character is the culprit of an Incident that resolves, its effects resolve twice.`,
       },
-      // STATIC_GUIDANCE_ONLY: 사건 2회 해결의 엔진 구현은 B의 범위가 아니다.
+      // IMPLEMENTED_ELSEWHERE: src/engine/incident.ts resolveIncident()
+      when: () => false,
+      effect: () => {},
+    }],
+  },
+  littleSister: {
+    ko: "여동생",
+    hooks: [{
+      phase: "SCRIPT_BUILD",
+      kind: "scriptBuild",
+      source: {
+        timing: "Script Build",
+        description: `During script creation, this character cannot be given a Role with :goodwill: Refusel.`,
+      },
+      // IMPLEMENTED_ELSEWHERE: src/engine/validate.ts validateScenario()
+      // SCRIPT_BUILD는 런타임 훅이 아니므로 원문 보존만 한다.
       when: () => false,
       effect: () => {},
     }],

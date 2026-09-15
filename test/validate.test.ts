@@ -7,6 +7,7 @@ import {
 import { initLoop } from "../src/engine/setup";
 import { validateScenario } from "../src/engine/validate";
 import { PLOT_IMPL } from "../src/impl/plots";
+import { ROLE_IMPL } from "../src/impl/roles";
 import { TRAIT_IMPL } from "../src/impl/traits";
 import {
   assertOfficialScenariosValid,
@@ -224,6 +225,28 @@ describe("validateScenario", () => {
     scenario.cast.ai = "serialKiller";
 
     expect(validateScenario(scenario)).toEqual({ ok: true, errors: [] });
+  });
+
+  it.each(["killer", "witch"])(
+    "rejects littleSister assigned the goodwill-refusal role %s",
+    (role) => {
+      const scenario = structuredClone(scenarios[0]) as Scenario;
+      scenario.cast.littleSister = role;
+
+      expect(validateScenario(scenario).errors).toContain(
+        "여동생: 우호 무시 또는 절대 우호 무시 능력을 지닌 역할을 " +
+          `배정할 수 없습니다. 현재 배정: ${ROLE_IMPL[role]?.ko ?? role}.`,
+      );
+    },
+  );
+
+  it("accepts littleSister assigned a role without goodwill refusal", () => {
+    const scenario = structuredClone(scenarios[0]) as Scenario;
+    scenario.cast.littleSister = "person";
+
+    expect(validateScenario(scenario).errors.some((error) =>
+      error.startsWith("여동생:")
+    )).toBe(false);
   });
 
   it.each([

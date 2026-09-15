@@ -50,6 +50,11 @@ export function destinationOf(from: Location, m: MoveCard): Location {
   }
 }
 
+/** 상하 또는 좌우 한 칸으로 닿는 두 장소. 대각선은 포함하지 않는다. */
+export function adjacentLocations(from: Location): [Location, Location] {
+  return [VERTICAL[from], HORIZONTAL[from]];
+}
+
 export interface MoveInput {
   character: CharacterId;
   from: Location;

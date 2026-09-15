@@ -1,6 +1,10 @@
 import goodwillAbilitiesJson from "../../data/goodwill-abilities.json";
 import { characterDataOf } from "../data";
-import { goodwillAbilityImplemented } from "../engine/goodwill";
+import {
+  goodwillAbilityImplemented,
+  goodwillResponseAvailability,
+} from "../engine/goodwill";
+import { adjacentLocations } from "../engine/movement";
 import { tragedySetDefinition } from "../tragedy-sets";
 import {
   abilityLocationsOf,
@@ -22,6 +26,7 @@ export type GoodwillTargetScope =
   | "sameLocation"
   | "anyCharacter"
   | "anyLocation"
+  | "adjacentLocation"
   | "self"
   | "none";
 
@@ -68,7 +73,9 @@ export type GoodwillDisabledReason =
   | "noTarget"
   | "noSpentCard"
   | "noChoice"
-  | "multipleTargets";
+  | "multipleTargets"
+  | "noAdult"
+  | "noBorrowableAbility";
 
 export type GoodwillChoice =
   | { kind: "none" }
@@ -92,6 +99,11 @@ export interface GoodwillAbilityView {
   targetRequired: boolean;
   choice: GoodwillChoice;
   disabledReason?: GoodwillDisabledReason;
+}
+
+export interface GoodwillTargetWarning {
+  forbiddenLocation: Location;
+  restrictionRemovalAvailable: boolean;
 }
 
 export interface GoodwillRefusalHistoryEntry {
@@ -152,10 +164,98 @@ const SERVANT_GOODWILL_ABILITIES: readonly StructuredGoodwillAbility[] = [{
   _source: "Choose any other character. For the remainder of the Loop, she also serves that character.",
 }];
 
+const YOUNG_GIRL_GOODWILL_ABILITIES: readonly StructuredGoodwillAbility[] = [
+  {
+    abilityIndex: 0,
+    rank: 1,
+    ko: "이 캐릭터의 금지 장소가 사라집니다.",
+    target: { scope: "self", excludeSelf: false, tags: [] },
+    effect: { operation: "removeLocationRestriction" },
+    choices: null,
+    timesPerLoop: null,
+    restrictedToLocation: null,
+    implemented: true,
+    _source: "This Character‘s location restriction is removed",
+  },
+  {
+    abilityIndex: 1,
+    rank: 3,
+    ko: "이 캐릭터를 인접한 장소로 이동시킵니다.",
+    target: {
+      scope: "adjacentLocation",
+      excludeSelf: false,
+      tags: [],
+      kinds: ["location"],
+    },
+    effect: { operation: "moveSelfToAdjacentLocation" },
+    choices: null,
+    timesPerLoop: 1,
+    restrictedToLocation: null,
+    implemented: true,
+    _source: "Move this character t an adjacent location",
+  },
+];
+
+const SECT_FOUNDER_GOODWILL_ABILITIES: readonly StructuredGoodwillAbility[] = [
+  {
+    abilityIndex: 1,
+    rank: 3,
+    ko: "최대 불안에 도달한 다른 캐릭터 1명에 우호 카운터 1개를 놓습니다.",
+    target: {
+      scope: "anyCharacter",
+      excludeSelf: true,
+      tags: [],
+      predicates: ["alive", "panicked"],
+    },
+    effect: { counter: "goodwill", delta: 1 },
+    choices: null,
+    timesPerLoop: null,
+    restrictedToLocation: null,
+    implemented: true,
+    _source: "Place a :goodwill: on an other Character who is at their :paranoia: Limit.",
+  },
+  {
+    abilityIndex: 2,
+    rank: 4,
+    ko: "이 장소에 있는 다른 캐릭터 중, 최대 불안에 도달한 캐릭터 1명의 역할을 공개합니다.",
+    target: {
+      scope: "sameLocation",
+      excludeSelf: true,
+      tags: [],
+      predicates: ["alive", "panicked"],
+    },
+    effect: { operation: "revealRole" },
+    choices: null,
+    timesPerLoop: 1,
+    restrictedToLocation: null,
+    implemented: true,
+    _source: "Reveal the role of another character who is at their :paranoia: Limit in this location.",
+  },
+];
+
+const LITTLE_SISTER_GOODWILL_ABILITIES: readonly StructuredGoodwillAbility[] = [
+  {
+    abilityIndex: 1,
+    rank: 5,
+    ko: "이 장소에 있는 성인 1명의 우호 능력을 우호 카운터를 무시하고 사용합니다. 이 능력은 우호 무시로 거부할 수 없지만, 해당 능력의 '1루프당 1회' 제한에는 포함됩니다.",
+    target: { scope: "none", excludeSelf: true, tags: ["adult"] },
+    effect: { operation: "borrowAdultGoodwillAbility" },
+    choices: null,
+    timesPerLoop: null,
+    restrictedToLocation: null,
+    immuneToGoodwillRefusel: true,
+    implemented: true,
+    _source: "Use a :goodwill: ability from an :adult: at this location, ignoring :goodwill: counters. It cannot be refused by :goodwill: Refusel, but counts towards that ability's 'Once per Loop' limit.",
+  },
+];
+
 function goodwillAbilitiesFor(
   character: CharacterId,
 ): readonly StructuredGoodwillAbility[] {
   if (character === "servant") return SERVANT_GOODWILL_ABILITIES;
+  if (character === "youngGirl") return YOUNG_GIRL_GOODWILL_ABILITIES;
+  if (character === "sectFounder") return SECT_FOUNDER_GOODWILL_ABILITIES;
+  if (character === "littleSister") return LITTLE_SISTER_GOODWILL_ABILITIES;
   return GENERATED_GOODWILL_ABILITIES[character] ?? [];
 }
 
@@ -256,8 +356,11 @@ function locationTargets(
   ability: StructuredGoodwillAbility,
 ): Target[] {
   if (!targetKinds(ability).includes("location")) return [];
+  const userLocation = characterLocation(state.loop.board[user], user);
   const locations = ability.target.scope === "sameLocation"
-    ? [characterLocation(state.loop.board[user], user)]
+    ? [userLocation]
+    : ability.target.scope === "adjacentLocation"
+    ? adjacentLocations(userLocation)
     : LOCATIONS;
   return locations.map((at) => ({ kind: "location" as const, at }));
 }
@@ -401,28 +504,106 @@ export function goodwillAbilityViews(state: GameState): GoodwillAbilityView[] {
     if (!isCharacterAlive(state.loop.board[character])) return [];
     return goodwillAbilitiesFor(character).flatMap((schema) => {
       if (state.loop.charCounters[character].goodwill < schema.rank) return [];
-      const targets = targetsFor(state, character, schema);
-      const choice = choiceFor(state, schema.choices);
-      const disabledReason = disabledReasonFor(
-        state,
-        character,
-        schema,
-        targets,
-        choice,
-      );
-      return [{
-        character,
-        abilityIndex: schema.abilityIndex,
-        key: `${character}:goodwill:${schema.abilityIndex}`,
-        schema,
-        targets,
-        targetRequired:
-          schema.target.scope !== "none" && schema.target.scope !== "self",
-        choice,
-        disabledReason,
-      }];
+      const view = goodwillAbilityView(state, character, schema);
+      if (character === "littleSister" && schema.abilityIndex === 1) {
+        const owners = littleSisterBorrowingOptions(state);
+        const adults = livingAdultsWithLittleSister(state);
+        view.disabledReason = adults.length === 0
+          ? "noAdult"
+          : owners.some(({ abilities }) =>
+            abilities.some(({ disabledReason }) => disabledReason === undefined)
+          )
+          ? view.disabledReason
+          : "noBorrowableAbility";
+      }
+      return [view];
     });
   });
+}
+
+function goodwillAbilityView(
+  state: GameState,
+  character: CharacterId,
+  schema: StructuredGoodwillAbility,
+): GoodwillAbilityView {
+  const targets = targetsFor(state, character, schema);
+  const choice = choiceFor(state, schema.choices);
+  const disabledReason = disabledReasonFor(
+    state,
+    character,
+    schema,
+    targets,
+    choice,
+  );
+  return {
+    character,
+    abilityIndex: schema.abilityIndex,
+    key: `${character}:goodwill:${schema.abilityIndex}`,
+    schema,
+    targets,
+    targetRequired:
+      schema.target.scope !== "none" && schema.target.scope !== "self",
+    choice,
+    disabledReason,
+  };
+}
+
+function livingAdultsWithLittleSister(state: GameState): CharacterId[] {
+  const littleSisterPosition = state.loop.board.littleSister;
+  if (!littleSisterPosition || !isCharacterAlive(littleSisterPosition)) {
+    return [];
+  }
+  const at = characterLocation(littleSisterPosition, "littleSister");
+  return Object.keys(state.loop.board).filter((character) => {
+    const position = state.loop.board[character];
+    return character !== "littleSister" &&
+      isCharacterAlive(position) &&
+      characterLocation(position, character) === at &&
+      characterDataOf(character).tags.includes("adult");
+  });
+}
+
+export interface LittleSisterBorrowingOption {
+  owner: CharacterId;
+  abilities: GoodwillAbilityView[];
+}
+
+/** 여동생과 같은 장소의 성인 및 우호량만 무시한 능력별 현재 조건. */
+export function littleSisterBorrowingOptions(
+  state: GameState,
+): LittleSisterBorrowingOption[] {
+  return livingAdultsWithLittleSister(state).flatMap((owner) => {
+    const abilities = goodwillAbilitiesFor(owner)
+      .filter(({ abilityIndex }) =>
+        goodwillAbilityImplemented(owner, abilityIndex)
+      )
+      .map((schema) => goodwillAbilityView(state, owner, schema));
+    return abilities.length === 0 ? [] : [{ owner, abilities }];
+  });
+}
+
+/** 선택은 막지 않고, 여자 아이가 금지 장소 이동을 선언할 때만 경고한다. */
+export function goodwillTargetWarning(
+  state: GameState,
+  view: GoodwillAbilityView,
+  target: Target | undefined,
+): GoodwillTargetWarning | undefined {
+  if (
+    view.character !== "youngGirl" ||
+    view.abilityIndex !== 1 ||
+    target?.kind !== "location" ||
+    state.loop.locationRestrictionsRemoved?.includes("youngGirl") === true ||
+    !characterDataOf("youngGirl").forbiddenLocation.includes(target.at)
+  ) {
+    return undefined;
+  }
+  return {
+    forbiddenLocation: target.at,
+    restrictionRemovalAvailable:
+      state.loop.charCounters.youngGirl.goodwill >= 1 &&
+      !state.loop.abilitiesUsedThisRound.includes("youngGirl:goodwill:0") &&
+      goodwillResponseAvailability(state, "youngGirl", false).resolveAllowed,
+  };
 }
 
 /** 현재 루프와 이전 루프 스냅샷에서 주인공에게 공개된 거부 날짜를 모은다. */

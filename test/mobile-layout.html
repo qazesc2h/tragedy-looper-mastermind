@@ -2637,18 +2637,23 @@
             girlStudent: "person",
             shrineMaiden: "person",
             classRep: "person",
+            youngGirl: "person",
           };
           state.loop.board = {
             boyStudent: { status: "alive", at: "School" },
             girlStudent: { status: "alive", at: "City" },
             shrineMaiden: { status: "alive", at: "City" },
             classRep: { status: "alive", at: "City" },
+            youngGirl: { status: "alive", at: "School" },
           };
           state.loop.charCounters = Object.fromEntries(
             Object.keys(state.scenario.cast).map((character) => [
               character,
               {
-                goodwill: character === "shrineMaiden" ? 3 : 2,
+                goodwill: character === "shrineMaiden" ||
+                    character === "youngGirl"
+                  ? 3
+                  : 2,
                 paranoia: 0,
                 intrigue: 0,
                 protection: 0,
@@ -2672,14 +2677,35 @@
             )?.textContent.trim() ?? "",
           ];
         }));
+        const youngGirlTarget = frameDocument().querySelector(
+          "select[data-goodwill-target='youngGirl:goodwill:1']",
+        );
+        if (!(youngGirlTarget instanceof frameWindow().HTMLSelectElement)) {
+          throw new Error("여자 아이 우호3 장소 선택을 찾을 수 없습니다.");
+        }
+        youngGirlTarget.value = "location:Shrine";
+        youngGirlTarget.dispatchEvent(new (frameWindow().Event)("change", {
+          bubbles: true,
+        }));
+        await pause();
+        const youngGirlWarning = frameDocument().querySelector(
+          ".goodwill-target-warning",
+        )?.textContent.replace(/\s+/g, " ").trim() ?? "";
         const report = {
           labels,
+          youngGirlWarning,
           horizontal: horizontalOverflow(),
         };
         reports.push({ label: "우호 능력 비활성 사유", ...report });
         if (
           labels.shrineMaiden !== "장소 제한" ||
           labels.classRep !== "리더의 소진 카드가 없습니다" ||
+          !youngGirlWarning.includes(
+            "신사는 이 캐릭터의 금지 장소입니다. 능력은 소모되지만 이동하지 않습니다.",
+          ) ||
+          !youngGirlWarning.includes(
+            "우호1 로 금지 장소를 먼저 해제할 수 있습니다.",
+          ) ||
           report.horizontal.scrollWidth > WIDTH
         ) {
           failures.push(`우호 능력 비활성 사유: ${JSON.stringify(report)}`);
@@ -2902,6 +2928,173 @@
         }
       }
 
+      async function inspectLittleSisterBorrowingFlow() {
+        mutateActiveState((state) => {
+          state.gamePhase = "ROUND";
+          state.loop.phase = "P6_GOODWILL";
+          state.loop.abilitiesUsedThisLoop = [];
+          state.loop.abilitiesUsedThisRound = [];
+          for (const character of ["littleSister", "doctor", "girlStudent"]) {
+            state.scenario.cast[character] = "person";
+            state.loop.board[character] = { status: "alive", at: "City" };
+            state.loop.charCounters[character] = {
+              goodwill: character === "littleSister" ? 5 : 0,
+              paranoia: 0,
+              intrigue: 0,
+              protection: 0,
+            };
+          }
+          delete state.pendingLoopEnd;
+          delete state.loop.pendingImmediateLossKeys;
+        });
+        await reloadApp("little-sister-borrowing-flow");
+        click("[data-action='toggle-operation-sheet']");
+        const openButton = await waitFor(
+          () => frameDocument().querySelector(
+            "[data-action='open-little-sister-borrowing']",
+          ),
+          "여동생 능력 선택 버튼",
+        );
+        const openerEnabled = !openButton.disabled;
+        openButton.click();
+        await pause();
+        const stage1 = frameDocument().querySelector(
+          "[data-little-sister-step='1']",
+        );
+        const stage1Width = stage1?.closest(".detail-modal")
+          ?.getBoundingClientRect().width ?? 0;
+        click("[data-action='little-sister-owner'][data-owner='doctor']");
+        await pause();
+        const stage2 = frameDocument().querySelector(
+          "[data-little-sister-step='2']",
+        );
+        click("[data-action='little-sister-back']");
+        await pause();
+        const backToStage1 = Boolean(frameDocument().querySelector(
+          "[data-little-sister-step='1']",
+        ));
+        click("[data-action='little-sister-owner'][data-owner='doctor']");
+        click("[data-action='little-sister-ability'][data-ability-index='0']");
+        await pause();
+        const stage3 = frameDocument().querySelector(
+          "[data-little-sister-step='3']",
+        );
+        click("[data-action='little-sister-back']");
+        await pause();
+        const backToStage2 = Boolean(frameDocument().querySelector(
+          "[data-little-sister-step='2']",
+        ));
+        click("[data-action='little-sister-ability'][data-ability-index='0']");
+        await pause();
+        const target = frameDocument().querySelector(
+          "[data-little-sister-step='3'] [data-goodwill-target='doctor:goodwill:0']",
+        );
+        const delta = frameDocument().querySelector(
+          "[data-little-sister-step='3'] [data-goodwill-delta='doctor:goodwill:0']",
+        );
+        if (!(target instanceof frameWindow().HTMLSelectElement) ||
+            !(delta instanceof frameWindow().HTMLSelectElement)) {
+          throw new Error("여동생 3단계에서 기존 의사 선택 필드를 찾을 수 없습니다.");
+        }
+        target.value = "character:girlStudent";
+        target.dispatchEvent(new (frameWindow().Event)("change", { bubbles: true }));
+        delta.value = "1";
+        delta.dispatchEvent(new (frameWindow().Event)("change", { bubbles: true }));
+        click("[data-little-sister-step='3'] [data-action='goodwill']");
+        await pause(300);
+        const saved = JSON.parse(
+          window.localStorage.getItem("tragedy-looper-mastermind:tracker"),
+        );
+        const state = saved.games[saved.activeScenarioId].state;
+        const report = {
+          openerEnabled,
+          stage1: Boolean(stage1),
+          stage2: Boolean(stage2),
+          stage3: Boolean(stage3),
+          backToStage1,
+          backToStage2,
+          stage1Width,
+          viewportWidth: frameWindow().innerWidth,
+          horizontal: horizontalOverflow(),
+          targetParanoia: state.loop.charCounters.girlStudent.paranoia,
+          usedThisRound: state.loop.abilitiesUsedThisRound,
+          modalClosed: frameDocument().querySelector(
+            ".little-sister-borrowing-layer",
+          ) === null,
+        };
+        reports.push({ label: "여동생 우호5 3단계 선택", ...report });
+        if (
+          !openerEnabled || !report.stage1 || !report.stage2 || !report.stage3 ||
+          !backToStage1 || !backToStage2 || stage1Width > WIDTH ||
+          report.horizontal.scrollWidth > WIDTH || report.targetParanoia !== 1 ||
+          JSON.stringify(report.usedThisRound) !==
+            JSON.stringify(["doctor:goodwill:0"]) ||
+          !report.modalClosed
+        ) {
+          failures.push(`여동생 우호5 3단계 선택: ${JSON.stringify(report)}`);
+        }
+      }
+
+      async function inspectSectFounderRepeatedIncidentChoices() {
+        mutateActiveState((state) => {
+          state.gamePhase = "ROUND";
+          state.loop.phase = "P7_INCIDENT";
+          state.scenario.cast.sectFounder = "person";
+          state.scenario.cast.boyStudent = "person";
+          state.scenario.cast.girlStudent = "person";
+          state.scenario.incidents = [{
+            day: state.loop.day,
+            incident: "murder",
+            culprit: "sectFounder",
+          }];
+          for (const character of ["sectFounder", "boyStudent", "girlStudent"]) {
+            state.loop.board[character] = { status: "alive", at: "City" };
+            state.loop.charCounters[character] = {
+              goodwill: 0,
+              paranoia: character === "sectFounder" ? 3 : 0,
+              intrigue: 0,
+              protection: 0,
+            };
+          }
+          state.loop.incidentsFiredThisLoop = [];
+          state.loop.incidentOccurrencesFiredThisLoop = [];
+          delete state.pendingLoopEnd;
+          delete state.loop.pendingImmediateLossKeys;
+        });
+        await reloadApp("sect-founder-repeated-incident");
+        click("[data-action='toggle-operation-sheet']");
+        const targetSelects = [...frameDocument().querySelectorAll(
+          ".incident-choice.is-repeated [data-incident-field='target']",
+        )];
+        if (targetSelects.length !== 2 || targetSelects.some(
+          (select) => !(select instanceof frameWindow().HTMLSelectElement)
+        )) {
+          throw new Error("교주 사건의 두 해결 대상 선택을 찾을 수 없습니다.");
+        }
+        targetSelects[0].value = "boyStudent";
+        targetSelects[0].dispatchEvent(new (frameWindow().Event)("change", {
+          bubbles: true,
+        }));
+        targetSelects[1].value = "girlStudent";
+        targetSelects[1].dispatchEvent(new (frameWindow().Event)("change", {
+          bubbles: true,
+        }));
+        const report = {
+          choiceCount: targetSelects.length,
+          firstChoice: targetSelects[0].value,
+          secondChoice: targetSelects[1].value,
+          horizontal: horizontalOverflow(),
+        };
+        reports.push({ label: "교주 사건 2회 선택", ...report });
+        if (
+          report.choiceCount !== 2 || report.firstChoice !== "boyStudent" ||
+          report.secondChoice !== "girlStudent" ||
+          report.horizontal.scrollWidth > WIDTH
+        ) {
+          failures.push(`교주 사건 2회 선택: ${JSON.stringify(report)}`);
+        }
+      }
+
       async function run() {
         await inspectStartingGuidance();
         await enterRound();
@@ -2944,6 +3137,8 @@
         await inspectIllusionActionTrait();
         await inspectGoodwillImplementationCoverage();
         await inspectGoodwillDisabledLabels();
+        await inspectLittleSisterBorrowingFlow();
+        await inspectSectFounderRepeatedIncidentChoices();
         await selectScenario("basicTragedy:5");
         await inspectScrollableModalBodies();
         await inspectPhaseLogFilter();

@@ -15,9 +15,11 @@ import {
   type RoleId,
   type ScheduledIncident,
   type Target,
+  withCharacterLocation,
 } from "../types";
 import { killCharacter, reviveCharacter, withDeathBatch } from "./death";
 import { resolveIncidentEffect } from "./incident";
+import { adjacentLocations } from "./movement";
 import { recordPhaseLog } from "./phase-log";
 import {
   publicBoardChanges,
@@ -37,7 +39,10 @@ export interface GoodwillResponseAvailability {
 
 /** 리더가 선언하는 우호 능력과 그 효과에 필요한 선택. */
 export interface GoodwillDeclaration {
+  /** 실제로 능력을 발동한 캐릭터. */
   user: CharacterId;
+  /** 여동생 [우호5]로 빌린 능력의 원래 소유자. 없으면 user와 같다. */
+  abilityOwner?: CharacterId;
   rank: number;
   /** 같은 랭크가 둘 이상이면 data/characters.json 배열의 인덱스가 필요하다. */
   abilityIndex?: number;
@@ -56,6 +61,7 @@ export interface GoodwillUse extends GoodwillDeclaration {
 
 export interface GoodwillResult {
   user: CharacterId;
+  abilityOwner?: CharacterId;
   rank: number;
   abilityIndex: number;
   response: GoodwillResponse;
@@ -103,6 +109,11 @@ const IMPLEMENTED_GOODWILL_ABILITIES: ReadonlySet<string> = new Set([
   "teacher:0",
   "teacher:1",
   "transferStudent:1",
+  "youngGirl:0",
+  "youngGirl:1",
+  "sectFounder:1",
+  "sectFounder:2",
+  "littleSister:1",
 ]);
 
 /** UI와 엔진이 공유하는 우호 능력 처리 가능 여부. */
@@ -157,6 +168,7 @@ function assertAbilityAvailable(
   state: GameState,
   declaration: GoodwillDeclaration,
   selected: SelectedAbility,
+  options: { ignoreGoodwill?: boolean } = {},
 ): void {
   const position = state.loop.board[declaration.user];
   const counters = state.loop.charCounters[declaration.user];
@@ -186,7 +198,7 @@ function assertAbilityAvailable(
       `${selected.ability.minLoop}`,
     );
   }
-  if (counters.goodwill < declaration.rank) {
+  if (!options.ignoreGoodwill && counters.goodwill < declaration.rank) {
     throw new Error(
       `character "${declaration.user}" needs ${declaration.rank} goodwill`,
     );
@@ -288,6 +300,16 @@ function requireCharacterTarget(
   return target.id;
 }
 
+function requireLocationTarget(
+  declaration: GoodwillDeclaration,
+): Extract<Target, { kind: "location" }> {
+  const target = normalizeTarget(declaration.target);
+  if (target?.kind !== "location") {
+    throw new Error("goodwill ability requires a location target");
+  }
+  return target;
+}
+
 function requireLivingCharacterInSameLocation(
   state: GameState,
   declaration: GoodwillDeclaration,
@@ -337,6 +359,19 @@ function changeParanoia(
   const before = counters.paranoia;
   counters.paranoia = Math.max(0, before + amount);
   return counters.paranoia !== before;
+}
+
+function requirePanickedCharacter(
+  state: GameState,
+  target: CharacterId,
+  abilityName: string,
+): void {
+  if (
+    state.loop.charCounters[target].paranoia <
+      characterDataOf(target).paranoiaLimit
+  ) {
+    throw new Error(`${abilityName} goodwill ability target must be panicked`);
+  }
 }
 
 function revealRole(state: GameState, character: CharacterId): boolean {
@@ -709,11 +744,60 @@ function applySimpleBaseAbility(
 
     case "nurse:0": {
       const target = requireLivingCharacterInSameLocation(state, declaration);
-      const counters = state.loop.charCounters[target];
-      if (counters.paranoia < characterDataOf(target).paranoiaLimit) {
-        throw new Error("nurse goodwill ability target must be panicked");
-      }
+      requirePanickedCharacter(state, target, "nurse");
       return changeParanoia(state, target, -1);
+    }
+
+    case "youngGirl:0":
+      return removeLocationRestriction(state, declaration.user);
+
+    case "youngGirl:1": {
+      const target = requireLocationTarget(declaration);
+      const position = state.loop.board[declaration.user];
+      const from = characterLocation(position, declaration.user);
+      if (!adjacentLocations(from).includes(target.at)) {
+        throw new Error("youngGirl goodwill ability target must be adjacent");
+      }
+      const restrictionRemoved = state.loop.locationRestrictionsRemoved
+        ?.includes(declaration.user) === true;
+      if (
+        !restrictionRemoved &&
+        characterDataOf(declaration.user).forbiddenLocation.includes(target.at)
+      ) {
+        return false;
+      }
+      state.loop.board[declaration.user] = withCharacterLocation(
+        position,
+        target.at,
+        declaration.user,
+      );
+      return true;
+    }
+
+    case "sectFounder:1": {
+      const target = requireCharacterTarget(state, declaration);
+      if (
+        target === declaration.user ||
+        !isCharacterAlive(state.loop.board[target])
+      ) {
+        throw new Error(
+          "sectFounder rank 3 goodwill ability requires another living character",
+        );
+      }
+      requirePanickedCharacter(state, target, "sectFounder");
+      state.loop.charCounters[target].goodwill += 1;
+      return true;
+    }
+
+    case "sectFounder:2": {
+      const target = requireLivingCharacterInSameLocation(state, declaration);
+      if (target === declaration.user) {
+        throw new Error(
+          "sectFounder rank 4 goodwill ability requires another character",
+        );
+      }
+      requirePanickedCharacter(state, target, "sectFounder");
+      return revealRole(state, target);
     }
 
     case "henchman:1":
@@ -820,19 +904,67 @@ export function resolveGoodwillAbility(
   declaration: GoodwillDeclaration,
   mastermindResponse: GoodwillResponse,
 ): GoodwillResult {
-  const selected = selectAbility(declaration);
-  if (!goodwillAbilityImplemented(declaration.user, selected.index)) {
+  const activator = declaration.user;
+  const abilityOwner = declaration.abilityOwner ?? activator;
+  const borrowed = abilityOwner !== activator;
+  if (activator === "littleSister" && !borrowed) {
+    throw new Error("littleSister goodwill ability requires an ability owner");
+  }
+  if (borrowed && activator !== "littleSister") {
+    throw new Error("only littleSister can borrow a goodwill ability");
+  }
+
+  const ownerDeclaration: GoodwillDeclaration = {
+    ...declaration,
+    user: abilityOwner,
+    abilityOwner: undefined,
+  };
+  const selected = selectAbility(ownerDeclaration);
+  if (!goodwillAbilityImplemented(abilityOwner, selected.index)) {
     throw new Error(
-      `goodwill effect is not implemented for "${declaration.user}" ` +
+      `goodwill effect is not implemented for "${abilityOwner}" ` +
       `ability index ${selected.index}`,
     );
   }
-  assertAbilityAvailable(state, declaration, selected);
+  if (borrowed) {
+    const littleSisterDeclaration: GoodwillDeclaration = {
+      user: activator,
+      rank: 5,
+      abilityIndex: 1,
+    };
+    const littleSisterAbility = selectAbility(littleSisterDeclaration);
+    assertAbilityAvailable(
+      state,
+      littleSisterDeclaration,
+      littleSisterAbility,
+    );
+    assertAbilityAvailable(
+      state,
+      ownerDeclaration,
+      selected,
+      { ignoreGoodwill: true },
+    );
+    const ownerPosition = state.loop.board[abilityOwner];
+    const activatorPosition = state.loop.board[activator];
+    if (
+      !ownerPosition ||
+      !isCharacterAlive(ownerPosition) ||
+      !characterDataOf(abilityOwner).tags.includes("adult") ||
+      characterLocation(ownerPosition, abilityOwner) !==
+        characterLocation(activatorPosition, activator)
+    ) {
+      throw new Error(
+        "littleSister must borrow from a living adult in the same location",
+      );
+    }
+  } else {
+    assertAbilityAvailable(state, ownerDeclaration, selected);
+  }
 
-  const cannotBeRefused = abilityCannotBeRefused(selected.ability);
+  const cannotBeRefused = borrowed || abilityCannotBeRefused(selected.ability);
   const availability = goodwillResponseAvailability(
     state,
-    declaration.user,
+    abilityOwner,
     cannotBeRefused,
   );
   const targets = declarationTargets(declaration);
@@ -847,10 +979,10 @@ export function resolveGoodwillAbility(
   }
 
   if (!availability.resolveAllowed || mastermindResponse === "refuse") {
-    recordAbilityUse(state, declaration, selected);
+    recordAbilityUse(state, ownerDeclaration, selected);
     recordPublicInformation(state, {
       kind: "goodwillRefusal",
-      character: declaration.user,
+      character: activator,
       rank: declaration.rank,
       abilityIndex: selected.index,
       loop: state.loop.loop,
@@ -861,7 +993,8 @@ export function resolveGoodwillAbility(
       day: state.loop.day,
       phase: "P6_GOODWILL",
       kind: "goodwillUsed",
-      character: declaration.user,
+      character: activator,
+      ...(borrowed ? { abilityOwner } : {}),
       rank: declaration.rank,
       abilityIndex: selected.index,
       response: "refuse",
@@ -869,7 +1002,8 @@ export function resolveGoodwillAbility(
       ...(targets.length === 0 ? {} : { targets }),
     });
     return {
-      user: declaration.user,
+      user: activator,
+      ...(borrowed ? { abilityOwner } : {}),
       rank: declaration.rank,
       abilityIndex: selected.index,
       response: "refuse",
@@ -884,23 +1018,24 @@ export function resolveGoodwillAbility(
   const effectApplied = withDeathBatch(state, () =>
     applySimpleBaseAbility(
       state,
-      declaration,
+      ownerDeclaration,
       selected,
     )
   );
   if (effectApplied === undefined) {
     throw new Error(
-      `goodwill effect is not implemented for "${declaration.user}" ` +
+      `goodwill effect is not implemented for "${abilityOwner}" ` +
       `ability index ${selected.index}`,
     );
   }
-  recordAbilityUse(state, declaration, selected);
+  recordAbilityUse(state, ownerDeclaration, selected);
   recordPhaseLog(state, {
     loop: state.loop.loop,
     day: state.loop.day,
     phase: "P6_GOODWILL",
     kind: "goodwillUsed",
-    character: declaration.user,
+    character: activator,
+    ...(borrowed ? { abilityOwner } : {}),
     rank: declaration.rank,
     abilityIndex: selected.index,
     response: "resolve",
@@ -911,7 +1046,8 @@ export function resolveGoodwillAbility(
   });
 
   return {
-    user: declaration.user,
+    user: activator,
+    ...(borrowed ? { abilityOwner } : {}),
     rank: declaration.rank,
     abilityIndex: selected.index,
     response: "resolve",

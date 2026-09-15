@@ -166,6 +166,8 @@ import {
   encodeIncidentSelection,
   goodwillAbilityViews,
   goodwillRefusalHistory,
+  goodwillTargetWarning,
+  littleSisterBorrowingOptions,
   subplotRevealOptions,
   type GoodwillAbilityView,
   type GoodwillDisabledReason,
@@ -316,6 +318,9 @@ let selectedHandCard: SelectedHandCard | undefined;
 let resolutionReceipt: ResolutionReceipt | undefined;
 let openCharacterModal: CharacterId | undefined;
 let openLocationModal: Location | undefined;
+let littleSisterBorrowing:
+  | { owner?: CharacterId; abilityIndex?: number }
+  | undefined;
 let phaseLogFilter: PhaseLogFilter | undefined;
 let finalGuessConfirmationOpen = false;
 let operationSheetOpen = false;
@@ -344,6 +349,7 @@ interface UiTransactionSnapshot {
   resolutionReceipt?: ResolutionReceipt;
   openCharacterModal?: CharacterId;
   openLocationModal?: Location;
+  littleSisterBorrowing?: { owner?: CharacterId; abilityIndex?: number };
   finalGuessConfirmationOpen: boolean;
   operationSheetOpen: boolean;
   optionalHookSelections: Map<string, OptionalHookSelection>;
@@ -355,8 +361,10 @@ function goodwillDraftKey(key: string, field: GoodwillDraftField): string {
   return `goodwill:${key}:${field}`;
 }
 
-function incidentDraftKey(field: string): string {
-  return `incident:${field}`;
+function incidentDraftKey(field: string, resolution = 1): string {
+  return resolution === 1
+    ? `incident:${field}`
+    : `incident:${resolution}:${field}`;
 }
 
 function draftValue(key: string): string {
@@ -558,6 +566,7 @@ function captureUiTransaction(game: StoredGame): UiTransactionSnapshot {
     resolutionReceipt: structuredClone(resolutionReceipt),
     openCharacterModal,
     openLocationModal,
+    littleSisterBorrowing: structuredClone(littleSisterBorrowing),
     finalGuessConfirmationOpen,
     operationSheetOpen,
     optionalHookSelections: structuredClone(optionalHookSelections),
@@ -598,6 +607,7 @@ function rollbackUiTransaction(
   resolutionReceipt = snapshot.resolutionReceipt;
   openCharacterModal = snapshot.openCharacterModal;
   openLocationModal = snapshot.openLocationModal;
+  littleSisterBorrowing = snapshot.littleSisterBorrowing;
   finalGuessConfirmationOpen = snapshot.finalGuessConfirmationOpen;
   operationSheetOpen = snapshot.operationSheetOpen;
   optionalHookSelections.clear();
@@ -703,6 +713,7 @@ function resetTransientUi(): void {
   resolutionReceipt = undefined;
   openCharacterModal = undefined;
   openLocationModal = undefined;
+  littleSisterBorrowing = undefined;
   phaseLogFilter = undefined;
   finalGuessConfirmationOpen = false;
   operationSheetOpen = false;
@@ -1372,7 +1383,10 @@ function phaseLogTimelineLine(item: PhaseLogTimelineItem): string {
         : entry.effectApplied
         ? "해결 · 효과 적용"
         : "해결 · 효과 없음";
-      return `${characterName(entry.character)}[우호${entry.rank}] · ${result}${
+      const user = entry.abilityOwner === undefined
+        ? `${characterName(entry.character)}[우호${entry.rank}]`
+        : `${characterName(entry.character)} → ${characterName(entry.abilityOwner)}[우호${entry.rank}]`;
+      return `${user} · ${result}${
         phaseLogTargetList(entry.targets)
       }`;
     }
@@ -1538,9 +1552,9 @@ function renderPhaseLog(state: GameState): string {
         : entry.effectApplied
         ? "해결 · 효과 적용"
         : "해결 · 효과 없음";
-      return [
-        `${characterName(entry.character)}[우호${entry.rank}] · ${result}`,
-      ];
+      return [entry.abilityOwner === undefined
+        ? `${characterName(entry.character)}[우호${entry.rank}] · ${result}`
+        : `${characterName(entry.character)} → ${characterName(entry.abilityOwner)}[우호${entry.rank}] · ${result}`];
     }
     if (entry.kind === "goodwillSkipped") {
       return ["사용한 우호 능력 없음"];
@@ -2312,7 +2326,9 @@ function goodwillDisabledMessage(
         return "환자가 없습니다";
       }
       if (view.schema.target.predicates?.includes("panicked")) {
-        return "같은 장소에 패닉 상태인 캐릭터가 없습니다";
+        return view.schema.target.scope === "sameLocation"
+          ? "같은 장소에 최대 불안에 도달한 캐릭터가 없습니다"
+          : "최대 불안에 도달한 다른 캐릭터가 없습니다";
       }
       if (view.schema.target.predicates?.includes("hasIntrigue")) {
         return "같은 장소에 음모가 있는 다른 캐릭터가 없습니다";
@@ -2345,6 +2361,10 @@ function goodwillDisabledMessage(
       return "선택 가능한 항목이 없습니다";
     case "multipleTargets":
       return "복수 대상 미지원";
+    case "noAdult":
+      return "같은 장소에 성인이 없습니다";
+    case "noBorrowableAbility":
+      return "현재 빌릴 수 있는 능력이 없습니다";
   }
 }
 
@@ -2615,7 +2635,9 @@ function syncGoodwillSubplotRevealOptions(
   }
   const view = goodwillAbilityViews(currentState()).find(
     (candidate) => candidate.key === key,
-  );
+  ) ?? littleSisterBorrowingOptions(currentState())
+    .flatMap(({ abilities }) => abilities)
+    .find((candidate) => candidate.key === key);
   if (view?.choice.kind !== "subplot") {
     throw new Error(`goodwill ability "${key}" has no subplot choice`);
   }
@@ -2641,6 +2663,98 @@ function syncGoodwillSubplotRevealOptions(
       <option value="${escapeHtml(plot)}">${escapeHtml(plotName(plot))}</option>`).join("")}`;
   revealControl.value = allowed.includes(previous) ? previous : "";
   uiInputDrafts.set(revealDraftKey, revealControl.value);
+}
+
+function renderLittleSisterBorrowingModal(state: GameState): string {
+  const selection = littleSisterBorrowing;
+  if (selection === undefined) return "";
+  const options = littleSisterBorrowingOptions(state);
+  const selectedOwner = options.find(({ owner }) => owner === selection.owner);
+  const selectedAbility = selectedOwner?.abilities.find(
+    ({ abilityIndex }) => abilityIndex === selection.abilityIndex,
+  );
+  const step = selection.owner === undefined
+    ? 1
+    : selection.abilityIndex === undefined
+    ? 2
+    : 3;
+  const body = step === 1
+    ? `<div class="little-sister-option-list" data-little-sister-step="1">
+        ${options.map(({ owner, abilities }) => {
+          const available = abilities.filter(
+            ({ disabledReason }) => disabledReason === undefined,
+          ).length;
+          return `<button type="button" data-action="little-sister-owner"
+            data-owner="${escapeHtml(owner)}" ${available === 0 ? "disabled" : ""}>
+            <strong>${escapeHtml(characterName(owner))}</strong>
+            <small>${available}개 능력 사용 가능</small>
+          </button>`;
+        }).join("")}
+      </div>`
+    : step === 2 && selectedOwner !== undefined
+    ? `<div class="little-sister-option-list" data-little-sister-step="2">
+        ${selectedOwner.abilities.map((view) => {
+          const reason = view.disabledReason === undefined
+            ? ""
+            : goodwillDisabledMessage(view, view.disabledReason);
+          return `<button type="button" data-action="little-sister-ability"
+            data-ability-index="${view.abilityIndex}"
+            ${view.disabledReason === undefined ? "" : "disabled"}>
+            <strong>우호${view.schema.rank} · ${escapeHtml(gameText(view.schema._source, view.schema.ko))}</strong>
+            ${reason ? `<small>${escapeHtml(reason)}</small>` : ""}
+          </button>`;
+        }).join("")}
+      </div>`
+    : selectedOwner !== undefined && selectedAbility !== undefined
+    ? `<article class="goodwill-card little-sister-borrowed-ability"
+        data-little-sister-step="3">
+        <div class="goodwill-copy">
+          <span>${escapeHtml(characterName(selectedOwner.owner))} · 우호${selectedAbility.schema.rank}</span>
+          <strong>${escapeHtml(gameText(selectedAbility.schema._source, selectedAbility.schema.ko))}</strong>
+        </div>
+        <div class="goodwill-inputs">
+          ${renderGoodwillTarget(selectedAbility, false)}
+          ${renderGoodwillChoice(state, selectedAbility, false)}
+        </div>
+        <div class="goodwill-actions little-sister-complete-action">
+          <button type="button" data-action="goodwill" data-response="resolve"
+            data-character="littleSister"
+            data-ability-owner="${escapeHtml(selectedOwner.owner)}"
+            data-rank="${selectedAbility.schema.rank}"
+            data-ability-index="${selectedAbility.abilityIndex}"
+            data-goodwill-key="${escapeHtml(selectedAbility.key)}">
+            <span>빌린 능력 해결</span>
+          </button>
+        </div>
+      </article>`
+    : `<p class="empty-overlay">선택 가능한 능력이 사라졌습니다. 이전 단계로 돌아가세요.</p>`;
+  return `<div class="modal-layer little-sister-borrowing-layer">
+    <button type="button" class="modal-scrim" data-action="close-little-sister-borrowing"
+      aria-label="능력 선택 닫기"></button>
+    <section class="detail-modal little-sister-borrowing-modal" role="dialog"
+      aria-modal="true" aria-labelledby="little-sister-borrowing-title">
+      <header class="detail-modal-header">
+        <div>
+          <span class="eyebrow">${step}/3 · 우호5</span>
+          <h2 id="little-sister-borrowing-title">여동생 · 능력 빌리기</h2>
+        </div>
+        <button type="button" class="icon-button"
+          data-action="close-little-sister-borrowing" aria-label="능력 선택 닫기">×</button>
+      </header>
+      <div class="detail-modal-body">
+        <p class="little-sister-step-label">${step === 1
+          ? "성인을 선택하세요."
+          : step === 2
+          ? `${characterName(selectedOwner?.owner ?? "")}의 능력을 선택하세요.`
+          : "평소와 같이 대상과 필요한 선택을 정하세요."}</p>
+        ${body}
+        ${step > 1
+          ? `<button type="button" class="little-sister-back"
+              data-action="little-sister-back">이전 단계</button>`
+          : ""}
+      </div>
+    </section>
+  </div>`;
 }
 
 function renderGoodwillAbilities(state: GameState): string {
@@ -2708,6 +2822,17 @@ function renderGoodwillAbilities(state: GameState): string {
         abilityIndex,
       })
       : undefined;
+    const selectedTarget = decodeTarget(
+      draftValue(goodwillDraftKey(key, "target")) || undefined,
+    );
+    const targetWarning = goodwillTargetWarning(state, view, selectedTarget);
+    const targetWarningText = targetWarning === undefined
+      ? ""
+      : `${locationName(targetWarning.forbiddenLocation)}는 이 캐릭터의 금지 장소입니다. ` +
+        "능력은 소모되지만 이동하지 않습니다." +
+        (targetWarning.restrictionRemovalAvailable
+          ? " 우호1 로 금지 장소를 먼저 해제할 수 있습니다."
+          : "");
     const resolveChoiceText = availability.refusalKind === "mandatory"
       ? "선택 불가 · 반드시 거부"
       : "변화 없음 · 안전";
@@ -2716,21 +2841,15 @@ function renderGoodwillAbilities(state: GameState): string {
       : schema.immuneToGoodwillRefusel || availability.refusalKind === "none"
       ? "선택 불가 · 거부 불가"
       : "";
-    return `
-    <article class="goodwill-card ${disabled ? "is-disabled" : ""}">
-      <div class="goodwill-copy">
-        <span>${escapeHtml(characterName(character))} (${escapeHtml(roleDetail)}) · ${escapeHtml(misc("Goodwill"))} ${schema.rank}</span>
-        <strong>${escapeHtml(gameText(schema._source, schema.ko))}</strong>
-        ${disclosedOccurrences
-          ? `<small class="goodwill-refusal-disclosed">우호 무시 계열 노출 · ${escapeHtml(occurrenceText(disclosedOccurrences))}</small>`
-          : ""}
-        ${reason ? `<small class="goodwill-disabled-reason">${escapeHtml(reason)}</small>` : ""}
-      </div>
-      <div class="goodwill-inputs">
-        ${renderGoodwillTarget(view, disabled)}
-        ${renderGoodwillChoice(state, view, disabled)}
-      </div>
-      <div class="goodwill-actions">
+    const actions = character === "littleSister" && abilityIndex === 1
+      ? `<div class="goodwill-actions is-single">
+          <button type="button" data-action="open-little-sister-borrowing"
+            ${disabled ? "disabled" : ""}>
+            <span>빌릴 능력 선택</span>
+            ${reason ? `<small>${escapeHtml(reason)}</small>` : ""}
+          </button>
+        </div>`
+      : `<div class="goodwill-actions">
         <button type="button" data-action="goodwill" data-response="resolve"
           data-character="${escapeHtml(character)}" data-rank="${schema.rank}"
           data-ability-index="${abilityIndex}" data-goodwill-key="${escapeHtml(key)}"
@@ -2758,7 +2877,25 @@ function renderGoodwillAbilities(state: GameState): string {
             ? ""
             : renderP6RefusalPreview(refusalPreview)}
         </button>
+      </div>`;
+    return `
+    <article class="goodwill-card ${disabled ? "is-disabled" : ""}">
+      <div class="goodwill-copy">
+        <span>${escapeHtml(characterName(character))} (${escapeHtml(roleDetail)}) · ${escapeHtml(misc("Goodwill"))} ${schema.rank}</span>
+        <strong>${escapeHtml(gameText(schema._source, schema.ko))}</strong>
+        ${disclosedOccurrences
+          ? `<small class="goodwill-refusal-disclosed">우호 무시 계열 노출 · ${escapeHtml(occurrenceText(disclosedOccurrences))}</small>`
+          : ""}
+        ${reason ? `<small class="goodwill-disabled-reason">${escapeHtml(reason)}</small>` : ""}
       </div>
+      <div class="goodwill-inputs">
+        ${renderGoodwillTarget(view, disabled)}
+        ${renderGoodwillChoice(state, view, disabled)}
+        ${targetWarningText
+          ? `<p class="goodwill-target-warning" role="alert">${escapeHtml(targetWarningText)}</p>`
+          : ""}
+      </div>
+      ${actions}
     </article>`;
   }).join("")}</div>`;
 }
@@ -3117,6 +3254,7 @@ function mark(pass: boolean): string {
 function renderIncidentChoice(
   state: GameState,
   incident: string,
+  culprit: CharacterId,
   fires: boolean,
 ): string {
   const fields = INCIDENT_CHOICE_FIELDS[incident] ?? [];
@@ -3127,8 +3265,12 @@ function renderIncidentChoice(
   const living = Object.entries(state.loop.board)
     .filter(([, position]) => isCharacterAlive(position))
     .map(([character]) => character);
-  const characterSelect = (field: string, label: string) => {
-    const draftKey = incidentDraftKey(field);
+  const characterSelect = (
+    field: string,
+    label: string,
+    resolution: number,
+  ) => {
+    const draftKey = incidentDraftKey(field, resolution);
     return `
     <label>
       <span>${escapeHtml(label)}</span>
@@ -3141,16 +3283,19 @@ function renderIncidentChoice(
       </select>
     </label>`;
   };
-  const locationDraftKey = incidentDraftKey("location");
-  const counterDraftKey = incidentDraftKey("counter");
-
-  return `
-    <div class="incident-choice">
+  const resolutionFields = (resolution: number) => {
+    const locationDraftKey = incidentDraftKey("location", resolution);
+    const counterDraftKey = incidentDraftKey("counter", resolution);
+    return `
       ${fields.includes("target")
-        ? characterSelect("target", misc("Target", "Target"))
+        ? characterSelect("target", misc("Target", "Target"), resolution)
         : ""}
       ${fields.includes("otherTarget")
-        ? characterSelect("otherTarget", misc("Other target", "Other target"))
+        ? characterSelect(
+          "otherTarget",
+          misc("Other target", "Other target"),
+          resolution,
+        )
         : ""}
       ${fields.includes("location")
         ? `<label><span>${escapeHtml(misc("Location", "Location"))}</span>
@@ -3169,7 +3314,14 @@ function renderIncidentChoice(
               <option value="paranoia" ${selectedDraftOption(counterDraftKey, "paranoia")}>${escapeHtml(misc("Paranoia"))}</option>
               <option value="intrigue" ${selectedDraftOption(counterDraftKey, "intrigue")}>${escapeHtml(misc("Intrigue"))}</option>
             </select></label>`
-        : ""}
+        : ""}`;
+  };
+  const repeated = culprit === "sectFounder";
+  return `
+    <div class="incident-choice ${repeated ? "is-repeated" : ""}">
+      ${repeated ? "<strong>첫 번째 해결</strong>" : ""}
+      ${resolutionFields(1)}
+      ${repeated ? `<strong>두 번째 해결</strong>${resolutionFields(2)}` : ""}
     </div>`;
 }
 
@@ -3246,7 +3398,12 @@ function renderTodayIncidents(
           <span>${mark(!culpritSuppressed)} 발생 억제 없음</span>
         </div>
         ${interactive
-          ? renderIncidentChoice(state, incident, fires && !effectSuppressed)
+          ? renderIncidentChoice(
+            state,
+            incident,
+            culprit,
+            fires && !effectSuppressed,
+          )
           : ""}
       </article>`;
   }).join("");
@@ -5584,7 +5741,8 @@ function render(preserveInferenceCache = false): void {
       </main>
       ${renderOperationDock(state)}
       ${renderCharacterModal(state)}
-      ${renderLocationModal(state)}`
+      ${renderLocationModal(state)}
+      ${renderLittleSisterBorrowingModal(state)}`
     : renderGameFlow(state);
 
   root.innerHTML = `
@@ -5647,19 +5805,30 @@ function render(preserveInferenceCache = false): void {
 }
 
 function incidentChoiceFromDraft(): IncidentChoice | undefined {
-  const field = (name: string): string | undefined =>
-    draftValue(incidentDraftKey(name)) || undefined;
-  const target = field("target");
-  const otherTarget = field("otherTarget");
-  const location = field("location");
-  const counter = field("counter");
-  if (!target && !otherTarget && !location && !counter) return undefined;
-  return {
-    target,
-    otherTarget,
-    location: location as Location | undefined,
-    counter: counter as IncidentCounter | undefined,
+  const resolutionChoice = (resolution: number) => {
+    const field = (name: string): string | undefined =>
+      draftValue(incidentDraftKey(name, resolution)) || undefined;
+    const target = field("target");
+    const otherTarget = field("otherTarget");
+    const location = field("location");
+    const counter = field("counter");
+    if (!target && !otherTarget && !location && !counter) return undefined;
+    return {
+      target,
+      otherTarget,
+      location: location as Location | undefined,
+      counter: counter as IncidentCounter | undefined,
+    };
   };
+  const first = resolutionChoice(1);
+  const scheduled = currentState().scenario.incidents.find(
+    ({ day }) => day === currentState().loop.day,
+  );
+  const second = scheduled?.culprit === "sectFounder"
+    ? resolutionChoice(2)
+    : undefined;
+  if (first === undefined && second === undefined) return undefined;
+  return { ...first, ...(second === undefined ? {} : { secondResolution: second }) };
 }
 
 function decodeTarget(value: string | undefined): Target | undefined {
@@ -5806,6 +5975,7 @@ function revealActionCards(): void {
       items,
     };
     selectedHandCard = undefined;
+    littleSisterBorrowing = undefined;
     operationSheetOpen = false;
     optionalHookSelections.clear();
     notice = "";
@@ -5837,6 +6007,7 @@ function resolveGoodwillFromButton(button: HTMLButtonElement): void {
   const game = tracker.games[entry.id];
   const transaction = captureUiTransaction(game);
   const character = button.dataset.character;
+  const abilityOwner = button.dataset.abilityOwner;
   const rank = Number(button.dataset.rank);
   const abilityIndex = Number(button.dataset.abilityIndex);
   const key = button.dataset.goodwillKey;
@@ -5856,9 +6027,13 @@ function resolveGoodwillFromButton(button: HTMLButtonElement): void {
   const revealValue = goodwillInput("reveal");
 
   try {
-    const view = goodwillAbilityViews(game.state).find(
-      (candidate) => candidate.key === key,
-    );
+    const view = abilityOwner === undefined
+      ? goodwillAbilityViews(game.state).find(
+        (candidate) => candidate.key === key,
+      )
+      : littleSisterBorrowingOptions(game.state)
+        .find(({ owner }) => owner === abilityOwner)
+        ?.abilities.find((candidate) => candidate.key === key);
     if (!view) {
       throw new Error(`missing goodwill ability view "${key}"`);
     }
@@ -5910,6 +6085,7 @@ function resolveGoodwillFromButton(button: HTMLButtonElement): void {
       game.state,
       {
         user: character,
+        ...(abilityOwner === undefined ? {} : { abilityOwner }),
         rank,
         abilityIndex,
         target,
@@ -5926,6 +6102,7 @@ function resolveGoodwillFromButton(button: HTMLButtonElement): void {
     notice = "";
     saveState(entry.id, game.state, `goodwill-${response}`);
     clearGoodwillDraft(key);
+    littleSisterBorrowing = undefined;
     render();
   } catch (error) {
     rollbackUiTransaction(
@@ -5983,6 +6160,7 @@ function advanceCurrentPhase(): void {
       );
     }
     selectedHandCard = undefined;
+    littleSisterBorrowing = undefined;
     operationSheetOpen = false;
     if (phaseBefore !== "P5_MASTERMIND_ABILITY") {
       resolutionReceipt = undefined;
@@ -6086,6 +6264,52 @@ root.addEventListener("click", (event) => {
 
   if (action === "close-operation-sheet") {
     operationSheetOpen = false;
+    render();
+    return;
+  }
+
+  if (action === "close-little-sister-borrowing") {
+    littleSisterBorrowing = undefined;
+    render();
+    return;
+  }
+
+  if (action === "open-little-sister-borrowing") {
+    littleSisterBorrowing = {};
+    notice = "";
+    render();
+    return;
+  }
+
+  if (action === "little-sister-owner") {
+    const owner = button.dataset.owner;
+    if (
+      owner === undefined ||
+      !littleSisterBorrowingOptions(currentState()).some(
+        (option) => option.owner === owner,
+      )
+    ) return;
+    littleSisterBorrowing = { owner };
+    render();
+    return;
+  }
+
+  if (action === "little-sister-ability") {
+    const owner = littleSisterBorrowing?.owner;
+    const abilityIndex = Number(button.dataset.abilityIndex);
+    const view = littleSisterBorrowingOptions(currentState())
+      .find((option) => option.owner === owner)
+      ?.abilities.find((ability) => ability.abilityIndex === abilityIndex);
+    if (owner === undefined || view?.disabledReason !== undefined) return;
+    littleSisterBorrowing = { owner, abilityIndex };
+    render();
+    return;
+  }
+
+  if (action === "little-sister-back") {
+    littleSisterBorrowing = littleSisterBorrowing?.abilityIndex === undefined
+      ? {}
+      : { owner: littleSisterBorrowing.owner };
     render();
     return;
   }
@@ -6456,6 +6680,10 @@ root.addEventListener("change", (event) => {
       render();
       return;
     }
+    if (control.dataset.goodwillTarget === "youngGirl:goodwill:1") {
+      render();
+      return;
+    }
     if (action === "goodwill-subplot-declaration") {
       syncGoodwillSubplotRevealOptions(control as HTMLSelectElement);
     }
@@ -6588,6 +6816,7 @@ root.addEventListener("change", (event) => {
     resolutionReceipt = undefined;
     openCharacterModal = undefined;
     openLocationModal = undefined;
+    littleSisterBorrowing = undefined;
     phaseLogFilter = undefined;
     finalGuessConfirmationOpen = false;
     operationSheetOpen = false;

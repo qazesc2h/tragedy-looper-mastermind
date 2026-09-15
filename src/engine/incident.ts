@@ -138,7 +138,8 @@ export function resolveIncident(
   }
 
   // 검은 고양이는 사건이 발생한 뒤 효과만 "효과 없음"으로 바꾼다.
-  const effectResult = scheduled.culprit === "blackCat"
+  const beforeEffects = structuredClone(state.loop);
+  const firstEffect = scheduled.culprit === "blackCat"
     ? { effectApplied: false }
     : resolveIncidentEffectResult(
       state,
@@ -146,6 +147,17 @@ export function resolveIncident(
       scheduled.culprit,
       choice,
     );
+  let effectApplied = firstEffect.effectApplied;
+  if (scheduled.culprit === "sectFounder" && firstEffect.effectApplied) {
+    const secondEffect = resolveIncidentEffectResult(
+      state,
+      scheduled.incident,
+      scheduled.culprit,
+      choice?.secondResolution,
+    );
+    effectApplied = secondEffect.effectApplied || effectApplied;
+  }
+  const publicChanges = publicBoardChanges(beforeEffects, state.loop);
 
   const firedIncidents = state.loop.incidentsFiredThisLoop ??= [];
   if (!firedIncidents.includes(scheduled.incident)) {
@@ -160,9 +172,9 @@ export function resolveIncident(
     firedOccurrences.push({ ...scheduled });
   }
 
-  if (effectResult.publicChanges !== undefined) {
-    resolvedIncidentPublicChanges.set(state, effectResult.publicChanges);
+  if (publicChanges.length > 0) {
+    resolvedIncidentPublicChanges.set(state, publicChanges);
   }
 
-  return { ...base, fired: true, effectApplied: effectResult.effectApplied };
+  return { ...base, fired: true, effectApplied };
 }
