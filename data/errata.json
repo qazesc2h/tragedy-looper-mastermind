@@ -1,5 +1,5 @@
 {
-  "_note": "게임사 정오표. 원본 인쇄물의 오류를 정정한 내용. upstream 데이터는 원본을 충실히 옮긴 것이므로 여기서 덮어쓴다.",
+  "_note": "게임사 정오표. 원본 인쇄물의 오류를 정정한 내용. 시나리오 데이터 보정은 corrections에서 덮어쓰고, 이미 구현이 정정 내용과 일치하는 캐릭터 능력은 characterAbilityCorrections에 근거를 기록한다.",
   "corrections": [
     {
       "scenario": "basicTragedy:12",
@@ -9,6 +9,21 @@
       "corrected": "person",
       "source": "게임사 정오표",
       "verifiedBy": "사용자 실물 확인"
+    }
+  ],
+  "characterAbilityCorrections": [
+    {
+      "character": "ai",
+      "ability": "두 번째 특성",
+      "field": "description",
+      "printed": "...모든 카운터를 불안 카운터로 취급할 수 있다",
+      "corrected": "...모든 카운터를 불안 카운터로 취급한다",
+      "interpretation": "mandatory",
+      "source": "MTS Q&A '문구 오류가 있었던 AI 카드에 관하여' 답변",
+      "answeredAt": "2024-04-18",
+      "verifiedBy": "사용자 확인",
+      "implementation": "src/engine/incident.ts incidentParanoia()",
+      "runtimeChangeRequired": false
     }
   ]
 }

@@ -11,9 +11,24 @@ export interface ScenarioErratum {
   verifiedBy: string;
 }
 
+export interface CharacterAbilityErratum {
+  character: CharacterId;
+  ability: string;
+  field: string;
+  printed: string;
+  corrected: string;
+  interpretation: "mandatory" | "optional";
+  source: string;
+  answeredAt: string;
+  verifiedBy: string;
+  implementation: string;
+  runtimeChangeRequired: boolean;
+}
+
 interface ErrataFile {
   _note: string;
   corrections: ScenarioErratum[];
+  characterAbilityCorrections: CharacterAbilityErratum[];
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -30,10 +45,20 @@ function requireString(
   return value;
 }
 
+function requireBoolean(value: unknown, context: string): boolean {
+  if (typeof value !== "boolean") {
+    throw new Error(`${context} must be a boolean`);
+  }
+  return value;
+}
+
 function parseErrataFile(value: unknown): ErrataFile {
   if (!isRecord(value)) throw new Error("errata must be an object");
   if (!Array.isArray(value.corrections)) {
     throw new Error("errata.corrections must be an array");
+  }
+  if (!Array.isArray(value.characterAbilityCorrections)) {
+    throw new Error("errata.characterAbilityCorrections must be an array");
   }
 
   const seenFields = new Set<string>();
@@ -62,15 +87,53 @@ function parseErrataFile(value: unknown): ErrataFile {
     };
   });
 
+  const characterAbilityCorrections = value.characterAbilityCorrections.map(
+    (entry, index): CharacterAbilityErratum => {
+      const context = `errata.characterAbilityCorrections[${index}]`;
+      if (!isRecord(entry)) throw new Error(`${context} must be an object`);
+      const interpretation = requireString(
+        entry.interpretation,
+        `${context}.interpretation`,
+      );
+      if (interpretation !== "mandatory" && interpretation !== "optional") {
+        throw new Error(
+          `${context}.interpretation must be mandatory or optional`,
+        );
+      }
+      return {
+        character: requireString(entry.character, `${context}.character`),
+        ability: requireString(entry.ability, `${context}.ability`),
+        field: requireString(entry.field, `${context}.field`),
+        printed: requireString(entry.printed, `${context}.printed`),
+        corrected: requireString(entry.corrected, `${context}.corrected`),
+        interpretation,
+        source: requireString(entry.source, `${context}.source`),
+        answeredAt: requireString(entry.answeredAt, `${context}.answeredAt`),
+        verifiedBy: requireString(entry.verifiedBy, `${context}.verifiedBy`),
+        implementation: requireString(
+          entry.implementation,
+          `${context}.implementation`,
+        ),
+        runtimeChangeRequired: requireBoolean(
+          entry.runtimeChangeRequired,
+          `${context}.runtimeChangeRequired`,
+        ),
+      };
+    },
+  );
+
   return {
     _note: requireString(value._note, "errata._note"),
     corrections,
+    characterAbilityCorrections,
   };
 }
 
 const errata = parseErrataFile(errataJson);
 
 export const ERRATA_NOTE = errata._note;
+export const CHARACTER_ABILITY_ERRATA: readonly CharacterAbilityErratum[] =
+  errata.characterAbilityCorrections;
 
 export function scenarioErrataFor(
   scenarioId: string,

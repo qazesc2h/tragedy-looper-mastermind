@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import basicTragedyScriptsJson from "../data/basic-tragedy-scripts.json";
 import errataJson from "../data/errata.json";
 import { adaptTragedyScript } from "../src/data";
-import { ERRATA_NOTE } from "../src/errata";
+import { CHARACTER_ABILITY_ERRATA, ERRATA_NOTE } from "../src/errata";
 import { validateScenario } from "../src/engine/validate";
 import {
   loadBasicTragedyScenarioCatalog,
@@ -11,6 +11,20 @@ import {
 } from "../src/scenario-catalog";
 
 describe("scenario errata overlay", () => {
+  it("records the mandatory AI counter wording without a runtime patch", () => {
+    expect(CHARACTER_ABILITY_ERRATA).toEqual(
+      errataJson.characterAbilityCorrections,
+    );
+    expect(CHARACTER_ABILITY_ERRATA).toContainEqual(expect.objectContaining({
+      character: "ai",
+      ability: "두 번째 특성",
+      printed: "...모든 카운터를 불안 카운터로 취급할 수 있다",
+      corrected: "...모든 카운터를 불안 카운터로 취급한다",
+      interpretation: "mandatory",
+      runtimeChangeRequired: false,
+    }));
+  });
+
   it("preserves only non-empty scenario special rules", () => {
     const ordinary = adaptTragedyScript(basicTragedyScriptsJson[0]);
     const special = adaptTragedyScript(basicTragedyScriptsJson[13]);
