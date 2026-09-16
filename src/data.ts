@@ -3,7 +3,10 @@ import charactersJson from "../data/characters.json";
 import firstStepsScriptsJson from "../data/first-steps-scripts.json";
 import goodwillAbilitiesJson from "../data/goodwill-abilities.json";
 import koTranslationsJson from "../data/ko-translations.json";
-import { validateScenario } from "./engine/validate";
+import {
+  scenarioValidationErrorMessages,
+  validateScenario,
+} from "./engine/validate";
 import { applyScenarioErrata } from "./errata";
 
 import type {
@@ -423,7 +426,7 @@ export function adaptTragedyScript(
   if (options.skipValidation !== true) {
     const validation = validateScenario(scenario);
     if (!validation.ok) {
-      throw new Error(validation.errors.join("\n"));
+      throw new Error(scenarioValidationErrorMessages(validation).join("\n"));
     }
   }
   return scenario;

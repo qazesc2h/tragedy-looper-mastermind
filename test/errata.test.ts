@@ -4,7 +4,10 @@ import basicTragedyScriptsJson from "../data/basic-tragedy-scripts.json";
 import errataJson from "../data/errata.json";
 import { adaptTragedyScript } from "../src/data";
 import { CHARACTER_ABILITY_ERRATA, ERRATA_NOTE } from "../src/errata";
-import { validateScenario } from "../src/engine/validate";
+import {
+  scenarioValidationErrorMessages,
+  validateScenario,
+} from "../src/engine/validate";
 import {
   loadBasicTragedyScenarioCatalog,
   loadScenarioCatalog,
@@ -57,17 +60,20 @@ describe("scenario errata overlay", () => {
     });
     expect(validateScenario(printed)).toEqual({
       ok: false,
-      errors: [
-        "역할 수: 선동가 역할은 선택된 룰에서 최대 1명까지 " +
+      diagnostics: [{
+        path: "cast.informer",
+        code: "ROLE_COUNT_EXCEEDED",
+        severity: "error",
+        message: "역할 수: 선동가 역할은 선택된 룰에서 최대 1명까지 " +
           "배정할 수 있지만 현재 2명입니다.",
-      ],
+      }],
     });
 
     const corrected = adaptTragedyScript(basicTragedyScriptsJson[11], {
       scenarioId: "basicTragedy:12",
     });
     expect(corrected.cast.informer).toBe("person");
-    expect(validateScenario(corrected)).toEqual({ ok: true, errors: [] });
+    expect(validateScenario(corrected)).toEqual({ ok: true, diagnostics: [] });
   });
 });
 
@@ -84,7 +90,7 @@ describe("maximum role count validation", () => {
     scenario.cast.boyStudent = "conspiracyTheorist";
     scenario.cast.girlStudent = "conspiracyTheorist";
 
-    expect(validateScenario(scenario).errors).toContain(
+    expect(scenarioValidationErrorMessages(validateScenario(scenario))).toContain(
       "역할 수: 선동가 역할은 선택된 룰에서 최대 1명까지 " +
         "배정할 수 있지만 현재 2명입니다.",
     );
@@ -94,8 +100,8 @@ describe("maximum role count validation", () => {
     const catalog = loadScenarioCatalog();
     for (const id of ["basicTragedy:7", "basicTragedy:17"]) {
       const entry = catalog.find((candidate) => candidate.id === id);
-      expect(entry?.validation.errors.filter((error) =>
-        error.startsWith("역할 수:")
+      expect(entry?.validation.diagnostics.filter(({ code }) =>
+        code === "ROLE_COUNT_EXCEEDED"
       ), id).toEqual([]);
     }
   });
@@ -103,9 +109,13 @@ describe("maximum role count validation", () => {
   it("finds no remaining role-count violations in all 29 corrected scripts", () => {
     const failures = loadScenarioCatalog().flatMap((entry) =>
       entry.difficulties.flatMap(({ index, validation }) =>
-        validation.errors
-          .filter((error) => error.startsWith("역할 수:"))
-          .map((error) => ({ id: entry.id, difficulty: index, error }))
+        validation.diagnostics
+          .filter(({ code }) => code === "ROLE_COUNT_EXCEEDED")
+          .map((diagnostic) => ({
+            id: entry.id,
+            difficulty: index,
+            diagnostic,
+          }))
       )
     );
     expect(failures).toEqual([]);

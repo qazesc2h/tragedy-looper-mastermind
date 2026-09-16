@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { validateScenario } from "../src/engine/validate";
+import {
+  scenarioValidationErrorMessages,
+  validateScenario,
+} from "../src/engine/validate";
 import {
   assertOfficialScenariosValid,
   loadBasicTragedyScenarioCatalog,
@@ -48,7 +51,7 @@ describe("tragedy set definitions", () => {
       loadFirstStepsScenarioCatalog()[0].scenario,
     ) as Scenario;
     first.subPlots.push("unsettlingRumor");
-    expect(validateScenario(first).errors).toContain(
+    expect(scenarioValidationErrorMessages(validateScenario(first))).toContain(
       "룰 X: firstSteps 참극 세트는 1개를 사용해야 합니다. 현재 2개입니다.",
     );
 
@@ -56,7 +59,7 @@ describe("tragedy set definitions", () => {
       loadBasicTragedyScenarioCatalog()[0].scenario,
     ) as Scenario;
     basic.subPlots.pop();
-    expect(validateScenario(basic).errors).toContain(
+    expect(scenarioValidationErrorMessages(validateScenario(basic))).toContain(
       "룰 X: basicTragedy 참극 세트는 2개를 사용해야 합니다. 현재 1개입니다.",
     );
   });
@@ -66,7 +69,7 @@ describe("tragedy set definitions", () => {
       loadFirstStepsScenarioCatalog()[0].scenario,
     ) as Scenario;
     first.cast.mysteryBoy = "witch";
-    expect(validateScenario(first).errors).toContain(
+    expect(scenarioValidationErrorMessages(validateScenario(first))).toContain(
       "아웃사이더: 현재 참극 세트에 없는 역할을 배정할 수 없습니다. " +
         "현재 참극 세트의 역할 중 활성 룰에서 추가되지 않는 역할을 " +
         "배정해야 합니다.",
@@ -84,7 +87,7 @@ describe("bundled firstSteps scenarios", () => {
         expect(
           difficulty.validation,
           `${entry.id} ${entry.rawTitle} difficulty ${difficulty.index}`,
-        ).toEqual({ ok: true, errors: [] });
+        ).toEqual({ ok: true, diagnostics: [] });
       }
     }
     expect(() => assertOfficialScenariosValid(entries)).not.toThrow();
@@ -138,21 +141,67 @@ describe("bundled firstSteps scenarios", () => {
       }
       expect(validateScenario(scenario), `curmudgeons=${count}`).toEqual({
         ok: true,
-        errors: [],
+        diagnostics: [],
       });
     }
 
     const invalid = structuredClone(source) as Scenario;
-    for (const character of Object.keys(invalid.cast).slice(0, 3)) {
+    const curmudgeons = Object.keys(invalid.cast).slice(0, 3);
+    for (const character of curmudgeons) {
       invalid.cast[character] = "curmudgeon";
     }
-    expect(validateScenario(invalid).errors).toContain(
+    const validation = validateScenario(invalid);
+    expect(scenarioValidationErrorMessages(validation)).toContain(
       "최악의 시나리오: 골칫거리는 0~2명이어야 합니다. 현재 3명입니다.",
     );
+    expect(validation.diagnostics).toContainEqual(expect.objectContaining({
+      path: `cast.${curmudgeons[2]}`,
+      code: "HIDEOUS_SCRIPT_CURMUDGEON_COUNT_EXCEEDED",
+    }));
   });
 });
 
 describe("basic tragedy regression", () => {
+  it("validates all 47 bundled difficulty variants with only Trouble in Paradise rejected", () => {
+    const difficulties = loadScenarioCatalog()
+      .filter(({ id }) => id !== "community:naughty-cat")
+      .flatMap((entry) =>
+        entry.difficulties.map(({ index, validation }) => ({
+          title: entry.rawTitle,
+          index,
+          validation,
+        }))
+      );
+    expect(difficulties).toHaveLength(47);
+    expect(difficulties.filter(({ validation }) => !validation.ok).map(
+      ({ title, index, validation }) => ({
+        title,
+        index,
+        diagnostics: validation.diagnostics.map(({ path, code }) => ({
+          path,
+          code,
+        })),
+      }),
+    )).toEqual([
+      {
+        title: "Trouble in Paradise",
+        index: 0,
+        diagnostics: [{
+          path: "cast.mysteryBoy",
+          code: "MYSTERY_BOY_ROLE_IS_PERSON",
+        }],
+      },
+      {
+        title: "Trouble in Paradise",
+        index: 1,
+        diagnostics: [{
+          path: "cast.mysteryBoy",
+          code: "MYSTERY_BOY_ROLE_IS_PERSON",
+        }],
+      },
+    ]);
+  });
+
   it("keeps 22 upstream scripts plus the local community scenario", () => {
     const entries = loadBasicTragedyScenarioCatalog();
     expect(entries).toHaveLength(23);

@@ -80,6 +80,7 @@ import {
 } from "../engine/hypothesis";
 import { applyHookEffect, collectHooks } from "../engine/phases";
 import { recordPhaseLog } from "../engine/phase-log";
+import { scenarioValidationErrorMessages } from "../engine/validate";
 import {
   publicBoardChanges,
   publicObservationContext,
@@ -730,7 +731,7 @@ function startFreshScenario(
 ): void {
   const difficulty = scenarioAtDifficulty(entry, difficultyIndex);
   if (!difficulty.validation.ok) {
-    notice = difficulty.validation.errors.join(" ");
+    notice = scenarioValidationErrorMessages(difficulty.validation).join(" ");
     render();
     return;
   }
@@ -5685,7 +5686,7 @@ function renderScenarioSelection(): void {
             : `<aside class="scenario-trait-notice scenario-validation-warning">
                 <span class="eyebrow">${escapeHtml(scenarioValidationHeading(selectedEntry.source))}</span>
                 <strong>${escapeHtml(selectedEntry.title)} · 시작 불가</strong>
-                <p>${escapeHtml(selectedDifficulty?.validation.errors.join(" ") ?? "난이도 정보를 읽을 수 없습니다.")}</p>
+                <p>${escapeHtml(selectedDifficulty === undefined ? "난이도 정보를 읽을 수 없습니다." : scenarioValidationErrorMessages(selectedDifficulty.validation).join(" "))}</p>
               </aside>`}
           <div class="flow-actions primary-actions">
             <button type="button" class="next-phase" data-action="start-selected-scenario"

@@ -59,7 +59,7 @@ describe("community scenario: 못된 고양이", () => {
       rawTitle: "못된 고양이",
       creator: "갱하",
       source: "community",
-      validation: { ok: true, errors: [] },
+      validation: { ok: true, diagnostics: [] },
     });
     expect(entry.mastermindHints).toBe(source.mastermindHints);
     expect(entry.victoryConditions).toBe(source["victory-conditions"]);

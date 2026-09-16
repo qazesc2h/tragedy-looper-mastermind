@@ -9,6 +9,7 @@ import {
   type ScriptDifficulty,
 } from "./data";
 import {
+  scenarioValidationErrorMessages,
   validateScenario,
   type ScenarioValidationResult,
 } from "./engine/validate";
@@ -218,7 +219,7 @@ export function assertOfficialScenariosValid(
 
   throw new Error(failures.map(({ entry, index, validation }) =>
     `${entry.id} ${entry.rawTitle} 난이도 ${index + 1}: ` +
-    validation.errors.join(" ")
+    scenarioValidationErrorMessages(validation).join(" ")
   ).join("\n"));
 }
 
