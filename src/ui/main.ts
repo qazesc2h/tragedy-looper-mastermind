@@ -80,7 +80,7 @@ import {
 } from "../engine/hypothesis";
 import { applyHookEffect, collectHooks } from "../engine/phases";
 import { recordPhaseLog } from "../engine/phase-log";
-import { scenarioValidationErrorMessages } from "../engine/validate";
+import { scenarioValidationErrorMessages, validateScenario } from "../engine/validate";
 import {
   publicBoardChanges,
   publicObservationContext,
@@ -102,6 +102,7 @@ import {
   scenarioValidationHeading,
   type ScenarioCatalogEntry,
 } from "../scenario-catalog";
+import { UserScenarioRepository, type UserScenarioDocument } from "../user-scenarios";
 import {
   rolesForTragedySet,
   tragedySetDefinition,
@@ -299,12 +300,43 @@ const INCIDENT_CHOICE_FIELDS: Record<string, readonly string[]> = {
 const MYSTERY_BOY_PLOT_LESS_ROLE_TEXT =
   "항상 현재 어느 룰로도 정해지지 않은 역할을 맡습니다.";
 
-const scenarioEntries: ScenarioEntry[] = loadScenarioCatalog().map(
+const bundledScenarioEntries: ScenarioEntry[] = loadScenarioCatalog().map(
   ({ rawTitle, ...entry }) => ({
     ...entry,
     title: gameText(rawTitle),
   }),
 );
+const scenarioEntries: ScenarioEntry[] = [...bundledScenarioEntries];
+let userScenarios = new UserScenarioRepository(window.localStorage);
+
+function userScenarioEntry(document: UserScenarioDocument): ScenarioEntry {
+  const scenario = structuredClone(document.scenario);
+  const validation = validateScenario(scenario);
+  return {
+    id: document.id,
+    title: document.title,
+    creator: document.creator,
+    scenario,
+    difficulties: [{
+      index: 0,
+      numberOfLoops: scenario.loops,
+      difficulty: scenario.difficulty ?? 0,
+      scenario,
+      validation,
+    }],
+    source: "user",
+    validation,
+    errata: [],
+  };
+}
+
+function refreshUserScenarioEntries(): void {
+  scenarioEntries.splice(0, scenarioEntries.length,
+    ...bundledScenarioEntries,
+    ...userScenarios.listScenarios().map(userScenarioEntry));
+}
+
+refreshUserScenarioEntries();
 
 function requireUiRoot(): HTMLElement {
   const element = document.getElementById("app");
@@ -316,6 +348,7 @@ const root = requireUiRoot();
 
 let notice = "";
 let storageWriteWarning = "";
+let userLibraryOpen = false;
 let selectedHandCard: SelectedHandCard | undefined;
 let resolutionReceipt: ResolutionReceipt | undefined;
 let openCharacterModal: CharacterId | undefined;
@@ -406,6 +439,9 @@ try {
 } catch (error) {
   tracker = emptyTrackerStore();
   notice = errorMessage(error);
+}
+if (userScenarios.loadDiagnostics.length > 0) {
+  storageWriteWarning = "사용자 시나리오 저장 데이터를 읽을 수 없습니다. 기존 데이터는 덮어쓰지 않습니다.";
 }
 
 function errorMessage(error: unknown): string {
@@ -763,11 +799,14 @@ function requestNewGame(): void {
 }
 
 function requestCompleteStorageDeletion(): void {
-  const warning = "경고: 이 앱의 모든 저장 데이터를 완전히 삭제합니다. 모든 게임 진행과 설정이 사라지며 되돌릴 수 없습니다. 계속하시겠습니까?";
+  const warning = "경고: 이 앱의 모든 저장 데이터를 완전히 삭제합니다. 게임 진행, 사용자 시나리오와 편집 중 초안도 사라지며 되돌릴 수 없습니다. 필요한 각본은 먼저 내보내세요. 계속하시겠습니까?";
   if (!window.confirm(warning)) return;
   try {
     clearAppStorage(window.localStorage);
     tracker = emptyTrackerStore();
+    userScenarios = new UserScenarioRepository(window.localStorage);
+    refreshUserScenarioEntries();
+    storageWriteWarning = "";
     resetTransientUi();
     notice = "";
   } catch (error) {
@@ -5692,6 +5731,30 @@ function renderScenarioSelection(): void {
             <button type="button" class="next-phase" data-action="start-selected-scenario"
               ${selectedDifficulty?.validation.ok === true ? "" : "disabled"}>게임 시작</button>
           </div>
+          <details class="user-scenario-library" ${userLibraryOpen ? "open" : ""}>
+            <summary>사용자 시나리오 · 초안 관리</summary>
+            <p>번들은 읽기 전용입니다. 선택한 난이도를 복제하면 별도 사용자 시나리오로 저장됩니다.</p>
+            <div class="flow-actions">
+              <button type="button" data-action="clone-selected-scenario"
+                ${selectedDifficulty?.validation.ok === true ? "" : "disabled"}>선택한 시나리오 복제</button>
+              <button type="button" data-action="import-user-document">JSON 가져오기</button>
+              <input type="file" accept="application/json,.json" data-user-document-file hidden />
+            </div>
+            <p>사용자 시나리오 ${userScenarios.listScenarios().length}개 · 편집 중 초안 ${userScenarios.listDrafts().length}개</p>
+            <ul class="user-scenario-list">
+              ${[...userScenarios.listScenarios(), ...userScenarios.listDrafts()].map((document) => `
+                <li>
+                  <span>${escapeHtml(document.title)} · ${document.id.startsWith("user:") ? "사용자 작성" : "편집 중 초안"}</span>
+                  <div class="flow-actions">
+                    <button type="button" data-action="export-user-document" data-document-id="${escapeHtml(document.id)}">내보내기</button>
+                    <button type="button" data-action="rename-user-document" data-document-id="${escapeHtml(document.id)}">이름 변경</button>
+                    <button type="button" data-action="duplicate-user-document" data-document-id="${escapeHtml(document.id)}">복제</button>
+                    <button type="button" data-action="delete-user-document" data-document-id="${escapeHtml(document.id)}">삭제</button>
+                  </div>
+                </li>`).join("")}
+            </ul>
+            ${userScenarios.listDrafts().length === 0 ? "" : "<p>초안은 보존되어 있으며 편집기 화면은 4단계에서 연결됩니다.</p>"}
+          </details>
           ${previewState === undefined || previewRuleSummary === undefined ||
               previewDeductionSummary === undefined
             ? ""
@@ -5717,6 +5780,33 @@ function renderScenarioSelection(): void {
       ${renderSiteFooter()}
     </div>`;
   scheduleNoticeDismiss();
+}
+
+function downloadUserDocument(id: string): void {
+  const json = userScenarios.exportDocument(id);
+  if (json === undefined) return;
+  const blob = new Blob([json], { type: "application/json;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${id.replaceAll(":", "-")}.json`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+function showUserDocumentResult(result: { ok: boolean; diagnostics: { message: string }[]; value?: { id: string } }): void {
+  if (result.ok || result.value?.id !== undefined) refreshUserScenarioEntries();
+  if (result.ok) {
+    notice = "사용자 문서를 저장했습니다.";
+    storageWriteWarning = userScenarios.isDirty("user") || userScenarios.isDirty("draft")
+      ? "저장되지 않은 사용자 문서가 있습니다. 새로고침 전에 JSON으로 내보내세요."
+      : "";
+  } else {
+    storageWriteWarning = result.diagnostics.map(({ message }) => message).join(" ");
+  }
+  render();
 }
 
 function render(preserveInferenceCache = false): void {
@@ -6201,6 +6291,10 @@ window.addEventListener("unhandledrejection", (event) => {
 root.addEventListener("toggle", (event) => {
   const details = event.target;
   if (!(details instanceof HTMLDetailsElement)) return;
+  if (details.classList.contains("user-scenario-library")) {
+    userLibraryOpen = details.open;
+    return;
+  }
   const key = details.dataset.lazyPanel;
   if (key === undefined) return;
   if (details.open === lazyPanelIsOpen(key)) return;
@@ -6220,6 +6314,62 @@ root.addEventListener("click", (event) => {
   );
   if (!button) return;
   const action = button.dataset.action;
+
+  if (action === "clone-selected-scenario") {
+    const selected = scenarioEntries.find(({ id }) => id ===
+      (draftValue("new-game:scenario") || scenarioEntries[0]?.id));
+    const difficulty = selected?.difficulties.find(({ index }) =>
+      index === Number(draftValue("new-game:difficulty") || "0")) ??
+      selected?.difficulties[0];
+    if (selected !== undefined && difficulty?.validation.ok) {
+      showUserDocumentResult(userScenarios.saveScenario(
+        difficulty.scenario,
+        `${selected.title} 복사본`,
+        selected.creator,
+      ));
+    }
+    return;
+  }
+
+  if (action === "import-user-document") {
+    root.querySelector<HTMLInputElement>("[data-user-document-file]")?.click();
+    return;
+  }
+
+  if (action === "export-user-document") {
+    if (button.dataset.documentId) downloadUserDocument(button.dataset.documentId);
+    return;
+  }
+
+  if (action === "rename-user-document") {
+    const id = button.dataset.documentId;
+    if (!id) return;
+    const document = [...userScenarios.listScenarios(), ...userScenarios.listDrafts()]
+      .find((item) => item.id === id);
+    if (!document) return;
+    const title = window.prompt("새 이름을 입력하세요.", document.title);
+    if (title !== null) showUserDocumentResult(userScenarios.rename(id, title));
+    return;
+  }
+
+  if (action === "duplicate-user-document") {
+    if (button.dataset.documentId) showUserDocumentResult(userScenarios.duplicate(button.dataset.documentId));
+    return;
+  }
+
+  if (action === "delete-user-document") {
+    const id = button.dataset.documentId;
+    const document = [...userScenarios.listScenarios(), ...userScenarios.listDrafts()]
+      .find((item) => item.id === id);
+    if (id && document && window.confirm(`“${document.title}”을(를) 영구 삭제합니다. 되돌릴 수 없습니다. 계속하시겠습니까?`)) {
+      const result = userScenarios.delete(id);
+      if (result.ok && draftValue("new-game:scenario") === id) {
+        uiInputDrafts.delete("new-game:scenario");
+      }
+      showUserDocumentResult(result);
+    }
+    return;
+  }
 
   if (action === "toggle-operation-sheet") {
     const wasOpen = operationSheetOpen;
@@ -6657,6 +6807,16 @@ root.addEventListener("click", (event) => {
 
 root.addEventListener("change", (event) => {
   const control = event.target as HTMLInputElement | HTMLSelectElement;
+  if (control.matches("[data-user-document-file]")) {
+    const file = (control as HTMLInputElement).files?.[0];
+    if (file === undefined) return;
+    file.text().then((json) => showUserDocumentResult(userScenarios.importJson(json)))
+      .catch(() => {
+        storageWriteWarning = "파일을 읽을 수 없습니다. 기존 문서는 변경되지 않았습니다.";
+        render();
+      });
+    return;
+  }
   const action = control.dataset.action;
   const draftKey = control.dataset.uiDraftKey;
   if (action === "phase-log-character-filter") {

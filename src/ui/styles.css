@@ -4558,6 +4558,32 @@ select {
   min-height: 44px;
 }
 
+.user-scenario-library {
+  margin-top: 22px;
+  border-top: 1px solid #453a2b;
+  padding-top: 14px;
+}
+
+.user-scenario-library summary {
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.user-scenario-list {
+  list-style: none;
+  padding: 0;
+}
+
+.user-scenario-list li {
+  border-top: 1px solid #453a2b;
+  padding: 10px 0;
+}
+
+.user-scenario-list .flow-actions {
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
 .final-guess-table {
   width: 100%;
   border-collapse: collapse;

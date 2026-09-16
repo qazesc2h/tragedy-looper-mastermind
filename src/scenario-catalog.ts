@@ -16,7 +16,7 @@ import {
 import { scenarioErrataFor, type ScenarioErratum } from "./errata";
 import type { Scenario } from "./types";
 
-export type ScenarioSource = "official" | "community" | "unknown";
+export type ScenarioSource = "official" | "community" | "unknown" | "user";
 
 export interface ScenarioDifficultyOption extends ScriptDifficulty {
   scenario: Scenario;
@@ -231,6 +231,8 @@ export function scenarioSourceLabel(source: ScenarioSource): string {
       return "팬 제작";
     case "unknown":
       return "출처 미확인";
+    case "user":
+      return "사용자 작성";
   }
 }
 
@@ -242,5 +244,7 @@ export function scenarioValidationHeading(source: ScenarioSource): string {
       return "팬 제작 시나리오 규칙 위반";
     case "unknown":
       return "출처 미확인 시나리오 규칙 위반";
+    case "user":
+      return "사용자 시나리오 규칙 위반";
   }
 }

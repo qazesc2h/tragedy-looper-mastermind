@@ -641,6 +641,80 @@
         }
       }
 
+      async function inspectUserScenarioPersistence() {
+        const currentWindow = frameWindow();
+        currentWindow.confirm = () => true;
+        const details = frameDocument().querySelector(".site-footer-details");
+        details.open = true;
+        details.querySelector("[data-action='new-game']").click();
+        await waitFor(
+          () => frameDocument().querySelector("[data-action='clone-selected-scenario']"),
+          "사용자 시나리오 복제 버튼",
+        );
+        click("[data-action='clone-selected-scenario']");
+        const stored = await waitFor(() => {
+          const raw = currentWindow.localStorage.getItem("tragedy-looper-mastermind:scenarios");
+          return raw === null ? null : JSON.parse(raw).documents?.[0];
+        }, "복제 시나리오 저장");
+        const id = stored.id;
+        await reloadApp("user-scenario-reload", ".scenario-selection-screen");
+        const option = frameDocument().querySelector(`[data-new-game-scenario] option[value='${id}']`);
+        const library = frameDocument().querySelector(".user-scenario-library");
+        const report = {
+          id,
+          persisted: Boolean(option),
+          userLabel: option?.textContent.includes("사용자 작성") ?? false,
+          listVisible: library?.textContent.includes(stored.title) ?? false,
+          horizontal: horizontalOverflow(),
+        };
+        reports.push({ label: "사용자 시나리오 복제·새로고침", ...report });
+        if (!report.persisted || !report.userLabel || !report.listVisible ||
+          report.horizontal.scrollWidth > WIDTH) {
+          failures.push(`사용자 시나리오 복제·새로고침: ${JSON.stringify(report)}`);
+        }
+        const exportButton = frameDocument().querySelector(
+          `[data-action='export-user-document'][data-document-id='${id}']`,
+        );
+        const importInput = frameDocument().querySelector("[data-user-document-file]");
+        if (!exportButton || !importInput) {
+          failures.push("사용자 시나리오 가져오기·내보내기 버튼 없음");
+        } else {
+          const file = new currentWindow.File(
+            [JSON.stringify({
+              format: "tragedy-looper-mastermind:scenario",
+              schemaVersion: 1,
+              document: stored,
+            })],
+            "scenario.json",
+            { type: "application/json" },
+          );
+          const transfer = new currentWindow.DataTransfer();
+          transfer.items.add(file);
+          importInput.files = transfer.files;
+          importInput.dispatchEvent(new currentWindow.Event("change", { bubbles: true }));
+          const imported = await waitFor(() => {
+            const raw = currentWindow.localStorage.getItem("tragedy-looper-mastermind:scenarios");
+            const documents = raw === null ? [] : JSON.parse(raw).documents;
+            return documents.length === 2 ? documents[1] : null;
+          }, "JSON 가져오기");
+          const importReport = {
+            differentId: imported.id !== id,
+            sameScenario: JSON.stringify(imported.scenario) === JSON.stringify(stored.scenario),
+            otherDomainUntouched: currentWindow.localStorage.getItem("tragedy-looper-ko:tracker:v1") === null,
+          };
+          reports.push({ label: "사용자 시나리오 JSON 가져오기", ...importReport });
+          if (!importReport.differentId || !importReport.sameScenario || !importReport.otherDomainUntouched) {
+            failures.push(`사용자 시나리오 JSON 가져오기: ${JSON.stringify(importReport)}`);
+          }
+        }
+        const picker = frameDocument().querySelector("[data-new-game-scenario]");
+        picker.value = id;
+        picker.dispatchEvent(new currentWindow.Event("change", { bubbles: true }));
+        await waitFor(() => frameDocument().querySelector("[data-action='start-selected-scenario']:not([disabled])"), "사용자 시나리오 시작");
+        click("[data-action='start-selected-scenario']");
+        await waitFor(() => JSON.parse(currentWindow.localStorage.getItem("tragedy-looper-mastermind:tracker")).activeScenarioId === id, "사용자 시나리오 게임 상태");
+      }
+
       async function inspectOpenCardPanel() {
         const document = frameDocument();
         const board = document.querySelector(".game-board");
@@ -3174,6 +3248,7 @@
           }
         }
         recordBoardLayout("한 장소 11명", [11, 0, 0, 0]);
+        await inspectUserScenarioPersistence();
         await inspectResetFlows();
 
         restoreStorage();

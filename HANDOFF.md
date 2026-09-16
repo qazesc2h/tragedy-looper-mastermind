@@ -935,6 +935,18 @@ interface ScenarioDiagnostic {
 
 #### 사용자 시나리오 저장 경계
 
+2026-09-16 편집기 3단계 구현: 위 초기 설계의 `user-scenarios:v1` 단일 키 대신
+사용자 요청대로 `tragedy-looper-mastermind:scenarios`(완성 문서)와
+`tragedy-looper-mastermind:drafts`(미완성 초안)를 사용한다. 양쪽 모두
+`schemaVersion: 1` 목록이며 파일은 별도 `format`·`schemaVersion` 봉투에 문서
+하나를 담는다. 가져온 동일 ID는 새 ID로 복제한다. 문서당 256 KiB, 목록 키당
+1 MiB 상한이며 실패한 쓰기는 메모리에 남겨 JSON 백업을 제공한다. 삭제 쓰기 실패는
+메모리에서도 삭제를 취소한다. 4단계 UI에서는 `resumeDraft(id)`로 초안을 열고,
+완성 시 `finalizeScenarioDraft()` 결과를 사용자 시나리오로 저장하면 된다.
+
+압축된 `?zip=` URL 공유 방식은 향후 후보로 남긴다. 이번 단계에는 구현하지 않으며,
+형식 버전·검증·크기 상한·충돌 정책을 파일 가져오기와 별도로 설계해야 한다.
+
 로컬 저장과 파일 내보내기 중 하나만 고르지 않는다.
 
 - 기본 저장: 진행 상태와 분리한 `tragedy-looper-mastermind:user-scenarios:v1` 키에

@@ -20,6 +20,12 @@ interface ValidationCharacterData {
 export type ScenarioDiagnosticSeverity = "error" | "warning";
 
 export type ScenarioDiagnosticCode =
+  | "STORAGE_FORMAT_INVALID"
+  | "STORAGE_VERSION_UNSUPPORTED"
+  | "STORAGE_SIZE_EXCEEDED"
+  | "STORAGE_WRITE_FAILED"
+  | "IMPORT_JSON_INVALID"
+  | "IMPORT_DOCUMENT_INVALID"
   | "TRAGEDY_SET_MISSING"
   | "TRAGEDY_SET_UNKNOWN"
   | "LOOPS_MISSING"
