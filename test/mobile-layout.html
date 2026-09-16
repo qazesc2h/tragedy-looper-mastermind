@@ -401,11 +401,29 @@
           failures.push(`하단 조작 독이 뷰포트를 벗어남: ${JSON.stringify(dockReport)}`);
         }
 
+        let copiedState = "";
+        Object.defineProperty(currentWindow.navigator, "clipboard", {
+          configurable: true,
+          value: {
+            writeText(text) {
+              copiedState = text;
+              return Promise.resolve();
+            },
+          },
+        });
         click("[data-action='copy-state']");
         const toast = await waitFor(
-          () => frameDocument().querySelector(".notice-toast"),
+          () => {
+            const candidate = frameDocument().querySelector(".notice-toast");
+            return candidate?.textContent.includes("현재 상태를 복사했습니다.")
+              ? candidate
+              : undefined;
+          },
           "상태 복사 토스트",
         );
+        if (copiedState.length === 0) {
+          throw new Error("상태 복사 내용이 비어 있습니다.");
+        }
         const toastMessage = toast.querySelector("span");
         if (!toastMessage) throw new Error("토스트 문구 영역을 찾을 수 없습니다.");
         toastMessage.textContent = misc("It is not this player's turn");
