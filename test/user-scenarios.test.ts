@@ -115,6 +115,24 @@ describe("user scenario repository", () => {
     expect(new UserScenarioRepository(storage).resumeDraft(saved.value.id)).toEqual(saved.value.draft);
   });
 
+  it("does not make a duplicated or imported edit draft overwrite its original", () => {
+    const storage = new MemoryStorage();
+    const repository = new UserScenarioRepository(storage);
+    const original = repository.saveScenario(valid.scenario, "원본");
+    if (!original.ok) throw new Error("save failed");
+    const draft = repository.saveDraft(scenarioToDraft(valid.scenario), "수정 중", undefined, original.value.id);
+    if (!draft.ok) throw new Error("draft save failed");
+    expect(draft.value.sourceScenarioId).toBe(original.value.id);
+    const copied = repository.duplicate(draft.value.id);
+    expect(copied.ok).toBe(true);
+    if (copied.ok) expect(copied.value).toMatchObject({ sourceScenarioId: undefined });
+    const exported = repository.exportDocument(draft.value.id);
+    if (!exported) throw new Error("export failed");
+    const imported = new UserScenarioRepository(new MemoryStorage()).importJson(exported);
+    expect(imported.ok).toBe(true);
+    if (imported.ok) expect(imported.value).toMatchObject({ sourceScenarioId: undefined });
+  });
+
   it("renames, duplicates, and deletes only user documents", () => {
     const repository = new UserScenarioRepository(new MemoryStorage());
     const saved = repository.saveScenario(valid.scenario, "첫 이름");
@@ -126,6 +144,19 @@ describe("user scenario repository", () => {
     expect(repository.delete(saved.value.id).ok).toBe(true);
     expect(repository.listScenarios()).toHaveLength(1);
     expect(repository.delete("community:naughty-cat").ok).toBe(false);
+  });
+
+  it("updates an existing scenario in place and retains its hints", () => {
+    const storage = new MemoryStorage();
+    const repository = new UserScenarioRepository(storage);
+    const saved = repository.saveScenario(valid.scenario, "첫 이름", "제작자", "기존 지침");
+    if (!saved.ok) throw new Error("save failed");
+    const updated = repository.updateScenario(saved.value.id, valid.scenario, "새 이름", "제작자", "새 지침");
+    expect(updated).toMatchObject({ ok: true, value: {
+      id: saved.value.id, title: "새 이름", mastermindHints: "새 지침",
+    } });
+    expect(new UserScenarioRepository(storage).listScenarios()).toHaveLength(1);
+    expect(new UserScenarioRepository(storage).listScenarios()[0]?.mastermindHints).toBe("새 지침");
   });
 
   it("retains unsaved work in memory and allows export after quota failure", () => {

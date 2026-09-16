@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>390px 시나리오 편집기 실제 경로</title>
+  <style>
+    body { margin: 0; background: #111; color: #eee; font-family: monospace; }
+    iframe { width: 390px; height: 844px; border: 0; }
+    pre { white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <iframe id="app-frame" title="시나리오 편집기"></iframe>
+  <pre id="result">대기 중</pre>
+  <script type="module">
+    import { loadScenarioCatalog } from "/src/scenario-catalog.ts";
+
+    const frame = document.querySelector("#app-frame");
+    const result = document.querySelector("#result");
+    const source = loadScenarioCatalog().find(({ id }) => id === "community:naughty-cat");
+    const failures = [];
+    const reports = [];
+    if (!source) throw new Error("못된 고양이 번들을 찾을 수 없습니다.");
+
+    function doc() { return frame.contentDocument; }
+    function win() { return frame.contentWindow; }
+    function waitFor(read, label, timeout = 10000) {
+      return new Promise((resolve, reject) => {
+        const start = performance.now();
+        function poll() {
+          const value = read();
+          if (value) resolve(value);
+          else if (performance.now() - start > timeout) reject(new Error(`${label} 대기 시간 초과`));
+          else setTimeout(poll, 25);
+        }
+        poll();
+      });
+    }
+    function query(selector) {
+      const target = doc().querySelector(selector);
+      if (!target) throw new Error(`대상이 없습니다: ${selector}`);
+      return target;
+    }
+    function click(selector) { query(selector).click(); }
+    function set(field, value, rowId) {
+      const suffix = rowId === undefined ? "" : `[data-row-id='${rowId}']`;
+      const control = query(`[data-editor-field='${field}']${suffix}`);
+      control.value = value;
+      const currentWindow = win();
+      control.dispatchEvent(new currentWindow.Event("change", { bubbles: true }));
+    }
+    function check(field, value) {
+      const control = query(`[data-editor-field='${field}'][value='${value}']`);
+      control.checked = true;
+      const currentWindow = win();
+      control.dispatchEvent(new currentWindow.Event("change", { bubbles: true }));
+    }
+    function rowId(field) {
+      return [...doc().querySelectorAll(`[data-editor-field='${field}']`)].at(-1)?.dataset.rowId;
+    }
+    function step(index) { click(`[data-editor-action='step'][data-step='${index}']`); }
+    function appWidth() {
+      return Math.max(doc().documentElement.scrollWidth, doc().body.scrollWidth);
+    }
+    function canonical(value) {
+      if (Array.isArray(value)) return value.map(canonical);
+      if (value !== null && typeof value === "object") {
+        return Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b))
+          .map(([key, item]) => [key, canonical(item)]));
+      }
+      return value;
+    }
+    async function reload(label) {
+      const loaded = new Promise((resolve) => frame.addEventListener("load", resolve, { once: true }));
+      frame.src = `/?editor-flow=${label}`;
+      await loaded;
+      await waitFor(() => doc().querySelector(".scenario-selection-screen"), "선택 화면");
+    }
+
+    async function run() {
+      win().localStorage.clear();
+      win().localStorage.setItem("tragedy-looper-ko:tracker:v1", "keep-other-domain");
+      await reload("empty");
+      click("[data-action='new-user-draft']");
+      await waitFor(() => doc().querySelector(".scenario-editor-screen"), "빈 편집기");
+      reports.push({ label: "빈 초안", warning: doc().querySelector("[data-diagnostic-path='tragedySet']")?.textContent.trim() });
+      if (!doc().querySelector("[data-diagnostic-path='tragedySet']")) failures.push("빈 초안 경고 누락");
+
+      set("title", source.rawTitle);
+      set("creator", source.creator);
+      set("tragedySet", source.scenario.tragedySet);
+      step(1);
+      set("loops", String(source.scenario.loops));
+      set("daysPerLoop", String(source.scenario.daysPerLoop));
+      set("difficulty", String(source.scenario.difficulty));
+      step(2);
+      set("mainPlot", source.scenario.mainPlot);
+      step(3);
+      for (const plot of source.scenario.subPlots) {
+        click("[data-editor-action='add-subplot']");
+        set("subPlot", plot, rowId("subPlot"));
+      }
+      step(4);
+      for (const [character] of Object.entries(source.scenario.cast)) {
+        click("[data-editor-action='add-cast']");
+        const id = rowId("castCharacter");
+        set("castCharacter", character, id);
+        if (character === "servant") set("startLocation", "School", id);
+      }
+      step(5);
+      for (const [character, role] of Object.entries(source.scenario.cast)) {
+        const control = [...doc().querySelectorAll("[data-editor-field='castCharacter']")]
+          .find((entry) => entry.value === character);
+        if (!control) throw new Error(`캐릭터 행 없음: ${character}`);
+        set("castRole", role, control.dataset.rowId);
+      }
+      const outsider = [...doc().querySelectorAll("[data-editor-field='castCharacter']")]
+        .find((entry) => entry.value === "mysteryBoy");
+      const person = query(`[data-editor-field='castRole'][data-row-id='${outsider.dataset.rowId}'] option[value='person']`);
+      reports.push({ label: "아웃사이더 후보", disabled: person.disabled, reason: person.textContent.trim() });
+      if (!person.disabled || !person.textContent.includes("엑스트라")) failures.push("아웃사이더 후보 제한 누락");
+
+      step(6);
+      for (const incident of source.scenario.incidents) {
+        click("[data-editor-action='add-incident']");
+        const id = rowId("incidentDay");
+        set("incidentDay", String(incident.day), id);
+        set("incidentType", incident.incident, id);
+        set("incidentCulprit", incident.culprit, id);
+      }
+      step(7);
+      set("specialRules", source.scenario.specialRules.join("\n"));
+      check("specialRuleId", "mastermindCannotUseForbidGoodwill");
+      step(8);
+      set("mastermindHints", source.mastermindHints);
+      const ready = query("[data-editor-action='complete']");
+      reports.push({ label: "완성 판정", enabled: !ready.disabled, width: appWidth() });
+      if (ready.disabled) failures.push(`완성 저장 비활성: ${doc().querySelector('.editor-complete')?.textContent.trim()}`);
+      if (appWidth() > 390) failures.push(`편집기 가로 넘침: ${appWidth()}`);
+      const guidance = query("details.pre-game-guidance");
+      guidance.querySelector("summary").click();
+      await waitFor(() => doc().querySelector(".mastermind-guidance-priorities"), "지침 A~E 미리보기", 15000);
+      const guidanceText = doc().querySelector("details.pre-game-guidance")?.textContent ?? "";
+      reports.push({ label: "각본가 지침 A~E", containsA: guidanceText.includes("A. 승리 경로 우선순위"), containsE: guidanceText.includes("E.") });
+      if (!guidanceText.includes("A. 승리 경로 우선순위") || !guidanceText.includes("E.")) failures.push("각본가 지침 A~E 미리보기 누락");
+
+      const rawDraft = win().localStorage.getItem("tragedy-looper-mastermind:drafts");
+      const savedDraft = JSON.parse(rawDraft).documents[0];
+      const savedCast = JSON.stringify(savedDraft.draft.cast);
+      step(2);
+      set("mainPlot", "murderPlan");
+      const changedDraft = JSON.parse(win().localStorage.getItem("tragedy-looper-mastermind:drafts")).documents[0];
+      reports.push({ label: "앞 단계 변경", warning: Boolean(doc().querySelector(".editor-upstream-warning")), castPreserved: JSON.stringify(changedDraft.draft.cast) === savedCast });
+      if (!doc().querySelector(".editor-upstream-warning") || JSON.stringify(changedDraft.draft.cast) !== savedCast) failures.push("앞 단계 변경 시 캐스트가 지워짐");
+      set("mainPlot", source.scenario.mainPlot);
+      click("[data-editor-action='close']");
+      await reload("resume");
+      click("[data-action='resume-user-draft']");
+      await waitFor(() => doc().querySelector(".scenario-editor-screen"), "초안 재개");
+      step(8);
+      const complete = query("[data-editor-action='complete']");
+      if (complete.disabled) failures.push("초안 재개 후 완성 저장 비활성");
+      complete.click();
+      await waitFor(() => doc().querySelector(".scenario-selection-screen"), "완성 후 선택 화면");
+      const userRaw = win().localStorage.getItem("tragedy-looper-mastermind:scenarios");
+      const user = JSON.parse(userRaw).documents[0];
+      const sameScenario = JSON.stringify(canonical(user.scenario)) === JSON.stringify(canonical(source.scenario));
+      reports.push({ label: "못된 고양이 완성", sameScenario, sameHints: user.mastermindHints === source.mastermindHints });
+      if (!sameScenario || user.mastermindHints !== source.mastermindHints) failures.push("못된 고양이 기존 데이터와 불일치");
+      if (win().localStorage.getItem("tragedy-looper-ko:tracker:v1") !== "keep-other-domain") failures.push("외부 도메인 키 변경");
+
+      const picker = query("[data-new-game-scenario]");
+      picker.value = user.id;
+      const currentWindow = win();
+      picker.dispatchEvent(new currentWindow.Event("change", { bubbles: true }));
+      click("[data-action='start-selected-scenario']");
+      const tracker = await waitFor(() => {
+        const raw = win().localStorage.getItem("tragedy-looper-mastermind:tracker");
+        return raw ? JSON.parse(raw) : null;
+      }, "게임 시작");
+      reports.push({ label: "사용자 시나리오 게임 시작", activeScenarioId: tracker.activeScenarioId });
+      if (tracker.activeScenarioId !== user.id) failures.push("사용자 시나리오 게임 시작 실패");
+
+      document.documentElement.dataset.editorResult = failures.length === 0 ? "pass" : "fail";
+      result.textContent = `${failures.length === 0 ? "PASS" : "FAIL"}\n${JSON.stringify({ reports, failures }, null, 2)}`;
+      if (failures.length) throw new Error(failures.join("; "));
+    }
+    frame.addEventListener("load", () => void run().catch((error) => {
+      document.documentElement.dataset.editorResult = "fail";
+      failures.push(error instanceof Error ? error.message : String(error));
+      result.textContent = `FAIL\n${JSON.stringify({ reports, failures }, null, 2)}`;
+      console.error(error);
+    }), { once: true });
+    frame.src = "/";
+  </script>
+</body>
+</html>

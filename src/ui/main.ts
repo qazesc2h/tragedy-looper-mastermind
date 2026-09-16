@@ -104,6 +104,17 @@ import {
 } from "../scenario-catalog";
 import { UserScenarioRepository, type UserScenarioDocument } from "../user-scenarios";
 import {
+  applyScenarioEditorAction,
+  furthestPopulatedEditorStep,
+  renderScenarioEditor,
+  updateScenarioEditorField,
+  type ScenarioEditorSession,
+} from "./scenario-editor";
+import {
+  finalizeScenarioDraft,
+  scenarioToDraft,
+} from "../scenario-draft";
+import {
   rolesForTragedySet,
   tragedySetDefinition,
 } from "../tragedy-sets";
@@ -316,6 +327,7 @@ function userScenarioEntry(document: UserScenarioDocument): ScenarioEntry {
     id: document.id,
     title: document.title,
     creator: document.creator,
+    mastermindHints: document.mastermindHints,
     scenario,
     difficulties: [{
       index: 0,
@@ -349,6 +361,7 @@ const root = requireUiRoot();
 let notice = "";
 let storageWriteWarning = "";
 let userLibraryOpen = false;
+let editorSession: ScenarioEditorSession | undefined;
 let selectedHandCard: SelectedHandCard | undefined;
 let resolutionReceipt: ResolutionReceipt | undefined;
 let openCharacterModal: CharacterId | undefined;
@@ -5735,6 +5748,7 @@ function renderScenarioSelection(): void {
             <summary>사용자 시나리오 · 초안 관리</summary>
             <p>번들은 읽기 전용입니다. 선택한 난이도를 복제하면 별도 사용자 시나리오로 저장됩니다.</p>
             <div class="flow-actions">
+              <button type="button" data-action="new-user-draft">새 시나리오 만들기</button>
               <button type="button" data-action="clone-selected-scenario"
                 ${selectedDifficulty?.validation.ok === true ? "" : "disabled"}>선택한 시나리오 복제</button>
               <button type="button" data-action="import-user-document">JSON 가져오기</button>
@@ -5746,6 +5760,7 @@ function renderScenarioSelection(): void {
                 <li>
                   <span>${escapeHtml(document.title)} · ${document.id.startsWith("user:") ? "사용자 작성" : "편집 중 초안"}</span>
                   <div class="flow-actions">
+                    <button type="button" data-action="${document.id.startsWith("user:") ? "edit-user-document" : "resume-user-draft"}" data-document-id="${escapeHtml(document.id)}">${document.id.startsWith("user:") ? "편집" : "이어서 편집"}</button>
                     <button type="button" data-action="export-user-document" data-document-id="${escapeHtml(document.id)}">내보내기</button>
                     <button type="button" data-action="rename-user-document" data-document-id="${escapeHtml(document.id)}">이름 변경</button>
                     <button type="button" data-action="duplicate-user-document" data-document-id="${escapeHtml(document.id)}">복제</button>
@@ -5753,7 +5768,6 @@ function renderScenarioSelection(): void {
                   </div>
                 </li>`).join("")}
             </ul>
-            ${userScenarios.listDrafts().length === 0 ? "" : "<p>초안은 보존되어 있으며 편집기 화면은 4단계에서 연결됩니다.</p>"}
           </details>
           ${previewState === undefined || previewRuleSummary === undefined ||
               previewDeductionSummary === undefined
@@ -5809,10 +5823,85 @@ function showUserDocumentResult(result: { ok: boolean; diagnostics: { message: s
   render();
 }
 
+function saveEditorDraft(): void {
+  if (editorSession === undefined) return;
+  const saved = userScenarios.saveDraft(
+    editorSession.draft,
+    editorSession.draft.title?.trim() || "제목 없는 초안",
+    editorSession.draftId,
+    editorSession.sourceScenarioId,
+  );
+  if (saved.value !== undefined) editorSession.draftId = saved.value.id;
+  editorSession.saveWarning = saved.ok ? undefined :
+    saved.diagnostics.map(({ message }) => message).join(" ");
+}
+
+function openEditor(session: ScenarioEditorSession): void {
+  session.furthestStep = Math.max(session.step, furthestPopulatedEditorStep(session.draft));
+  editorSession = session;
+  openLazyPanels.delete("mastermind-guidance:before-start");
+  saveEditorDraft();
+  render();
+}
+
+function completeEditor(): void {
+  const session = editorSession;
+  if (session === undefined) return;
+  const completed = finalizeScenarioDraft(session.draft);
+  if (!completed.ok || !session.draft.title?.trim() ||
+    !["firstSteps", "basicTragedy"].includes(session.draft.tragedySet ?? "")) {
+    session.saveWarning = "완성 검증을 통과해야 저장할 수 있습니다.";
+    render();
+    return;
+  }
+  const saved = session.sourceScenarioId === undefined
+    ? userScenarios.saveScenario(completed.scenario, session.draft.title,
+      session.draft.creator, session.draft.mastermindHints)
+    : userScenarios.updateScenario(session.sourceScenarioId, completed.scenario,
+      session.draft.title, session.draft.creator, session.draft.mastermindHints);
+  if (!saved.ok) {
+    session.saveWarning = saved.diagnostics.map(({ message }) => message).join(" ");
+    render();
+    return;
+  }
+  if (session.draftId !== undefined) userScenarios.delete(session.draftId);
+  editorSession = undefined;
+  refreshUserScenarioEntries();
+  uiInputDrafts.set("new-game:scenario", saved.value.id);
+  uiInputDrafts.delete("new-game:difficulty");
+  notice = "사용자 시나리오를 완성 저장했습니다. 선택 화면에서 게임을 시작할 수 있습니다.";
+  render();
+}
+
+function renderScenarioEditorScreen(): void {
+  const session = editorSession;
+  if (session === undefined) return;
+  let guidanceHtml = "<p>완성 가능한 시나리오가 되면 각본가 지침 A~E를 볼 수 있습니다.</p>";
+  if (session.step === 8) {
+    const completed = finalizeScenarioDraft(session.draft);
+    if (completed.ok) {
+      try {
+        guidanceHtml = `<p>각본가 지침 A~E · 펼칠 때 계산합니다.</p>${renderMastermindGuidance(createGameState(completed.scenario), "beforeStart")}`;
+      } catch (error) {
+        guidanceHtml = `<p class="editor-save-warning">지침 미리보기를 계산할 수 없습니다: ${escapeHtml(errorMessage(error))}</p>`;
+      }
+    }
+  }
+  root.innerHTML = `<div class="app-shell">
+    <header class="topbar"><div class="brand"><span>${escapeHtml(misc("(제품명) Tragedy Looper", "Tragedy Looper"))}</span><strong>${escapeHtml(misc("Mastermind Aid"))}</strong></div></header>
+    ${renderScenarioEditor(session, guidanceHtml)}
+    ${renderSiteFooter()}
+  </div>`;
+}
+
 function render(preserveInferenceCache = false): void {
   if (!preserveInferenceCache) {
     currentRoleEvaluationCache = undefined;
     currentLossDisclosureCache = undefined;
+  }
+  if (editorSession !== undefined) {
+    renderScenarioEditorScreen();
+    return;
   }
   if (tracker.activeScenarioId === "") {
     renderScenarioSelection();
@@ -6309,11 +6398,64 @@ root.addEventListener("toggle", (event) => {
 }, true);
 
 root.addEventListener("click", (event) => {
+  const editorButton = (event.target as HTMLElement).closest<HTMLButtonElement>(
+    "button[data-editor-action]",
+  );
+  if (editorButton && editorSession !== undefined) {
+    const action = editorButton.dataset.editorAction;
+    if (action === "close") {
+      editorSession = undefined;
+      refreshUserScenarioEntries();
+      render();
+    } else if (action === "complete") {
+      completeEditor();
+    } else if (action === "step") {
+      editorSession.step = Number(editorButton.dataset.step);
+      editorSession.furthestStep = Math.max(editorSession.furthestStep ?? 0, editorSession.step);
+      render();
+    } else if (action === "previous" || action === "next") {
+      editorSession.step += action === "next" ? 1 : -1;
+      editorSession.furthestStep = Math.max(editorSession.furthestStep ?? 0, editorSession.step);
+      render();
+    } else if (action !== undefined) {
+      applyScenarioEditorAction(editorSession, action, editorButton.dataset.rowId);
+      saveEditorDraft();
+      render();
+    }
+    return;
+  }
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>(
     "button[data-action]",
   );
   if (!button) return;
   const action = button.dataset.action;
+
+  if (action === "new-user-draft") {
+    openEditor({ draft: {}, step: 0 });
+    return;
+  }
+
+  if (action === "edit-user-document") {
+    const document = userScenarios.listScenarios().find((item) =>
+      item.id === button.dataset.documentId);
+    if (document === undefined) return;
+    openEditor({
+      draft: { ...scenarioToDraft(document.scenario), title: document.title,
+        creator: document.creator, mastermindHints: document.mastermindHints },
+      sourceScenarioId: document.id,
+      step: 0,
+    });
+    return;
+  }
+
+  if (action === "resume-user-draft") {
+    const document = userScenarios.listDrafts().find((item) =>
+      item.id === button.dataset.documentId);
+    if (document === undefined) return;
+    openEditor({ draft: document.draft, draftId: document.id,
+      sourceScenarioId: document.sourceScenarioId, step: 0 });
+    return;
+  }
 
   if (action === "clone-selected-scenario") {
     const selected = scenarioEntries.find(({ id }) => id ===
@@ -6805,8 +6947,33 @@ root.addEventListener("click", (event) => {
   }
 });
 
+root.addEventListener("input", (event) => {
+  const control = event.target;
+  if (editorSession === undefined ||
+    !(control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement) ||
+    control.dataset.editorField === undefined ||
+    (control instanceof HTMLInputElement && !["text", "number"].includes(control.type))) return;
+  updateScenarioEditorField(editorSession, control.dataset.editorField, control.value,
+    control.dataset.rowId);
+  saveEditorDraft();
+  const warning = root.querySelector<HTMLElement>(".editor-save-warning");
+  if (warning !== null) {
+    warning.hidden = !editorSession.saveWarning;
+    warning.textContent = editorSession.saveWarning ?? "";
+  }
+});
+
 root.addEventListener("change", (event) => {
   const control = event.target as HTMLInputElement | HTMLSelectElement;
+  if (editorSession !== undefined && control.dataset.editorField !== undefined) {
+    updateScenarioEditorField(editorSession, control.dataset.editorField,
+      control.value, control.dataset.rowId,
+      control instanceof HTMLInputElement && control.type === "checkbox"
+        ? control.checked : undefined);
+    saveEditorDraft();
+    render();
+    return;
+  }
   if (control.matches("[data-user-document-file]")) {
     const file = (control as HTMLInputElement).files?.[0];
     if (file === undefined) return;

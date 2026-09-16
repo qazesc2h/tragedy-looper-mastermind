@@ -4584,6 +4584,151 @@ select {
   margin-top: 8px;
 }
 
+.scenario-editor-card {
+  width: min(100%, 840px);
+}
+
+.editor-heading,
+.editor-navigation,
+.editor-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.editor-heading h1 {
+  overflow-wrap: anywhere;
+}
+
+.editor-progress {
+  color: var(--ink-muted);
+}
+
+.editor-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin: 18px 0;
+}
+
+.editor-steps button {
+  min-width: 0;
+  min-height: 44px;
+  white-space: normal;
+  text-align: left;
+}
+
+.editor-steps [aria-current="step"] {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.editor-stage {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.editor-stage label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.editor-stage input:not([type="checkbox"]),
+.editor-stage select,
+.editor-stage textarea {
+  width: 100%;
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+.editor-stage textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+
+.editor-row {
+  flex-wrap: wrap;
+  border-top: 1px solid #453a2b;
+  padding-top: 12px;
+}
+
+.editor-row > label,
+.editor-row > .editor-metadata {
+  flex: 1 1 180px;
+}
+
+.editor-metadata {
+  display: grid;
+  gap: 8px;
+}
+
+.editor-field-diagnostics,
+.editor-stage-diagnostics ul {
+  margin: 0;
+  padding-left: 19px;
+}
+
+.editor-field-diagnostics {
+  width: 100%;
+}
+
+.editor-field-diagnostics .error,
+.editor-stage-diagnostics .error,
+.editor-save-warning {
+  color: #ff9c96;
+}
+
+.editor-field-diagnostics .warning,
+.editor-stage-diagnostics .warning,
+.editor-upstream-warning {
+  color: #e6c879;
+}
+
+.editor-upstream-warning,
+.editor-save-warning {
+  border: 1px solid currentColor;
+  padding: 10px;
+}
+
+.editor-role-capacity ul {
+  display: grid;
+  gap: 4px;
+  padding-left: 19px;
+}
+
+.editor-navigation,
+.editor-complete {
+  margin-top: 20px;
+}
+
+.editor-complete p {
+  overflow-wrap: anywhere;
+}
+
+.editor-checkbox {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 540px) {
+  .editor-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .editor-heading {
+    flex-direction: column;
+  }
+
+  .editor-row > label,
+  .editor-row > .editor-metadata {
+    flex-basis: 100%;
+  }
+}
+
 .final-guess-table {
   width: 100%;
   border-collapse: collapse;

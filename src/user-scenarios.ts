@@ -21,6 +21,7 @@ export interface UserScenarioDocument {
   source: "user";
   title: string;
   creator?: string;
+  mastermindHints?: string;
   scenario: Scenario;
   createdAt: string;
   updatedAt: string;
@@ -30,6 +31,7 @@ export interface UserDraftDocument {
   schemaVersion: 1;
   id: `draft:${string}`;
   title: string;
+  sourceScenarioId?: `user:${string}`;
   draft: ScenarioDraft;
   createdAt: string;
   updatedAt: string;
@@ -92,7 +94,7 @@ function validScenarioShape(value: unknown): value is Scenario {
 
 function validDraftShape(value: unknown): value is ScenarioDraft {
   if (!record(value)) return false;
-  for (const field of ["title", "creator", "tragedySet", "mainPlot"] as const) {
+  for (const field of ["title", "creator", "mastermindHints", "tragedySet", "mainPlot"] as const) {
     if (value[field] !== undefined && !string(value[field])) return false;
   }
   for (const field of ["loops", "daysPerLoop", "difficulty", "difficultyIndex"] as const) {
@@ -135,7 +137,10 @@ function validHeader(value: Record<string, unknown>, kind: "user" | "draft"): bo
     string(value.id) && value.id.startsWith(`${kind}:`) && value.id.length > kind.length + 1 &&
     string(value.title) && value.title.trim().length > 0 &&
     string(value.createdAt) && string(value.updatedAt) &&
-    (value.creator === undefined || string(value.creator));
+    (value.creator === undefined || string(value.creator)) &&
+    (value.mastermindHints === undefined || string(value.mastermindHints)) &&
+    (value.sourceScenarioId === undefined ||
+      (string(value.sourceScenarioId) && value.sourceScenarioId.startsWith("user:")));
 }
 
 function validateDocument(value: unknown, kind: "user" | "draft"): DocumentResult<UserDocument> {
@@ -265,11 +270,12 @@ export class UserScenarioRepository {
     }
   }
 
-  saveScenario(scenario: Scenario, title: string, creator?: string): DocumentResult<UserScenarioDocument> {
+  saveScenario(scenario: Scenario, title: string, creator?: string, mastermindHints?: string): DocumentResult<UserScenarioDocument> {
     const now = new Date().toISOString();
     const document: UserScenarioDocument = {
       schemaVersion: 1, id: newId("user") as `user:${string}`, source: "user",
       title: title.trim(), ...(creator === undefined ? {} : { creator }),
+      ...(mastermindHints === undefined ? {} : { mastermindHints }),
       scenario: JSON.parse(JSON.stringify(scenario)) as Scenario,
       createdAt: now, updatedAt: now,
     };
@@ -278,12 +284,38 @@ export class UserScenarioRepository {
     return this.write("user", document, [...this.scenarios, document]);
   }
 
-  saveDraft(draft: ScenarioDraft, title: string, id?: string): DocumentResult<UserDraftDocument> {
+  updateScenario(
+    id: string,
+    scenario: Scenario,
+    title: string,
+    creator?: string,
+    mastermindHints?: string,
+  ): DocumentResult<UserScenarioDocument> {
+    const previous = this.scenarios.find((item) => item.id === id);
+    if (previous === undefined) return {
+      ok: false,
+      diagnostics: [problem("id", "IMPORT_DOCUMENT_INVALID", "수정할 사용자 시나리오를 찾을 수 없습니다.")],
+    };
+    const document: UserScenarioDocument = {
+      ...previous,
+      title: title.trim(),
+      creator,
+      mastermindHints,
+      scenario: JSON.parse(JSON.stringify(scenario)) as Scenario,
+      updatedAt: new Date().toISOString(),
+    };
+    const checked = validateDocument(document, "user");
+    if (!checked.ok) return { ok: false, value: document, diagnostics: checked.diagnostics };
+    return this.write("user", document, this.scenarios.map((item) => item.id === id ? document : item));
+  }
+
+  saveDraft(draft: ScenarioDraft, title: string, id?: string, sourceScenarioId?: string): DocumentResult<UserDraftDocument> {
     const previous = this.drafts.find((item) => item.id === id);
     const now = new Date().toISOString();
     const document: UserDraftDocument = {
       schemaVersion: 1, id: previous?.id ?? newId("draft") as `draft:${string}`,
       title: title.trim(), draft: structuredClone(draft),
+      sourceScenarioId: (sourceScenarioId ?? previous?.sourceScenarioId) as `user:${string}` | undefined,
       createdAt: previous?.createdAt ?? now, updatedAt: now,
     };
     const checked = validateDocument(document, "draft");
@@ -308,7 +340,7 @@ export class UserScenarioRepository {
       const document = { ...structuredClone(source as UserScenarioDocument), id: newId("user") as `user:${string}`, title: `${source.title} 복사본`, createdAt: now, updatedAt: now };
       return this.write("user", document, [...this.scenarios, document]);
     }
-    const document = { ...structuredClone(source as UserDraftDocument), id: newId("draft") as `draft:${string}`, title: `${source.title} 복사본`, createdAt: now, updatedAt: now };
+    const document = { ...structuredClone(source as UserDraftDocument), id: newId("draft") as `draft:${string}`, title: `${source.title} 복사본`, sourceScenarioId: undefined, createdAt: now, updatedAt: now };
     return this.write("draft", document, [...this.drafts, document]);
   }
 
@@ -352,7 +384,7 @@ export class UserScenarioRepository {
       const document = { ...structuredClone(checked.value as UserScenarioDocument), id: newId("user") as `user:${string}`, createdAt: now, updatedAt: now };
       return this.write("user", document, [...this.scenarios, document]);
     }
-    const document = { ...structuredClone(checked.value as UserDraftDocument), id: newId("draft") as `draft:${string}`, createdAt: now, updatedAt: now };
+    const document = { ...structuredClone(checked.value as UserDraftDocument), id: newId("draft") as `draft:${string}`, sourceScenarioId: undefined, createdAt: now, updatedAt: now };
     return this.write("draft", document, [...this.drafts, document]);
   }
 }

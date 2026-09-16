@@ -66,6 +66,7 @@ export interface ScenarioDraftMetadata {
 export interface ScenarioDraft {
   title?: string;
   creator?: string;
+  mastermindHints?: string;
   tragedySet?: string;
   loops?: number;
   daysPerLoop?: number;
