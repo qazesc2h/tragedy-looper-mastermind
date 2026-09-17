@@ -8,6 +8,7 @@ import {
   validateScenarioDraft,
   type ScenarioDraft,
   type ScenarioDraftCastRow,
+  type ScenarioDraftDifficultyRow,
   type ScenarioDraftIncidentRow,
   type ScenarioDraftSubPlotRow,
   type ScenarioDraftValue,
@@ -29,6 +30,8 @@ export interface ScenarioEditorSession {
   furthestStep?: number;
   upstreamNotice?: string;
   saveWarning?: string;
+  lastSavedAt?: string;
+  unsavedChanges?: boolean;
 }
 
 export function furthestPopulatedEditorStep(draft: ScenarioDraft): number {
@@ -39,7 +42,7 @@ export function furthestPopulatedEditorStep(draft: ScenarioDraft): number {
   if (draft.cast?.length) return 4;
   if (draft.subPlots?.length) return 3;
   if (draft.mainPlot) return 2;
-  if (draft.loops !== undefined || draft.daysPerLoop !== undefined) return 1;
+  if (draft.loops !== undefined || draft.difficultySets?.length || draft.daysPerLoop !== undefined) return 1;
   return 0;
 }
 
@@ -71,7 +74,7 @@ function fieldDiagnostics(draft: ScenarioDraft, path: string): string {
 
 function stageOf(path: string): number {
   if (path.startsWith("tragedySet")) return 0;
-  if (path.startsWith("loops") || path.startsWith("daysPerLoop")) return 1;
+  if (path.startsWith("loops") || path.startsWith("difficultySets") || path.startsWith("daysPerLoop")) return 1;
   if (path.startsWith("mainPlot")) return 2;
   if (path.startsWith("subPlots")) return 3;
   if (path.startsWith("incidents")) return 6;
@@ -144,10 +147,19 @@ function renderSetStep(draft: ScenarioDraft): string {
 }
 
 function renderTimingStep(draft: ScenarioDraft): string {
-  return `<p>루프 수와 루프당 날짜 수를 정합니다. 난이도 표기는 선택 사항입니다.</p>
-    <label>루프 수<input type="number" min="1" data-editor-field="loops" value="${draft.loops ?? ""}" /></label>${fieldDiagnostics(draft, "loops")}
+  const rows = draft.difficultySets ?? [{ rowId: "difficulty-1", numberOfLoops: draft.loops,
+    difficulty: draft.difficulty }];
+  return `<p>첫 변형이 기본값입니다. 루프당 날짜 수는 모든 변형에 공통입니다.</p>
+    ${rows.map((row, index) => `<div class="editor-row editor-difficulty-row">
+      <strong>변형 ${index + 1}${index === 0 ? " · 기본값" : ""}</strong>
+      <label>루프 수<input type="number" min="1" data-editor-field="difficultyLoops" data-row-id="${escape(row.rowId)}" value="${row.numberOfLoops ?? ""}" /></label>${fieldDiagnostics(draft, `difficultySets.${row.rowId}.numberOfLoops`)}
+      <label>난이도<input type="number" min="0" data-editor-field="difficultyValue" data-row-id="${escape(row.rowId)}" value="${row.difficulty ?? ""}" /></label>${fieldDiagnostics(draft, `difficultySets.${row.rowId}.difficulty`)}
+      ${rows.length > 1 ? `<button type="button" data-editor-action="remove-difficulty" data-row-id="${escape(row.rowId)}">변형 삭제</button>` : ""}
+    </div>`).join("")}
+    ${fieldDiagnostics(draft, "difficultySets")}${fieldDiagnostics(draft, "loops")}
+    <button type="button" data-editor-action="add-difficulty">변형 추가</button>
     <label>루프당 날짜 수<input type="number" min="1" data-editor-field="daysPerLoop" value="${draft.daysPerLoop ?? ""}" /></label>${fieldDiagnostics(draft, "daysPerLoop")}
-    <label>난이도 표기<input type="number" min="0" data-editor-field="difficulty" value="${draft.difficulty ?? ""}" /></label>`;
+    <p>난이도 0은 미확인을 뜻합니다. 난이도가 확인된 변형은 1 이상을 입력하세요.</p>`;
 }
 
 function renderMainPlotStep(draft: ScenarioDraft): string {
@@ -229,9 +241,10 @@ function renderRoleStep(draft: ScenarioDraft): string {
 function renderIncidentStep(draft: ScenarioDraft): string {
   const options = scenarioDraftOptions(draft);
   const cast = [...new Set((draft.cast ?? []).flatMap(({ character }) => character === undefined ? [] : [character]))];
-  return `<p>날짜·사건·범인을 한 행으로 정합니다. 사건이 없으면 비워둘 수 있습니다.</p>
-    ${(draft.incidents ?? []).map((row, index) => `<div class="editor-row">
-      <strong>사건 ${index + 1}</strong>
+  return `<p>날짜별 사건을 정합니다. 사건이 없으면 비워둘 수 있습니다.</p>
+    ${(draft.incidents ?? []).map((row, index) => `<div class="editor-row editor-incident-row">
+      <div class="editor-row-heading"><strong>${row.day ? `${row.day}일차` : `사건 ${index + 1}`}</strong>
+        <button type="button" data-editor-action="remove-incident" data-row-id="${escape(row.rowId)}">삭제</button></div>
       <label>날짜<input type="number" min="1" data-editor-field="incidentDay" data-row-id="${escape(row.rowId)}" value="${row.day ?? ""}" /></label>${fieldDiagnostics(draft, `incidents.${row.rowId}.day`)}
       <label>사건<select data-editor-field="incidentType" data-row-id="${escape(row.rowId)}"><option value="">선택</option>
         ${(options?.incidents ?? []).map((incident) => option(incident, term("incidents", incident, incident), row.incident)).join("")}
@@ -241,7 +254,6 @@ function renderIncidentStep(draft: ScenarioDraft): string {
         ${cast.map((character) => option(character, term("characters", character, characterDataOf(character).ko), row.culprit)).join("")}
         ${row.culprit && !cast.includes(row.culprit) ? option(row.culprit, `${term("characters", row.culprit)} · 캐스트에서 빠짐`, row.culprit, true) : ""}
       </select></label>${fieldDiagnostics(draft, `incidents.${row.rowId}.culprit`)}
-      <button type="button" data-editor-action="remove-incident" data-row-id="${escape(row.rowId)}">삭제</button>
     </div>`).join("")}
     <button type="button" data-editor-action="add-incident">사건 추가</button>`;
 }
@@ -280,6 +292,8 @@ export function renderScenarioEditor(session: ScenarioEditorSession, guidanceHtm
       }).join("")}</nav>
       ${session.upstreamNotice ? `<p class="editor-upstream-warning" role="status">${escape(session.upstreamNotice)}</p>` : ""}
       <p class="editor-save-warning" role="alert" ${session.saveWarning ? "" : "hidden"}>${escape(session.saveWarning ?? "")}</p>
+      <div class="editor-save-controls"><button type="button" data-editor-action="save-draft">초안 저장</button>
+        <span class="editor-save-status" role="status">${session.unsavedChanges ? "저장되지 않은 변경 있음" : session.lastSavedAt ? `마지막 저장 ${escape(new Date(session.lastSavedAt).toLocaleString("ko-KR"))}` : "저장 전"}</span></div>
       <section class="editor-stage" aria-label="${escape(EDITOR_STEPS[step])}">
         <h2>${step + 1}. ${EDITOR_STEPS[step]}</h2>
         ${contents[step](draft)}
@@ -326,6 +340,9 @@ export function updateScenarioEditorField(
     return rowId;
   };
   const number = value === "" ? undefined : Number(value);
+  const difficultyRows = (): ScenarioDraftDifficultyRow[] => [...(draft.difficultySets ?? [{
+    rowId: "difficulty-1", numberOfLoops: draft.loops, difficulty: draft.difficulty,
+  }])];
   switch (field) {
     case "title": draft.title = value; break;
     case "creator": draft.creator = value; break;
@@ -337,6 +354,10 @@ export function updateScenarioEditorField(
     case "loops": draft.loops = number; break;
     case "daysPerLoop": draft.daysPerLoop = number; break;
     case "difficulty": draft.difficulty = number; break;
+    case "difficultyLoops": draft.difficultySets = difficultyRows().map((row) =>
+      row.rowId === rowRequired() ? { ...row, numberOfLoops: number } : row); break;
+    case "difficultyValue": draft.difficultySets = difficultyRows().map((row) =>
+      row.rowId === rowRequired() ? { ...row, difficulty: number } : row); break;
     case "mainPlot": draft.mainPlot = value || undefined; break;
     case "subPlot": draft.subPlots = (draft.subPlots ?? []).map((row) => row.rowId === rowRequired() ? { ...row, plot: value || undefined } : row); break;
     case "castCharacter": draft.cast = (draft.cast ?? []).map((row) => row.rowId === rowRequired() ? { ...row, character: value || undefined } : row); break;
@@ -362,6 +383,8 @@ export function updateScenarioEditorField(
   const fieldStep: Partial<Record<string, number>> = {
     tragedySet: 0,
     loops: 1,
+    difficultyLoops: 1,
+    difficultyValue: 1,
     daysPerLoop: 1,
     mainPlot: 2,
     subPlot: 3,
@@ -376,6 +399,10 @@ export function updateScenarioEditorField(
 export function applyScenarioEditorAction(session: ScenarioEditorSession, action: string, rowId?: string): void {
   const draft = structuredClone(session.draft);
   switch (action) {
+    case "add-difficulty": draft.difficultySets = [...(draft.difficultySets ?? [{ rowId: "difficulty-1",
+      numberOfLoops: draft.loops, difficulty: draft.difficulty }]),
+      { rowId: newRowId() } satisfies ScenarioDraftDifficultyRow]; break;
+    case "remove-difficulty": draft.difficultySets = (draft.difficultySets ?? []).filter((row) => row.rowId !== rowId); break;
     case "add-subplot": draft.subPlots = [...(draft.subPlots ?? []), { rowId: newRowId() } satisfies ScenarioDraftSubPlotRow]; break;
     case "remove-subplot": draft.subPlots = (draft.subPlots ?? []).filter((row) => row.rowId !== rowId); break;
     case "add-cast": draft.cast = [...(draft.cast ?? []), { rowId: newRowId() } satisfies ScenarioDraftCastRow]; break;
@@ -385,7 +412,7 @@ export function applyScenarioEditorAction(session: ScenarioEditorSession, action
     default: throw new Error(`unknown editor action ${action}`);
   }
   session.draft = autoCompleteScenarioDraft(draft);
-  const actionStep = action.includes("subplot") ? 3 : action.includes("cast") ? 4 : 6;
+  const actionStep = action.includes("difficulty") ? 1 : action.includes("subplot") ? 3 : action.includes("cast") ? 4 : 6;
   if (actionStep < (session.furthestStep ?? session.step)) {
     session.upstreamNotice = "앞 단계가 바뀌었습니다. 기존 배정은 지우지 않았으니 뒤 단계의 진단을 확인하세요.";
   }

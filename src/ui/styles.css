@@ -4640,6 +4640,8 @@ select {
 .editor-stage select,
 .editor-stage textarea {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   min-height: 44px;
   box-sizing: border-box;
 }
@@ -4653,6 +4655,37 @@ select {
   flex-wrap: wrap;
   border-top: 1px solid #453a2b;
   padding-top: 12px;
+}
+
+.editor-incident-row,
+.editor-difficulty-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-content: stretch;
+}
+
+.editor-incident-row > label,
+.editor-difficulty-row > label {
+  width: 100%;
+  min-width: 0;
+}
+
+.editor-row-heading,
+.editor-save-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.editor-save-controls {
+  margin: 10px 0;
+}
+
+.editor-save-status {
+  color: var(--ink-muted);
+  overflow-wrap: anywhere;
 }
 
 .editor-row > label,
@@ -4673,6 +4706,8 @@ select {
 
 .editor-field-diagnostics {
   width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .editor-field-diagnostics .error,

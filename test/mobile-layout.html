@@ -16,6 +16,8 @@
     <script type="module">
       import { characterChipLayoutViolations } from "/src/ui/mobile-layout-check.ts";
       import { misc } from "/src/ui/terms.ts";
+      import { loadScenarioCatalog } from "/src/scenario-catalog.ts";
+      import { scenarioToDraft } from "/src/scenario-draft.ts";
 
       const WIDTH = 390;
       const HEIGHT = 844;
@@ -24,6 +26,8 @@
         "tragedy-looper-mastermind:tracker",
         "tragedy-looper:tracker:v1",
         "tragedy-looper-mastermind:tracker:v1",
+        "tragedy-looper-mastermind:drafts",
+        "tragedy-looper-mastermind:scenarios",
       ];
       const frame = document.querySelector("#app-frame");
       const result = document.querySelector("#result");
@@ -3187,6 +3191,68 @@
         }
       }
 
+      async function inspectEditorSteps() {
+        const source = loadScenarioCatalog().find(({ id }) => id === "basicTragedy:20");
+        if (!source) throw new Error("편집기 레이아웃용 시나리오가 없습니다.");
+        const draft = { ...scenarioToDraft(source.scenario), title: source.rawTitle,
+          difficultySets: [
+            { rowId: "variant-1", numberOfLoops: source.scenario.loops, difficulty: 1 },
+            { rowId: "variant-2", numberOfLoops: source.scenario.loops + 1, difficulty: 2 },
+            { rowId: "variant-3", numberOfLoops: source.scenario.loops + 2, difficulty: 3 },
+          ],
+          incidents: Array.from({ length: source.scenario.daysPerLoop }, (_, index) => ({
+            rowId: `incident-${index + 1}`, day: index + 1,
+            incident: source.scenario.incidents[0]?.incident ?? "suicide",
+            culprit: Object.keys(source.scenario.cast)[index % Object.keys(source.scenario.cast).length],
+          })),
+        };
+        const now = new Date().toISOString();
+        window.localStorage.setItem("tragedy-looper-mastermind:drafts", JSON.stringify({
+          schemaVersion: 1, documents: [{ schemaVersion: 1, id: "draft:mobile-layout",
+            title: source.rawTitle, draft, createdAt: now, updatedAt: now }],
+        }));
+        await reloadApp("editor-nine-steps", ".scenario-selection-screen");
+        click("[data-action='resume-user-draft'][data-document-id='draft:mobile-layout']");
+        await waitFor(() => frameDocument().querySelector(".scenario-editor-screen"), "편집기");
+        for (let step = 0; step < 9; step += 1) {
+          click(`[data-editor-action='step'][data-step='${step}']`);
+          const document = frameDocument();
+          const selectors = ".editor-stage label, .editor-stage select, .editor-stage input, .editor-stage textarea, .editor-stage button, .editor-steps button, .editor-navigation button, .editor-save-controls, .editor-complete button";
+          const outside = [...document.querySelectorAll(selectors)].filter((element) => {
+            const rect = element.getBoundingClientRect();
+            return rect.width > 0 && (rect.left < -0.5 || rect.right > WIDTH + 0.5);
+          }).map((element) => ({ tag: element.tagName, label: element.textContent?.trim().slice(0, 32),
+            right: Math.round(element.getBoundingClientRect().right) }));
+          const clipped = [...document.querySelectorAll(".editor-stage label, .editor-stage button, .editor-stage strong")]
+            .filter((element) => element.scrollWidth > element.clientWidth + 1)
+            .map((element) => element.textContent?.trim().slice(0, 32));
+          const overlaps = [];
+          for (const row of document.querySelectorAll(".editor-row")) {
+            const labels = [...row.querySelectorAll(":scope > label")];
+            for (let left = 0; left < labels.length; left += 1) {
+              for (let right = left + 1; right < labels.length; right += 1) {
+                const a = labels[left].getBoundingClientRect();
+                const b = labels[right].getBoundingClientRect();
+                if (a.right > b.left + 1 && b.right > a.left + 1 &&
+                  a.bottom > b.top + 1 && b.bottom > a.top + 1) {
+                  overlaps.push(`${left}-${right}`);
+                }
+              }
+            }
+          }
+          const report = { step: step + 1, width: Math.max(document.body.scrollWidth,
+            document.documentElement.scrollWidth), outside, clipped, overlaps,
+            incidentRows: document.querySelectorAll(".editor-incident-row").length,
+            variantRows: document.querySelectorAll(".editor-difficulty-row").length };
+          reports.push({ label: `편집기 ${step + 1}단계`, ...report });
+          if (report.width > WIDTH || outside.length > 0 || clipped.length > 0 || overlaps.length > 0 ||
+            (step === 1 && report.variantRows !== 3) ||
+            (step === 6 && report.incidentRows !== source.scenario.daysPerLoop)) {
+            failures.push(`편집기 ${step + 1}단계: ${JSON.stringify(report)}`);
+          }
+        }
+      }
+
       async function run() {
         await inspectStartingGuidance();
         await enterRound();
@@ -3250,6 +3316,8 @@
         recordBoardLayout("한 장소 11명", [11, 0, 0, 0]);
         await inspectUserScenarioPersistence();
         await inspectResetFlows();
+
+        await inspectEditorSteps();
 
         restoreStorage();
         const report = {

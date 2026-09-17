@@ -87,6 +87,9 @@ function validScenarioShape(value: unknown): value is Scenario {
     !finiteNumber(value.loops) || !finiteNumber(value.daysPerLoop)) return false;
   return (value.difficulty === undefined || finiteNumber(value.difficulty)) &&
     (value.difficultyIndex === undefined || finiteNumber(value.difficultyIndex)) &&
+    (value.difficultySets === undefined || (Array.isArray(value.difficultySets) &&
+      value.difficultySets.length > 0 && value.difficultySets.every((row: unknown) =>
+        record(row) && finiteNumber(row.numberOfLoops) && finiteNumber(row.difficulty)))) &&
     (value.specialRules === undefined || stringArray(value.specialRules)) &&
     (value.specialRuleIds === undefined || stringArray(value.specialRuleIds)) &&
     (value.scriptSpecified === undefined || record(value.scriptSpecified));
@@ -100,6 +103,10 @@ function validDraftShape(value: unknown): value is ScenarioDraft {
   for (const field of ["loops", "daysPerLoop", "difficulty", "difficultyIndex"] as const) {
     if (value[field] !== undefined && !finiteNumber(value[field])) return false;
   }
+  if (value.difficultySets !== undefined && (!Array.isArray(value.difficultySets) ||
+    !value.difficultySets.every((row: unknown) => record(row) && string(row.rowId) &&
+      (row.numberOfLoops === undefined || finiteNumber(row.numberOfLoops)) &&
+      (row.difficulty === undefined || finiteNumber(row.difficulty))))) return false;
   if (value.specialRules !== undefined && !stringArray(value.specialRules)) return false;
   if (value.specialRuleIds !== undefined && !stringArray(value.specialRuleIds)) return false;
   for (const field of ["subPlots", "cast", "incidents"] as const) {
@@ -157,6 +164,20 @@ function validateDocument(value: unknown, kind: "user" | "draft"): DocumentResul
     };
     const validation = validateScenario(value.scenario);
     if (!validation.ok) return { ok: false, diagnostics: validation.diagnostics };
+    if (value.scenario.difficultySets !== undefined) {
+      const [first] = value.scenario.difficultySets;
+      if (first.numberOfLoops !== value.scenario.loops ||
+        first.difficulty !== value.scenario.difficulty) return {
+        ok: false, diagnostics: [problem("scenario.difficultySets", "IMPORT_DOCUMENT_INVALID",
+          "기본 변형과 시나리오의 루프 수·난이도가 다릅니다.")],
+      };
+      for (const [index, item] of value.scenario.difficultySets.entries()) {
+        const checked = validateScenario({ ...value.scenario, loops: item.numberOfLoops });
+        if (!checked.ok) return { ok: false, diagnostics: checked.diagnostics.map((entry) => ({
+          ...entry, path: `scenario.difficultySets[${index}].${entry.path}`,
+        })) };
+      }
+    }
     const finalized = finalizeScenarioDraft(scenarioToDraft(value.scenario));
     if (!finalized.ok) return { ok: false, diagnostics: finalized.diagnostics };
     return { ok: true, value: value as unknown as UserScenarioDocument, diagnostics: [] };

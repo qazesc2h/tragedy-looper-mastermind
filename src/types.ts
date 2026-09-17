@@ -157,6 +157,8 @@ export interface Scenario {
   cast: Record<CharacterId, RoleId>;
   incidents: ScheduledIncident[];
   loops: number;
+  /** 사용자 각본의 난이도 변형. 첫 항목이 기본 선택이며 날짜 수는 공통이다. */
+  difficultySets?: { numberOfLoops: number; difficulty: number }[];
   /** 원본 difficultySets에서 선택한 항목과 표시용 난이도 */
   difficultyIndex?: number;
   difficulty?: number;

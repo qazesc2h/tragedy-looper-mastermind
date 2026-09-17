@@ -91,9 +91,11 @@
       set("creator", source.creator);
       set("tragedySet", source.scenario.tragedySet);
       step(1);
-      set("loops", String(source.scenario.loops));
+      set("difficultyLoops", String(source.scenario.loops));
       set("daysPerLoop", String(source.scenario.daysPerLoop));
-      set("difficulty", String(source.scenario.difficulty));
+      set("difficultyValue", String(source.scenario.difficulty));
+      click("[data-editor-action='save-draft']");
+      if (!query(".editor-save-status").textContent.includes("마지막 저장")) failures.push("명시적 저장 시각 누락");
       step(2);
       set("mainPlot", source.scenario.mainPlot);
       step(3);
@@ -155,8 +157,28 @@
       if (!doc().querySelector(".editor-upstream-warning") || JSON.stringify(changedDraft.draft.cast) !== savedCast) failures.push("앞 단계 변경 시 캐스트가 지워짐");
       set("mainPlot", source.scenario.mainPlot);
       click("[data-editor-action='close']");
+      click("[data-action='new-user-draft']");
+      set("title", "두 번째 초안");
+      const originalSetItem = win().Storage.prototype.setItem;
+      win().Storage.prototype.setItem = function(key, value) {
+        if (key === "tragedy-looper-mastermind:drafts") throw new Error("test storage failure");
+        return originalSetItem.call(this, key, value);
+      };
+      set("title", "두 번째 초안 수정");
+      if (!query(".editor-save-status").textContent.includes("저장되지 않은 변경")) failures.push("저장 실패 상태 표시 누락");
+      let warnedOnExit = false;
+      const originalConfirm = win().confirm;
+      win().confirm = () => { warnedOnExit = true; return false; };
+      click("[data-editor-action='close']");
+      if (!warnedOnExit || !doc().querySelector(".scenario-editor-screen")) failures.push("미저장 변경 나가기 경고 누락");
+      win().confirm = originalConfirm;
+      win().Storage.prototype.setItem = originalSetItem;
+      click("[data-editor-action='save-draft']");
+      click("[data-editor-action='close']");
+      const draftsBeforeReload = JSON.parse(win().localStorage.getItem("tragedy-looper-mastermind:drafts")).documents;
+      if (draftsBeforeReload.length !== 2) failures.push("초안 여러 개 동시 저장 실패");
       await reload("resume");
-      click("[data-action='resume-user-draft']");
+      click(`[data-action='resume-user-draft'][data-document-id='${savedDraft.id}']`);
       await waitFor(() => doc().querySelector(".scenario-editor-screen"), "초안 재개");
       step(8);
       const complete = query("[data-editor-action='complete']");
@@ -169,6 +191,17 @@
       reports.push({ label: "못된 고양이 완성", sameScenario, sameHints: user.mastermindHints === source.mastermindHints });
       if (!sameScenario || user.mastermindHints !== source.mastermindHints) failures.push("못된 고양이 기존 데이터와 불일치");
       if (win().localStorage.getItem("tragedy-looper-ko:tracker:v1") !== "keep-other-domain") failures.push("외부 도메인 키 변경");
+
+      const prevailing = loadScenarioCatalog().find(({ rawTitle }) => rawTitle === "Prevailing Secrecy");
+      if (!prevailing) throw new Error("복수 변형 각본을 찾을 수 없습니다.");
+      const bundledPicker = query("[data-new-game-scenario]");
+      bundledPicker.value = prevailing.id;
+      bundledPicker.dispatchEvent(new (win().Event)("change", { bubbles: true }));
+      click("[data-action='clone-selected-scenario']");
+      const cloned = JSON.parse(win().localStorage.getItem("tragedy-looper-mastermind:scenarios")).documents
+        .find((item) => item.title === `${prevailing.rawTitle} 복사본`);
+      reports.push({ label: "복수 변형 복제", variants: cloned?.scenario.difficultySets });
+      if (cloned?.scenario.difficultySets?.length !== prevailing.difficulties.length) failures.push("복수 난이도 변형 복제 누락");
 
       const picker = query("[data-new-game-scenario]");
       picker.value = user.id;

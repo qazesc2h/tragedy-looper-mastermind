@@ -27,6 +27,48 @@ function set(session: ScenarioEditorSession, field: string, value: string, rowId
 }
 
 describe("scenario editor", () => {
+  it("keeps ordered difficulty variants and the shared day count", () => {
+    const source = loadScenarioCatalog().find(({ rawTitle }) => rawTitle === "Prevailing Secrecy");
+    if (!source) throw new Error("missing scenario");
+    const session: ScenarioEditorSession = { draft: scenarioToDraft(source.scenario), step: 1 };
+    applyScenarioEditorAction(session, "add-difficulty");
+    const rows = session.draft.difficultySets!;
+    set(session, "difficultyLoops", "4", rows[0].rowId);
+    set(session, "difficultyValue", "1", rows[0].rowId);
+    set(session, "difficultyLoops", "3", rows[1].rowId);
+    set(session, "difficultyValue", "3", rows[1].rowId);
+    expect(renderScenarioEditor(session, "")).toContain("변형 1 · 기본값");
+    const completed = finalizeScenarioDraft(session.draft);
+    expect(completed.ok).toBe(true);
+    if (!completed.ok) return;
+    expect(completed.scenario.difficultySets).toEqual([
+      { numberOfLoops: 4, difficulty: 1 }, { numberOfLoops: 3, difficulty: 3 },
+    ]);
+    expect(completed.scenario.daysPerLoop).toBe(source.scenario.daysPerLoop);
+    const storage = new MemoryStorage();
+    const saved = new UserScenarioRepository(storage).saveScenario(completed.scenario, "변형 확인");
+    expect(saved.ok).toBe(true);
+    expect(new UserScenarioRepository(storage).listScenarios()[0].scenario.difficultySets).toEqual(completed.scenario.difficultySets);
+    set(session, "difficultyValue", "0", rows[1].rowId);
+    expect(renderScenarioEditor(session, "")).toContain("난이도 0은 미확인을 뜻합니다.");
+    expect(finalizeScenarioDraft(session.draft)).toMatchObject({ ok: true,
+      scenario: { difficultySets: [{ difficulty: 1 }, { difficulty: 0 }] } });
+    applyScenarioEditorAction(session, "remove-difficulty", rows[0].rowId);
+    expect(session.draft.difficultySets?.[0]?.difficulty).toBe(0);
+  });
+
+  it("checks the godly being entry against every variant loop count", () => {
+    const source = loadScenarioCatalog().find(({ rawTitle }) => rawTitle === "The Future of the Gods");
+    if (!source) throw new Error("missing scenario");
+    const draft = scenarioToDraft(source.scenario);
+    draft.difficultySets = [
+      { rowId: "easy", numberOfLoops: 4, difficulty: 4 },
+      { rowId: "short", numberOfLoops: 2, difficulty: 5 },
+    ];
+    expect(validateScenarioDraft(draft, "finalize").diagnostics).toContainEqual(expect.objectContaining({
+      path: "difficultySets.short.numberOfLoops", code: "ENTRY_TIMING_OUT_OF_RANGE", severity: "error",
+    }));
+  });
   it("starts blank, points warnings to fields, and preserves invalid downstream choices", () => {
     const session: ScenarioEditorSession = { draft: {}, step: 0 };
     expect(renderScenarioEditor(session, "")).toContain("참극 세트를 선택하지 않았습니다.");

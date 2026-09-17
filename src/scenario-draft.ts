@@ -50,6 +50,12 @@ export interface ScenarioDraftIncidentRow {
   culprit?: CharacterId;
 }
 
+export interface ScenarioDraftDifficultyRow {
+  rowId: string;
+  numberOfLoops?: number;
+  difficulty?: number;
+}
+
 export interface ScenarioDraftMetadata {
   startLocations?: Readonly<Record<string, ScenarioDraftValue<Location>>>;
   turfLocations?: Readonly<Record<string, ScenarioDraftValue<Location>>>;
@@ -69,6 +75,7 @@ export interface ScenarioDraft {
   mastermindHints?: string;
   tragedySet?: string;
   loops?: number;
+  difficultySets?: readonly ScenarioDraftDifficultyRow[];
   daysPerLoop?: number;
   mainPlot?: PlotId;
   subPlots?: readonly ScenarioDraftSubPlotRow[];
@@ -373,7 +380,7 @@ function projectDraft(draft: ScenarioDraft): DraftProjection {
         incident,
         culprit,
       })),
-      loops: draft.loops,
+      loops: draft.difficultySets?.[0]?.numberOfLoops ?? draft.loops,
       daysPerLoop: draft.daysPerLoop,
       scriptSpecified: scriptSpecified.present
         ? scriptSpecified.value
@@ -478,14 +485,35 @@ function missingFieldDiagnostics(
       "참극 세트를 선택하지 않았습니다.",
     ));
   }
-  if (draft.loops === undefined) {
+  const difficulties = draft.difficultySets;
+  if (difficulties !== undefined && difficulties.length === 0) {
+    diagnostics.push(diagnostic("difficultySets", "LOOPS_MISSING", severity,
+      "난이도 변형을 하나 이상 추가하세요."));
+  }
+  for (const row of difficulties ?? []) {
+    if (row.numberOfLoops === undefined) {
+      diagnostics.push(diagnostic(`difficultySets.${row.rowId}.numberOfLoops`, "LOOPS_MISSING", severity,
+        "루프 수를 입력하지 않았습니다."));
+    } else if (!Number.isInteger(row.numberOfLoops) || row.numberOfLoops < 1) {
+      diagnostics.push(diagnostic(`difficultySets.${row.rowId}.numberOfLoops`, "LOOPS_INVALID", "error",
+        "루프 수는 1 이상의 정수여야 합니다."));
+    }
+    if (row.difficulty === undefined) {
+      diagnostics.push(diagnostic(`difficultySets.${row.rowId}.difficulty`, "DIFFICULTY_MISSING", severity,
+        "난이도를 입력하지 않았습니다."));
+    } else if (!Number.isInteger(row.difficulty) || row.difficulty < 0) {
+      diagnostics.push(diagnostic(`difficultySets.${row.rowId}.difficulty`, "DIFFICULTY_INVALID", "error",
+        "난이도는 0 이상의 정수여야 합니다."));
+    }
+  }
+  if (difficulties === undefined && draft.loops === undefined) {
     diagnostics.push(diagnostic(
       "loops",
       "LOOPS_MISSING",
       severity,
       "루프 수를 입력하지 않았습니다.",
     ));
-  } else if (!Number.isInteger(draft.loops) || draft.loops < 1) {
+  } else if (difficulties === undefined && (!Number.isInteger(draft.loops) || draft.loops! < 1)) {
     diagnostics.push(diagnostic(
       "loops",
       "LOOPS_INVALID",
@@ -651,6 +679,8 @@ export function validateScenarioDraft(
   const projection = projectDraft(draft);
   const scenarioDiagnostics = validateScenario(projection.input).diagnostics
     .filter((source) => {
+      if (draft.difficultySets !== undefined && source.code === "ENTRY_TIMING_OUT_OF_RANGE" &&
+        source.path.includes("godlyBeing")) return false;
       if (source.code !== "SUBPLOT_COUNT_MISMATCH") return true;
       const expected = definitionOf(draft)?.numberOfSubPlots;
       return expected === undefined || (draft.subPlots?.length ?? 0) > expected;
@@ -663,6 +693,15 @@ export function validateScenarioDraft(
         projection.castRowByCharacter,
       )
     );
+  for (const row of draft.difficultySets ?? []) {
+    const variant = validateScenario({ ...projection.input, loops: row.numberOfLoops });
+    for (const source of variant.diagnostics.filter((item) => item.code === "ENTRY_TIMING_OUT_OF_RANGE" &&
+      item.path.includes("godlyBeing"))) {
+      scenarioDiagnostics.push({ ...translateScenarioDiagnostic(draft, source, mode, projection.castRowByCharacter),
+        path: `difficultySets.${row.rowId}.numberOfLoops`,
+        message: `이 변형: ${source.message}` });
+    }
+  }
   const diagnostics = [
     ...missingFieldDiagnostics(draft, mode),
     ...scenarioDiagnostics,
@@ -692,13 +731,19 @@ function finalizedScenario(draft: ScenarioDraft): Scenario {
       incident: incident!,
       culprit: culprit!,
     })),
-    loops: draft.loops!,
+    loops: (draft.difficultySets?.[0]?.numberOfLoops ?? draft.loops)!,
     daysPerLoop: draft.daysPerLoop!,
   };
   if (draft.difficultyIndex !== undefined) {
     scenario.difficultyIndex = draft.difficultyIndex;
   }
-  if (draft.difficulty !== undefined) scenario.difficulty = draft.difficulty;
+  if (draft.difficultySets !== undefined) {
+    if (draft.difficultySets.length > 1) scenario.difficultySets = draft.difficultySets.map(({ numberOfLoops, difficulty }) => ({
+      numberOfLoops: numberOfLoops!, difficulty: difficulty!,
+    }));
+    scenario.difficulty = draft.difficultySets[0]?.difficulty;
+    scenario.difficultyIndex = 0;
+  } else if (draft.difficulty !== undefined) scenario.difficulty = draft.difficulty;
   if (draft.specialRules !== undefined) {
     scenario.specialRules = [...draft.specialRules];
   }
@@ -781,6 +826,9 @@ export function scenarioToDraft(scenario: Scenario): ScenarioDraft {
   const draft: ScenarioDraft = {
     tragedySet: scenario.tragedySet,
     loops: scenario.loops,
+    ...(scenario.difficultySets === undefined ? {} : { difficultySets: scenario.difficultySets.map((row, index) => ({
+      rowId: `difficulty-${index + 1}`, ...row,
+    })) }),
     daysPerLoop: scenario.daysPerLoop,
     mainPlot: scenario.mainPlot,
     subPlots: scenario.subPlots.map((plot, index) => ({

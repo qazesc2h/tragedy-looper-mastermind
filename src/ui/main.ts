@@ -322,20 +322,20 @@ let userScenarios = new UserScenarioRepository(window.localStorage);
 
 function userScenarioEntry(document: UserScenarioDocument): ScenarioEntry {
   const scenario = structuredClone(document.scenario);
-  const validation = validateScenario(scenario);
+  const difficulties = (scenario.difficultySets ?? [{ numberOfLoops: scenario.loops,
+    difficulty: scenario.difficulty ?? 0 }]).map((item, index) => {
+    const variant = { ...scenario, loops: item.numberOfLoops, difficulty: item.difficulty,
+      difficultyIndex: index };
+    return { ...item, index, scenario: variant, validation: validateScenario(variant) };
+  });
+  const validation = difficulties[0].validation;
   return {
     id: document.id,
     title: document.title,
     creator: document.creator,
     mastermindHints: document.mastermindHints,
     scenario,
-    difficulties: [{
-      index: 0,
-      numberOfLoops: scenario.loops,
-      difficulty: scenario.difficulty ?? 0,
-      scenario,
-      validation,
-    }],
+    difficulties,
     source: "user",
     validation,
     errata: [],
@@ -5825,6 +5825,7 @@ function showUserDocumentResult(result: { ok: boolean; diagnostics: { message: s
 
 function saveEditorDraft(): void {
   if (editorSession === undefined) return;
+  editorSession.unsavedChanges = true;
   const saved = userScenarios.saveDraft(
     editorSession.draft,
     editorSession.draft.title?.trim() || "제목 없는 초안",
@@ -5832,6 +5833,10 @@ function saveEditorDraft(): void {
     editorSession.sourceScenarioId,
   );
   if (saved.value !== undefined) editorSession.draftId = saved.value.id;
+  if (saved.ok) {
+    editorSession.unsavedChanges = false;
+    editorSession.lastSavedAt = saved.value.updatedAt;
+  }
   editorSession.saveWarning = saved.ok ? undefined :
     saved.diagnostics.map(({ message }) => message).join(" ");
 }
@@ -6404,8 +6409,12 @@ root.addEventListener("click", (event) => {
   if (editorButton && editorSession !== undefined) {
     const action = editorButton.dataset.editorAction;
     if (action === "close") {
+      if (editorSession.unsavedChanges && !window.confirm("저장되지 않은 변경이 있습니다. 편집기를 나가시겠습니까?")) return;
       editorSession = undefined;
       refreshUserScenarioEntries();
+      render();
+    } else if (action === "save-draft") {
+      saveEditorDraft();
       render();
     } else if (action === "complete") {
       completeEditor();
@@ -6453,7 +6462,7 @@ root.addEventListener("click", (event) => {
       item.id === button.dataset.documentId);
     if (document === undefined) return;
     openEditor({ draft: document.draft, draftId: document.id,
-      sourceScenarioId: document.sourceScenarioId, step: 0 });
+      sourceScenarioId: document.sourceScenarioId, step: 0, lastSavedAt: document.updatedAt });
     return;
   }
 
@@ -6464,8 +6473,16 @@ root.addEventListener("click", (event) => {
       index === Number(draftValue("new-game:difficulty") || "0")) ??
       selected?.difficulties[0];
     if (selected !== undefined && difficulty?.validation.ok) {
+      const canCopyAll = selected.difficulties.length > 1 &&
+        selected.difficulties.every((item) => item.validation.ok);
+      const clone = canCopyAll ? {
+        ...selected.difficulties[0].scenario,
+        difficultySets: selected.difficulties.map(({ numberOfLoops, difficulty }) => ({
+          numberOfLoops, difficulty,
+        })),
+      } : difficulty.scenario;
       showUserDocumentResult(userScenarios.saveScenario(
-        difficulty.scenario,
+        clone,
         `${selected.title} 복사본`,
         selected.creator,
       ));
@@ -6961,6 +6978,15 @@ root.addEventListener("input", (event) => {
     warning.hidden = !editorSession.saveWarning;
     warning.textContent = editorSession.saveWarning ?? "";
   }
+  const saveStatus = root.querySelector<HTMLElement>(".editor-save-status");
+  if (saveStatus !== null) saveStatus.textContent = editorSession.unsavedChanges
+    ? "저장되지 않은 변경 있음"
+    : editorSession.lastSavedAt ? `마지막 저장 ${new Date(editorSession.lastSavedAt).toLocaleString("ko-KR")}` : "저장 전";
+});
+
+window.addEventListener("beforeunload", (event) => {
+  if (editorSession?.unsavedChanges !== true) return;
+  event.preventDefault();
 });
 
 root.addEventListener("change", (event) => {
