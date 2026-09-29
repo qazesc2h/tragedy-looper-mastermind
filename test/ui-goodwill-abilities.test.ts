@@ -12,6 +12,7 @@ import {
   aiIncidentChoiceFields,
   decodeIncidentSelection,
   encodeIncidentSelection,
+  forensicCounterTransferOptions,
   goodwillAbilityViews,
   goodwillRefusalHistory,
   goodwillTargetWarning,
@@ -213,7 +214,7 @@ describe("littleSister borrowing candidates", () => {
       }));
   });
 
-  it("omits unsupported forensic, scientist, and illusion rank 3 abilities", () => {
+  it("offers the newly implemented adult abilities while keeping illusion outside the adult scope", () => {
     const state = createState([
       "littleSister",
       "forensicSpecialist",
@@ -227,8 +228,9 @@ describe("littleSister borrowing candidates", () => {
 
     const options = littleSisterBorrowingOptions(state);
     expect(options.find(({ owner }) => owner === "forensicSpecialist")
+      ?.abilities.map(({ abilityIndex }) => abilityIndex)).toEqual([0, 1]);
+    expect(options.find(({ owner }) => owner === "scientist")
       ?.abilities.map(({ abilityIndex }) => abilityIndex)).toEqual([1]);
-    expect(options.some(({ owner }) => owner === "scientist")).toBe(false);
     expect(options.some(({ owner }) => owner === "illusion")).toBe(false);
   });
 });
@@ -465,7 +467,7 @@ describe("structured goodwill ability UI", () => {
     expect(goodwillAbilityViews(state)[0].disabledReason).toBeUndefined();
   });
 
-  it("enables implemented illusion rank 4 while disabling unsupported abilities", () => {
+  it("enables scientist and both illusion goodwill abilities", () => {
     const state = createState(["scientist", "illusion"]);
     unlock(state, "scientist", 3);
     unlock(state, "illusion", 4);
@@ -482,12 +484,12 @@ describe("structured goodwill ability UI", () => {
       {
         character: "scientist",
         rank: 3,
-        disabledReason: "notImplemented",
+        disabledReason: undefined,
       },
       {
         character: "illusion",
         rank: 3,
-        disabledReason: "notImplemented",
+        disabledReason: undefined,
       },
       {
         character: "illusion",
@@ -497,7 +499,7 @@ describe("structured goodwill ability UI", () => {
     ]);
   });
 
-  it("offers boss rank 5 targets in turf and disables unsupported forensic rank 2", () => {
+  it("offers boss rank 5 targets in turf and requires two forensic targets", () => {
     const state = createState([
       "boss",
       "forensicSpecialist",
@@ -522,8 +524,82 @@ describe("structured goodwill ability UI", () => {
       ({ character, schema }) =>
         character === "forensicSpecialist" && schema.rank === 2,
     )).toMatchObject({
-      disabledReason: "notImplemented",
+      disabledReason: "noTarget",
     });
+  });
+
+  it("builds forensic source, destination, and counter steps from current counters", () => {
+    const state = createState([
+      "forensicSpecialist",
+      "girlStudent",
+      "boyStudent",
+    ]);
+    unlock(state, "forensicSpecialist", 2);
+    for (const character of Object.keys(state.loop.board)) {
+      setBoardLocation(state.loop, character, "City");
+    }
+    state.loop.charCounters.girlStudent.intrigue = 1;
+    state.loop.charCounters.girlStudent.protection = 1;
+    setBoardLife(state.loop, "boyStudent", false);
+
+    const view = goodwillAbilityViews(state).find(
+      ({ character, abilityIndex }) =>
+        character === "forensicSpecialist" && abilityIndex === 0,
+    );
+    if (view === undefined) throw new Error("missing forensic rank 2 view");
+
+    expect(forensicCounterTransferOptions(state, view)).toEqual({
+      sources: ["girlStudent"],
+      destinations: [],
+      counters: [],
+    });
+    expect(forensicCounterTransferOptions(
+      state,
+      view,
+      "girlStudent",
+    )).toEqual({
+      sources: ["girlStudent"],
+      destinations: ["boyStudent"],
+      counters: ["intrigue", "protection"],
+    });
+  });
+
+  it("warns but keeps an illusion destination forbidden to the selected character", () => {
+    const state = createState(["illusion", "officeWorker"]);
+    unlock(state, "illusion", 3);
+    setBoardLocation(state.loop, "illusion", "City");
+    setBoardLocation(state.loop, "officeWorker", "City");
+    const view = goodwillAbilityViews(state).find(
+      ({ character, abilityIndex }) =>
+        character === "illusion" && abilityIndex === 1,
+    );
+    if (view === undefined) throw new Error("missing illusion rank 3 view");
+
+    expect(view.choice).toEqual({
+      kind: "destinationLocation",
+      options: ["Hospital", "Shrine", "School"],
+    });
+    expect(goodwillTargetWarning(
+      state,
+      view,
+      { kind: "character", id: "officeWorker" },
+      "School",
+    )).toEqual({
+      forbiddenLocation: "School",
+      restrictionRemovalAvailable: false,
+      character: "officeWorker",
+    });
+  });
+
+  it("marks scientist rank 3 unsupported only when a special gauge exists", () => {
+    const state = createState(["scientist"]);
+    unlock(state, "scientist", 3);
+    expect(goodwillAbilityViews(state)[0].disabledReason).toBeUndefined();
+
+    state.loop.specialGauge = 0;
+    expect(goodwillAbilityViews(state)[0].disabledReason).toBe(
+      "notImplemented",
+    );
   });
 
   it("enforces shrineMaiden rank 3's Shrine restriction", () => {

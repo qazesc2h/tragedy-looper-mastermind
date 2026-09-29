@@ -93,6 +93,24 @@ describe("structured goodwill-ability data", () => {
     }
   });
 
+  it("uses the exact Korean source-file wording for the completed abilities", () => {
+    expect(schema.illusion[0]).toMatchObject({
+      abilityIndex: 1,
+      ko: "이 장소에 있는 캐릭터 1명을 임의의 다른 장소로 이동시킵니다.",
+      _source: "Move any character from this location to any other location.",
+    });
+    expect(schema.forensicSpecialist[0]).toMatchObject({
+      abilityIndex: 0,
+      ko: "이 장소에 있는 다른 캐릭터 2명 사이에서 임의의 카운터 1개를 이동시킵니다.",
+      _source: "Move any one counter between any two other characters in this location.",
+    });
+    expect(schema.scientist[0]).toMatchObject({
+      abilityIndex: 1,
+      ko: "이 캐릭터에 놓인 모든 카운터를 제거합니다. 그 뒤, 특수 게이지를 사용하고 있다면 이 게이지를 증가시키거나 감소시킵니다.",
+      _source: "Remove all counters from this character. Then, if you use the Extra gauge, increase or decrease this gauge.",
+    });
+  });
+
   it("preserves the two original cannot-refuse flags and no others", () => {
     const protectedAbilities = Object.entries(characters).flatMap(
       ([character, data]) => character.startsWith("_")
@@ -233,7 +251,7 @@ describe("structured goodwill-ability data", () => {
     }
   });
 
-  it("includes the three promotion abilities without enabling unimplemented effects", () => {
+  it("preserves generated promotion metadata independently of runtime support", () => {
     expect(schema.scientist).toMatchObject([
       { abilityIndex: 1, rank: 3, implemented: false },
     ]);
@@ -257,27 +275,8 @@ describe("structured goodwill-ability data", () => {
     );
 
     expect(inventory).toHaveLength(35);
-    expect(inventory.filter(({ implemented }) => implemented)).toHaveLength(32);
-    expect(inventory.filter(({ implemented }) => !implemented)).toEqual([
-      {
-        character: "forensicSpecialist",
-        abilityIndex: 0,
-        rank: 2,
-        implemented: false,
-      },
-      {
-        character: "scientist",
-        abilityIndex: 1,
-        rank: 3,
-        implemented: false,
-      },
-      {
-        character: "illusion",
-        abilityIndex: 1,
-        rank: 3,
-        implemented: false,
-      },
-    ]);
+    expect(inventory.filter(({ implemented }) => implemented)).toHaveLength(35);
+    expect(inventory.filter(({ implemented }) => !implemented)).toEqual([]);
   });
 
   it("matches the supplied once-per-loop, refusal and location markers", () => {

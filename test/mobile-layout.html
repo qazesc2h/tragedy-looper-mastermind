@@ -2611,84 +2611,122 @@
             "forensicSpecialist",
             "scientist",
             "illusion",
-            "alien",
             "officeWorker",
             "transferStudent",
             "boyStudent",
+            "girlStudent",
           ]) {
             state.scenario.cast[character] = "person";
             state.loop.board[character] = { status: "alive", at: "City" };
             state.loop.charCounters[character] = {
-              goodwill: character === "forensicSpecialist" || character === "alien"
+              goodwill: character === "illusion"
+                ? 4
+                : character === "scientist"
+                ? 3
+                : character === "forensicSpecialist"
                 ? 5
-                : 4,
-              paranoia: 0,
-              intrigue: 0,
-              protection: 0,
+                : 0,
+              paranoia: character === "scientist" ? 1 : 0,
+              intrigue: character === "girlStudent" ? 1 : 0,
+              protection: character === "scientist" ? 1 : 0,
             };
           }
-          state.loop.board.officeWorker = { status: "dead", at: "City" };
           state.loop.board.transferStudent = { status: "absent" };
           state.loop.board.boyStudent = { status: "dead", at: "City" };
         });
         await reloadApp("goodwill-implementation-coverage");
         click("[data-action='toggle-operation-sheet']");
 
-        const unsupported = [
-          ["forensicSpecialist", "0"],
-          ["scientist", "1"],
-          ["illusion", "1"],
-        ];
-        const disabledReasons = {};
-        for (const [character, abilityIndex] of unsupported) {
-          const button = await waitFor(
-            () => frameDocument().querySelector(
-              `button[data-action='goodwill'][data-response='resolve'][data-character='${character}'][data-ability-index='${abilityIndex}']`,
-            ),
-            `미구현 우호 능력 · ${character}:${abilityIndex}`,
-          );
-          const card = button.closest(".goodwill-card");
-          disabledReasons[`${character}:${abilityIndex}`] = {
-            disabled: button.disabled,
-            reason: card?.querySelector(".goodwill-disabled-reason")
-              ?.textContent.trim() ?? "",
-          };
-        }
+        const forensicOpen = await waitFor(
+          () => frameDocument().querySelector(
+            "button[data-action='open-forensic-transfer'][data-character='forensicSpecialist']",
+          ),
+          "감식관 우호2 선택 버튼",
+        );
+        forensicOpen.click();
+        await pause();
+        const forensicSteps = [];
+        forensicSteps.push(Boolean(frameDocument().querySelector("[data-forensic-step='1']")));
+        click("button[data-action='forensic-source'][data-character='girlStudent']");
+        await pause();
+        forensicSteps.push(Boolean(frameDocument().querySelector("[data-forensic-step='2']")));
+        const sameCharacterDestinationVisible = Boolean(frameDocument().querySelector(
+          "button[data-action='forensic-destination'][data-character='girlStudent']",
+        ));
+        click("button[data-action='forensic-destination'][data-character='boyStudent']");
+        await pause();
+        forensicSteps.push(Boolean(frameDocument().querySelector("[data-forensic-step='3']")));
+        const absentCounterVisible = Boolean(frameDocument().querySelector(
+          "button[data-action='forensic-counter'][data-counter='goodwill']",
+        ));
+        click("button[data-action='forensic-counter'][data-counter='intrigue']");
+        await pause();
+        click(".forensic-transfer-layer button[data-action='goodwill'][data-response='resolve']");
+        await pause(300);
 
-        const illusionButton = await waitFor(
+        const scientistButton = await waitFor(
+          () => frameDocument().querySelector(
+            "button[data-action='goodwill'][data-response='resolve'][data-character='scientist'][data-ability-index='1']",
+          ),
+          "학자 우호3 해결 버튼",
+        );
+        scientistButton.click();
+        await pause(300);
+
+        const illusionTarget = frameDocument().querySelector(
+          "select[data-goodwill-target='illusion:goodwill:1']",
+        );
+        const illusionDestination = frameDocument().querySelector(
+          "select[data-goodwill-destination='illusion:goodwill:1']",
+        );
+        if (
+          !(illusionTarget instanceof frameWindow().HTMLSelectElement) ||
+          !(illusionDestination instanceof frameWindow().HTMLSelectElement)
+        ) throw new Error("환상 우호3 대상 선택을 찾을 수 없습니다.");
+        illusionTarget.value = "character:officeWorker";
+        illusionTarget.dispatchEvent(new (frameWindow().Event)("change", { bubbles: true }));
+        await pause();
+        const refreshedDestination = frameDocument().querySelector(
+          "select[data-goodwill-destination='illusion:goodwill:1']",
+        );
+        refreshedDestination.value = "School";
+        refreshedDestination.dispatchEvent(new (frameWindow().Event)("change", { bubbles: true }));
+        await pause();
+        const forbiddenWarning = frameDocument().querySelector(
+          ".goodwill-target-warning",
+        )?.textContent.replace(/\s+/g, " ").trim() ?? "";
+        click("button[data-action='goodwill'][data-response='resolve'][data-character='illusion'][data-ability-index='1']");
+        await pause(300);
+
+        const illusionRank4 = await waitFor(
           () => frameDocument().querySelector(
             "button[data-action='goodwill'][data-response='resolve'][data-character='illusion'][data-ability-index='2']",
           ),
           "환상 우호4 해결 버튼",
         );
-        const illusionRank4InitiallyEnabled = !illusionButton.disabled;
-        const deadOwnerVisible = Boolean(frameDocument().querySelector(
-          ".goodwill-card button[data-character='officeWorker']",
-        ));
+        illusionRank4.click();
+        await pause(300);
+
         const absentOwnerVisible = Boolean(frameDocument().querySelector(
           ".goodwill-card button[data-character='transferStudent']",
-        ));
-        const alienCorpseTarget = Boolean(frameDocument().querySelector(
-          "select[data-goodwill-target='alien:goodwill:1'] option[value='character:boyStudent']",
         ));
         const forensicCorpseTarget = Boolean(frameDocument().querySelector(
           "select[data-goodwill-target='forensicSpecialist:goodwill:1'] option[value='character:boyStudent']",
         ));
-        illusionButton.click();
-        await pause(300);
         const saved = JSON.parse(
           window.localStorage.getItem("tragedy-looper-mastermind:tracker"),
         );
         const current = saved.games[saved.activeScenarioId].state;
         const report = {
-          disabledReasons,
-          diagnosticCount: frameDocument().querySelectorAll(
-            ".goodwill-disabled-diagnostic",
-          ).length,
-          illusionRank4InitiallyEnabled,
-          deadOwnerVisible,
+          forensicSteps,
+          sameCharacterDestinationVisible,
+          absentCounterVisible,
+          forensicSourceIntrigue: current.loop.charCounters.girlStudent.intrigue,
+          forensicCorpseIntrigue: current.loop.charCounters.boyStudent.intrigue,
+          scientistCounters: current.loop.charCounters.scientist,
+          forbiddenWarning,
+          officeWorkerLocation: current.loop.board.officeWorker.at,
           absentOwnerVisible,
-          alienCorpseTarget,
           forensicCorpseTarget,
           illusionStatusAfterResolve: current.loop.board.illusion.status,
           illusionCardVisibleAfterResolve: Boolean(
@@ -2699,14 +2737,15 @@
         };
         reports.push({ label: "우호 능력 구현 경계", ...report });
         if (
-          Object.values(disabledReasons).some(
-            ({ disabled, reason }) => !disabled || reason !== "미구현",
-          ) ||
-          report.diagnosticCount !== 0 ||
-          !illusionRank4InitiallyEnabled ||
-          report.deadOwnerVisible ||
+          forensicSteps.some((visible) => !visible) ||
+          sameCharacterDestinationVisible ||
+          absentCounterVisible ||
+          report.forensicSourceIntrigue !== 0 ||
+          report.forensicCorpseIntrigue !== 1 ||
+          Object.values(report.scientistCounters).some((count) => count !== 0) ||
+          !forbiddenWarning.includes("회사원의 금지 장소입니다. 능력은 소모되지만 이동하지 않습니다.") ||
+          report.officeWorkerLocation !== "City" ||
           report.absentOwnerVisible ||
-          !report.alienCorpseTarget ||
           !report.forensicCorpseTarget ||
           report.illusionStatusAfterResolve !== "absent" ||
           report.illusionCardVisibleAfterResolve

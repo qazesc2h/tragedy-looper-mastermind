@@ -8,6 +8,10 @@ import {
   type SacredTreeCounter,
   type SacredTreeTransferCondition,
 } from "../types";
+import {
+  transferCharacterCounter,
+  TRANSFERABLE_CHARACTER_COUNTERS,
+} from "./counter-transfer";
 import { recordPhaseLog } from "./phase-log";
 import {
   publicBoardChanges,
@@ -19,12 +23,8 @@ export const SACRED_TREE_TRAIT_SOURCE =
   "character at this location. If this character has :goodwill: Refusel, " +
   "the Mastermind must also do this during the Mastermind's ability step.";
 
-export const SACRED_TREE_COUNTERS: readonly SacredTreeCounter[] = [
-  "goodwill",
-  "paranoia",
-  "intrigue",
-  "protection",
-];
+export const SACRED_TREE_COUNTERS: readonly SacredTreeCounter[] =
+  TRANSFERABLE_CHARACTER_COUNTERS;
 
 export interface SacredTreeTransferSelection {
   counter: SacredTreeCounter;
@@ -130,13 +130,12 @@ function applyTransfer(
   if (!condition.eligibleTargets.includes(selection.target)) {
     throw new Error(`invalid sacred-tree target "${selection.target}"`);
   }
-  const source = state.loop.charCounters.sacredTree;
-  const target = state.loop.charCounters[selection.target];
-  if (source === undefined || target === undefined) {
-    throw new Error("sacred-tree transfer counters are missing");
-  }
-  source[selection.counter] -= 1;
-  target[selection.counter] += 1;
+  transferCharacterCounter(
+    state,
+    "sacredTree",
+    selection.target,
+    selection.counter,
+  );
 }
 
 function recordMastermindTransfer(

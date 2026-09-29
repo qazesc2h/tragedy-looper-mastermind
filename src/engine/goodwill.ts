@@ -11,12 +11,15 @@ import {
   type GameState,
   type IncidentChoice,
   type IncidentSelection,
+  type Location,
   type PlotId,
   type RoleId,
+  type SacredTreeCounter,
   type ScheduledIncident,
   type Target,
   withCharacterLocation,
 } from "../types";
+import { transferCharacterCounter } from "./counter-transfer";
 import { killCharacter, reviveCharacter, withDeathBatch } from "./death";
 import { resolveIncidentEffect } from "./incident";
 import { adjacentLocations } from "./movement";
@@ -47,6 +50,12 @@ export interface GoodwillDeclaration {
   /** 같은 랭크가 둘 이상이면 data/characters.json 배열의 인덱스가 필요하다. */
   abilityIndex?: number;
   target?: CharacterId | Target;
+  /** 감식관처럼 두 캐릭터를 고르는 능력의 두 번째 대상. */
+  otherTarget?: CharacterId | Target;
+  /** 환상처럼 캐릭터와 별도로 고르는 이동 목적지. */
+  destination?: Location;
+  /** 캐릭터 사이에서 옮길 카운터 종류. */
+  counter?: SacredTreeCounter;
   paranoiaDelta?: -1 | 1;
   card?: ActionCard;
   incident?: IncidentSelection;
@@ -85,6 +94,7 @@ const IMPLEMENTED_GOODWILL_ABILITIES: ReadonlySet<string> = new Set([
   "copycat:1",
   "doctor:0",
   "doctor:1",
+  "forensicSpecialist:0",
   "forensicSpecialist:1",
   "girlStudent:0",
   "godlyBeing:1",
@@ -102,6 +112,7 @@ const IMPLEMENTED_GOODWILL_ABILITIES: ReadonlySet<string> = new Set([
   "popIdol:0",
   "popIdol:1",
   "richStudent:0",
+  "scientist:1",
   "servant:1",
   "shrineMaiden:0",
   "shrineMaiden:1",
@@ -112,6 +123,7 @@ const IMPLEMENTED_GOODWILL_ABILITIES: ReadonlySet<string> = new Set([
   "transferStudent:1",
   "youngGirl:0",
   "youngGirl:1",
+  "illusion:1",
   "sectFounder:1",
   "sectFounder:2",
   "littleSister:1",
@@ -125,6 +137,18 @@ export function goodwillAbilityImplemented(
   return IMPLEMENTED_GOODWILL_ABILITIES.has(
     `${character}:${abilityIndex}`,
   );
+}
+
+/** 현재 참극 세트 상태까지 포함한 실제 해결 가능 여부. */
+export function goodwillAbilityImplementedInState(
+  state: GameState,
+  character: CharacterId,
+  abilityIndex: number,
+): boolean {
+  if (!goodwillAbilityImplemented(character, abilityIndex)) return false;
+  // 특수 게이지가 존재하는 세트의 증감 선택은 확장 지원 범위다.
+  return !(character === "scientist" && abilityIndex === 1 &&
+    state.loop.specialGauge !== undefined);
 }
 
 function selectAbility(
@@ -264,6 +288,11 @@ function declarationTargets(declaration: GoodwillDeclaration): Target[] {
   const targets: Target[] = [];
   const direct = normalizeTarget(declaration.target);
   if (direct !== undefined) targets.push(structuredClone(direct));
+  const other = normalizeTarget(declaration.otherTarget);
+  if (other !== undefined) targets.push(structuredClone(other));
+  if (declaration.destination !== undefined) {
+    targets.push({ kind: "location", at: declaration.destination });
+  }
   const choice = declaration.incidentChoice;
   if (choice?.target !== undefined) {
     targets.push({ kind: "character", id: choice.target });
@@ -307,6 +336,101 @@ function requireLocationTarget(
     throw new Error("goodwill ability requires a location target");
   }
   return target;
+}
+
+function requireOtherCharacterTarget(
+  state: GameState,
+  declaration: GoodwillDeclaration,
+): CharacterId {
+  const target = normalizeTarget(declaration.otherTarget);
+  if (target?.kind !== "character" || !state.loop.board[target.id]) {
+    throw new Error("goodwill ability requires a second character target");
+  }
+  if (!isCharacterPresent(state.loop.board[target.id])) {
+    throw new Error("goodwill ability cannot target an absent character");
+  }
+  return target.id;
+}
+
+function applyForensicCounterTransfer(
+  state: GameState,
+  declaration: GoodwillDeclaration,
+): boolean {
+  const source = requireCharacterTarget(state, declaration);
+  const target = requireOtherCharacterTarget(state, declaration);
+  if (source === declaration.user || target === declaration.user) {
+    throw new Error(
+      "forensicSpecialist counter transfer requires two other characters",
+    );
+  }
+  if (source === target) {
+    throw new Error(
+      "forensicSpecialist counter transfer requires different characters",
+    );
+  }
+  const userPosition = state.loop.board[declaration.user];
+  const sourcePosition = state.loop.board[source];
+  const targetPosition = state.loop.board[target];
+  const location = characterLocation(userPosition, declaration.user);
+  if (
+    characterLocation(sourcePosition, source) !== location ||
+    characterLocation(targetPosition, target) !== location
+  ) {
+    throw new Error(
+      "forensicSpecialist counter transfer targets must be in this location",
+    );
+  }
+  if (declaration.counter === undefined) {
+    throw new Error("forensicSpecialist counter transfer requires a counter");
+  }
+  transferCharacterCounter(
+    state,
+    source,
+    target,
+    declaration.counter,
+  );
+  return true;
+}
+
+function applyIllusionMovement(
+  state: GameState,
+  declaration: GoodwillDeclaration,
+): boolean {
+  const target = requireLivingCharacterInSameLocation(state, declaration);
+  const destination = declaration.destination;
+  if (destination === undefined) {
+    throw new Error("illusion goodwill ability requires a destination");
+  }
+  const position = state.loop.board[target];
+  const from = characterLocation(position, target);
+  if (destination === from) {
+    throw new Error("illusion goodwill ability requires another location");
+  }
+  const restrictionRemoved = state.loop.locationRestrictionsRemoved
+    ?.includes(target) === true;
+  if (
+    !restrictionRemoved &&
+    characterDataOf(target).forbiddenLocation.includes(destination)
+  ) {
+    return false;
+  }
+  state.loop.board[target] = withCharacterLocation(
+    position,
+    destination,
+    target,
+  );
+  return true;
+}
+
+function removeScientistCounters(state: GameState): boolean {
+  const counters = state.loop.charCounters.scientist;
+  const effectApplied = counters.goodwill > 0 || counters.paranoia > 0 ||
+    counters.intrigue > 0 || counters.protection > 0;
+  counters.goodwill = 0;
+  counters.paranoia = 0;
+  counters.intrigue = 0;
+  counters.protection = 0;
+  return effectApplied;
 }
 
 function requireLivingCharacterInSameLocation(
@@ -878,6 +1002,12 @@ function applySimpleBaseAbility(
       return revealRole(state, target);
     }
 
+    case "forensicSpecialist:0":
+      return applyForensicCounterTransfer(state, declaration);
+
+    case "scientist:1":
+      return removeScientistCounters(state);
+
     case "informer:0":
       return revealActiveSubplot(state, declaration);
 
@@ -887,6 +1017,9 @@ function applySimpleBaseAbility(
     case "illusion:2":
       state.loop.board[declaration.user] = { status: "absent" };
       return true;
+
+    case "illusion:1":
+      return applyIllusionMovement(state, declaration);
 
     default:
       return undefined;
@@ -940,7 +1073,7 @@ export function resolveGoodwillAbility(
     abilityOwner: undefined,
   };
   const selected = selectAbility(ownerDeclaration);
-  if (!goodwillAbilityImplemented(abilityOwner, selected.index)) {
+  if (!goodwillAbilityImplementedInState(state, abilityOwner, selected.index)) {
     throw new Error(
       `goodwill effect is not implemented for "${abilityOwner}" ` +
       `ability index ${selected.index}`,

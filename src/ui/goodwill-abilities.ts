@@ -6,8 +6,10 @@ import {
 } from "../impl/traits";
 import {
   goodwillAbilityImplemented,
+  goodwillAbilityImplementedInState,
   goodwillResponseAvailability,
 } from "../engine/goodwill";
+import { TRANSFERABLE_CHARACTER_COUNTERS } from "../engine/counter-transfer";
 import { adjacentLocations } from "../engine/movement";
 import { tragedySetDefinition } from "../tragedy-sets";
 import {
@@ -23,6 +25,7 @@ import {
   type IncidentSelection,
   type Location,
   type PlotId,
+  type SacredTreeCounter,
   type Target,
 } from "../types";
 
@@ -92,6 +95,8 @@ export type GoodwillChoice =
     options: readonly PlotId[];
     revealOptions: readonly PlotId[];
   }
+  | { kind: "destinationLocation"; options: readonly Location[] }
+  | { kind: "counterTransfer" }
   | { kind: "counter"; options: readonly string[] };
 
 export interface GoodwillAbilityView {
@@ -108,6 +113,7 @@ export interface GoodwillAbilityView {
 export interface GoodwillTargetWarning {
   forbiddenLocation: Location;
   restrictionRemovalAvailable: boolean;
+  character?: CharacterId;
 }
 
 export interface GoodwillRefusalHistoryEntry {
@@ -268,6 +274,55 @@ const LITTLE_SISTER_GOODWILL_ABILITIES: readonly StructuredGoodwillAbility[] = [
   },
 ];
 
+const FORENSIC_SPECIALIST_COUNTER_TRANSFER: StructuredGoodwillAbility = {
+  abilityIndex: 0,
+  rank: 2,
+  ko: "이 장소에 있는 다른 캐릭터 2명 사이에서 임의의 카운터 1개를 이동시킵니다.",
+  target: {
+    scope: "sameLocation",
+    excludeSelf: true,
+    tags: [],
+    count: 2,
+  },
+  effect: { operation: "moveCounter" },
+  choices: ["counterTransfer"],
+  timesPerLoop: 1,
+  restrictedToLocation: null,
+  implemented: true,
+  _source: "Move any one counter between any two other characters in this location.",
+};
+
+const SCIENTIST_COUNTER_REMOVAL: StructuredGoodwillAbility = {
+  abilityIndex: 1,
+  rank: 3,
+  ko: "이 캐릭터에 놓인 모든 카운터를 제거합니다. 그 뒤, 특수 게이지를 사용하고 있다면 이 게이지를 증가시키거나 감소시킵니다.",
+  target: { scope: "self", excludeSelf: false, tags: [] },
+  effect: { operation: "removeOwnCountersAndAdjustSpecialGauge" },
+  choices: null,
+  timesPerLoop: null,
+  restrictedToLocation: null,
+  implemented: true,
+  _source: "Remove all counters from this character. Then, if you use the Extra gauge, increase or decrease this gauge.",
+};
+
+const ILLUSION_CHARACTER_MOVEMENT: StructuredGoodwillAbility = {
+  abilityIndex: 1,
+  rank: 3,
+  ko: "이 장소에 있는 캐릭터 1명을 임의의 다른 장소로 이동시킵니다.",
+  target: {
+    scope: "sameLocation",
+    excludeSelf: false,
+    tags: [],
+    predicates: ["alive"],
+  },
+  effect: { operation: "moveCharacterToOtherLocation" },
+  choices: ["destinationLocation"],
+  timesPerLoop: 1,
+  restrictedToLocation: null,
+  implemented: true,
+  _source: "Move any character from this location to any other location.",
+};
+
 function goodwillAbilitiesFor(
   character: CharacterId,
 ): readonly StructuredGoodwillAbility[] {
@@ -276,6 +331,21 @@ function goodwillAbilitiesFor(
   if (character === "youngGirl") return YOUNG_GIRL_GOODWILL_ABILITIES;
   if (character === "sectFounder") return SECT_FOUNDER_GOODWILL_ABILITIES;
   if (character === "littleSister") return LITTLE_SISTER_GOODWILL_ABILITIES;
+  if (character === "forensicSpecialist") {
+    return [
+      FORENSIC_SPECIALIST_COUNTER_TRANSFER,
+      ...(GENERATED_GOODWILL_ABILITIES.forensicSpecialist?.slice(1) ?? []),
+    ];
+  }
+  if (character === "scientist") return [SCIENTIST_COUNTER_REMOVAL];
+  if (character === "illusion") {
+    return [
+      ILLUSION_CHARACTER_MOVEMENT,
+      ...(GENERATED_GOODWILL_ABILITIES.illusion?.filter(
+        ({ abilityIndex }) => abilityIndex !== 1,
+      ) ?? []),
+    ];
+  }
   return GENERATED_GOODWILL_ABILITIES[character] ?? [];
 }
 
@@ -413,6 +483,7 @@ function uniqueIncidentSelections(
 
 function choiceFor(
   state: GameState,
+  character: CharacterId,
   choices: readonly string[] | null,
 ): GoodwillChoice {
   if (choices === null) return { kind: "none" };
@@ -453,6 +524,16 @@ function choiceFor(
       revealOptions: state.scenario.subPlots,
     };
   }
+  if (choices.length === 1 && choices[0] === "destinationLocation") {
+    const current = characterLocation(state.loop.board[character], character);
+    return {
+      kind: "destinationLocation",
+      options: LOCATIONS.filter((location) => location !== current),
+    };
+  }
+  if (choices.length === 1 && choices[0] === "counterTransfer") {
+    return { kind: "counterTransfer" };
+  }
   return { kind: "counter", options: choices };
 }
 
@@ -467,7 +548,11 @@ function disabledReasonFor(
   if (ability.minLoop !== undefined && state.loop.loop < ability.minLoop) {
     return "minLoop";
   }
-  if (!goodwillAbilityImplemented(character, ability.abilityIndex)) {
+  if (!goodwillAbilityImplementedInState(
+    state,
+    character,
+    ability.abilityIndex,
+  )) {
     return "notImplemented";
   }
   const key = `${character}:goodwill:${ability.abilityIndex}`;
@@ -489,6 +574,16 @@ function disabledReasonFor(
     return "restrictedLocation";
   }
   const targetCount = ability.target.count ?? 1;
+  if (ability.effect.operation === "moveCounter") {
+    if (targets.length < targetCount) return "noTarget";
+    const hasSource = targets.some((target) =>
+      target.kind === "character" &&
+      TRANSFERABLE_CHARACTER_COUNTERS.some(
+        (counter) => state.loop.charCounters[target.id][counter] > 0,
+      )
+    );
+    return hasSource ? undefined : "noChoice";
+  }
   if (targetCount > 1) return "multipleTargets";
   if (
     ability.target.scope !== "none" &&
@@ -547,7 +642,7 @@ function goodwillAbilityView(
   schema: StructuredGoodwillAbility,
 ): GoodwillAbilityView {
   const targets = targetsFor(state, character, schema);
-  const choice = choiceFor(state, schema.choices);
+  const choice = choiceFor(state, character, schema.choices);
   const disabledReason = disabledReasonFor(
     state,
     character,
@@ -562,6 +657,7 @@ function goodwillAbilityView(
     schema,
     targets,
     targetRequired:
+      schema.effect.operation !== "moveCounter" &&
       schema.target.scope !== "none" && schema.target.scope !== "self",
     choice,
     disabledReason,
@@ -602,12 +698,63 @@ export function littleSisterBorrowingOptions(
   });
 }
 
+export interface ForensicCounterTransferOptions {
+  sources: CharacterId[];
+  destinations: CharacterId[];
+  counters: SacredTreeCounter[];
+}
+
+/** 감식관 카운터 이전의 세 단계 후보를 현재 앞선 선택에 맞춰 계산한다. */
+export function forensicCounterTransferOptions(
+  state: GameState,
+  view: GoodwillAbilityView,
+  source?: CharacterId,
+): ForensicCounterTransferOptions {
+  if (view.schema.effect.operation !== "moveCounter") {
+    return { sources: [], destinations: [], counters: [] };
+  }
+  const characters = view.targets.flatMap((target) =>
+    target.kind === "character" ? [target.id] : []
+  );
+  const sources = characters.filter((character) =>
+    TRANSFERABLE_CHARACTER_COUNTERS.some(
+      (counter) => state.loop.charCounters[character][counter] > 0,
+    )
+  );
+  return {
+    sources,
+    destinations: source === undefined
+      ? []
+      : characters.filter((character) => character !== source),
+    counters: source === undefined
+      ? []
+      : TRANSFERABLE_CHARACTER_COUNTERS.filter(
+        (counter) => state.loop.charCounters[source][counter] > 0,
+      ),
+  };
+}
+
 /** 선택은 막지 않고, 여자 아이가 금지 장소 이동을 선언할 때만 경고한다. */
 export function goodwillTargetWarning(
   state: GameState,
   view: GoodwillAbilityView,
   target: Target | undefined,
+  destination?: Location,
 ): GoodwillTargetWarning | undefined {
+  if (
+    view.character === "illusion" &&
+    view.abilityIndex === 1 &&
+    target?.kind === "character" &&
+    destination !== undefined &&
+    state.loop.locationRestrictionsRemoved?.includes(target.id) !== true &&
+    characterDataOf(target.id).forbiddenLocation.includes(destination)
+  ) {
+    return {
+      forbiddenLocation: destination,
+      restrictionRemovalAvailable: false,
+      character: target.id,
+    };
+  }
   if (
     view.character !== "youngGirl" ||
     view.abilityIndex !== 1 ||

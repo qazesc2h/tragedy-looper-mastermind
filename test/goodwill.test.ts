@@ -472,14 +472,72 @@ describe("littleSister rank 5 / borrow an adult goodwill ability", () => {
     }, "resolve")).toThrow("already spent this loop");
   });
 
-  it("rejects unsupported borrowed abilities before applying an effect", () => {
-    const state = borrowingState("forensicSpecialist");
-    expect(() => resolveGoodwillAbility(state, {
+  it("borrows forensicSpecialist's counter transfer", () => {
+    const state = createInformationState([
+      "littleSister",
+      "forensicSpecialist",
+      "girlStudent",
+      "boyStudent",
+    ], []);
+    state.loop.charCounters.littleSister.goodwill = 5;
+    state.loop.charCounters.girlStudent.protection = 1;
+    for (const character of Object.keys(state.loop.board)) {
+      setBoardLocation(state.loop, character, "City");
+    }
+
+    resolveGoodwillAbility(state, {
       user: "littleSister",
       abilityOwner: "forensicSpecialist",
       rank: 2,
       abilityIndex: 0,
-    }, "resolve")).toThrow("effect is not implemented");
+      target: "girlStudent",
+      otherTarget: "boyStudent",
+      counter: "protection",
+    }, "resolve");
+
+    expect(state.loop.charCounters.girlStudent.protection).toBe(0);
+    expect(state.loop.charCounters.boyStudent.protection).toBe(1);
+    expect(state.loop.abilitiesUsedThisLoop).toContain(
+      "forensicSpecialist:goodwill:0",
+    );
+  });
+
+  it("borrows scientist's counter removal without owner goodwill", () => {
+    const state = borrowingState("scientist");
+    state.loop.charCounters.scientist.goodwill = 0;
+    state.loop.charCounters.scientist.paranoia = 1;
+    state.loop.charCounters.scientist.intrigue = 1;
+    state.loop.charCounters.scientist.protection = 1;
+
+    resolveGoodwillAbility(state, {
+      user: "littleSister",
+      abilityOwner: "scientist",
+      rank: 3,
+      abilityIndex: 1,
+    }, "resolve");
+
+    expect(state.loop.charCounters.scientist).toEqual({
+      goodwill: 0,
+      paranoia: 0,
+      intrigue: 0,
+      protection: 0,
+    });
+  });
+
+  it("does not borrow illusion because the source limits borrowing to adults", () => {
+    const state = borrowingState("illusion");
+    state.loop.charCounters.illusion.goodwill = 3;
+
+    expect(() => resolveGoodwillAbility(state, {
+      user: "littleSister",
+      abilityOwner: "illusion",
+      rank: 3,
+      abilityIndex: 1,
+      target: "girlStudent",
+      destination: "Hospital",
+    }, "resolve")).toThrow(
+      "littleSister must borrow from a living adult in the same location",
+    );
   });
 });
 
@@ -1555,23 +1613,211 @@ describe("boss rank 5 / reveal a role in turf", () => {
 });
 
 describe("loop-long goodwill effects", () => {
-  it.each([
-    ["forensicSpecialist", 2, 0],
-    ["scientist", 3, 1],
-    ["illusion", 3, 1],
-  ] as const)(
-    "rejects unsupported %s rank %i before entering an unresolved effect path",
-    (character, rank, abilityIndex) => {
-      const state = createInformationState([character], []);
-      state.loop.charCounters[character].goodwill = rank;
+  it("moves illusion or another co-located character to any other location", () => {
+    const other = createInformationState(["illusion", "boyStudent"], []);
+    other.loop.charCounters.illusion.goodwill = 3;
+    setBoardLocation(other.loop, "illusion", "Shrine");
+    setBoardLocation(other.loop, "boyStudent", "Shrine");
 
-      expect(() => resolveGoodwillAbility(state, {
-        user: character,
-        rank,
-        abilityIndex,
-      }, "resolve")).toThrow("goodwill effect is not implemented");
-    },
-  );
+    resolveGoodwillAbility(other, {
+      user: "illusion",
+      rank: 3,
+      abilityIndex: 1,
+      target: "boyStudent",
+      destination: "Hospital",
+    }, "resolve");
+    expect(boardLocation(other.loop, "boyStudent")).toBe("Hospital");
+
+    const self = createInformationState(["illusion"], []);
+    self.loop.charCounters.illusion.goodwill = 4;
+    setBoardLocation(self.loop, "illusion", "Shrine");
+    resolveGoodwillAbility(self, {
+      user: "illusion",
+      rank: 3,
+      abilityIndex: 1,
+      target: "illusion",
+      destination: "Hospital",
+    }, "resolve");
+    expect(boardLocation(self.loop, "illusion")).toBe("Hospital");
+
+    resolveGoodwillAbility(self, {
+      user: "illusion",
+      rank: 4,
+      abilityIndex: 2,
+    }, "resolve");
+    expect(self.loop.board.illusion).toEqual({ status: "absent" });
+  });
+
+  it("spends illusion rank 3 without moving into the target's forbidden location", () => {
+    const state = createInformationState(["illusion", "officeWorker"], []);
+    state.loop.charCounters.illusion.goodwill = 3;
+    setBoardLocation(state.loop, "illusion", "City");
+    setBoardLocation(state.loop, "officeWorker", "City");
+
+    const result = resolveGoodwillAbility(state, {
+      user: "illusion",
+      rank: 3,
+      abilityIndex: 1,
+      target: "officeWorker",
+      destination: "School",
+    }, "resolve");
+
+    expect(result.effectApplied).toBe(false);
+    expect(boardLocation(state.loop, "officeWorker")).toBe("City");
+    expect(state.loop.abilitiesUsedThisLoop).toContain("illusion:goodwill:1");
+    state.loop.abilitiesUsedThisRound = [];
+    expect(() => resolveGoodwillAbility(state, {
+      user: "illusion",
+      rank: 3,
+      abilityIndex: 1,
+      target: "officeWorker",
+      destination: "Hospital",
+    }, "resolve")).toThrow("already spent this loop");
+  });
+
+  it("moves any counter between two other co-located characters, including corpses", () => {
+    const state = createInformationState([
+      "forensicSpecialist",
+      "girlStudent",
+      "boyStudent",
+    ], []);
+    state.loop.charCounters.forensicSpecialist.goodwill = 2;
+    state.loop.charCounters.girlStudent.protection = 1;
+    for (const character of Object.keys(state.loop.board)) {
+      setBoardLocation(state.loop, character, "City");
+    }
+    setBoardLife(state.loop, "boyStudent", false);
+
+    resolveGoodwillAbility(state, {
+      user: "forensicSpecialist",
+      rank: 2,
+      abilityIndex: 0,
+      target: "girlStudent",
+      otherTarget: "boyStudent",
+      counter: "protection",
+    }, "resolve");
+
+    expect(state.loop.charCounters.girlStudent.protection).toBe(0);
+    expect(state.loop.charCounters.boyStudent.protection).toBe(1);
+    expect(state.loop.phaseLog).toContainEqual(expect.objectContaining({
+      kind: "goodwillUsed",
+      publicChanges: expect.arrayContaining([
+        expect.objectContaining({ counter: "protection", delta: -1 }),
+        expect.objectContaining({ counter: "protection", delta: 1 }),
+      ]),
+    }));
+    const observations = collectProtagonistObservations(state);
+    expect(observations).toContainEqual(expect.objectContaining({
+      kind: "goodwillAccepted",
+      character: "forensicSpecialist",
+      abilityIndex: 0,
+    }));
+    expect(observations.some(
+      ({ kind }) => kind === "mastermindAbilityResult",
+    )).toBe(false);
+  });
+
+  it("rejects a missing forensic source counter and the same source and destination", () => {
+    const missing = createInformationState([
+      "forensicSpecialist",
+      "girlStudent",
+      "boyStudent",
+    ], []);
+    missing.loop.charCounters.forensicSpecialist.goodwill = 2;
+    for (const character of Object.keys(missing.loop.board)) {
+      setBoardLocation(missing.loop, character, "City");
+    }
+    expect(() => resolveGoodwillAbility(missing, {
+      user: "forensicSpecialist",
+      rank: 2,
+      abilityIndex: 0,
+      target: "girlStudent",
+      otherTarget: "boyStudent",
+      counter: "intrigue",
+    }, "resolve")).toThrow("source has no intrigue counter");
+
+    missing.loop.charCounters.girlStudent.intrigue = 1;
+    expect(() => resolveGoodwillAbility(missing, {
+      user: "forensicSpecialist",
+      rank: 2,
+      abilityIndex: 0,
+      target: "girlStudent",
+      otherTarget: "girlStudent",
+      counter: "intrigue",
+    }, "resolve")).toThrow("requires different characters");
+  });
+
+  it("enforces forensicSpecialist rank 2 once per loop", () => {
+    const state = createInformationState([
+      "forensicSpecialist",
+      "girlStudent",
+      "boyStudent",
+    ], []);
+    state.loop.charCounters.forensicSpecialist.goodwill = 2;
+    state.loop.charCounters.girlStudent.intrigue = 2;
+    for (const character of Object.keys(state.loop.board)) {
+      setBoardLocation(state.loop, character, "City");
+    }
+    const declaration = {
+      user: "forensicSpecialist",
+      rank: 2,
+      abilityIndex: 0,
+      target: "girlStudent",
+      otherTarget: "boyStudent",
+      counter: "intrigue",
+    } as const;
+    resolveGoodwillAbility(state, declaration, "resolve");
+    state.loop.abilitiesUsedThisRound = [];
+    expect(() => resolveGoodwillAbility(state, declaration, "resolve"))
+      .toThrow("already spent this loop");
+  });
+
+  it("removes every scientist counter, including its loop-start trait counter", () => {
+    const scenario: Scenario = {
+      tragedySet: "basicTragedy",
+      mainPlot: "murderPlan",
+      subPlots: [],
+      cast: { scientist: "person" },
+      incidents: [],
+      loops: 3,
+      daysPerLoop: 3,
+    };
+    const state = createGameState(scenario);
+    chooseInitialLeader(state, 0);
+    setLoopStartTraitCounterChoice(state, "scientist", "paranoia");
+    continueFromTimeGap(state);
+    state.loop.phase = "P6_GOODWILL";
+    expect(state.loop.charCounters.scientist.paranoia).toBe(1);
+    state.loop.charCounters.scientist.goodwill = 3;
+    state.loop.charCounters.scientist.intrigue = 2;
+    state.loop.charCounters.scientist.protection = 1;
+
+    resolveGoodwillAbility(state, {
+      user: "scientist",
+      rank: 3,
+      abilityIndex: 1,
+    }, "resolve");
+
+    expect(state.loop.charCounters.scientist).toEqual({
+      goodwill: 0,
+      paranoia: 0,
+      intrigue: 0,
+      protection: 0,
+    });
+  });
+
+  it("keeps scientist rank 3 unsupported when a special gauge is present", () => {
+    const state = createInformationState(["scientist"], []);
+    state.loop.charCounters.scientist.goodwill = 3;
+    state.loop.specialGauge = 0;
+
+    expect(() => resolveGoodwillAbility(state, {
+      user: "scientist",
+      rank: 3,
+      abilityIndex: 1,
+    }, "resolve")).toThrow("goodwill effect is not implemented");
+    expect(state.loop.charCounters.scientist.goodwill).toBe(3);
+  });
 
   it("removes illusion for the rest of the loop and restores it next loop", () => {
     const state = createInformationState(["illusion"], []);

@@ -178,6 +178,7 @@ import {
   aiIncidentChoiceFields,
   decodeIncidentSelection,
   encodeIncidentSelection,
+  forensicCounterTransferOptions,
   goodwillAbilityViews,
   goodwillRefusalHistory,
   goodwillTargetWarning,
@@ -260,6 +261,9 @@ interface OptionalHookSelection {
 
 type GoodwillDraftField =
   | "target"
+  | "other-target"
+  | "destination"
+  | "counter"
   | "delta"
   | "card"
   | "choice"
@@ -369,6 +373,15 @@ let openLocationModal: Location | undefined;
 let littleSisterBorrowing:
   | { owner?: CharacterId; abilityIndex?: number }
   | undefined;
+let forensicTransfer:
+  | {
+    user: CharacterId;
+    abilityOwner?: CharacterId;
+    key: string;
+    rank: number;
+    abilityIndex: number;
+  }
+  | undefined;
 let phaseLogFilter: PhaseLogFilter | undefined;
 let finalGuessConfirmationOpen = false;
 let operationSheetOpen = false;
@@ -398,6 +411,7 @@ interface UiTransactionSnapshot {
   openCharacterModal?: CharacterId;
   openLocationModal?: Location;
   littleSisterBorrowing?: { owner?: CharacterId; abilityIndex?: number };
+  forensicTransfer?: typeof forensicTransfer;
   finalGuessConfirmationOpen: boolean;
   operationSheetOpen: boolean;
   optionalHookSelections: Map<string, OptionalHookSelection>;
@@ -618,6 +632,7 @@ function captureUiTransaction(game: StoredGame): UiTransactionSnapshot {
     openCharacterModal,
     openLocationModal,
     littleSisterBorrowing: structuredClone(littleSisterBorrowing),
+    forensicTransfer: structuredClone(forensicTransfer),
     finalGuessConfirmationOpen,
     operationSheetOpen,
     optionalHookSelections: structuredClone(optionalHookSelections),
@@ -659,6 +674,7 @@ function rollbackUiTransaction(
   openCharacterModal = snapshot.openCharacterModal;
   openLocationModal = snapshot.openLocationModal;
   littleSisterBorrowing = snapshot.littleSisterBorrowing;
+  forensicTransfer = snapshot.forensicTransfer;
   finalGuessConfirmationOpen = snapshot.finalGuessConfirmationOpen;
   operationSheetOpen = snapshot.operationSheetOpen;
   optionalHookSelections.clear();
@@ -765,6 +781,7 @@ function resetTransientUi(): void {
   openCharacterModal = undefined;
   openLocationModal = undefined;
   littleSisterBorrowing = undefined;
+  forensicTransfer = undefined;
   phaseLogFilter = undefined;
   finalGuessConfirmationOpen = false;
   operationSheetOpen = false;
@@ -2662,6 +2679,22 @@ function renderGoodwillChoice(
           </select>
         </label>`;
     }
+    case "destinationLocation": {
+      const draftKey = goodwillDraftKey(key, "destination");
+      return `
+        <label class="goodwill-choice-field">
+          <span>목적지</span>
+          <select data-goodwill-destination="${escapeHtml(key)}"
+            data-ui-draft-key="${escapeHtml(draftKey)}"
+            ${disabled ? "disabled" : ""}>
+            <option value="">${escapeHtml(misc("Select", "Select"))}</option>
+            ${choice.options.map((location) => `
+              <option value="${location}" ${selectedDraftOption(draftKey, location)}>${escapeHtml(locationName(location))}</option>`).join("")}
+          </select>
+        </label>`;
+    }
+    case "counterTransfer":
+      return "";
     case "counter": {
       const draftKey = goodwillDraftKey(key, "choice");
       return `
@@ -2775,14 +2808,23 @@ function renderLittleSisterBorrowingModal(state: GameState): string {
           ${renderGoodwillChoice(state, selectedAbility, false)}
         </div>
         <div class="goodwill-actions little-sister-complete-action">
-          <button type="button" data-action="goodwill" data-response="resolve"
-            data-character="littleSister"
-            data-ability-owner="${escapeHtml(selectedOwner.owner)}"
-            data-rank="${selectedAbility.schema.rank}"
-            data-ability-index="${selectedAbility.abilityIndex}"
-            data-goodwill-key="${escapeHtml(selectedAbility.key)}">
-            <span>빌린 능력 해결</span>
-          </button>
+          ${selectedAbility.schema.effect.operation === "moveCounter"
+            ? `<button type="button" data-action="open-forensic-transfer"
+                data-character="littleSister"
+                data-ability-owner="${escapeHtml(selectedOwner.owner)}"
+                data-rank="${selectedAbility.schema.rank}"
+                data-ability-index="${selectedAbility.abilityIndex}"
+                data-goodwill-key="${escapeHtml(selectedAbility.key)}">
+                <span>카운터 이동 선택</span>
+              </button>`
+            : `<button type="button" data-action="goodwill" data-response="resolve"
+                data-character="littleSister"
+                data-ability-owner="${escapeHtml(selectedOwner.owner)}"
+                data-rank="${selectedAbility.schema.rank}"
+                data-ability-index="${selectedAbility.abilityIndex}"
+                data-goodwill-key="${escapeHtml(selectedAbility.key)}">
+                <span>빌린 능력 해결</span>
+              </button>`}
         </div>
       </article>`
     : `<p class="empty-overlay">선택 가능한 능력이 사라졌습니다. 이전 단계로 돌아가세요.</p>`;
@@ -2809,6 +2851,111 @@ function renderLittleSisterBorrowingModal(state: GameState): string {
         ${step > 1
           ? `<button type="button" class="little-sister-back"
               data-action="little-sister-back">이전 단계</button>`
+          : ""}
+      </div>
+    </section>
+  </div>`;
+}
+
+function forensicTransferView(
+  state: GameState,
+): GoodwillAbilityView | undefined {
+  const selection = forensicTransfer;
+  if (selection === undefined) return undefined;
+  return selection.abilityOwner === undefined
+    ? goodwillAbilityViews(state).find(({ key }) => key === selection.key)
+    : littleSisterBorrowingOptions(state)
+      .find(({ owner }) => owner === selection.abilityOwner)
+      ?.abilities.find(({ key }) => key === selection.key);
+}
+
+function renderForensicTransferModal(state: GameState): string {
+  const selection = forensicTransfer;
+  if (selection === undefined) return "";
+  const view = forensicTransferView(state);
+  if (view === undefined || view.schema.effect.operation !== "moveCounter") {
+    return "";
+  }
+  const sourceTarget = decodeTarget(
+    draftValue(goodwillDraftKey(view.key, "target")) || undefined,
+  );
+  const destinationTarget = decodeTarget(
+    draftValue(goodwillDraftKey(view.key, "other-target")) || undefined,
+  );
+  const source = sourceTarget?.kind === "character"
+    ? sourceTarget.id
+    : undefined;
+  const destination = destinationTarget?.kind === "character"
+    ? destinationTarget.id
+    : undefined;
+  const selectedCounter = draftValue(goodwillDraftKey(view.key, "counter"));
+  const options = forensicCounterTransferOptions(state, view, source);
+  const step = source === undefined ? 1 : destination === undefined ? 2 : 3;
+  const body = step === 1
+    ? `<div class="little-sister-option-list" data-forensic-step="1">
+        ${options.sources.map((character) => `
+          <button type="button" data-action="forensic-source"
+            data-character="${escapeHtml(character)}">
+            <strong>${escapeHtml(characterName(character))}</strong>
+            <small>출발 캐릭터</small>
+          </button>`).join("")}
+      </div>`
+    : step === 2
+    ? `<div class="little-sister-option-list" data-forensic-step="2">
+        ${options.destinations.map((character) => `
+          <button type="button" data-action="forensic-destination"
+            data-character="${escapeHtml(character)}">
+            <strong>${escapeHtml(characterName(character))}</strong>
+            <small>도착 캐릭터</small>
+          </button>`).join("")}
+      </div>`
+    : `<div class="little-sister-option-list" data-forensic-step="3">
+        ${options.counters.map((counter) => `
+          <button type="button" data-action="forensic-counter"
+            data-counter="${counter}"
+            class="${selectedCounter === counter ? "is-selected" : ""}">
+            <strong>${escapeHtml(sacredTreeCounterName(counter))}</strong>
+            <small>옮길 카운터</small>
+          </button>`).join("")}
+      </div>
+      <div class="goodwill-actions is-single little-sister-complete-action">
+        <button type="button" data-action="goodwill" data-response="resolve"
+          data-character="${escapeHtml(selection.user)}"
+          ${selection.abilityOwner === undefined
+            ? ""
+            : `data-ability-owner="${escapeHtml(selection.abilityOwner)}"`}
+          data-rank="${selection.rank}"
+          data-ability-index="${selection.abilityIndex}"
+          data-goodwill-key="${escapeHtml(selection.key)}"
+          ${options.counters.includes(selectedCounter as SacredTreeCounter)
+            ? ""
+            : "disabled"}>
+          <span>${selection.abilityOwner === undefined ? "능력 해결" : "빌린 능력 해결"}</span>
+        </button>
+      </div>`;
+  return `<div class="modal-layer forensic-transfer-layer">
+    <button type="button" class="modal-scrim" data-action="close-forensic-transfer"
+      aria-label="카운터 이동 선택 닫기"></button>
+    <section class="detail-modal little-sister-borrowing-modal" role="dialog"
+      aria-modal="true" aria-labelledby="forensic-transfer-title">
+      <header class="detail-modal-header">
+        <div>
+          <span class="eyebrow">${step}/3 · 우호2</span>
+          <h2 id="forensic-transfer-title">감식관 · 카운터 이동</h2>
+        </div>
+        <button type="button" class="icon-button"
+          data-action="close-forensic-transfer" aria-label="카운터 이동 선택 닫기">×</button>
+      </header>
+      <div class="detail-modal-body">
+        <p class="little-sister-step-label">${step === 1
+          ? "출발 캐릭터를 선택하세요."
+          : step === 2
+          ? "도착 캐릭터를 선택하세요."
+          : "옮길 카운터를 선택하세요."}</p>
+        ${body}
+        ${step > 1
+          ? `<button type="button" class="little-sister-back"
+              data-action="forensic-back">이전 단계</button>`
           : ""}
       </div>
     </section>
@@ -2883,10 +3030,27 @@ function renderGoodwillAbilities(state: GameState): string {
     const selectedTarget = decodeTarget(
       draftValue(goodwillDraftKey(key, "target")) || undefined,
     );
-    const targetWarning = goodwillTargetWarning(state, view, selectedTarget);
+    const selectedDestinationValue = draftValue(
+      goodwillDraftKey(key, "destination"),
+    );
+    const selectedDestination = LOCATIONS.includes(
+        selectedDestinationValue as Location,
+      )
+      ? selectedDestinationValue as Location
+      : undefined;
+    const targetWarning = goodwillTargetWarning(
+      state,
+      view,
+      selectedTarget,
+      selectedDestination,
+    );
     const targetWarningText = targetWarning === undefined
       ? ""
-      : `${locationName(targetWarning.forbiddenLocation)}는 이 캐릭터의 금지 장소입니다. ` +
+      : `${locationName(targetWarning.forbiddenLocation)}는 ${
+        targetWarning.character === undefined
+          ? "이 캐릭터"
+          : characterName(targetWarning.character)
+      }의 금지 장소입니다. ` +
         "능력은 소모되지만 이동하지 않습니다." +
         (targetWarning.restrictionRemovalAvailable
           ? " 우호1 로 금지 장소를 먼저 해제할 수 있습니다."
@@ -2905,6 +3069,36 @@ function renderGoodwillAbilities(state: GameState): string {
             ${disabled ? "disabled" : ""}>
             <span>빌릴 능력 선택</span>
             ${reason ? `<small>${escapeHtml(reason)}</small>` : ""}
+          </button>
+        </div>`
+      : schema.effect.operation === "moveCounter"
+      ? `<div class="goodwill-actions">
+          <button type="button" data-action="open-forensic-transfer"
+            data-character="${escapeHtml(character)}" data-rank="${schema.rank}"
+            data-ability-index="${abilityIndex}" data-goodwill-key="${escapeHtml(key)}"
+            ${disabled || !availability.resolveAllowed ? "disabled" : ""}
+            ${resolveRuleTitle ? `title="${escapeHtml(resolveRuleTitle)}"` : ""}>
+            <span>카운터 이동 선택</span>
+            ${!disabled
+              ? `<small>${escapeHtml(resolveChoiceText)}</small>`
+              : resolveDisabledReason
+              ? `<small>${escapeHtml(resolveDisabledReason)}</small>`
+              : ""}
+          </button>
+          <button type="button" data-action="goodwill" data-response="refuse"
+            data-character="${escapeHtml(character)}" data-rank="${schema.rank}"
+            data-ability-index="${abilityIndex}" data-goodwill-key="${escapeHtml(key)}"
+            ${disabled || !availability.refuseAllowed ? "disabled" : ""}
+            ${refuseRuleTitle ? `title="${escapeHtml(refuseRuleTitle)}"` : ""}>
+            <span>${escapeHtml(misc("Refuse", "Refuse"))}</span>
+            ${disabled && refuseDisabledReason
+              ? `<small>${escapeHtml(refuseDisabledReason)}</small>`
+              : refuseChoiceText
+              ? `<small>${escapeHtml(refuseChoiceText)}</small>`
+              : ""}
+            ${refusalPreview === undefined
+              ? ""
+              : renderP6RefusalPreview(refusalPreview)}
           </button>
         </div>`
       : `<div class="goodwill-actions">
@@ -5939,7 +6133,8 @@ function render(preserveInferenceCache = false): void {
       ${renderOperationDock(state)}
       ${renderCharacterModal(state)}
       ${renderLocationModal(state)}
-      ${renderLittleSisterBorrowingModal(state)}`
+      ${renderLittleSisterBorrowingModal(state)}
+      ${renderForensicTransferModal(state)}`
     : renderGameFlow(state);
 
   root.innerHTML = `
@@ -6173,6 +6368,7 @@ function revealActionCards(): void {
     };
     selectedHandCard = undefined;
     littleSisterBorrowing = undefined;
+    forensicTransfer = undefined;
     operationSheetOpen = false;
     optionalHookSelections.clear();
     notice = "";
@@ -6218,6 +6414,18 @@ function resolveGoodwillFromButton(button: HTMLButtonElement): void {
   const goodwillInput = (field: GoodwillDraftField): string | undefined =>
     draftValue(goodwillDraftKey(key, field)) || undefined;
   const target = decodeTarget(goodwillInput("target"));
+  const otherTarget = decodeTarget(goodwillInput("other-target"));
+  const destinationValue = goodwillInput("destination");
+  const destination = destinationValue !== undefined &&
+      LOCATIONS.includes(destinationValue as Location)
+    ? destinationValue as Location
+    : undefined;
+  const counterValue = goodwillInput("counter");
+  const counter = counterValue !== undefined &&
+      (["goodwill", "paranoia", "intrigue", "protection"] as const)
+        .includes(counterValue as SacredTreeCounter)
+    ? counterValue as SacredTreeCounter
+    : undefined;
   const deltaValue = goodwillInput("delta");
   const cardValue = goodwillInput("card");
   const choiceValue = goodwillInput("choice");
@@ -6286,6 +6494,9 @@ function resolveGoodwillFromButton(button: HTMLButtonElement): void {
         rank,
         abilityIndex,
         target,
+        otherTarget,
+        destination,
+        counter,
         paranoiaDelta:
           deltaValue === "1" ? 1 : deltaValue === "-1" ? -1 : undefined,
         card,
@@ -6300,6 +6511,7 @@ function resolveGoodwillFromButton(button: HTMLButtonElement): void {
     saveState(entry.id, game.state, `goodwill-${response}`);
     clearGoodwillDraft(key);
     littleSisterBorrowing = undefined;
+    forensicTransfer = undefined;
     render();
   } catch (error) {
     rollbackUiTransaction(
@@ -6358,6 +6570,7 @@ function advanceCurrentPhase(): void {
     }
     selectedHandCard = undefined;
     littleSisterBorrowing = undefined;
+    forensicTransfer = undefined;
     operationSheetOpen = false;
     if (phaseBefore !== "P5_MASTERMIND_ABILITY") {
       resolutionReceipt = undefined;
@@ -6590,14 +6803,137 @@ root.addEventListener("click", (event) => {
     return;
   }
 
+  if (action === "close-forensic-transfer") {
+    forensicTransfer = undefined;
+    render();
+    return;
+  }
+
+  if (action === "open-forensic-transfer") {
+    const user = button.dataset.character;
+    const abilityOwner = button.dataset.abilityOwner;
+    const key = button.dataset.goodwillKey;
+    const rank = Number(button.dataset.rank);
+    const abilityIndex = Number(button.dataset.abilityIndex);
+    if (
+      user === undefined || key === undefined || !Number.isInteger(rank) ||
+      !Number.isInteger(abilityIndex)
+    ) return;
+    const view = abilityOwner === undefined
+      ? goodwillAbilityViews(currentState()).find(
+        (candidate) => candidate.key === key,
+      )
+      : littleSisterBorrowingOptions(currentState())
+        .find(({ owner }) => owner === abilityOwner)
+        ?.abilities.find((candidate) => candidate.key === key);
+    if (
+      view?.disabledReason !== undefined ||
+      view?.schema.effect.operation !== "moveCounter"
+    ) return;
+    clearGoodwillDraft(key);
+    forensicTransfer = {
+      user,
+      ...(abilityOwner === undefined ? {} : { abilityOwner }),
+      key,
+      rank,
+      abilityIndex,
+    };
+    notice = "";
+    render();
+    return;
+  }
+
+  if (action === "forensic-source") {
+    const view = forensicTransferView(currentState());
+    const character = button.dataset.character;
+    if (
+      view === undefined || character === undefined ||
+      !forensicCounterTransferOptions(currentState(), view).sources.includes(
+        character,
+      )
+    ) return;
+    uiInputDrafts.set(
+      goodwillDraftKey(view.key, "target"),
+      encodeTarget({ kind: "character", id: character }),
+    );
+    uiInputDrafts.delete(goodwillDraftKey(view.key, "other-target"));
+    uiInputDrafts.delete(goodwillDraftKey(view.key, "counter"));
+    render();
+    return;
+  }
+
+  if (action === "forensic-destination") {
+    const view = forensicTransferView(currentState());
+    const character = button.dataset.character;
+    const selectedSource = view === undefined
+      ? undefined
+      : decodeTarget(draftValue(goodwillDraftKey(view.key, "target")));
+    const source = selectedSource?.kind === "character"
+      ? selectedSource.id
+      : undefined;
+    if (
+      view === undefined || character === undefined || source === undefined ||
+      !forensicCounterTransferOptions(
+        currentState(),
+        view,
+        source,
+      ).destinations.includes(character)
+    ) return;
+    uiInputDrafts.set(
+      goodwillDraftKey(view.key, "other-target"),
+      encodeTarget({ kind: "character", id: character }),
+    );
+    uiInputDrafts.delete(goodwillDraftKey(view.key, "counter"));
+    render();
+    return;
+  }
+
+  if (action === "forensic-counter") {
+    const view = forensicTransferView(currentState());
+    const counter = button.dataset.counter as SacredTreeCounter | undefined;
+    const selectedSource = view === undefined
+      ? undefined
+      : decodeTarget(draftValue(goodwillDraftKey(view.key, "target")));
+    const source = selectedSource?.kind === "character"
+      ? selectedSource.id
+      : undefined;
+    if (
+      view === undefined || counter === undefined || source === undefined ||
+      !forensicCounterTransferOptions(
+        currentState(),
+        view,
+        source,
+      ).counters.includes(counter)
+    ) return;
+    uiInputDrafts.set(goodwillDraftKey(view.key, "counter"), counter);
+    render();
+    return;
+  }
+
+  if (action === "forensic-back") {
+    const view = forensicTransferView(currentState());
+    if (view === undefined) return;
+    const destinationKey = goodwillDraftKey(view.key, "other-target");
+    if (uiInputDrafts.has(destinationKey)) {
+      uiInputDrafts.delete(destinationKey);
+      uiInputDrafts.delete(goodwillDraftKey(view.key, "counter"));
+    } else {
+      uiInputDrafts.delete(goodwillDraftKey(view.key, "target"));
+    }
+    render();
+    return;
+  }
+
   if (action === "close-little-sister-borrowing") {
     littleSisterBorrowing = undefined;
+    forensicTransfer = undefined;
     render();
     return;
   }
 
   if (action === "open-little-sister-borrowing") {
     littleSisterBorrowing = {};
+    forensicTransfer = undefined;
     notice = "";
     render();
     return;
@@ -7046,7 +7382,11 @@ root.addEventListener("change", (event) => {
       render();
       return;
     }
-    if (control.dataset.goodwillTarget === "youngGirl:goodwill:1") {
+    if (
+      control.dataset.goodwillTarget === "youngGirl:goodwill:1" ||
+      control.dataset.goodwillTarget === "illusion:goodwill:1" ||
+      control.dataset.goodwillDestination === "illusion:goodwill:1"
+    ) {
       render();
       return;
     }
@@ -7183,6 +7523,7 @@ root.addEventListener("change", (event) => {
     openCharacterModal = undefined;
     openLocationModal = undefined;
     littleSisterBorrowing = undefined;
+    forensicTransfer = undefined;
     phaseLogFilter = undefined;
     finalGuessConfirmationOpen = false;
     operationSheetOpen = false;
