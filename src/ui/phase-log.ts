@@ -149,6 +149,9 @@ function changeReferences(
       locations: unique([change.from, change.to]),
     };
   }
+  if (change.kind === "specialGauge") {
+    return { characters: [], locations: [] };
+  }
   const at = change.at ?? context?.characters?.[change.character]?.location;
   return {
     characters: [change.character],

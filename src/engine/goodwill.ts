@@ -1,4 +1,5 @@
 import { characterDataOf, type GoodwillAbilityData } from "../data";
+import { CHARACTER_COUNTERS } from "../counters";
 import { ROLE_IMPL } from "../impl/roles";
 import {
   characterLocation,
@@ -20,6 +21,7 @@ import {
   withCharacterLocation,
 } from "../types";
 import { transferCharacterCounter } from "./counter-transfer";
+import { adjustSpecialGauge } from "./special-gauge";
 import { killCharacter, reviveCharacter, withDeathBatch } from "./death";
 import { resolveIncidentEffect } from "./incident";
 import { adjacentLocations } from "./movement";
@@ -57,6 +59,7 @@ export interface GoodwillDeclaration {
   /** 캐릭터 사이에서 옮길 카운터 종류. */
   counter?: SacredTreeCounter;
   paranoiaDelta?: -1 | 1;
+  specialGaugeDelta?: -1 | 1;
   card?: ActionCard;
   incident?: IncidentSelection;
   incidentChoice?: IncidentChoice;
@@ -141,14 +144,11 @@ export function goodwillAbilityImplemented(
 
 /** 현재 참극 세트 상태까지 포함한 실제 해결 가능 여부. */
 export function goodwillAbilityImplementedInState(
-  state: GameState,
+  _state: GameState,
   character: CharacterId,
   abilityIndex: number,
 ): boolean {
-  if (!goodwillAbilityImplemented(character, abilityIndex)) return false;
-  // 특수 게이지가 존재하는 세트의 증감 선택은 확장 지원 범위다.
-  return !(character === "scientist" && abilityIndex === 1 &&
-    state.loop.specialGauge !== undefined);
+  return goodwillAbilityImplemented(character, abilityIndex);
 }
 
 function selectAbility(
@@ -422,15 +422,33 @@ function applyIllusionMovement(
   return true;
 }
 
-function removeScientistCounters(state: GameState): boolean {
+function removeScientistCounters(
+  state: GameState,
+  declaration: GoodwillDeclaration,
+): boolean {
   const counters = state.loop.charCounters.scientist;
-  const effectApplied = counters.goodwill > 0 || counters.paranoia > 0 ||
-    counters.intrigue > 0 || counters.protection > 0;
-  counters.goodwill = 0;
-  counters.paranoia = 0;
-  counters.intrigue = 0;
-  counters.protection = 0;
-  return effectApplied;
+  const gauge = state.loop.specialGauge;
+  const gaugeDelta = declaration.specialGaugeDelta;
+  if (gauge === undefined && gaugeDelta !== undefined) {
+    throw new Error("scientist special gauge choice requires a special gauge");
+  }
+  if (gauge !== undefined) {
+    if (gaugeDelta === undefined) {
+      throw new Error("scientist special gauge choice is required");
+    }
+    if (gauge.value === 0 && gaugeDelta < 0) {
+      throw new Error("special gauge cannot be negative");
+    }
+  }
+
+  const countersRemoved = CHARACTER_COUNTERS.some(
+    (counter) => counters[counter] > 0,
+  );
+  for (const counter of CHARACTER_COUNTERS) counters[counter] = 0;
+  if (gauge !== undefined && gaugeDelta !== undefined) {
+    adjustSpecialGauge(gauge, gaugeDelta);
+  }
+  return countersRemoved || gauge !== undefined;
 }
 
 function requireLivingCharacterInSameLocation(
@@ -1006,7 +1024,7 @@ function applySimpleBaseAbility(
       return applyForensicCounterTransfer(state, declaration);
 
     case "scientist:1":
-      return removeScientistCounters(state);
+      return removeScientistCounters(state, declaration);
 
     case "informer:0":
       return revealActiveSubplot(state, declaration);

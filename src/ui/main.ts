@@ -1,5 +1,13 @@
 import { characterDataOf } from "../data";
 import {
+  CHARACTER_COUNTER_DEFINITIONS,
+  CHARACTER_COUNTERS,
+  INCIDENT_SELECTABLE_COUNTERS,
+  isIncidentSelectableCounter,
+  TRANSFERABLE_CHARACTER_COUNTERS,
+  type CharacterCounter,
+} from "../counters";
+import {
   goodwillResponseAvailability,
   resolveGoodwillAbility,
 } from "../engine/goodwill";
@@ -1134,9 +1142,21 @@ function renderCharacter(state: GameState, character: CharacterId): string {
           ${culpritBadges}
         </span>
         <span class="character-chip-counters">
-          <span>우 ${counters.goodwill}</span>
-          <span>불 ${counters.paranoia}/${data.paranoiaLimit}</span>
-          <span>음 ${counters.intrigue}</span>
+          ${CHARACTER_COUNTERS.filter((counter) =>
+            CHARACTER_COUNTER_DEFINITIONS[counter].summary === "always" ||
+            counters[counter] > 0
+          ).map((counter) => {
+            const label: Record<CharacterCounter, string> = {
+              goodwill: "우",
+              paranoia: "불",
+              intrigue: "음",
+              protection: "보호",
+            };
+            const value = counter === "paranoia"
+              ? `${counters[counter]}/${data.paranoiaLimit}`
+              : String(counters[counter]);
+            return `<span>${label[counter]} ${value}</span>`;
+          }).join("\n")}
         </span>
       </button>
       ${renderCardsOnTarget(state, { kind: "character", id: character })}
@@ -1303,6 +1323,12 @@ function renderCharacterModal(state: GameState): string {
               `/${data.paranoiaLimit}`,
             )}
             ${renderCounter(character, "intrigue", counters.intrigue)}
+            ${counters.protection > 0
+              ? `<div class="counter-control counter-control-readonly">
+                  <span class="counter-label">보호</span>
+                  <strong>${counters.protection}</strong>
+                </div>`
+              : ""}
           </div>
           <section class="character-tag-information" aria-label="캐릭터 속성">
             <h3>속성</h3>
@@ -1431,6 +1457,10 @@ function phaseLogTimelineLine(item: PhaseLogTimelineItem): string {
     if (change.kind === "counter") {
       const delta = change.delta > 0 ? `+${change.delta}` : String(change.delta);
       return `${targetLabel(change.target)} · ${observedCounterLabel(change.counter)} ${delta}`;
+    }
+    if (change.kind === "specialGauge") {
+      const delta = change.delta > 0 ? `+${change.delta}` : String(change.delta);
+      return `특수 게이지 · ${delta}`;
     }
     if (change.kind === "movement") {
       return `${characterName(change.character)} · ${locationName(change.from)} → ${
@@ -1969,7 +1999,7 @@ function counterLabel(counter: IncidentCounter): string {
 }
 
 function isIncidentCounterValue(value: string): value is IncidentCounter {
-  return value === "goodwill" || value === "paranoia" || value === "intrigue";
+  return isIncidentSelectableCounter(value);
 }
 
 function isLocationValue(value: string): value is Location {
@@ -2550,7 +2580,7 @@ function renderAiIncidentChoiceFields(
         data-ui-draft-key="${escapeHtml(counterDraftKey)}"
         ${disabled ? "disabled" : ""}>
         <option value="">${escapeHtml(misc("Select", "Select"))}</option>
-        ${(["goodwill", "paranoia", "intrigue"] as const).map((counter) => `
+        ${INCIDENT_SELECTABLE_COUNTERS.map((counter) => `
           <option value="${counter}" ${selectedDraftOption(counterDraftKey, counter)}>${escapeHtml(misc(
             counter === "goodwill"
               ? "Goodwill"
@@ -2608,6 +2638,18 @@ function renderGoodwillChoice(
           <option value="">${escapeHtml(misc("Select", "Select"))}</option>
           ${choice.options.map((delta) => `
             <option value="${delta}" ${selectedDraftOption(draftKey, String(delta))}>${escapeHtml(misc("Paranoia"))} ${delta > 0 ? "+" : ""}${delta}</option>`).join("")}
+        </select>`;
+      }
+    case "specialGaugeDelta": {
+      const draftKey = goodwillDraftKey(key, "delta");
+      return `
+        <select data-goodwill-delta="${escapeHtml(key)}"
+          data-ui-draft-key="${escapeHtml(draftKey)}"
+          aria-label="특수 게이지"
+          ${disabled ? "disabled" : ""}>
+          <option value="">${escapeHtml(misc("Select", "Select"))}</option>
+          ${choice.options.map((delta) => `
+            <option value="${delta}" ${selectedDraftOption(draftKey, String(delta))}>특수 게이지 ${delta > 0 ? "+" : ""}${delta}</option>`).join("")}
         </select>`;
       }
     case "spentCard": {
@@ -4425,7 +4467,7 @@ function renderIncidentSchedule(
 }
 
 function observedCounterLabel(
-  counter: IncidentCounter | "protection",
+  counter: CharacterCounter,
 ): string {
   return counter === "protection" ? "보호" : counterLabel(counter);
 }
@@ -4440,6 +4482,10 @@ function publicAbilityObservationLabel(
     if (change.kind === "counter") {
       const delta = change.delta > 0 ? `+${change.delta}` : String(change.delta);
       return `${targetLabel(change.target)} ${observedCounterLabel(change.counter)}${delta}`;
+    }
+    if (change.kind === "specialGauge") {
+      const delta = change.delta > 0 ? `+${change.delta}` : String(change.delta);
+      return `특수 게이지 ${delta}`;
     }
     if (change.kind === "movement") {
       return `${characterName(change.character)} ${locationName(change.from)} → ${locationName(change.to)}`;
@@ -6168,6 +6214,9 @@ function render(preserveInferenceCache = false): void {
               ? `<small>추가 루프 (하우스 룰)</small>`
               : ""}
             <strong>${escapeHtml(misc("Day"))} ${state.loop.day}/${state.scenario.daysPerLoop}</strong>
+            ${state.loop.specialGauge === undefined
+              ? ""
+              : `<small>특수 게이지 ${state.loop.specialGauge.value}</small>`}
             <small>${escapeHtml(misc("Snapshots", "Snapshots"))} ${observationCount()}</small>
           </div>
           <div class="session-actions">
@@ -6422,8 +6471,8 @@ function resolveGoodwillFromButton(button: HTMLButtonElement): void {
     : undefined;
   const counterValue = goodwillInput("counter");
   const counter = counterValue !== undefined &&
-      (["goodwill", "paranoia", "intrigue", "protection"] as const)
-        .includes(counterValue as SacredTreeCounter)
+      (TRANSFERABLE_CHARACTER_COUNTERS as readonly string[])
+        .includes(counterValue)
     ? counterValue as SacredTreeCounter
     : undefined;
   const deltaValue = goodwillInput("delta");
@@ -6473,7 +6522,7 @@ function resolveGoodwillFromButton(button: HTMLButtonElement): void {
     }
     if (
       incidentCounter !== undefined &&
-      !["goodwill", "paranoia", "intrigue"].includes(incidentCounter)
+      !isIncidentSelectableCounter(incidentCounter)
     ) {
       throw new Error(`invalid goodwill incident counter "${incidentCounter}"`);
     }
@@ -6497,8 +6546,12 @@ function resolveGoodwillFromButton(button: HTMLButtonElement): void {
         otherTarget,
         destination,
         counter,
-        paranoiaDelta:
-          deltaValue === "1" ? 1 : deltaValue === "-1" ? -1 : undefined,
+        paranoiaDelta: view.choice.kind === "paranoiaDelta"
+          ? deltaValue === "1" ? 1 : deltaValue === "-1" ? -1 : undefined
+          : undefined,
+        specialGaugeDelta: view.choice.kind === "specialGaugeDelta"
+          ? deltaValue === "1" ? 1 : deltaValue === "-1" ? -1 : undefined
+          : undefined,
         card,
         incident,
         incidentChoice,

@@ -3,14 +3,10 @@ import type {
   GameState,
   SacredTreeCounter,
 } from "../types";
+import { TRANSFERABLE_CHARACTER_COUNTERS } from "../counters";
 
 /** 신수와 감식관이 공통으로 옮길 수 있는 공개 캐릭터 카운터. */
-export const TRANSFERABLE_CHARACTER_COUNTERS: readonly SacredTreeCounter[] = [
-  "goodwill",
-  "paranoia",
-  "intrigue",
-  "protection",
-];
+export { TRANSFERABLE_CHARACTER_COUNTERS } from "../counters";
 
 /** 검증이 끝난 두 캐릭터 사이에서 카운터 하나를 원자적으로 옮긴다. */
 export function transferCharacterCounter(

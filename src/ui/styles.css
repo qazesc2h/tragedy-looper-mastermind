@@ -4359,6 +4359,10 @@ select {
   min-height: 44px;
 }
 
+.counter-control-readonly {
+  grid-template-columns: minmax(72px, 1fr) 48px;
+}
+
 .counter-label,
 .location-modal-counter > span {
   color: var(--ink-muted);

@@ -258,6 +258,27 @@ describe("UI localStorage snapshots", () => {
     expect(observation).not.toHaveProperty("state");
   });
 
+  it("round-trips the structured special gauge", () => {
+    const storage = new MemoryStorage();
+    const tracker = emptyTrackerStore();
+    const game = state();
+    game.loop.specialGauge = { value: 3, increasedThisLoop: true };
+
+    persistGameState(
+      storage,
+      tracker,
+      "basicTragedy:1",
+      game,
+      "special-gauge",
+    );
+
+    const restored = loadTrackerStore(storage, storedGameDefaults);
+    expect(restored.games["basicTragedy:1"].state.loop.specialGauge).toEqual({
+      value: 3,
+      increasedThisLoop: true,
+    });
+  });
+
   it("migrates legacy full observation snapshots to compact metadata", () => {
     const storage = new MemoryStorage();
     const defaults = storedGameDefaults("basicTragedy:1");

@@ -618,7 +618,9 @@ describe("observation model", () => {
       confirmed: true,
       context: expect.objectContaining({
         characters: expect.objectContaining({
-          shrineMaiden: expect.objectContaining({ paranoia: 0 }),
+          shrineMaiden: expect.objectContaining({
+            counters: expect.objectContaining({ paranoia: 0 }),
+          }),
         }),
       }),
       observedAt: expect.objectContaining({ sequence: 0 }),
@@ -694,7 +696,9 @@ describe("observation model", () => {
         role: "serialKiller",
         context: expect.objectContaining({
           characters: expect.objectContaining({
-            officeWorker: expect.objectContaining({ paranoia: 3 }),
+            officeWorker: expect.objectContaining({
+              counters: expect.objectContaining({ paranoia: 3 }),
+            }),
           }),
         }),
       }),
@@ -932,7 +936,7 @@ describe("observation model", () => {
     expect(context.locationIntrigue).toEqual(
       observationContext(0, 2).locationIntrigue,
     );
-    expect(maiden?.paranoia).toBe(0);
+    expect(maiden?.counters?.paranoia).toBe(0);
     expect(maiden?.status).toBe("alive");
   });
 });

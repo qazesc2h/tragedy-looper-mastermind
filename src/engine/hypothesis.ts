@@ -4,6 +4,7 @@ import { ROLE_IMPL } from "../impl/roles";
 import {
   effectiveRole,
   isCharacterDead,
+  publicCharacterCounter,
   startLocationOf,
   type CharacterId,
   type GameState,
@@ -666,8 +667,10 @@ function roleObservationContradiction(
   // 공개 순간 역할이 없는 구 저장의 복원값은 확정 증거로 쓰지 않는다.
   if (observation.confirmed === false) return undefined;
   const outsider = observation.character === "mysteryBoy";
-  const paranoia = observation.context?.characters?.[observation.character]
-    ?.paranoia;
+  const paranoia = publicCharacterCounter(
+    observation.context?.characters?.[observation.character],
+    "paranoia",
+  );
   const paranoiaVirusActive = !outsider &&
     combination.subPlots.includes("paranoiaVirus");
   if (
@@ -797,8 +800,10 @@ function confirmedRoleByCharacter(
       observation.kind === "roleRevealed" &&
       observation.confirmed !== false
     ) {
-      const paranoia = observation.context?.characters?.[observation.character]
-        ?.paranoia;
+      const paranoia = publicCharacterCounter(
+        observation.context?.characters?.[observation.character],
+        "paranoia",
+      );
       const mutatedPerson = observation.role === "serialKiller" &&
         observation.character !== "mysteryBoy" &&
         combination.subPlots.includes("paranoiaVirus") &&
@@ -1042,7 +1047,7 @@ function roundEndDeathCauseClauses(
 
       if (combination.subPlots.includes("paranoiaVirus")) {
         const mutatedPersonCandidates = others.flatMap(([character, state]) =>
-          state.paranoia >= 3 &&
+          (publicCharacterCounter(state, "paranoia") ?? 0) >= 3 &&
             roleAssignmentCompatible(
               tragedySetRoles,
               ranges,
@@ -1062,7 +1067,10 @@ function roundEndDeathCauseClauses(
       }
     }
 
-    if (deceased.intrigue >= 2 && possibleKillers.length > 0) {
+    if (
+      (publicCharacterCounter(deceased, "intrigue") ?? 0) >= 2 &&
+      possibleKillers.length > 0
+    ) {
       alternatives.push({
         requirements: [
           {
@@ -1181,7 +1189,10 @@ function roundEvidenceCauseClauses(
       const timeTravelers = Object.entries(
         observation.context.characters ?? {},
       ).flatMap(([character, state]) =>
-        state.status === "alive" && state.goodwill <= 2 ? [character] : []
+        state.status === "alive" &&
+          (publicCharacterCounter(state, "goodwill") ?? 0) <= 2
+          ? [character]
+          : []
       );
       alternatives.push({
         requirements: [{
@@ -1894,7 +1905,10 @@ function sameRoleConstraintIsBaseRoleSafe(
   }
   if (observation.context?.characters === undefined) return false;
   return publicCast.every((character) => {
-    const paranoia = observation.context?.characters?.[character]?.paranoia;
+    const paranoia = publicCharacterCounter(
+      observation.context?.characters?.[character],
+      "paranoia",
+    );
     return paranoia !== undefined && paranoia < 3;
   });
 }
@@ -2173,7 +2187,10 @@ function plotLossCouldExplain(
         publicCast,
         observations,
       ).some((character) =>
-        (publicCharacterAtLoss(context, character)?.intrigue ?? 0) >= 2
+        (publicCharacterCounter(
+          publicCharacterAtLoss(context, character),
+          "intrigue",
+        ) ?? 0) >= 2
       );
     case "changeOfFuture":
       return context.firedIncidents.some(({ incident }) =>
@@ -2252,7 +2269,10 @@ function nonDeathLossCouldExplain(
     publicCast,
     observations,
   ).some((character) =>
-    (publicCharacterAtLoss(context, character)?.goodwill ?? 3) <= 2
+    (publicCharacterCounter(
+      publicCharacterAtLoss(context, character),
+      "goodwill",
+    ) ?? 3) <= 2
   );
 }
 
@@ -2280,7 +2300,10 @@ function protagonistDeathCouldExplain(
     publicCast,
     observations,
   ).some((character) =>
-    (publicCharacterAtLoss(context, character)?.intrigue ?? 0) >= 4
+    (publicCharacterCounter(
+      publicCharacterAtLoss(context, character),
+      "intrigue",
+    ) ?? 0) >= 4
   );
   if (killerCouldAct) return true;
 
@@ -2292,7 +2315,8 @@ function protagonistDeathCouldExplain(
     observations,
   ).some((character) => {
     const state = publicCharacterAtLoss(context, character);
-    return (state?.paranoia ?? 0) >= 3 && (state?.intrigue ?? 0) >= 1;
+    return (publicCharacterCounter(state, "paranoia") ?? 0) >= 3 &&
+      (publicCharacterCounter(state, "intrigue") ?? 0) >= 1;
   });
 }
 
@@ -2557,8 +2581,10 @@ function revealedBaseRoleCandidates(
     )) {
       candidates.add(observation.role);
     }
-    const paranoia = observation.context?.characters?.[observation.character]
-      ?.paranoia;
+    const paranoia = publicCharacterCounter(
+      observation.context?.characters?.[observation.character],
+      "paranoia",
+    );
     if (
       observation.role === "serialKiller" &&
       observation.character !== "mysteryBoy" &&
@@ -2829,8 +2855,9 @@ function lossRoleCauseCandidates(
           )) {
             const state = publicCharacterAtLoss(context, character);
             const met = role === "killer"
-              ? (state?.intrigue ?? 0) >= 4
-              : (state?.paranoia ?? 0) >= 3 && (state?.intrigue ?? 0) >= 1;
+              ? (publicCharacterCounter(state, "intrigue") ?? 0) >= 4
+              : (publicCharacterCounter(state, "paranoia") ?? 0) >= 3 &&
+                (publicCharacterCounter(state, "intrigue") ?? 0) >= 1;
             if (met) causes.set(`${character}:${role}`, { character, role });
           }
         }
@@ -2869,7 +2896,7 @@ function lossRoleCauseCandidates(
         )) {
           const state = publicCharacterAtLoss(context, character);
           const met = role === "timeTraveler"
-            ? (state?.goodwill ?? 3) <= 2
+            ? (publicCharacterCounter(state, "goodwill") ?? 3) <= 2
             : role === "friend"
             ? state?.status === "dead"
             : deaths.has(character);
@@ -3835,9 +3862,9 @@ export function explainableLossConditions(
         ).some((character) => {
           const characterState = publicCharacterAtLoss(context, character);
           return role === "killer"
-            ? (characterState?.intrigue ?? 0) >= 4
-            : (characterState?.paranoia ?? 0) >= 3 &&
-              (characterState?.intrigue ?? 0) >= 1;
+            ? (publicCharacterCounter(characterState, "intrigue") ?? 0) >= 4
+            : (publicCharacterCounter(characterState, "paranoia") ?? 0) >= 3 &&
+              (publicCharacterCounter(characterState, "intrigue") ?? 0) >= 1;
         });
         if (met) add({ key: `role:${role}`, kind: "role", role });
       }
@@ -3881,7 +3908,10 @@ export function explainableLossConditions(
         role: "timeTraveler",
         paths: ["lastDayImmediate"],
         met: (character) =>
-          (publicCharacterAtLoss(context, character)?.goodwill ?? 3) <= 2,
+          (publicCharacterCounter(
+            publicCharacterAtLoss(context, character),
+            "goodwill",
+          ) ?? 3) <= 2,
       },
       {
         role: "factor",

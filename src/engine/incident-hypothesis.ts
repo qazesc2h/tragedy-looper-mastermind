@@ -6,6 +6,7 @@ import type {
   Location,
   ScheduledIncident,
 } from "../types";
+import { publicCharacterCounter } from "../types";
 import {
   collectProtagonistObservations,
   type ProtagonistObservation,
@@ -303,13 +304,16 @@ function outcomeExclusionReason(
         return { code: "firedWhileUnavailable", observation };
       }
       // AI는 사건 판정에서 모든 카운터를 불안으로 취급하므로 불안만 보고 배제하지 않는다.
-      if (character !== "ai" && state.paranoia < limit) {
+      if (
+        character !== "ai" &&
+        (publicCharacterCounter(state, "paranoia") ?? 0) < limit
+      ) {
         return { code: "firedBelowParanoia", observation };
       }
     } else if (
       character !== "henchman" &&
       state.status === "alive" &&
-      state.paranoia >= limit
+      (publicCharacterCounter(state, "paranoia") ?? 0) >= limit
     ) {
       return { code: "didNotFireDespiteConditions", observation };
     }

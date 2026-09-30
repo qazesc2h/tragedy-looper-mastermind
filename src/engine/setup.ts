@@ -1,20 +1,22 @@
 import { characterDataOf } from "../data";
+import { emptyCharacterCounters } from "../counters";
 import {
   characterEntryTiming,
   scenarioTurfLocation,
   startLocationOf,
   type CharacterId,
-  type Counters,
   type LoopState,
   type Scenario,
 } from "../types";
+import { initialSpecialGauge } from "./special-gauge";
 
-export function initLoop(scenario: Scenario, loopNumber = 1): LoopState {
+export function initLoop(
+  scenario: Scenario,
+  loopNumber = 1,
+  previousLoop?: LoopState,
+): LoopState {
   const board: LoopState["board"] = {};
-  const charCounters: Record<
-    CharacterId,
-    Counters & { protection: number }
-  > = {};
+  const charCounters: LoopState["charCounters"] = {};
   const turfLocations: LoopState["turfLocations"] = {};
 
   for (const character of Object.keys(scenario.cast)) {
@@ -30,16 +32,16 @@ export function initLoop(scenario: Scenario, loopNumber = 1): LoopState {
         status: "alive",
         at: startLocationOf(character, scenario),
       };
-    charCounters[character] = {
-      goodwill: 0,
-      paranoia: 0,
-      intrigue: 0,
-      protection: 0,
-    };
+    charCounters[character] = emptyCharacterCounters();
   }
 
   const bossTurf = scenarioTurfLocation(scenario, "boss");
   if (bossTurf !== undefined) turfLocations.boss = bossTurf;
+
+  const specialGauge = initialSpecialGauge(
+    scenario.tragedySet,
+    previousLoop?.specialGauge,
+  );
 
   return {
     loop: loopNumber,
@@ -65,5 +67,6 @@ export function initLoop(scenario: Scenario, loopNumber = 1): LoopState {
     placed: [],
     actionResolutionComplete: false,
     phaseLog: [],
+    ...(specialGauge === undefined ? {} : { specialGauge }),
   };
 }

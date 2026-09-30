@@ -7,6 +7,7 @@ import {
   isCharacterAlive,
   withCharacterLocation,
 } from "../types";
+import { isIncidentSelectableCounter } from "../counters";
 import {
   attemptProtagonistDeath,
   killCharacter,
@@ -59,6 +60,9 @@ function selectedCounter(
 ): IncidentCounter {
   if (selected === undefined) {
     throw new Error(`${incident} requires a counter type`);
+  }
+  if (!isIncidentSelectableCounter(selected)) {
+    throw new Error(`${incident} counter type is not eligible`);
   }
   return selected;
 }

@@ -6,6 +6,7 @@ import {
   type PublicBoardChange,
   type PublicObservationContext,
 } from "../types";
+import { CHARACTER_COUNTERS } from "../counters";
 
 /** 훅 하나의 발동 전후에서 공개 게임판 변화만 추출한다. */
 export function publicBoardChanges(
@@ -60,12 +61,7 @@ export function publicBoardChanges(
     const beforeCounters = before.charCounters[character];
     const afterCounters = after.charCounters[character];
     if (beforeCounters === undefined || afterCounters === undefined) continue;
-    for (const counter of [
-      "goodwill",
-      "paranoia",
-      "intrigue",
-      "protection",
-    ] as const) {
+    for (const counter of CHARACTER_COUNTERS) {
       const delta = afterCounters[counter] - beforeCounters[counter];
       if (delta !== 0) {
         changes.push({
@@ -76,6 +72,12 @@ export function publicBoardChanges(
         });
       }
     }
+  }
+  const beforeGauge = before.specialGauge;
+  const afterGauge = after.specialGauge;
+  if (beforeGauge !== undefined && afterGauge !== undefined) {
+    const delta = afterGauge.value - beforeGauge.value;
+    if (delta !== 0) changes.push({ kind: "specialGauge", delta });
   }
   return changes;
 }
@@ -102,9 +104,7 @@ export function publicObservationContext(
             ? [location, turf]
             : [location],
         }),
-      goodwill: counters.goodwill,
-      paranoia: counters.paranoia,
-      intrigue: counters.intrigue,
+      counters: structuredClone(counters),
     };
   }
   return {
@@ -114,6 +114,9 @@ export function publicObservationContext(
       City: loop.locIntrigue.City,
       School: loop.locIntrigue.School,
     },
+    ...(loop.specialGauge === undefined
+      ? {}
+      : { specialGauge: structuredClone(loop.specialGauge) }),
     characters,
   };
 }

@@ -1,6 +1,26 @@
 // 코어 타입 — 손으로 작성. 생성기가 덮어쓰지 않음.
 
 import { characterDataOf } from "./data";
+import type {
+  CharacterCounter,
+  CharacterCounters,
+  IncidentSelectableCounter,
+  TransferableCharacterCounter,
+} from "./counters";
+
+export {
+  CHARACTER_COUNTER_DEFINITIONS,
+  CHARACTER_COUNTERS,
+  INCIDENT_SELECTABLE_COUNTERS,
+  isIncidentSelectableCounter,
+  TRANSFERABLE_CHARACTER_COUNTERS,
+} from "./counters";
+export type {
+  CharacterCounter,
+  CharacterCounters,
+  IncidentSelectableCounter,
+  TransferableCharacterCounter,
+} from "./counters";
 
 export type CharacterId = string;
 export type RoleId = string;
@@ -172,16 +192,12 @@ export interface Scenario {
 }
 
 // ─────────────────────────────────────────────────────────── 진행 상태 (가변)
-export interface Counters {
-  goodwill: number;
-  paranoia: number;
-  intrigue: number;
-}
+export type Counters = CharacterCounters;
 
-export type IncidentCounter = keyof Counters;
+export type IncidentCounter = IncidentSelectableCounter;
 
 /** 신수 특성으로 옮길 수 있는 캐릭터 카운터. */
-export type SacredTreeCounter = keyof Counters | "protection";
+export type SacredTreeCounter = TransferableCharacterCounter;
 
 export interface SacredTreeTransferCondition {
   sacredTreeStatus: BoardCharacterState["status"] | "missing";
@@ -283,7 +299,11 @@ export type PublicBoardChange =
   | {
     kind: "counter";
     target: Target;
-    counter: keyof Counters | "protection";
+    counter: CharacterCounter;
+    delta: number;
+  }
+  | {
+    kind: "specialGauge";
     delta: number;
   }
   | {
@@ -304,16 +324,31 @@ export type PublicBoardChange =
 /** 능력 발동 시점에 주인공도 확인할 수 있었던 공개 게임판 상태. */
 export interface PublicObservationContext {
   locationIntrigue: Record<Location, number>;
+  specialGauge?: SpecialGaugeState;
   /** 관측 직전의 공개 캐릭터 위치·생사·카운터 복사본. */
   characters?: Record<CharacterId, {
     status: BoardCharacterState["status"];
     location?: Location;
     /** 거물의 세력권처럼 역할 능력이 닿는 공개 장소. */
     abilityLocations?: Location[];
-    goodwill: number;
-    paranoia: number;
-    intrigue: number;
+    /** 신규 기록의 확장 가능한 카운터 복사본. */
+    counters?: Counters;
+    /** 구 저장 기록과 테스트 벡터 호환용 필드. */
+    goodwill?: number;
+    paranoia?: number;
+    intrigue?: number;
   }>;
+}
+
+export function publicCharacterCounter(
+  character:
+    | NonNullable<PublicObservationContext["characters"]>[CharacterId]
+    | undefined,
+  counter: CharacterCounter,
+): number | undefined {
+  if (character === undefined) return undefined;
+  return character.counters?.[counter] ??
+    (counter === "protection" ? undefined : character[counter]);
 }
 
 /** 서로 다른 공개 기록 저장소 사이에서도 비교할 수 있는 실제 관측 시점. */
@@ -577,7 +612,7 @@ export interface LoopState {
   board: Record<CharacterId, BoardCharacterState>;
   /** 거물의 세력권 카운터가 놓인 장소. 실제 캐릭터 위치와 독립적이다. */
   turfLocations: Partial<Record<CharacterId, Location>>;
-  charCounters: Record<CharacterId, Counters & { protection: number }>;
+  charCounters: Record<CharacterId, Counters>;
   locIntrigue: Record<Location, number>;
 
   /** 「1루프당 1회」 소진 추적 — 각본가 인지 부하의 핵심 */
@@ -663,8 +698,14 @@ export interface LoopState {
     Record<CharacterId, Location>
   >;
 
-  /** 특수 게이지 (기본편 미사용, 확장 대비) */
-  specialGauge?: number;
+  /** 참극 세트가 정의한 전역 특수 게이지. */
+  specialGauge?: SpecialGaugeState;
+}
+
+export interface SpecialGaugeState {
+  value: number;
+  /** Cosmic Mythology 「황색의 왕」가 이번 루프의 증가 이력을 참조한다. */
+  increasedThisLoop: boolean;
 }
 
 /** UI 작업 실패 시 롤백된 안전 상태와 오류 메시지를 함께 보존한다. */

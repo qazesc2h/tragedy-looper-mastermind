@@ -59,6 +59,7 @@ describe("current state dump", () => {
       "board",
       "counters",
       "locationIntrigue",
+      "specialGauge",
       "pendingLoopEnd",
       "pendingImmediateLossKeys",
       "phaseProgression",

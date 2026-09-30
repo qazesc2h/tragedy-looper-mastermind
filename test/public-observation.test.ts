@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { publicBoardChanges } from "../src/engine/public-observation";
+import {
+  publicBoardChanges,
+  publicObservationContext,
+} from "../src/engine/public-observation";
 import { initLoop } from "../src/engine/setup";
 import type { Scenario } from "../src/types";
 
@@ -28,5 +31,18 @@ describe("public board changes", () => {
       to: "dead",
       at: "Shrine",
     }]);
+  });
+
+  it("copies protection through the counter registry", () => {
+    const loop = initLoop(scenario);
+    loop.charCounters.girlStudent.protection = 1;
+
+    expect(publicObservationContext(loop).characters?.girlStudent.counters)
+      .toEqual({
+        goodwill: 0,
+        paranoia: 0,
+        intrigue: 0,
+        protection: 1,
+      });
   });
 });

@@ -591,15 +591,21 @@ describe("structured goodwill ability UI", () => {
     });
   });
 
-  it("marks scientist rank 3 unsupported only when a special gauge exists", () => {
+  it("offers scientist's valid special gauge adjustments", () => {
     const state = createState(["scientist"]);
     unlock(state, "scientist", 3);
     expect(goodwillAbilityViews(state)[0].disabledReason).toBeUndefined();
 
-    state.loop.specialGauge = 0;
-    expect(goodwillAbilityViews(state)[0].disabledReason).toBe(
-      "notImplemented",
-    );
+    state.loop.specialGauge = { value: 0, increasedThisLoop: false };
+    expect(goodwillAbilityViews(state)[0]).toMatchObject({
+      disabledReason: undefined,
+      choice: { kind: "specialGaugeDelta", options: [1] },
+    });
+    state.loop.specialGauge.value = 1;
+    expect(goodwillAbilityViews(state)[0].choice).toEqual({
+      kind: "specialGaugeDelta",
+      options: [-1, 1],
+    });
   });
 
   it("enforces shrineMaiden rank 3's Shrine restriction", () => {

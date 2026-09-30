@@ -1806,17 +1806,28 @@ describe("loop-long goodwill effects", () => {
     });
   });
 
-  it("keeps scientist rank 3 unsupported when a special gauge is present", () => {
+  it("requires and applies scientist's special gauge choice", () => {
     const state = createInformationState(["scientist"], []);
     state.loop.charCounters.scientist.goodwill = 3;
-    state.loop.specialGauge = 0;
+    state.loop.specialGauge = { value: 0, increasedThisLoop: false };
 
     expect(() => resolveGoodwillAbility(state, {
       user: "scientist",
       rank: 3,
       abilityIndex: 1,
-    }, "resolve")).toThrow("goodwill effect is not implemented");
-    expect(state.loop.charCounters.scientist.goodwill).toBe(3);
+    }, "resolve")).toThrow("special gauge choice is required");
+
+    expect(resolveGoodwillAbility(state, {
+      user: "scientist",
+      rank: 3,
+      abilityIndex: 1,
+      specialGaugeDelta: 1,
+    }, "resolve")).toMatchObject({ resolved: true, effectApplied: true });
+    expect(state.loop.charCounters.scientist.goodwill).toBe(0);
+    expect(state.loop.specialGauge).toEqual({
+      value: 1,
+      increasedThisLoop: true,
+    });
   });
 
   it("removes illusion for the rest of the loop and restores it next loop", () => {

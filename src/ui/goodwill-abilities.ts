@@ -87,6 +87,7 @@ export type GoodwillDisabledReason =
 export type GoodwillChoice =
   | { kind: "none" }
   | { kind: "paranoiaDelta"; options: readonly (-1 | 1)[] }
+  | { kind: "specialGaugeDelta"; options: readonly (-1 | 1)[] }
   | { kind: "spentCard"; options: readonly ActionCard[] }
   | { kind: "incident"; options: readonly IncidentSelection[] }
   | { kind: "pastIncident"; options: readonly IncidentSelection[] }
@@ -486,6 +487,12 @@ function choiceFor(
   character: CharacterId,
   choices: readonly string[] | null,
 ): GoodwillChoice {
+  if (character === "scientist" && state.loop.specialGauge !== undefined) {
+    return {
+      kind: "specialGaugeDelta",
+      options: state.loop.specialGauge.value > 0 ? [-1, 1] : [1],
+    };
+  }
   if (choices === null) return { kind: "none" };
   if (choices.length === 2 && choices.includes("+1") && choices.includes("-1")) {
     return {

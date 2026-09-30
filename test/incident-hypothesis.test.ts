@@ -537,7 +537,9 @@ describe("incident culprit possibility table", () => {
       kind: "incidentJudged",
       publicContext: expect.objectContaining({
         characters: expect.objectContaining({
-          doctor: expect.objectContaining({ paranoia: 0 }),
+          doctor: expect.objectContaining({
+            counters: expect.objectContaining({ paranoia: 0 }),
+          }),
         }),
       }),
     }));

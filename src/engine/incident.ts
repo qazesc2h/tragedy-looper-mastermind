@@ -1,4 +1,5 @@
 import { characterDataOf } from "../data";
+import { totalCharacterCounters } from "../counters";
 import { INCIDENT_IMPL } from "../impl/incidents";
 import { isCharacterAlive, isCharacterPresent } from "../types";
 import type {
@@ -40,8 +41,7 @@ export function incidentParanoia(
     throw new Error(`incident culprit "${culprit}" has no counters`);
   }
   if (culprit !== "ai") return counters.paranoia;
-  return counters.goodwill + counters.paranoia + counters.intrigue +
-    counters.protection;
+  return totalCharacterCounters(counters);
 }
 
 /** 예정 사건이 발생하지 않는 이유를 각본가 화면에 표시한다. */
