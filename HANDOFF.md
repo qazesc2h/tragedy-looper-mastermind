@@ -694,92 +694,232 @@ Q7 메이드 시작 장소는 학교로 해결되어 미해결 목록에서 제�
 | 확장 참극 세트 지원 | 대상 세트 확정, 해당 `source` 전수 대조, 참극 세트별 상태·카드·훅·공개 관측·추론·저장 계약, 한국어 원문 확보 | 세트마다 `L~XL`. 단순 데이터 추가가 아니라 신규 룰·역할·사건과 공통 특수 메커니즘까지 엔진 종단으로 연결해야 한다. |
 | 시나리오 편집 도구 | 기본편으로 최소 지원 범위 고정, `ScenarioDraft`, 구조화 검증 진단, 사용자 문서 저장/버전·import/export·출처 경계 | 최소 수직 절편 `L`, 확장까지 포괄하면 `XL`. 확장 스키마 안정화는 착수 선행 조건이 아니라 이후 버전 확장 조건이다. |
 
-### 확장 참극 세트 지원 범위 조사
+### 확장 참극 세트 지원 명세 — 2026-09-30 재검증
 
-수량은 [공개 한국어 포크](https://github.com/qazesc2h/tragedy-looper-ko)의
-`a66d413`에서 각 `tragedys.jsonc`를 현재 지원 세트(`firstSteps`,
-`basicTragedy`)와 비교한 값이다. “자체 각본”은 그 확장 데이터 폴더의 각본 수이고
-괄호는 난이도 변형 수다. “전체 번들”은 포크의 모든 각본·모음집·사용자 데이터에서
-해당 세트를 참조하는 고유 각본 수이며, 공식성은 보장하지 않는 QA 후보 풀이다.
-신규 수는 현재 엔진에 없는 `룰/역할/사건` 순이다.
+이번 표는 [공개 upstream](https://github.com/qazesc2h/tragedy-looper-ko)의
+`a66d413d1fd4145b96551c5af79e3ebb515a5bc6`을 새 임시 클론에서 다시 체크아웃해
+`tragedys.jsonc`, `plots.jsonc`, `roles.jsonc`, `incidents.jsonc`, `scripts.jsonc`,
+`translations/ko.jsonc`를 직접 집계한 결과다. `gen.py`는 실행하지 않았고 구현 파일도
+바꾸지 않았다. 신규 룰·역할·사건은 현재 지원 기준인 `basicTragedy`와의 차집합이다.
+각본 수는 제품 전체 수가 아니라 해당 upstream 제품 폴더에서 그 참극 세트 ID를 직접
+참조하는 각본 수이며, 괄호는 `difficultySets`의 난이도 변형 수다.
 
-| 참극 세트 | 자체 각본 (변형) | 전체 번들 (변형) | 신규 룰/역할/사건 | 한국어판 제품 | KO 명칭 룰/역할/사건 | 세트 고유 메커니즘 |
-|---|---:|---:|---:|---|---:|---|
-| `anotherHorizon` | 7 (7) | 7 (7) | 11/11/9 | 확인 없음 | 1/12 · 3/12 · 5/11 | 세계 전환, 정상·이상 세계, 특수 게이지, 우호 폭주 |
-| `primeEvil` | 4 (8) | 6 (11) | 11/7/9 | **위어드 미솔로지** | 12/12 · 13/13 · 11/11 | 희생자·시체, 장소가 범인인 군중 사건, 저주 카드 |
-| `cosmicMythology` | 5 (7) | 8 (10) | 11/7/8 | **위어드 미솔로지** | 12/12 · 13/13 · 11/11 | 루프를 넘어 유지되는 신화 지식 게이지와 단계별 주문 |
-| `hauntedStage` | 8 (8) | 8 (8) | 12/12/9 | **헌티드 스테이지** | 1/12 · 5/12 · 5/11 | 사후 활동, 시체 대상 카드·우호 능력, 누적 특수 게이지와 광기 |
-| `lastLiar` | 1 (1) | 1 (1) | 12/5/6 | 확인 없음 | 12/12 · 12/12 · 11/11 | 세트 수준 `extraRules` 없음. 신규 룰·역할·사건 훅이 주 범위 |
-| `mysteryCircle` | 6 (9) | 18 (21) | 10/7/8 | **미스터리 서클** | 12/12 · 13/13 · 11/11 | 발생 사건 수 특수 게이지, 추가 카드 |
-| `midnightZone` | 4 (8) | 16 (20) | 11/5/7 | **미드나이트 존** | 12/12 · 13/13 · 11/11 | 추가 카드 |
-| `anotherHorizonR` | 1 (1) | 1 (1) | 12/14/10 | 확인 없음 | 12/12 · 10/11 · 11/11 | 워프, 빛·어둠 세계, 이중 역할, 괴뢰 우호 무시, hope/despair, 추가 카드 |
-| `supernatural` | 0 (0) | 2 (2) | 12/8/12 | 확인 없음 | 0/12 · 3/11 · 2/13 | `supernatural` 태그와 이를 조건으로 삼는 룰·역할·캐릭터 |
-| `visualNovel` | 0 (0) | 0 (0) | 11/8/8 | 확인 없음 | 1/12 · 5/13 · 5/11 | 세트 수준 `extraRules` 없음. 신규 룰·역할·사건 훅이 주 범위 |
+#### 한국어 제품과 upstream 폴더의 대응
 
-#### 한국어 제품과 upstream 데이터의 대응
+[MTS 상품 페이지](https://mtsgames.kr/product/%ED%8A%B8%EB%9E%98%EC%A7%80%EB%94%94-%EB%A3%A8%ED%8D%BC/46/)가
+한국어판 확장으로 Midnight Zone·Mystery Circle을 명시하고, 기존 펀딩 구성 기록과
+원판 제품 구성을 대조하면 조사 대상은 미드나이트 존, 미스터리 서클, 헌티드 스테이지,
+위어드 미솔로지, 시나리오 모음집 1·2다. 폴더명과 한국어 제품은 일대일이 아니다.
 
-[MTS의 2021-11-11 진행 공지](https://mtsgames.kr/article/news/2/75/)는 한국어판
-책자가 본판 2권과 **확장 6권**, 합계 8권이라고 밝히고 시나리오 모음집 1의 제외
-각본까지 구체적으로 설명한다. [MTS 상품 페이지](https://mtsgames.kr/product/%ED%8A%B8%EB%9E%98%EC%A7%80%EB%94%94-%EB%A3%A8%ED%8D%BC/46/)와
-[한국어판 구성 기록](https://namu.wiki/w/%ED%8A%B8%EB%9E%98%EC%A7%80%EB%94%94%20%EB%A3%A8%ED%8D%BC)을
-합치면 2021년 펀딩·2022년 발매 한국어판 범위는 미드나이트 존, 미스터리 서클,
-헌티드 스테이지, 위어드 미솔로지, 시나리오 모음집 1, 시나리오 모음집 2다.
-
-| upstream 폴더 | 실제 성격·제품 | 참극 세트 ID / 수록 상태 | 각본 수 | 판정 |
+| upstream 폴더 | 실제 대응 | 세트 ID | 폴더 각본 구성 | 판정 |
 |---|---|---|---:|---|
-| `haunted-stage` | Haunted Stage / 헌티드 스테이지 | `hauntedStage` | 8 | 거의 일대일 대응 |
-| `midnight-circle` | Midnight Circle 제품 데이터 | `mysteryCircle`, `midnightZone` | 13 | 한국어판의 **미스터리 서클·미드나이트 존 두 참극 세트**를 함께 담는다. |
-| `cosmic-evil` | Cosmic Evil 제품 데이터 | `primeEvil`, `cosmicMythology` | 10 | 한국어판 **위어드 미솔로지**에 대응한다. `cosmicEvil`이라는 런타임 세트 ID는 없다. |
-| `another-horizon` | Another Horizon | `anotherHorizon` | 7 | 확인된 한국어판 6확장에는 없다. |
-| `rei` | Rei | `anotherHorizonR` | 1 | 확인된 한국어판 6확장에는 없다. |
-| `last-liar` | 별도 데이터 모듈 | `lastLiar` | 1 | 한국어 제품 대응을 확인하지 못했다. |
-| `supernatural` | 커뮤니티 참극 세트 데이터 | `supernatural` | 0 | 독립 제품 매핑이 아니며, 미검수 커뮤니티 각본 2편이 참조할 뿐이다. |
-| `sangeki` | 팬 운영 공개 각본 DB import | 없음 | 32 | 제품도 참극 세트도 아니다. |
-| `tragedylooperscripts` | 폐쇄된 커뮤니티 사이트의 미검수 import | 없음 | 74 | 시나리오 모음집을 뜻하지 않는다. |
-| `script-collection-2` | 모음집용 자리 | 없음 | 0 | 폴더는 비어 있고, 샘플 2편만 `base-game`에 `Script Collection 2`로 중복 태깅돼 있다. |
+| `midnight-circle` | 미드나이트 존 + 미스터리 서클 | `midnightZone`, `mysteryCircle` | 13 | 기본편 3 + MZ 4 + MC 6. 폴더 하나에 두 참극 세트가 함께 있다. |
+| `cosmic-evil` | 위어드 미솔로지 | `primeEvil`, `cosmicMythology` | 10 | 기본편 1 + PE 4 + CM 5. `cosmicEvil`이라는 런타임 세트 ID는 없다. |
+| `haunted-stage` | 헌티드 스테이지 | `hauntedStage` | 8 | 거의 일대일이다. |
+| `script-collection-2` | 시나리오 모음집 2 자리 | 없음 | 0 | 빈 폴더다. 식별 가능한 샘플 2편은 `base-game`에 중복 태깅돼 있다. |
+| 모음집 1 전용 폴더 | 없음 | 여러 세트 사용 제품 | 0 | `Script Collection 1` 출처 태그도 없어 upstream만으로 수록작을 복원할 수 없다. |
 
-따라서 시나리오 모음집 1·2는 참극 세트 엔진 모듈이 아니라 **각본·캐릭터 제품**으로
-따로 다뤄야 한다. upstream에는 모음집 1을 손실 없이 가리키는 폴더가 없고, 모음집 2도
-원판 52편 전체가 아니라 샘플 2편만 식별된다. 원판 모음집 1은 캐릭터 2장, 모음집 2는
-52편과 캐릭터 6장(학자·환상 재록, 소녀 재록, 모방자·교주·신수 신규)을 담는다.
-한국어판 구성 기록상 캐릭터 카드는 모음집 1의 학자·환상 2장과 모음집 2의 나머지
-4장으로 나뉜다. 즉 폴더명을 제품명으로 치환해서는 이 제품들을 복원할 수 없다.
+`sangeki`와 `tragedylooperscripts`는 팬/폐쇄 커뮤니티 import이고 시나리오 모음집
+폴더가 아니다. 구현·회귀 테스트의 보조 표본은 될 수 있어도 정발 수록작으로 세면 안 된다.
 
-#### 세트별 번역 분포
+#### 규모 요약
 
-전체 `translations/ko.jsonc`는 917/1,098 = **83.5%**가 채워져 있다. 위 표의
-`KO 명칭`은 각 참극 세트가 실제 참조하는 룰·역할·사건 **이름**을 센 값이다. 캐릭터는
-참극 세트에 종속되지 않으므로 데이터 모듈별로 따로 세었다.
+다섯 세트 모두 룰 Y 1개와 룰 X 2개를 사용하고 최후의 싸움이 있다. 신규 캐릭터는
+참극 세트가 아니라 별도 캐릭터 제품에 속하므로 다섯 세트 자체 기준으로는 모두 0명이다.
+upstream의 `midnight-circle` 캐릭터 4명과 `cosmic-evil` 캐릭터 4명을 폴더명만 보고
+각 세트의 신규 캐릭터로 세면 한국어 실물 구성을 잘못 복원하게 된다.
 
-| 데이터 모듈 | 룰 이름 | 역할 이름 | 사건 이름 | 캐릭터 이름 |
-|---|---:|---:|---:|---:|
-| `base-game` | 16/16 | 14/14 | 9/9 | 18/18 |
-| `midnight-circle` | 21/21 | 11/11 | 13/13 | 4/4 |
-| `cosmic-evil` | 22/22 | 12/12 | 14/14 | 4/4 |
-| `haunted-stage` | 1/12 | 5/12 | 1/7 | 해당 없음 |
-| `another-horizon` | 0/11 | 3/12 | 0/6 | 0/0 |
-| `rei` | 12/12 | 7/8 | 10/10 | 6/6 |
-| `last-liar` | 10/10 | 4/4 | 2/2 | 해당 없음 |
-| `supernatural` | 0/12 | 0/8 | 1/12 | 0/1 |
-| `Promo` | 해당 없음 | 해당 없음 | 해당 없음 | 3/3 |
+| 한국어 제품 / 세트 ID | upstream 각본 (변형) | 룰 Y / 룰 X | 신규 룰 / 역할 / 사건 | 신규 캐릭터 | 최후의 싸움 |
+|---|---:|---:|---:|---:|---|
+| 미드나이트 존 / `midnightZone` | 4 (8) | 5 / 7, 1+2 선택 | 11 / 5 / 7 | 0 | 있음 |
+| 미스터리 서클 / `mysteryCircle` | 6 (9) | 5 / 7, 1+2 선택 | 10 / 7 / 8 | 0 | 있음 |
+| 위어드 미솔로지 / `primeEvil` | 4 (8) | 5 / 7, 1+2 선택 | 11 / 7 / 9 | 0 | 있음 |
+| 위어드 미솔로지 / `cosmicMythology` | 5 (7) | 5 / 7, 1+2 선택 | 11 / 7 / 8 | 0 | 있음 |
+| 헌티드 스테이지 / `hauntedStage` | 8 (8) | 5 / 7, 1+2 선택 | 12 / 12 / 9 | 0 | 있음 |
 
-이름 번역이 완전한 Midnight Circle·Cosmic Evil 계열과 달리, 한국 발매가 확인된
-`haunted-stage`는 신규 엔티티 이름부터 크게 비어 있다. 반대로 `rei`는 이름 번역이
-많지만 한국 발매의 증거가 아니다. 각 폴더의 `translation.ko.jsonc`는 각본 제목·설명·
-특수 규칙용 빈 스켈레톤이므로, 위 수치가 각본 본문까지 번역됐다는 뜻도 아니다.
+#### 세트별 콘텐츠 목록
 
-#### 미지원 5명과 한국어판 범위
+**미드나이트 존 (`midnightZone`)**
 
-- `scientist`는 데이터상 `midnight-circle`이지만 시나리오 모음집 1·2 구성 캐릭터라
-  **한국어판 범위 안**이다. 특수 게이지 선행 때문에 아직 미지원일 뿐이다.
-- `partTimer`, `partTimerAlternate`, `metaworldDenizen`은 `rei`의
-  `anotherHorizonR` 계열이다. Rei는 확인된 한국어판 6확장 목록에 없다.
-- `crusader`는 커뮤니티 `supernatural` 계열이다. 한국어판 수록 근거도, 한국어 이름
-  번역도 확인되지 않았다.
+- 룰 Y 5: 봉인된 것(`sealedItem`, 기본편 재사용), 비밀 기록(`secretRecord`),
+  뻗쳐오는 마수(`devilsHand`), 사나이의 싸움(`maleConfrontation`),
+  인과의 인연(`fatedConnections`).
+- 룰 X 7: 애증의 나선(`loveHateSpiral`), 죽음의 쇼타임(`showtimeDeath`),
+  마녀의 다과회(`witchesTeaTime`), 신의 주사위(`diceOfGods`),
+  통하지 않는 마음(`unansweredHeart`), 불확정 인자 χ괴(`unsafeTrigger`),
+  멸망을 노래하는 자(`worshippersApocalypse`).
+- 신규 역할 5: 닌자(`ninja`), 절대자(`obstinate`), 마술사(`magician`),
+  불멸자(`immortalRole`), 예언자(`prophet`).
+- 신규 사건 7: 연속 살인(`serialMurder`), 음모 공작(`conspiracies`),
+  대폭동(`uproar`), 위장 사건(`fakeIncident`), 타개(`breakthrough`),
+  위장 자살(`fakedSuicide`), 고백(`confession`).
 
-결론적으로 미지원 5명 전부가 한국어판 밖인 것은 아니다. **학자 1명은 한국어판 안,
-나머지 4명은 현재 확인된 한국어판 밖**이다. 캐릭터 수를 0으로 만드는 것보다 학자와
-한국어판 참극 세트를 먼저 지원할 근거가 강해졌다.
+**미스터리 서클 (`mysteryCircle`)**
+
+- 룰 Y 5: 살인 계획(`murderPlan`, 기본편 재사용), 외줄 위에서의 계획(`tightropePlan`),
+  스트리크닌 한 방울(`dropStrychnine`), 누벼 엮은 사건 퀼트(`quiltIncidents`),
+  검은 학교(`blackSchool`).
+- 룰 X 7: 숨어 있는 살인귀(`hiddenFreak`, 기본편 재사용),
+  어리석은 자의 춤(`danceFools`), 격리 병동 사이코(`isolatedInstitutionPsycho`),
+  절대적인 의지(`anAbsoluteWill`), 쌍둥이 트릭(`trickyTwins`),
+  화약의 향기(`smellGunpowder`), 나는 명탐정(`masterDetective`).
+- 신규 역할 7: 바리스타(`poisoner`), 바보(`fool`), 심리 치료사(`therapist`),
+  편집증 환자(`paranoiac`), 절대자(`obstinate`), 쌍둥이(`twin`),
+  명탐정(`privateInvestigator`).
+- 신규 사건 8: 연속 살인(`serialMurder`), 전조(`portent`), 테러리즘(`terrorism`),
+  엽기 살인(`bestialMurder`), 수상한 편지(`suspiciousLetter`),
+  위장 자살(`fakedSuicide`), 클로즈드 서클(`closedCircle`), 은 총탄(`silverBullet`).
+
+**위어드 미솔로지 — Prime Evil (`primeEvil`)**
+
+- 룰 Y 5: 고귀한 혈족(`nobleBloodline`), 달밤의 야수(`moonlightBeast`),
+  밤안개의 악몽(`nightMistNightmare`), 무덤에서 나온 자(`OnesFromGrave`),
+  저주받은 땅(`cursedLand`).
+- 룰 X 7: 성깔 있는 녀석들(`thoseHabits`), 연애의 풍경(`loveAffair`, 기본편 재사용),
+  마녀의 저주(`witchsCurse`), 열쇠가 되는 소녀(`keyGirl`),
+  괴물의 암약(`monsterIntrigue`), 공황과 망집(`panicObsession`),
+  이야기를 듣지 않는 사람들(`peopleDontListen`).
+- 신규 역할 7: 뱀파이어(`vampire`), 늑대인간(`werewolf`), 악몽(`nightmare`),
+  유령(`ghost`), 허당(`showOff`), 겁쟁이(`coward`), 좀비(`zombie`).
+- 신규 사건 9: 모독 살인(`sacrilegiousMurder`), 사악한 기운의 오염(`evilContamination`),
+  수행자(`executioner`), 소문의 저주(`darkRumor`), 농성(`barricade`),
+  광기의 밤(`nightMadness`), 저주의 각성(`awakenedCurse`),
+  추악함의 분출(`fountainFilth`), 사자의 묵시록(`evangeliumDead`).
+
+**위어드 미솔로지 — Cosmic Mythology (`cosmicMythology`)**
+
+- 룰 Y 5: 이계 신을 향한 합창곡(`choirOuterGod`), 다곤 님의 말씀(`sacredWordsDagon`),
+  황색의 왕(`kingYellow`), 거대 시한폭탄 Y의 존재(`giantTimeBombAgain`),
+  피로 물든 의식(`bloodyRites`).
+- 룰 X 7: 불온한 소문(`unsettlingRumor`, 기본편 재사용), 저항하는 자들(`resistance`),
+  목격해 버린 사람들(`peopleWhoSaw`), 위대한 종족(`greatRace`),
+  가라앉은 도시의 속삭임(`whispersFromDeep`), 얼굴 없는 신(`facelessGod`),
+  광기의 진실(`twistedTruth`).
+- 신규 역할 7: 인간 제물(`sacrifice`), 불멸자(`immortalRole`), 심해인(`deepOne`),
+  마법사(`wizard`), 목격자(`witness`), 편집증 환자(`paranoiac`),
+  얼굴 없는 자(`faceless`).
+- 신규 사건 8: 광기의 살인(`insaneMurder`), 집단 자살(`massSuicide`),
+  사악한 기운의 오염(`evilContamination`), 대폭동(`uproar`),
+  멸망의 불(`fireDemise`), 사냥개의 후각(`houndDogScent`), 발견(`discovery`),
+  수행자(`executioner`).
+
+**헌티드 스테이지 (`hauntedStage`)**
+
+- 룰 Y 5: `ancientShrine`, `cursedDoll`, `fullMoonNight`, `strangeStory`,
+  `primeEvilPlot`. `primeEvilPlot`만 현재 한국어 이름 “헌티드 스테이지”가 있다.
+- 룰 X 7: `deepHole`, `zombieApocalypse`, `expandingUrbanLegend`, `hauntedCity`,
+  `dancePartyDead`, `maxCrazyGauge`, `boundaryBetweenLifeDeath`. 현재 한국어 이름은 없다.
+- 신규 역할 12: `nightmareHaunted`, `curseGod`, `GhostHaunted`, `spellcaster`,
+  `humanDoll`, `werewolfHaunted`, `vampireHaunted`, `monster`, `horror`,
+  `poltergeist`, `overlord`, `ZombieHaunted`.
+- 신규 사건 9: 연속 살인(`serialMurder`), 집단 자살(`massSuicide`),
+  인간 제물(`sacrificeHaunted`), `blasphemy`, `monsterLiberation`,
+  `hundredDemonsNight`, `curse`, `infestation`, `repeatingNightmare`.
+
+#### 고유 메커니즘과 현재 구조의 영향
+
+| 세트 | 새 개념 | 원문 동작 | 현재 구조에서 필요한 변경 |
+|---|---|---|---|
+| MZ | 추가 카드 | 루프 시작 카운터 정리 때 모두 제거하고 룰 효과로 다시 배치한다. 캐릭터 역할을 핵심 인물로 바꾸거나 카드 배치를 막는 등 효과가 서로 다르다. | `types.ts`에 부착 대상·출처·수명을 가진 별도 상태, `legal.ts`·`resolve.ts`, UI, 저장, 편집기 capability가 필요하다. 일반 행동 카드 union에 문자열만 추가하면 수명과 공개 정보가 유실된다. |
+| MZ | 같은 날 여러 사건 | upstream 제품 폴더 수록 각본 `Romance Antithesis`는 4일에 사건 2개를 둔다. | `incident.ts`의 `find(({day}) => ...)`는 첫 사건만 해결하므로 복수 발생 순서·선택·로그·종료 지연을 배열 단위로 바꿔야 한다. 사건 가설 표는 열을 이미 구분하지만 해결 경로와 UI는 보강해야 한다. |
+| MZ/MC | 반복 범인 | `serialMurder`는 같은 캐릭터가 여러 연속 살인의 범인이 될 수 있다. | `incident-hypothesis.ts`의 “한 캐릭터는 여러 사건의 범인이 될 수 없다” 전파를 사건별 `repeatedCulprit` 계약으로 일반화해야 한다. |
+| MZ | 거짓 공개·역할 변환 | 닌자는 역할 공개 대신 다른 역할을 말할 수 있고, 위장 사건·추가 카드는 공개 정보와 유효 역할을 바꾼다. | `PublicInformation`, 역할표, 사건 범인표, `effectiveRole`, 공개 이력에 “관측된 주장”과 “확정 사실”을 분리해야 한다. 지금처럼 역할 공개를 즉시 확정하면 가설을 과잉 제거한다. |
+| MC | 사건 수 특수 게이지 | 루프 시작에 0, 효과 유무와 무관하게 사건이 발생할 때마다 +1. 일부 사건·역할은 게이지를 예외 처리하거나 발생 조건을 바꾼다. | `specialGauge?: number` 필드는 있으나 초기화·증감·관측·로그·저장·상태 키 계약이 없다. `incident.ts`, loop setup, UI, 가설 상태와 전략 상태 키 모두에 포함해야 한다. |
+| PE | 희생자·시체 | 장소의 음모 카운터 각각을 엑스트라 역할의 시체로 센다. 부활시키면 카운터를 제거한다. | `locIntrigue`에서 수량은 유도할 수 있지만 저주가 개별 시체에 붙으므로 수량만으로 부족하다. 파생 시체 ID/부착 상태, 사망·부활, UI, 저장, 공개 관측을 정의해야 한다. |
+| PE | 군중 사건 | 범인이 캐릭터가 아니라 네 장소 중 하나이며, 그 장소의 시체 수로 발생한다. upstream 제품 폴더 수록 4편 모두 장소 범인 사건을 사용한다. | `ScheduledIncident.culprit: CharacterId`, 편집기의 캐스트 전용 범인 선택, `incidentFires`, 사건 로그·범인표를 `character | location` 판별 union으로 바꿔야 한다. 역할 범인 CSP와 장소 범인 표는 분리해야 한다. |
+| PE | 저주 카드 | 추가 카드를 장소·캐릭터·시체에 붙이고, 라운드 종료 맨 처음 동시 사망과 장소 이동을 처리하며 루프 종료에 전부 제거한다. 한 대상에 여러 장 가능하다. | 카드 부착 다중성·P9 우선순위·동시 판정·시체 대상·루프 수명 때문에 `types.ts`, `legal.ts`, `resolve.ts`, `phases.ts`, `death.ts`, UI, 저장, 가설 공간을 함께 건드린다. |
+| CM | 신화 지식 게이지 | 게임 시작 0, 루프 간 유지, 우호 거부마다 즉시 +1. 1~4단계 주문이 루프 시작 우호 배치, 첫 룰 X 공개, 음모 금지 집계 변경, 라운드 종료 후 즉시 최후의 싸움을 연다. | 게이지를 `LoopState`에만 두면 루프 재설정 때 유실될 수 있다. 게임 지속 상태 또는 명시적 carry-over 계약, 우호 거부 hook, `flow.ts`/`game.ts`, 공개 정보, 저장·상태 키가 필요하다. |
+| HS | 사후 활동 | 시체에도 행동 카드를 놓고 우호 능력을 쓸 수 있다. 사후 활동 태그가 없으면 게이지가 오른다. 죽은 범인이어야 발생하는 사건도 있다. | `legal.ts`의 사망 대상 일괄 거부, `goodwill.ts`의 생존 전제, `incidentFailureReasons()`의 사망 범인 일괄 실패를 세트/태그별 정책으로 바꿔야 한다. |
+| HS | 광기 게이지 | 게임 시작 0, 루프 간 유지. 시체 상호작용·룰·역할·사건으로 증가하고 4 이상이면 4를 빼고 라운드 종료에 주인공을 죽인다. | CM과 같은 지속 게이지 기반 위에 여러 증감 출처, 반복 차감, P9 동시 해결, 공개 로그·거리 계산을 추가해야 한다. |
+| HS | 동적 캐릭터 | `monsterLiberation`은 추가 카드를 현재 장소의 “마수” 캐릭터로 취급하고 악몽 역할을 부여한다. | 고정 `Scenario.cast`와 정적 `CHARACTERS`만 전제하는 보드, UI, 역할표, 최후의 싸움 후보가 깨진다. 런타임 캐릭터 인스턴스와 데이터/표시 계약이 필요하다. |
+
+`hope`/`despair` 카운터, `supernatural` 태그, `partTimer`→`partTimerAlternate`
+교체는 이번 다섯 세트에서 발견되지 않았다. 각각 upstream `rei`의
+`anotherHorizonR`, 커뮤니티 `supernatural`, `rei` 캐릭터 메커니즘이다.
+시나리오 모음집 2의 6장에도 `partTimer`는 없으므로 이번 한국어판 범위의 공통 기반에
+미리 넣지 않는다.
+
+#### 기존 가정 충돌 감사
+
+| 기존 가정 | 판정 | 근거와 영향 |
+|---|---|---|
+| 역할 최대 인원은 선택 룰의 역할 합으로 계산 | **부분 파손** | 개별 역할 `max`는 기존 `ROLE_IMPL.max` 방식으로 일반화 가능하지만, PE의 `zombie`와 HS의 `ZombieHaunted`는 `tragedys.jsonc.aditionalRoles`로 세트에 직접 추가된다. 현재 `rolesForTragedySet()`·편집기·가설 공간은 이 필드를 읽지 않는다. |
+| 장소는 4개 | 유지 | 조사 대상 다섯 세트 모두 Hospital/Shrine/City/School을 그대로 쓴다. 군중 사건의 장소 범인은 장소 수를 늘리는 것이 아니라 범인 타입을 늘린다. |
+| 캐릭터 카운터는 우호·불안·음모 셋 | 유지하되 별도 상태 추가 | 대상 세트는 네 번째 캐릭터 카운터를 만들지 않는다. 특수 게이지는 전역 scalar이고, 추가/저주 카드는 부착물이다. `hope`/`despair`는 범위 밖이다. |
+| 캐릭터는 한 장소에만 존재 | 유지 | 살아 있는 캐릭터와 시체는 여전히 한 장소에 있다. 다만 PE의 파생 시체와 HS의 마수는 `Scenario.cast` 밖 런타임 객체라 현재 정적 캐릭터 모델은 확장해야 한다. |
+| 사건은 하루에 하나 | **파손** | MZ `Romance Antithesis`가 4일에 2건을 사용한다. 현재 해결기는 첫 건만 선택한다. |
+| 사건 범인은 캐릭터 | **파손** | PE upstream 제품 폴더 수록 4편 모두 장소 범인 군중 사건을 사용한다. |
+| 사건 범인은 사건마다 서로 다름 | **파손** | MZ/MC의 `serialMurder.repeatedCulprit`가 명시적으로 같은 범인의 재사용을 허용한다. |
+| 사망 캐릭터는 카드·능력·사건 대상이 아님 | **파손** | HS는 시체 카드, 시체 우호 능력, 죽은 범인 사건을 핵심 규칙으로 삼는다. |
+| 역할 공개는 참인 확정 사실 | **파손** | MZ 닌자는 다른 비엑스트라 역할을 말할 수 있다. 공개 추론 전체의 사실 타입을 나눠야 한다. |
+
+#### 세트별 한국어 번역률
+
+루트 `translations/ko.jsonc`는 재집계 결과 917/1,098 = **83.5%**다. 아래 이름은
+세트가 참조하는 전체 룰·역할·사건을, 본문은 룰 조건/효과 + 역할 능력 + 사건 조건/효과 +
+세트 `extraRules`의 고유 문자열을 센 것이다. 공유 엔티티도 실제 화면에 보이므로 포함했다.
+
+| 세트 | 룰 이름 | 역할 이름 | 사건 이름 | 능력·조건 본문 | 화면 허용 판정 |
+|---|---:|---:|---:|---:|---|
+| MZ | 12/12 | 13/13 | 11/11 | 54/55 (98.2%) | 내부 QA 가능. 짧은 역할 공개 조건 1건은 보충 후 사용자 지원으로 승격한다. |
+| MC | 12/12 | 13/13 | 11/11 | 49/51 (96.1%) | 내부 QA 가능. 역할 공개·게이지 조건 2건을 보충해야 한다. |
+| PE | 12/12 | 13/13 | 11/11 | 48/49 (98.0%) | 내부 QA 가능. “이 카드는 시체” 조건 1건을 보충해야 한다. |
+| CM | 12/12 | 13/13 | 11/11 | 54/58 (93.1%) | 제한적. 게이지 관련 조건 4건이 영어라 핵심 판정 설명에 직접 노출된다. |
+| HS | 1/12 | 5/12 | 5/11 | 38/41 (92.7%) | **허용 불가.** 이름 24/35가 영어이고, 사망 조건 본문 3건도 비어 있다. |
+
+upstream 폴더의 캐릭터 번역은 `midnight-circle` 4/4 이름·10/10 본문,
+`cosmic-evil` 4/4 이름·8/8 본문이다. 그러나 전자는 감식관·AI(한국어 본판)와
+학자·환상(모음집)을, 후자는 교사·전학생·군인·검은 고양이(한국어 본판)를 담은
+데이터 편의 묶음이다. 세트 신규 캐릭터 수로 옮기면 안 된다.
+
+또한 세 제품 폴더의 `translation.ko.jsonc`는 각본 제목·설명·스토리·힌트·승리 조건이
+전부 빈 스켈레톤이다. 위 표가 높아도 각본 원문까지 번역됐다는 뜻은 아니다. 현재 UI가
+그 긴 본문을 표시할 범위까지 지원하려면 MZ/MC/PE/CM도 영어 폴백을 그대로 허용할 수
+없고 한국어 실물 대조가 별도 게이트다.
+
+#### 시나리오 모음집 1·2
+
+[BakaFire 공식 공지](https://bakafire.main.jp/rooper/sr_news_200601.htm)는 모음집 1이
+2013년 공모 당선작 **30편**과 학자·환상 2장을, 모음집 2가 **52편**과 캐릭터 6장을
+담는다고 명시한다. 모음집 2의 52편은 공모작 50편 + 동봉 캐릭터 샘플 2편이다.
+
+| 제품 | 사용하는 참극 세트 | 신규 캐릭터 | upstream 식별 범위 | 지원 판정 |
+|---|---|---|---|---|
+| 시나리오 모음집 1 | 제품 목차/각본 원문이 upstream에 없어 세트별 분포 확정 불가 | 학자(`scientist`), 환상(`illusion`) 2명 | 전용 폴더·출처 태그 0편. 다른 제품 태그와 겹친 각본을 임의로 모음집 1로 추정하지 않는다. | 캐릭터는 현재 구현돼 있으나 30편 수록 각본은 원문 확보 전 수록 불가. |
+| 시나리오 모음집 2 | 전체 52편의 세트별 분포는 upstream만으로 확정 불가. 식별되는 샘플 2편은 모두 `basicTragedy`. | 6장: 학자·환상 재록, 여자 아이 재록, 모방자·교주·신수 신규. 한국어 구성 축에서는 모음집 1의 2명을 제외한 뒤 4명을 모음집 2 추가분으로 센다. | `script-collection-2/scripts.jsonc`는 0편. `base-game/scripts.jsonc`의 `A Little Friend`, `Fall-Sakura Gathering` 2편만 `Script Collection 2` 태그가 있다. 즉 52편 중 **2편만 식별**된다. | 두 샘플과 6명 캐릭터는 현재 기본편 경로로 시험 가능하지만, 나머지 50편은 데이터가 없다. |
+
+따라서 앞선 “모음집 2 원판 52편 중 upstream에서 식별되는 것은 샘플 2편뿐”이라는
+판정은 재현됐다. 모음집 지원은 참극 세트 엔진 구현과 별개로, 실물 각본 원문과 출처
+메타데이터를 확보한 뒤 import하는 콘텐츠 작업이다.
+
+캐릭터 자체의 한국어 번역은 모음집 1의 2명이 이름 2/2·능력 본문 5/5, 모음집 2의
+6명이 이름 6/6·능력 본문 13/13으로 완전하다. 즉 모음집의 번역 병목은 캐릭터가 아니라
+upstream에 없는 각본 80편과 그 제목·본문·세트 배정이다.
+
+#### 우선순위와 단계별 구현 산출물
+
+세트 단위로는 **미드나이트 존이 가장 싸고, 헌티드 스테이지가 가장 비싸다.**
+미드나이트 존은 콘텐츠 수가 가장 적고 이름 번역이 완전하며 특수 게이지가 없다.
+그래도 같은 날 복수 사건과 거짓 역할 공개를 먼저 일반화해야 한다. 헌티드 스테이지는
+신규 역할 12개, 사망 대상 규칙, 죽은 범인, 지속 게이지, 런타임 캐릭터가 한꺼번에
+들어오고 이름 번역도 부족하다. 제품 단위로는 두 독립 세트를 모두 구현해야 하는
+**위어드 미솔로지의 총비용이 가장 크다.**
+
+| 단계 | 범위 | 완료 산출물 |
+|---:|---|---|
+| 0 | 출처·데이터 계약 고정 | 한국어 실물 `source` 대조표, 세트 ID/제품 ID 분리, upstream `aditionalRoles` 필드, 특수 게이지 수명, 추가 카드 부착, 사건 범인 union, 복수 사건 순서의 승인된 타입 명세. 모호한 문장은 `QUESTIONS.md`. |
+| 1 | 공통 사건·카드 기반 | 같은 날 여러 사건의 순차/동시 종료 계약, `repeatedCulprit`, 캐릭터/장소 범인 union, 추가 카드 상태·저장 migration, 편집기 capability, 공개 관측 타입, 상태 키 회귀 테스트. |
+| 2 | 미드나이트 존 | 신규 룰 11·역할 5·사건 7, 거짓 역할 공개/위장 사건, upstream 4편(8변형), 번역 누락 1건, 실제 UI·가설 공간 검증. |
+| 3 | 미스터리 서클 | 사건 수 게이지, 게이지 예외 사건/역할, 신규 룰 10·역할 7·사건 8, upstream 6편(9변형), 번역 누락 2건. |
+| 4 | Cosmic Mythology | 루프 간 지속 게이지, 우호 거부 증가, 4단계 주문과 최후의 싸움 전환, 신규 룰 11·역할 7·사건 8, upstream 5편(7변형), 번역 누락 4건. |
+| 5 | Prime Evil | 파생 시체, 장소 범인 군중 사건, 저주 부착·동시 사망, 신규 룰 11·역할 7·사건 9, upstream 4편(8변형). 위어드 미솔로지는 이 단계까지 끝나야 제품 지원 완료다. |
+| 6 | 헌티드 스테이지 | 사후 활동, 시체 카드/우호 능력, 죽은 범인, 광기 게이지, 동적 마수, 신규 룰 12·역할 12·사건 9, upstream 8편, 이름 번역 24건 보충. |
+| 7 | 시나리오 모음집 | 모음집 1의 30편과 모음집 2의 미식별 50편 원문 확보·출처 메타데이터·정오표 반영·세트별 import. 확보되지 않은 각본은 추정 수록하지 않는다. |
+
+각 세트 단계의 완료 기준은 `source` 대조 단위 테스트, 전체 strict 타입 검사, 전체 테스트,
+실제 브라우저 진행 경로, 390×844 UI, 저장 복원, 공개 가설 공간의 비밀 정보 비누출,
+`git diff --check`다. 특히 새 상태는 `engineStateKey`와 공개 관측 시점 스냅샷에 빠짐없이
+들어가야 하며, 단순히 화면에서 세트가 선택되는 상태를 “지원 완료”로 세지 않는다.
 
 #### MTS Q&A 정오표 확인 결과
 
