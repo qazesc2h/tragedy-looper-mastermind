@@ -17,6 +17,7 @@ import {
 } from "../types";
 import { tragedySetDefinition } from "../tragedy-sets";
 import { requestLoopEnd } from "./flow";
+import { expireExtraCards } from "./extra-cards";
 import {
   incidentFailureReasons,
   takeResolvedIncidentPublicChanges,
@@ -25,12 +26,39 @@ import { evaluateLoss, type LossCondition } from "./loss";
 import { advance, collectHooks, resolveHooks } from "./phases";
 import { recordPhaseLog } from "./phase-log";
 import { nextPublicObservationAt } from "./public-information";
-import { publicObservationContext } from "./public-observation";
+import {
+  publicBoardChanges,
+  publicObservationContext,
+} from "./public-observation";
 import { finalizeRoundEvidence } from "./round-evidence";
 import { initLoop } from "./setup";
 import { sacredTreeMastermindChoiceRequired } from "./sacred-tree";
 
 const TIME_GAP_SECONDS = 10 * 60;
+
+function expireAndRecordExtraCards(
+  state: GameState,
+  timing: "loopStart" | "loopEnd",
+): void {
+  const before = structuredClone(state.loop);
+  if (expireExtraCards(state.loop, timing).length === 0) return;
+  const publicChanges = publicBoardChanges(before, state.loop).filter(
+    (change) => change.kind === "extraCard",
+  );
+  recordPhaseLog(state, {
+    loop: state.loop.loop,
+    day: state.loop.day,
+    phase: state.loop.phase,
+    kind: "extraCardsExpired",
+    timing,
+    publicChanges,
+    publicContext: publicObservationContext(before),
+    observedAt: nextPublicObservationAt(
+      state,
+      timing === "loopStart" ? "LOOP_START" : "LOOP_END",
+    ),
+  });
+}
 
 function incidentChoiceTargets(choice: IncidentChoice | undefined): Target[] {
   if (choice === undefined) return [];
@@ -194,6 +222,7 @@ export function continueFromTimeGap(state: GameState): void {
     };
   }
   state.loop = prepared;
+  expireAndRecordExtraCards(state, "loopStart");
   resolveHooks(state, "LOOP_CHARACTER_PLACEMENT");
 
   state.gamePhase = "LOOP_COUNTER_SETUP";
@@ -245,6 +274,7 @@ export function finishLoop(state: GameState): LoopOutcome {
   resolveHooks(state, "LOOP_END");
   const atLoopEnd = evaluateLoss(state);
   const losses = uniqueActivatedLosses([...atTrigger, ...atLoopEnd]);
+  expireAndRecordExtraCards(state, "loopEnd");
 
   // 즉시 종료와 마지막 날은 일반 P9 전환을 지나지 않으므로 여기서 확정한다.
   // 패배 결과보다 먼저 순번을 받아 과거 패배 prefix가 이후 루프에도 안정적이다.

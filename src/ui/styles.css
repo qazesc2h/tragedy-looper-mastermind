@@ -878,6 +878,26 @@ select {
   grid-column: 1 / -1;
 }
 
+.extra-card-list {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.extra-card-badge {
+  overflow: hidden;
+  max-width: 100%;
+  border: 1px solid rgba(204, 169, 91, 0.55);
+  border-radius: 4px;
+  background: rgba(77, 60, 27, 0.82);
+  padding: 1px 4px;
+  color: #f1d88e;
+  font-size: 0.62rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 @container character-chip (min-width: 124px) {
   .character-chip-counters {
     grid-template-columns: repeat(3, minmax(0, 1fr));

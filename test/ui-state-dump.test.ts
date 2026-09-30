@@ -60,6 +60,7 @@ describe("current state dump", () => {
       "counters",
       "locationIntrigue",
       "specialGauge",
+      "extraCards",
       "pendingLoopEnd",
       "pendingImmediateLossKeys",
       "phaseProgression",

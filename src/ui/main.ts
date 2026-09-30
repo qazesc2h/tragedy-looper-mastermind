@@ -88,6 +88,7 @@ import {
 } from "../engine/hypothesis";
 import { applyHookEffect, collectHooks } from "../engine/phases";
 import { recordPhaseLog } from "../engine/phase-log";
+import { extraCardsAt } from "../engine/extra-cards";
 import { scenarioValidationErrorMessages, validateScenario } from "../engine/validate";
 import {
   publicBoardChanges,
@@ -148,6 +149,7 @@ import {
   LOCATIONS,
   PHASE_ORDER,
   type ActionCard,
+  type AttachmentTarget,
   type CharacterId,
   type GameState,
   type Hook,
@@ -1100,6 +1102,34 @@ function renderCounter(
     </div>`;
 }
 
+function extraCardControllerLabel(
+  controller: "mastermind" | "protagonists" | "system",
+): string {
+  if (controller === "mastermind") return "각본가";
+  if (controller === "protagonists") return "주인공";
+  return "시스템";
+}
+
+function attachmentTargetLabel(target: AttachmentTarget): string {
+  if (target.kind === "character") return characterName(target.id);
+  if (target.kind === "location") return locationName(target.at);
+  return String((target as { kind: string }).kind);
+}
+
+function renderExtraCardsOnTarget(
+  state: GameState,
+  target: AttachmentTarget,
+): string {
+  const cards = extraCardsAt(state.loop, target);
+  if (cards.length === 0) return "";
+  return `<span class="extra-card-list" aria-label="부착 카드">
+    ${cards.map((card) => `<span class="extra-card-badge"
+      title="${escapeHtml(`${extraCardControllerLabel(card.controller)} · ${card.cardId}`)}">
+      ${escapeHtml(card.cardId)}
+    </span>`).join("")}
+  </span>`;
+}
+
 function renderCharacter(state: GameState, character: CharacterId): string {
   const position = state.loop.board[character];
   const counters = state.loop.charCounters[character];
@@ -1158,6 +1188,10 @@ function renderCharacter(state: GameState, character: CharacterId): string {
             return `<span>${label[counter]} ${value}</span>`;
           }).join("\n")}
         </span>
+        ${renderExtraCardsOnTarget(state, {
+          kind: "character",
+          id: character,
+        })}
       </button>
       ${renderCardsOnTarget(state, { kind: "character", id: character })}
     </article>`;
@@ -1198,6 +1232,7 @@ function renderLocation(state: GameState, location: Location): string {
           ? `<span class="turf-counter" aria-label="거물 세력권">세력권 · 거물</span>`
           : ""}
       </header>
+      ${renderExtraCardsOnTarget(state, { kind: "location", at: location })}
       ${renderCardsOnTarget(state, { kind: "location", at: location })}
       <div class="character-grid">
         ${characters.map((character) => renderCharacter(state, character)).join("") ||
@@ -1462,6 +1497,12 @@ function phaseLogTimelineLine(item: PhaseLogTimelineItem): string {
       const delta = change.delta > 0 ? `+${change.delta}` : String(change.delta);
       return `특수 게이지 · ${delta}`;
     }
+    if (change.kind === "extraCard") {
+      if (change.action === "moved") {
+        return `추가 카드 ${change.card.cardId} · ${attachmentTargetLabel(change.from)} → ${attachmentTargetLabel(change.to)}`;
+      }
+      return `추가 카드 ${change.card.cardId} · ${change.action === "placed" ? "부착" : "제거"} · ${attachmentTargetLabel(change.card.target)}`;
+    }
     if (change.kind === "movement") {
       return `${characterName(change.character)} · ${locationName(change.from)} → ${
         locationName(change.to)
@@ -1669,6 +1710,13 @@ function renderPhaseLog(state: GameState): string {
     }
     if (entry.kind === "roundEnded") {
       return [entry.loopEnded ? "루프 종료 판정" : "다음 날로 진행"];
+    }
+    if (entry.kind === "extraCardsExpired") {
+      return entry.publicChanges.flatMap((change) =>
+        change.kind === "extraCard"
+          ? [`추가 카드 ${change.card.cardId} · ${entry.timing === "loopStart" ? "루프 시작" : "루프 종료"} 만료`]
+          : []
+      );
     }
     const result = entry.fired
       ? entry.effectApplied ? "발생 · 효과 적용" : "발생 · 효과 없음"
@@ -4486,6 +4534,14 @@ function publicAbilityObservationLabel(
     if (change.kind === "specialGauge") {
       const delta = change.delta > 0 ? `+${change.delta}` : String(change.delta);
       return `특수 게이지 ${delta}`;
+    }
+    if (change.kind === "extraCard") {
+      const action = change.action === "placed"
+        ? "부착"
+        : change.action === "removed"
+        ? "제거"
+        : "이동";
+      return `추가 카드 ${change.card.cardId} ${action}`;
     }
     if (change.kind === "movement") {
       return `${characterName(change.character)} ${locationName(change.from)} → ${locationName(change.to)}`;

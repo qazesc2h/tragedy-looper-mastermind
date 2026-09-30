@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { initLoop } from "../src/engine/setup";
+import { placeExtraCard } from "../src/engine/extra-cards";
 import { loadBasicTragedyScenarioCatalog } from "../src/scenario-catalog";
 import {
   APP_STORAGE_PREFIX,
@@ -258,11 +259,19 @@ describe("UI localStorage snapshots", () => {
     expect(observation).not.toHaveProperty("state");
   });
 
-  it("round-trips the structured special gauge", () => {
+  it("round-trips structured expansion state", () => {
     const storage = new MemoryStorage();
     const tracker = emptyTrackerStore();
     const game = state();
     game.loop.specialGauge = { value: 3, increasedThisLoop: true };
+    placeExtraCard(game.loop, {
+      instanceId: "storage-card",
+      cardId: "test-storage-card",
+      controller: "system",
+      source: { kind: "system", id: "storage-test" },
+      target: { kind: "location", at: "School" },
+      expiresAt: "manual",
+    });
 
     persistGameState(
       storage,
@@ -277,6 +286,12 @@ describe("UI localStorage snapshots", () => {
       value: 3,
       increasedThisLoop: true,
     });
+    expect(restored.games["basicTragedy:1"].state.loop.extraCards).toEqual([
+      expect.objectContaining({
+        instanceId: "storage-card",
+        target: { kind: "location", at: "School" },
+      }),
+    ]);
   });
 
   it("migrates legacy full observation snapshots to compact metadata", () => {
@@ -416,6 +431,7 @@ describe("UI localStorage snapshots", () => {
       spentOncePerLoop: _spentOncePerLoop,
       abilitiesUsedThisLoop: _abilitiesUsedThisLoop,
       abilitiesUsedThisRound: _abilitiesUsedThisRound,
+      extraCards: _extraCards,
       ...savedLoop
     } = current.loop;
     const {
@@ -427,7 +443,11 @@ describe("UI localStorage snapshots", () => {
       activeScenarioId: "basicTragedy:1",
       games: {
         "basicTragedy:1": {
-          state: { ...savedState, loop: savedLoop },
+          state: {
+            ...savedState,
+            loop: savedLoop,
+            history: [structuredClone(savedLoop)],
+          },
           observationsByLoop: {},
           updatedAt: "2026-08-05T00:00:00.000Z",
         },
@@ -446,6 +466,9 @@ describe("UI localStorage snapshots", () => {
     expect(restored.games["basicTragedy:1"].state.loop.abilitiesUsedThisLoop)
       .toEqual([]);
     expect(restored.games["basicTragedy:1"].state.loop.abilitiesUsedThisRound)
+      .toEqual([]);
+    expect(restored.games["basicTragedy:1"].state.loop.extraCards).toEqual([]);
+    expect(restored.games["basicTragedy:1"].state.history[0]?.extraCards)
       .toEqual([]);
     expect(restored.games["basicTragedy:1"].state.loopOutcomes).toEqual([]);
     expect(restored.games["basicTragedy:1"].state.extraLoopsPlayed).toBe(0);

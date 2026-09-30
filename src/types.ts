@@ -162,6 +162,29 @@ export interface PlacedCard {
   owner: "mastermind" | 0 | 1 | 2;
 }
 
+/** 행동 카드와 수명이 다른 확장 부착 카드의 대상 경계. */
+export type AttachmentTarget =
+  | { kind: "character"; id: CharacterId }
+  | { kind: "location"; at: Location };
+
+/** 부착 카드를 만든 효과의 비공개 출처. 공개 관측에는 포함하지 않는다. */
+export interface EffectSource {
+  kind: "rule" | "role" | "incident" | "character" | "system";
+  id: string;
+}
+
+export interface ExtraCardInstance {
+  instanceId: string;
+  cardId: string;
+  controller: "mastermind" | "protagonists" | "system";
+  source: EffectSource;
+  target: AttachmentTarget;
+  expiresAt: "loopStart" | "loopEnd" | "manual";
+}
+
+/** 주인공에게 공개되는 부착 카드 정보. 숨은 효과 출처는 제외한다. */
+export type PublicExtraCard = Omit<ExtraCardInstance, "source">;
+
 // ─────────────────────────────────────────────────────────── 시나리오 (불변)
 export const SCENARIO_SPECIAL_RULE_IDS = [
   "mastermindCannotUseForbidGoodwill",
@@ -307,6 +330,18 @@ export type PublicBoardChange =
     delta: number;
   }
   | {
+    kind: "extraCard";
+    action: "placed" | "removed";
+    card: PublicExtraCard;
+  }
+  | {
+    kind: "extraCard";
+    action: "moved";
+    card: PublicExtraCard;
+    from: AttachmentTarget;
+    to: AttachmentTarget;
+  }
+  | {
     kind: "movement";
     character: CharacterId;
     from: Location;
@@ -325,6 +360,8 @@ export type PublicBoardChange =
 export interface PublicObservationContext {
   locationIntrigue: Record<Location, number>;
   specialGauge?: SpecialGaugeState;
+  /** 보드에서 공개된 부착 카드. 비공개 효과 출처는 보존하지 않는다. */
+  extraCards?: PublicExtraCard[];
   /** 관측 직전의 공개 캐릭터 위치·생사·카운터 복사본. */
   characters?: Record<CharacterId, {
     status: BoardCharacterState["status"];
@@ -505,6 +542,15 @@ export type PhaseLogEntry = (
     kind: "roundEnded";
     loopEnded: boolean;
   }
+  | {
+    loop: number;
+    day: number;
+    phase: Phase;
+    kind: "extraCardsExpired";
+    timing: "loopStart" | "loopEnd";
+    publicChanges: PublicBoardChange[];
+    publicContext: PublicObservationContext;
+  }
 ) & {
   /** 새 기록에만 존재한다. 구 저장은 정확한 총순서를 복원하지 않는다. */
   observedAt?: PublicObservationAt;
@@ -636,6 +682,9 @@ export interface LoopState {
 
   /** 이번 라운드에 놓인 카드 (P4에서 소비) */
   placed: PlacedCard[];
+
+  /** 행동 카드와 별도로 보드 대상에 붙어 수명 규칙을 따르는 확장 카드. */
+  extraCards: ExtraCardInstance[];
 
   /** P4 안에서 카드 공개·효과 해결을 마치고 결과 확인을 기다리는 상태 */
   actionResolutionComplete: boolean;

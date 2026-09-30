@@ -1,5 +1,6 @@
 import {
   PHASE_ORDER,
+  type AttachmentTarget,
   type CharacterId,
   type GameState,
   type Location,
@@ -136,6 +137,19 @@ function targetReferences(targets: readonly Target[] | undefined): {
   };
 }
 
+function attachmentTargetReferences(
+  targets: readonly AttachmentTarget[],
+): { characters: CharacterId[]; locations: Location[] } {
+  return {
+    characters: unique(targets.flatMap((target) =>
+      target.kind === "character" ? [target.id] : []
+    )),
+    locations: unique(targets.flatMap((target) =>
+      target.kind === "location" ? [target.at] : []
+    )),
+  };
+}
+
 function changeReferences(
   change: PublicBoardChange,
   context?: PublicObservationContext,
@@ -151,6 +165,12 @@ function changeReferences(
   }
   if (change.kind === "specialGauge") {
     return { characters: [], locations: [] };
+  }
+  if (change.kind === "extraCard") {
+    const targets = change.action === "moved"
+      ? [change.from, change.to]
+      : [change.card.target];
+    return attachmentTargetReferences(targets);
   }
   const at = change.at ?? context?.characters?.[change.character]?.location;
   return {
@@ -214,6 +234,10 @@ export function phaseLogTimeline(state: GameState): PhaseLogTimelineItem[] {
         continue;
       }
       if (entry.kind === "actionResolved") {
+        pushChanges(entry);
+        continue;
+      }
+      if (entry.kind === "extraCardsExpired") {
         pushChanges(entry);
         continue;
       }

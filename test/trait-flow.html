@@ -1173,6 +1173,59 @@
         return JSON.parse(raw).games[scenarioId].state;
       }
 
+      async function runExtraCardDisplayCase() {
+        const scenarioId = "basicTragedy:1";
+        await loadScenario(scenarioId, "extra-card-display");
+        await enterRound();
+        assert(
+          frameDocument().querySelector(".extra-card-badge") === null,
+          "부착 카드가 없는데 배지가 표시됨",
+        );
+        const character = Object.keys(storedState(scenarioId).loop.board)[0];
+        mutateStoredState(scenarioId, (state) => {
+          state.loop.extraCards = [
+            {
+              instanceId: "ui-character-one",
+              cardId: "character-card-one",
+              controller: "mastermind",
+              source: { kind: "system", id: "trait-flow" },
+              target: { kind: "character", id: character },
+              expiresAt: "manual",
+            },
+            {
+              instanceId: "ui-character-two",
+              cardId: "character-card-two",
+              controller: "protagonists",
+              source: { kind: "system", id: "trait-flow" },
+              target: { kind: "character", id: character },
+              expiresAt: "manual",
+            },
+            {
+              instanceId: "ui-location",
+              cardId: "location-card",
+              controller: "system",
+              source: { kind: "system", id: "trait-flow" },
+              target: { kind: "location", at: "School" },
+              expiresAt: "manual",
+            },
+          ];
+        });
+        await reloadFrame("extra-card-display-restored");
+        await waitFor(
+          () => frameDocument().querySelectorAll(".extra-card-badge").length === 3,
+          "부착 카드 배지",
+        );
+        const characterCards = frameDocument().querySelectorAll(
+          `.character-chip[data-character='${character}'] .extra-card-badge`,
+        );
+        const locationCards = frameDocument().querySelectorAll(
+          ".location-school > .extra-card-list .extra-card-badge",
+        );
+        assert(characterCards.length === 2, `캐릭터 부착 카드 수: ${characterCards.length}`);
+        assert(locationCards.length === 1, `장소 부착 카드 수: ${locationCards.length}`);
+        reports.push({ extraCards: "hidden when empty; character 2; location 1" });
+      }
+
       async function runUnsettlingRumorTransactionCase() {
         const scenarioId = "firstSteps:4";
         await loadScenario(scenarioId, "unsettling-rumor-transaction");
@@ -1748,6 +1801,7 @@
         await runServantMovementCase();
         await runP4EmergencyRecoveryCase();
         await runSacredTreeCase();
+        await runExtraCardDisplayCase();
         restoreStorage();
         const passed = failures.length === 0;
         const report = { reports, failures };

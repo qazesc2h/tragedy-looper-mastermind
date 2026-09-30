@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { initLoop } from "../src/engine/setup";
+import { placeExtraCard } from "../src/engine/extra-cards";
 import { publicObservationContext } from "../src/engine/public-observation";
 import { recordRoundEndPairs } from "../src/engine/round-evidence";
 import {
@@ -317,6 +318,54 @@ function storageBreakdown(tracker: TrackerStore): Record<string, number> {
 }
 
 describe("localStorage capacity", () => {
+  it("measures persistent extra cards across loop snapshots", () => {
+    const capacityScenario: Scenario = {
+      tragedySet: "firstSteps",
+      mainPlot: "sealedItem",
+      subPlots: [],
+      cast: { boyStudent: "person" },
+      incidents: [],
+      loops: 5,
+      daysPerLoop: 7,
+    };
+    const emptyState: GameState = {
+      scenario: capacityScenario,
+      gamePhase: "ROUND",
+      loop: initLoop(capacityScenario, 6),
+      history: Array.from({ length: 5 }, (_, index) =>
+        initLoop(capacityScenario, index + 1)
+      ),
+      loopOutcomes: [],
+    };
+    const populated = structuredClone(emptyState);
+    for (const loop of [...populated.history, populated.loop]) {
+      for (let index = 0; index < 20; index += 1) {
+        placeExtraCard(loop, {
+          instanceId: `persistent-${index}`,
+          cardId: `capacity-card-${index}`,
+          controller: "mastermind",
+          source: { kind: "rule", id: "capacity-estimate" },
+          target: { kind: "character", id: "boyStudent" },
+          expiresAt: "manual",
+        });
+      }
+    }
+
+    const copies = 20 * 6;
+    const growth = jsonLength(populated) - jsonLength(emptyState);
+    const bytesPerSnapshotCopy = growth / copies;
+    console.info("storage-capacity extra-cards", {
+      cards: 20,
+      snapshots: 6,
+      copies,
+      growth,
+      bytesPerSnapshotCopy,
+    });
+
+    expect(growth).toBeGreaterThan(0);
+    expect(bytesPerSnapshotCopy).toBeLessThan(300);
+  });
+
   it("stores a complete 4-loop x 7-day scenario below the storage budget", () => {
     const candidate = loadScenarioCatalog()
       .flatMap((entry) => entry.difficulties)

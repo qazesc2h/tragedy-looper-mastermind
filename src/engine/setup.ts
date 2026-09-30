@@ -9,6 +9,7 @@ import {
   type Scenario,
 } from "../types";
 import { initialSpecialGauge } from "./special-gauge";
+import { carryExtraCards } from "./extra-cards";
 
 export function initLoop(
   scenario: Scenario,
@@ -65,6 +66,7 @@ export function initLoop(
     abilitiesUsedThisRound: [],
     servantAdditionalServedCharacters: [],
     placed: [],
+    extraCards: carryExtraCards(previousLoop),
     actionResolutionComplete: false,
     phaseLog: [],
     ...(specialGauge === undefined ? {} : { specialGauge }),

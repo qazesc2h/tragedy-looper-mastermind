@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createGameState } from "../src/engine/game";
+import { placeExtraCard } from "../src/engine/extra-cards";
 import { validatePlacement } from "../src/engine/legal";
 import { resolveActions } from "../src/engine/resolve";
 import { initLoop } from "../src/engine/setup";
@@ -179,6 +180,16 @@ describe("Phase 5 canonical state Section 1", () => {
     collector.recordFaceDownPlacements(state, [firstPlacement]);
 
     expect(engineStateKey(state)).toBe(engineStateKey(structuredClone(state)));
+    const extraCardVariant = structuredClone(state);
+    placeExtraCard(extraCardVariant.loop, {
+      instanceId: "canonical-extra-card",
+      cardId: "test-card",
+      controller: "system",
+      source: { kind: "system", id: "canonical-state-test" },
+      target: { kind: "location", at: "School" },
+      expiresAt: "manual",
+    });
+    expect(engineStateKey(state)).not.toBe(engineStateKey(extraCardVariant));
     expect(protagonistPolicyStateKey(
       "perfect-recall",
       state,

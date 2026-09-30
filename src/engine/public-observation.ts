@@ -7,6 +7,7 @@ import {
   type PublicObservationContext,
 } from "../types";
 import { CHARACTER_COUNTERS } from "../counters";
+import { publicExtraCard, sameAttachmentTarget } from "./extra-cards";
 
 /** 훅 하나의 발동 전후에서 공개 게임판 변화만 추출한다. */
 export function publicBoardChanges(
@@ -79,6 +80,41 @@ export function publicBoardChanges(
     const delta = afterGauge.value - beforeGauge.value;
     if (delta !== 0) changes.push({ kind: "specialGauge", delta });
   }
+  const beforeExtraCards = new Map(
+    before.extraCards.map((card) => [card.instanceId, card]),
+  );
+  const afterExtraCards = new Map(
+    after.extraCards.map((card) => [card.instanceId, card]),
+  );
+  for (const card of before.extraCards) {
+    if (!afterExtraCards.has(card.instanceId)) {
+      changes.push({
+        kind: "extraCard",
+        action: "removed",
+        card: publicExtraCard(card),
+      });
+    }
+  }
+  for (const card of after.extraCards) {
+    const previous = beforeExtraCards.get(card.instanceId);
+    if (previous === undefined) {
+      changes.push({
+        kind: "extraCard",
+        action: "placed",
+        card: publicExtraCard(card),
+      });
+      continue;
+    }
+    if (!sameAttachmentTarget(previous.target, card.target)) {
+      changes.push({
+        kind: "extraCard",
+        action: "moved",
+        card: publicExtraCard(card),
+        from: structuredClone(previous.target),
+        to: structuredClone(card.target),
+      });
+    }
+  }
   return changes;
 }
 
@@ -117,6 +153,7 @@ export function publicObservationContext(
     ...(loop.specialGauge === undefined
       ? {}
       : { specialGauge: structuredClone(loop.specialGauge) }),
+    extraCards: loop.extraCards.map(publicExtraCard),
     characters,
   };
 }
