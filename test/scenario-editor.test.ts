@@ -169,7 +169,16 @@ describe("scenario editor", () => {
       const rowId = session.draft.incidents?.at(-1)?.rowId;
       set(session, "incidentDay", String(incident.day), rowId);
       set(session, "incidentType", incident.incident, rowId);
-      set(session, "incidentCulprit", incident.culprit, rowId);
+      set(
+        session,
+        "incidentCulprit",
+        typeof incident.culprit === "string"
+          ? `character:${incident.culprit}`
+          : incident.culprit.kind === "character"
+          ? `character:${incident.culprit.id}`
+          : `location:${incident.culprit.at}`,
+        rowId,
+      );
     }
     set(session, "specialRules", source.specialRules?.join("\n") ?? "");
     set(session, "specialRuleId", "mastermindCannotUseForbidGoodwill", undefined, true);

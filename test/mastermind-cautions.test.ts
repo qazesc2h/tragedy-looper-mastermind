@@ -81,7 +81,7 @@ describe("mastermind scenario cautions", () => {
   it("keeps black-cat occurrence, AI counter, and early incident tools distinct", () => {
     const cautions = mastermindCautions(stateFor("basicTragedy:7"));
     const blackCatIncident = cautions.operationalNotes.find(
-      ({ key }) => key === "risk:incident:1:suicide:blackCat",
+      ({ key }) => key === "risk:incident:1:suicide:0",
     );
     const aiTool = cautions.protagonistTools.find(
       ({ key }) => key === "tool:goodwill:ai:2",

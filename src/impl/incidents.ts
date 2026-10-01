@@ -9,17 +9,33 @@ import {
 } from "../types";
 import { isIncidentSelectableCounter } from "../counters";
 import {
+  incidentCharacterDecision,
+  incidentCounterDecision,
+  incidentLocationDecision,
+} from "../engine/incident-model";
+import {
   attemptProtagonistDeath,
   killCharacter,
 } from "../engine/death";
 import type {
   CharacterId,
   GameState,
-  IncidentChoice,
+  IncidentChoiceInput,
   IncidentCounter,
+  IncidentCulprit,
   IncidentHook,
   Location,
 } from "../types";
+
+function requiredCharacterCulprit(
+  culprit: IncidentCulprit | CharacterId,
+): CharacterId {
+  if (typeof culprit === "string") return culprit;
+  if (culprit.kind !== "character") {
+    throw new Error("this incident requires a character culprit");
+  }
+  return culprit.id;
+}
 
 function livingCharacters(state: GameState): CharacterId[] {
   return Object.entries(state.loop.board)
@@ -102,24 +118,28 @@ export const INCIDENT_IMPL: Record<string, {
           timing: "Always",
           description: `Put any counter on any character in culprit’s Location.`,
         },
-        when: (_s: GameState, _self: CharacterId) => true,
+        when: (_s: GameState, _self: IncidentCulprit | CharacterId) => true,
         effect: (
           s: GameState,
-          culprit: CharacterId,
-          choice?: IncidentChoice,
+          culprit: IncidentCulprit | CharacterId,
+          choice?: IncidentChoiceInput,
         ) => {
-          const location = characterLocation(s.loop.board[culprit], culprit);
+          const character = requiredCharacterCulprit(culprit);
+          const location = characterLocation(s.loop.board[character], character);
           const target = selectedCharacter(
             livingCharacters(s).filter(
               (character) =>
                 characterLocation(s.loop.board[character], character) ===
                   location,
             ),
-            choice?.target,
+            incidentCharacterDecision(choice, "target"),
             "butterflyEffect",
           );
           if (target === undefined) return false;
-          const counter = selectedCounter(choice?.counter, "butterflyEffect");
+          const counter = selectedCounter(
+            incidentCounterDecision(choice),
+            "butterflyEffect",
+          );
           s.loop.charCounters[target][counter] += 1;
           return true;
         },
@@ -137,13 +157,13 @@ export const INCIDENT_IMPL: Record<string, {
           timing: "Always",
           description: `One character with at least 2 :intrigue: dies.`,
         },
-        when: (_s: GameState, _self: CharacterId) => true,
-        effect: (s: GameState, _culprit: CharacterId, choice?: IncidentChoice) => {
+        when: (_s: GameState, _self: IncidentCulprit | CharacterId) => true,
+        effect: (s: GameState, _culprit: IncidentCulprit | CharacterId, choice?: IncidentChoiceInput) => {
           const target = selectedCharacter(
             livingCharacters(s).filter(
               (character) => s.loop.charCounters[character].intrigue >= 2,
             ),
-            choice?.target,
+            incidentCharacterDecision(choice, "target"),
             "farawayMurder",
           );
           return target === undefined ? false : killEffectApplied(s, target);
@@ -162,8 +182,8 @@ export const INCIDENT_IMPL: Record<string, {
           timing: "Always",
           description: `Place 2 :intrigue: on the Shrine.`,
         },
-        when: (_s: GameState, _self: CharacterId) => true,
-        effect: (s: GameState, _self: CharacterId) => {
+        when: (_s: GameState, _self: IncidentCulprit | CharacterId) => true,
+        effect: (s: GameState, _self: IncidentCulprit | CharacterId) => {
           s.loop.locIntrigue.Shrine += 2;
           return true;
         },
@@ -182,9 +202,9 @@ export const INCIDENT_IMPL: Record<string, {
           prerequisite: `1 :intrigue: on the Hospital`,
           description: `Everyone in the Hospital dies.`,
         },
-        when: (s: GameState, _self: CharacterId) =>
+        when: (s: GameState, _self: IncidentCulprit | CharacterId) =>
           s.loop.locIntrigue.Hospital >= 1,
-        effect: (s: GameState, _self: CharacterId) => {
+        effect: (s: GameState, _self: IncidentCulprit | CharacterId) => {
           let applied = false;
           for (const character of livingCharacters(s)) {
             if (
@@ -204,9 +224,9 @@ export const INCIDENT_IMPL: Record<string, {
           timing: "Always",
           prerequisite: `2 :intrigue: on the Hospital`,
         },
-        when: (s: GameState, _self: CharacterId) =>
+        when: (s: GameState, _self: IncidentCulprit | CharacterId) =>
           s.loop.locIntrigue.Hospital >= 2,
-        effect: (s: GameState, _self: CharacterId) =>
+        effect: (s: GameState, _self: IncidentCulprit | CharacterId) =>
           attemptProtagonistDeath(s).died,
       },
     ],
@@ -222,18 +242,18 @@ export const INCIDENT_IMPL: Record<string, {
           timing: "Always",
           description: `Place 2 :paranoia: on any character, then 1 :intrigue: on any other character.`,
         },
-        when: (_s: GameState, _self: CharacterId) => true,
-        effect: (s: GameState, _culprit: CharacterId, choice?: IncidentChoice) => {
+        when: (_s: GameState, _self: IncidentCulprit | CharacterId) => true,
+        effect: (s: GameState, _culprit: IncidentCulprit | CharacterId, choice?: IncidentChoiceInput) => {
           const living = livingCharacters(s);
           const first = selectedCharacter(
             living,
-            choice?.target,
+            incidentCharacterDecision(choice, "target"),
             "increasingUnease",
           );
           if (first === undefined) return false;
           const second = selectedCharacter(
             living.filter((character) => character !== first),
-            choice?.otherTarget,
+            incidentCharacterDecision(choice, "otherTarget"),
             "increasingUnease",
           );
 
@@ -257,17 +277,21 @@ export const INCIDENT_IMPL: Record<string, {
           timing: "Always",
           description: `Move culprit to any Location. Put 1 :intrigue: on that Location.`,
         },
-        when: (_s: GameState, _self: CharacterId) => true,
+        when: (_s: GameState, _self: IncidentCulprit | CharacterId) => true,
         effect: (
           s: GameState,
-          culprit: CharacterId,
-          choice?: IncidentChoice,
+          culprit: IncidentCulprit | CharacterId,
+          choice?: IncidentChoiceInput,
         ) => {
-          const location = selectedLocation(choice?.location, "missingPerson");
-          s.loop.board[culprit] = withCharacterLocation(
-            s.loop.board[culprit],
+          const character = requiredCharacterCulprit(culprit);
+          const location = selectedLocation(
+            incidentLocationDecision(choice, "location"),
+            "missingPerson",
+          );
+          s.loop.board[character] = withCharacterLocation(
+            s.loop.board[character],
             location,
-            culprit,
+            character,
           );
           s.loop.locIntrigue[location] += 1;
           return true;
@@ -286,21 +310,22 @@ export const INCIDENT_IMPL: Record<string, {
           timing: "Always",
           description: `One (1) other character in culprit’s Location dies`,
         },
-        when: (_s: GameState, _self: CharacterId) => true,
+        when: (_s: GameState, _self: IncidentCulprit | CharacterId) => true,
         effect: (
           s: GameState,
-          culprit: CharacterId,
-          choice?: IncidentChoice,
+          culprit: IncidentCulprit | CharacterId,
+          choice?: IncidentChoiceInput,
         ) => {
-          const location = characterLocation(s.loop.board[culprit], culprit);
+          const character = requiredCharacterCulprit(culprit);
+          const location = characterLocation(s.loop.board[character], character);
           const target = selectedCharacter(
             livingCharacters(s).filter(
               (character) =>
-                character !== culprit &&
+                character !== requiredCharacterCulprit(culprit) &&
                 characterLocation(s.loop.board[character], character) ===
                   location,
             ),
-            choice?.target,
+            incidentCharacterDecision(choice, "target"),
             "murder",
           );
           return target === undefined ? false : killEffectApplied(s, target);
@@ -319,20 +344,20 @@ export const INCIDENT_IMPL: Record<string, {
           timing: "Always",
           description: `Remove 2 :goodwill: (or 1 if they only have that) from a character, and then add 2 :goodwill: to another character.`,
         },
-        when: (_s: GameState, _self: CharacterId) => true,
-        effect: (s: GameState, _culprit: CharacterId, choice?: IncidentChoice) => {
+        when: (_s: GameState, _self: IncidentCulprit | CharacterId) => true,
+        effect: (s: GameState, _culprit: IncidentCulprit | CharacterId, choice?: IncidentChoiceInput) => {
           const living = livingCharacters(s);
           const donor = selectedCharacter(
             living.filter(
               (character) => s.loop.charCounters[character].goodwill >= 1,
             ),
-            choice?.target,
+            incidentCharacterDecision(choice, "target"),
             "spreading",
           );
           if (donor === undefined) return false;
           const recipient = selectedCharacter(
             living.filter((character) => character !== donor),
-            choice?.otherTarget,
+            incidentCharacterDecision(choice, "otherTarget"),
             "spreading",
           );
 
@@ -359,9 +384,9 @@ export const INCIDENT_IMPL: Record<string, {
           timing: "Always",
           description: `The culprit dies.`,
         },
-        when: (_s: GameState, _self: CharacterId) => true,
-        effect: (s: GameState, culprit: CharacterId) =>
-          killEffectApplied(s, culprit),
+        when: (_s: GameState, _self: IncidentCulprit | CharacterId) => true,
+        effect: (s: GameState, culprit: IncidentCulprit | CharacterId) =>
+          killEffectApplied(s, requiredCharacterCulprit(culprit)),
       },
     ],
   },

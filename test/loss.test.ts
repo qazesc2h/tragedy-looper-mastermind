@@ -259,7 +259,7 @@ describe("plot loss distance", () => {
     expect(resolveIncident(state, {
       target: "boyStudent",
       counter: "intrigue",
-    }).fired).toBe(true);
+    }).occurrences[0]?.fired).toBe(true);
     expect(state.loop.incidentsFiredThisLoop).toEqual(["butterflyEffect"]);
     expect(distanceToLoss(state)).toContainEqual(expect.objectContaining({
       plot: "changeOfFuture",
@@ -774,11 +774,13 @@ describe("soldier rank 5 / protagonist death prevention", () => {
       setBoardLocation(state.loop, character, "City");
     }
 
-    expect(resolveIncident(state)).toEqual({
-      incident: "hospitalIncident",
-      culprit: "boyStudent",
-      fired: true,
-      effectApplied: false,
+    expect(resolveIncident(state)).toMatchObject({
+      occurrences: [{
+        incident: "hospitalIncident",
+        culprit: { kind: "character", id: "boyStudent" },
+        fired: true,
+        effectApplied: false,
+      }],
     });
     expect(distanceToLoss(state)).toContainEqual(expect.objectContaining({
       incident: "hospitalIncident",

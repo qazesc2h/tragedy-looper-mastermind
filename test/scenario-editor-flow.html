@@ -129,7 +129,15 @@
         const id = rowId("incidentDay");
         set("incidentDay", String(incident.day), id);
         set("incidentType", incident.incident, id);
-        set("incidentCulprit", incident.culprit, id);
+        set(
+          "incidentCulprit",
+          typeof incident.culprit === "string"
+            ? incident.culprit
+            : incident.culprit.kind === "character"
+            ? incident.culprit.id
+            : `location:${incident.culprit.at}`,
+          id,
+        );
       }
       step(7);
       set("specialRules", source.scenario.specialRules.join("\n"));

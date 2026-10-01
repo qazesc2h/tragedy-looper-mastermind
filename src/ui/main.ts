@@ -42,6 +42,12 @@ import {
   incidentFires,
 } from "../engine/incident";
 import {
+  characterCulprit,
+  incidentOccurrenceId,
+  normalizeIncidentSchedule,
+  normalizeIncidentCulprit,
+} from "../engine/incident-model";
+import {
   actionCardRestriction,
   validatePlacement,
 } from "../engine/legal";
@@ -155,6 +161,8 @@ import {
   type Hook,
   type IncidentChoice,
   type IncidentCounter,
+  type IncidentCulprit,
+  type IncidentDecision,
   type Location,
   type Phase,
   type PhaseLogEntry,
@@ -433,10 +441,15 @@ function goodwillDraftKey(key: string, field: GoodwillDraftField): string {
   return `goodwill:${key}:${field}`;
 }
 
-function incidentDraftKey(field: string, resolution = 1): string {
+function incidentDraftKey(
+  field: string,
+  resolution = 1,
+  occurrenceIndex = 0,
+): string {
+  const prefix = occurrenceIndex === 0 ? "incident" : `incident:${occurrenceIndex}`;
   return resolution === 1
-    ? `incident:${field}`
-    : `incident:${resolution}:${field}`;
+    ? `${prefix}:${field}`
+    : `${prefix}:${resolution}:${field}`;
 }
 
 function draftValue(key: string): string {
@@ -937,6 +950,13 @@ function commit(reason: string, mutate: (state: GameState) => void): void {
 function characterName(character: CharacterId): string {
   const data = characterDataOf(character);
   return term("characters", character, data.en);
+}
+
+function incidentCulpritName(culpritInput: IncidentCulprit | CharacterId): string {
+  const culprit = normalizeIncidentCulprit(culpritInput);
+  return culprit.kind === "character"
+    ? characterName(culprit.id)
+    : locationName(culprit.at);
 }
 
 function plotLessRoleTraitText(
@@ -1549,7 +1569,7 @@ function phaseLogTimelineLine(item: PhaseLogTimelineItem): string {
     const result = entry.fired
       ? entry.effectApplied ? "발생 · 효과 적용" : "발생 · 효과 없음"
       : `발생하지 않음 (${entry.failureReasons.map(incidentFailureLabel).join(" · ")})`;
-    return `${incidentName(entry.incident)} · 범인 ${characterName(entry.culprit)} · ${result}${
+    return `${incidentName(entry.incident)} · 범인 ${incidentCulpritName(entry.culprit)} · ${result}${
       phaseLogTargetList(entry.targets)
     }`;
   }
@@ -1560,7 +1580,7 @@ function phaseLogTimelineLine(item: PhaseLogTimelineItem): string {
     return `모방자와 같은 역할 · ${item.characters.map(characterName).join(" · ")}`;
   }
   if (item.kind === "incidentCulprit") {
-    return `${incidentName(item.incident)} · 범인 공개 · ${characterName(item.culprit)}`;
+    return `${incidentName(item.incident)} · 범인 공개 · ${incidentCulpritName(item.culprit)}`;
   }
   return `${locationName(item.pair.location)} · ${
     item.pair.characters.map(characterName).join(" ↔ ")
@@ -3596,8 +3616,9 @@ function mark(pass: boolean): string {
 function renderIncidentChoice(
   state: GameState,
   incident: string,
-  culprit: CharacterId,
+  culprit: IncidentCulprit,
   fires: boolean,
+  occurrenceIndex = 0,
 ): string {
   const fields = INCIDENT_CHOICE_FIELDS[incident] ?? [];
   if (state.loop.phase !== "P7_INCIDENT" || !fires || fields.length === 0) {
@@ -3612,7 +3633,7 @@ function renderIncidentChoice(
     label: string,
     resolution: number,
   ) => {
-    const draftKey = incidentDraftKey(field, resolution);
+    const draftKey = incidentDraftKey(field, resolution, occurrenceIndex);
     return `
     <label>
       <span>${escapeHtml(label)}</span>
@@ -3626,8 +3647,16 @@ function renderIncidentChoice(
     </label>`;
   };
   const resolutionFields = (resolution: number) => {
-    const locationDraftKey = incidentDraftKey("location", resolution);
-    const counterDraftKey = incidentDraftKey("counter", resolution);
+    const locationDraftKey = incidentDraftKey(
+      "location",
+      resolution,
+      occurrenceIndex,
+    );
+    const counterDraftKey = incidentDraftKey(
+      "counter",
+      resolution,
+      occurrenceIndex,
+    );
     return `
       ${fields.includes("target")
         ? characterSelect("target", misc("Target", "Target"), resolution)
@@ -3658,7 +3687,7 @@ function renderIncidentChoice(
             </select></label>`
         : ""}`;
   };
-  const repeated = culprit === "sectFounder";
+  const repeated = characterCulprit(culprit) === "sectFounder";
   return `
     <div class="incident-choice ${repeated ? "is-repeated" : ""}">
       ${repeated ? "<strong>첫 번째 해결</strong>" : ""}
@@ -3671,31 +3700,38 @@ function renderTodayIncidents(
   state: GameState,
   interactive = false,
 ): string {
-  const scheduled = state.scenario.incidents.filter(
+  const scheduled = normalizeIncidentSchedule(state.scenario.incidents).filter(
     ({ day }) => day === state.loop.day,
   );
   if (scheduled.length === 0) {
     return `<p class="empty-overlay">${escapeHtml(misc("No incident"))}</p>`;
   }
 
-  return scheduled.map(({ incident, culprit }) => {
+  return scheduled.map(({ incident, culprit, occurrenceIndex, ...rest }) => {
+    const scheduledIncident = { incident, culprit, occurrenceIndex, ...rest };
+    const culpritCharacter = characterCulprit(culprit);
     const judgment = [...(state.loop.phaseLog ?? [])].reverse().find(
       (entry): entry is Extract<PhaseLogEntry, { kind: "incidentJudged" }> =>
       entry.loop === state.loop.loop &&
       entry.day === state.loop.day &&
       entry.phase === "P7_INCIDENT" &&
       entry.kind === "incidentJudged" &&
-      entry.incident === incident &&
-      entry.culprit === culprit,
+      entry.occurrenceId === incidentOccurrenceId(scheduledIncident),
     );
-    const fires = incidentFires(state, culprit);
-    const failureReasons = incidentFailureReasons(state, culprit);
-    const effectSuppressed = culprit === "blackCat";
-    const alive = isCharacterAlive(state.loop.board[culprit]);
-    const paranoia = state.loop.charCounters[culprit].paranoia;
-    const limit = characterDataOf(culprit).paranoiaLimit;
+    const fires = incidentFires(state, culprit, incident);
+    const failureReasons = incidentFailureReasons(state, culprit, incident);
+    const effectSuppressed = culpritCharacter === "blackCat";
+    const alive = culpritCharacter === undefined
+      ? true
+      : isCharacterAlive(state.loop.board[culpritCharacter]);
+    const paranoia = culpritCharacter === undefined
+      ? 0
+      : state.loop.charCounters[culpritCharacter].paranoia;
+    const limit = culpritCharacter === undefined
+      ? 0
+      : characterDataOf(culpritCharacter).paranoiaLimit;
     const culpritSuppressed = state.loop.incidentCulpritSuppressedFor
-      ?.includes(culprit) === true;
+      ?.includes(culpritCharacter ?? "") === true;
     const effectSources = INCIDENT_IMPL[incident]?.hooks
       .map(({ source }) => source.description)
       .filter((description): description is string => Boolean(description)) ??
@@ -3708,7 +3744,7 @@ function renderTodayIncidents(
         <div class="incident-title">
           ${mark(fires)}
           <div><strong>${escapeHtml(incidentName(incident))}</strong>
-          <span>${escapeHtml(misc("Culprit"))} · ${escapeHtml(characterName(culprit))}</span></div>
+          <span>${escapeHtml(misc("Culprit"))} · ${escapeHtml(incidentCulpritName(culprit))}</span></div>
         </div>
         ${effectText
           ? `<p class="incident-effect">${escapeHtml(effectText)}</p>`
@@ -3734,17 +3770,18 @@ function renderTodayIncidents(
             `${incidentName(incident)}이 발생하여 주인공이 사망했습니다.`,
           )}</p>`
           : ""}
-        <div class="incident-conditions">
+        ${culpritCharacter === undefined ? "" : `<div class="incident-conditions">
           <span>${mark(alive)} ${escapeHtml(misc("Alive", "생존"))}</span>
           <span>${mark(paranoia >= limit)} ${escapeHtml(misc("Paranoia"))} ${paranoia}/${limit}</span>
           <span>${mark(!culpritSuppressed)} 발생 억제 없음</span>
-        </div>
+        </div>`}
         ${interactive
           ? renderIncidentChoice(
             state,
             incident,
             culprit,
             fires && !effectSuppressed,
+            occurrenceIndex,
           )
           : ""}
       </article>`;
@@ -4495,7 +4532,7 @@ function renderIncidentSchedule(
                 mode === "selection" ? "" : `<span>${timingLabel}</span>`
               }</td>
               <td>${escapeHtml(incidentName(row.incident))}</td>
-              <td>${escapeHtml(characterName(row.culprit))}${
+              <td>${escapeHtml(incidentCulpritName(row.culprit))}${
                 mode !== "selection" && row.culpritEntryLabel
                   ? `<span>${escapeHtml(row.culpritEntryLabel)}</span>`
                   : ""
@@ -4579,7 +4616,7 @@ function hypothesisObservationLabel(
     case "incidentOccurred":
       return `${observation.day}일 ${incidentName(observation.incident)} · ${observation.occurred ? "발생" : "미발생"}`;
     case "incidentCulpritRevealed":
-      return `${incidentName(observation.incident)} 범인 공개 · ${characterName(observation.culprit)}`;
+      return `${incidentName(observation.incident)} 범인 공개 · ${incidentCulpritName(observation.culprit)}`;
     case "lossObserved":
       return observation.timing === "protagonistDeath"
         ? `${observation.loop}루프 ${observation.day}일 주인공 사망`
@@ -5626,7 +5663,7 @@ function renderPublicInformation(state: GameState): string {
           ];
         case "incidentCulprit":
           return [`${characterName(information.source)}: ${misc("Day")} ${information.day} · ` +
-            `${incidentName(information.incident)}의 범인은 ${characterName(information.culprit)}`];
+            `${incidentName(information.incident)}의 범인은 ${incidentCulpritName(information.culprit)}`];
         case "subplot":
           return [`리더 선언: ${plotName(information.declaredSubplot)} / ` +
             `각본가 공개: ${plotName(information.revealedSubplot)}`];
@@ -6301,31 +6338,54 @@ function render(preserveInferenceCache = false): void {
   scheduleNoticeDismiss();
 }
 
-function incidentChoiceFromDraft(): IncidentChoice | undefined {
-  const resolutionChoice = (resolution: number) => {
+function incidentChoiceFromDraft(): IncidentChoice[] | undefined {
+  const resolutionChoice = (
+    resolution: number,
+    occurrenceIndex: number,
+  ): IncidentChoice | undefined => {
     const field = (name: string): string | undefined =>
-      draftValue(incidentDraftKey(name, resolution)) || undefined;
+      draftValue(incidentDraftKey(name, resolution, occurrenceIndex)) ||
+      undefined;
     const target = field("target");
     const otherTarget = field("otherTarget");
     const location = field("location");
     const counter = field("counter");
     if (!target && !otherTarget && !location && !counter) return undefined;
-    return {
-      target,
-      otherTarget,
-      location: location as Location | undefined,
-      counter: counter as IncidentCounter | undefined,
-    };
+    const decisions: IncidentDecision[] = [];
+    if (target) decisions.push({ kind: "character", key: "target", id: target });
+    if (otherTarget) {
+      decisions.push({ kind: "character", key: "otherTarget", id: otherTarget });
+    }
+    if (location) {
+      decisions.push({ kind: "location", key: "location", at: location as Location });
+    }
+    if (counter) {
+      decisions.push({ kind: "counter", key: "counter", counter: counter as IncidentCounter });
+    }
+    return { decisions };
   };
-  const first = resolutionChoice(1);
-  const scheduled = currentState().scenario.incidents.find(
+  const scheduled = normalizeIncidentSchedule(
+    currentState().scenario.incidents,
+  ).filter(
     ({ day }) => day === currentState().loop.day,
   );
-  const second = scheduled?.culprit === "sectFounder"
-    ? resolutionChoice(2)
+  const choices = scheduled.map(({ culprit, occurrenceIndex }) => {
+    const first = resolutionChoice(1, occurrenceIndex) ?? { decisions: [] };
+    const second = characterCulprit(culprit) === "sectFounder"
+      ? resolutionChoice(2, occurrenceIndex)
+      : undefined;
+    if (second !== undefined) {
+      first.decisions.push({
+        kind: "subIncident",
+        key: "secondResolution",
+        decisions: second.decisions,
+      });
+    }
+    return first;
+  });
+  return choices.some(({ decisions }) => decisions.length > 0)
+    ? choices
     : undefined;
-  if (first === undefined && second === undefined) return undefined;
-  return { ...first, ...(second === undefined ? {} : { secondResolution: second }) };
 }
 
 function decodeTarget(value: string | undefined): Target | undefined {
@@ -6582,15 +6642,22 @@ function resolveGoodwillFromButton(button: HTMLButtonElement): void {
     ) {
       throw new Error(`invalid goodwill incident counter "${incidentCounter}"`);
     }
-    const incidentChoice = incidentTarget || incidentOtherTarget ||
-        incidentLocation || incidentCounter
-      ? {
-        target: incidentTarget,
-        otherTarget: incidentOtherTarget,
-        location: incidentLocation as Location | undefined,
-        counter: incidentCounter as IncidentCounter | undefined,
-      }
-      : undefined;
+    const incidentDecisions: IncidentDecision[] = [];
+    if (incidentTarget) {
+      incidentDecisions.push({ kind: "character", key: "target", id: incidentTarget });
+    }
+    if (incidentOtherTarget) {
+      incidentDecisions.push({ kind: "character", key: "otherTarget", id: incidentOtherTarget });
+    }
+    if (incidentLocation) {
+      incidentDecisions.push({ kind: "location", key: "location", at: incidentLocation as Location });
+    }
+    if (incidentCounter) {
+      incidentDecisions.push({ kind: "counter", key: "counter", counter: incidentCounter as IncidentCounter });
+    }
+    const incidentChoice = incidentDecisions.length === 0
+      ? undefined
+      : { decisions: incidentDecisions };
     resolveGoodwillAbility(
       game.state,
       {

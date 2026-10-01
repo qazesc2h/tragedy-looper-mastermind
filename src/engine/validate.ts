@@ -6,8 +6,10 @@ import {
   TRAGEDY_SETS,
   type TragedySetDefinition,
 } from "../tragedy-sets";
+import { incidentDefinition } from "./incident-definition";
+import { normalizeIncidentCulprit } from "./incident-model";
 
-import { LOCATIONS, type CharacterId } from "../types";
+import { LOCATIONS, type CharacterId, type IncidentCulprit } from "../types";
 
 interface ValidationCharacterData {
   en?: unknown;
@@ -51,6 +53,7 @@ export type ScenarioDiagnosticCode =
   | "INCIDENT_CULPRIT_MISSING"
   | "INCIDENT_DAY_OUT_OF_RANGE"
   | "INCIDENT_CULPRIT_NOT_IN_CAST"
+  | "INCIDENT_CULPRIT_KIND_MISMATCH"
   | "INCIDENT_NOT_IN_TRAGEDY_SET"
   | "ROLE_NOT_IN_TRAGEDY_SET"
   | "SIGN_WITH_ME_KEY_PERSON_NOT_GIRL"
@@ -85,7 +88,7 @@ export interface ScenarioValidationInput {
   incidents?: readonly Readonly<{
     day?: number;
     incident?: string;
-    culprit?: string;
+    culprit?: string | IncidentCulprit;
   }>[];
   loops?: number;
   daysPerLoop?: number;
@@ -330,6 +333,33 @@ function validateIncidentsInTragedySet(
   });
 }
 
+function validateIncidentCulprits(
+  scenario: ScenarioValidationInput,
+): ScenarioDiagnostic[] {
+  return (scenario.incidents ?? []).flatMap(({ incident, culprit }, index) => {
+    if (incident === undefined || culprit === undefined) return [];
+    const normalized = normalizeIncidentCulprit(culprit);
+    if (incidentDefinition(incident).culpritKind !== normalized.kind) {
+      return [errorDiagnostic(
+        `incidents[${index}].culprit`,
+        "INCIDENT_CULPRIT_KIND_MISMATCH",
+        "이 사건의 범인 종류와 선택한 범인 종류가 다릅니다.",
+      )];
+    }
+    if (
+      normalized.kind === "character" &&
+      scenario.cast?.[normalized.id] === undefined
+    ) {
+      return [errorDiagnostic(
+        `incidents[${index}].culprit`,
+        "INCIDENT_CULPRIT_NOT_IN_CAST",
+        "사건 범인은 캐스트에 포함된 캐릭터여야 합니다.",
+      )];
+    }
+    return [];
+  });
+}
+
 function validateRolesInTragedySet(
   scenario: ScenarioValidationInput,
   definition: TragedySetDefinition,
@@ -568,6 +598,7 @@ export function validateScenario(
     ...validateLittleSisterRole(scenario),
     ...validateMysteryBoyRole(scenario, definition),
     ...validateCopycatRole(scenario),
+    ...validateIncidentCulprits(scenario),
     ...validateHideousScript(scenario),
     ...validateBossTurf(scenario),
     ...validateFixedStartLocations(scenario),

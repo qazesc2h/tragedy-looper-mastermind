@@ -640,11 +640,13 @@ describe("automatic empty round phases", () => {
       expect.objectContaining({ phase: "P7_INCIDENT" }),
     );
 
-    expect(advanceGame(state)).toEqual({
-      incident: "foulEvil",
-      culprit: "boyStudent",
-      fired: false,
-      effectApplied: false,
+    expect(advanceGame(state)).toMatchObject({
+      occurrences: [{
+        incident: "foulEvil",
+        culprit: { kind: "character", id: "boyStudent" },
+        fired: false,
+        effectApplied: false,
+      }],
     });
     expect(state.loop).toMatchObject({
       day: 2,
@@ -656,11 +658,39 @@ describe("automatic empty round phases", () => {
       phase: "P7_INCIDENT",
       kind: "incidentJudged",
       incident: "foulEvil",
-      culprit: "boyStudent",
+      culprit: { kind: "character", id: "boyStudent" },
       fired: false,
       effectApplied: false,
       failureReasons: ["insufficientParanoia"],
     }));
+  });
+
+  it("records same-day incidents as ordered independent occurrences", () => {
+    const state = createGameState(scenario({
+      cast: { boyStudent: "person", girlStudent: "person" },
+      incidents: [
+        { day: 1, incident: "foulEvil", culprit: "boyStudent" },
+        { day: 1, incident: "foulEvil", culprit: "girlStudent" },
+      ],
+    }));
+    state.gamePhase = "ROUND";
+    state.loop.phase = "P7_INCIDENT";
+    state.loop.charCounters.boyStudent.paranoia = 10;
+    state.loop.charCounters.girlStudent.paranoia = 10;
+
+    expect(advanceGame(state, undefined, { deferSettlement: true }))
+      .toMatchObject({
+        occurrences: [
+          { occurrenceId: "1:foulEvil:0", fired: true },
+          { occurrenceId: "1:foulEvil:1", fired: true },
+        ],
+      });
+    expect(state.loop.locIntrigue.Shrine).toBe(4);
+    expect(state.loop.phaseLog?.filter(({ kind }) => kind === "incidentJudged"))
+      .toMatchObject([
+        { occurrenceId: "1:foulEvil:0", occurrenceIndex: 0 },
+        { occurrenceId: "1:foulEvil:1", occurrenceIndex: 1 },
+      ]);
   });
 
   it("records an absent culprit as the reason an incident did not fire", () => {
@@ -678,11 +708,13 @@ describe("automatic empty round phases", () => {
 
     advanceGame(state);
     expect(state.loop.phase).toBe("P7_INCIDENT");
-    expect(advanceGame(state)).toEqual({
-      incident: "foulEvil",
-      culprit: "transferStudent",
-      fired: false,
-      effectApplied: false,
+    expect(advanceGame(state)).toMatchObject({
+      occurrences: [{
+        incident: "foulEvil",
+        culprit: { kind: "character", id: "transferStudent" },
+        fired: false,
+        effectApplied: false,
+      }],
     });
     expect(state.loop.phaseLog).toContainEqual(expect.objectContaining({
       loop: 1,
@@ -690,7 +722,7 @@ describe("automatic empty round phases", () => {
       phase: "P7_INCIDENT",
       kind: "incidentJudged",
       incident: "foulEvil",
-      culprit: "transferStudent",
+      culprit: { kind: "character", id: "transferStudent" },
       fired: false,
       effectApplied: false,
       failureReasons: ["culpritAbsent"],
@@ -740,11 +772,13 @@ describe("immediate loop interruption and judgment", () => {
       state,
       undefined,
       { deferSettlement: true },
-    )).toEqual({
-      incident: "hospitalIncident",
-      culprit: "boyStudent",
-      fired: true,
-      effectApplied: true,
+    )).toMatchObject({
+      occurrences: [{
+        incident: "hospitalIncident",
+        culprit: { kind: "character", id: "boyStudent" },
+        fired: true,
+        effectApplied: true,
+      }],
     });
 
     expect(state.gamePhase).toBe("ROUND");
@@ -759,7 +793,7 @@ describe("immediate loop interruption and judgment", () => {
       phase: "P7_INCIDENT",
       kind: "incidentJudged",
       incident: "hospitalIncident",
-      culprit: "boyStudent",
+      culprit: { kind: "character", id: "boyStudent" },
       fired: true,
       effectApplied: true,
       failureReasons: [],

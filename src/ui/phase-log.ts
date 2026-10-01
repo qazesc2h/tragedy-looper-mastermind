@@ -3,6 +3,7 @@ import {
   type AttachmentTarget,
   type CharacterId,
   type GameState,
+  type IncidentCulprit,
   type Location,
   type Phase,
   type PhaseLogEntry,
@@ -13,6 +14,7 @@ import {
   type RoundEndPairEvidence,
   type Target,
 } from "../types";
+import { normalizeIncidentCulprit } from "../engine/incident-model";
 
 export interface PhaseLogDayGroup {
   key: string;
@@ -114,7 +116,7 @@ export type PhaseLogTimelineItem = PhaseLogTimelineBase & (
   | {
     kind: "incidentCulprit";
     incident: string;
-    culprit: CharacterId;
+    culprit: IncidentCulprit;
   }
   | { kind: "roundEndPair"; pair: RoundEndPairEvidence }
 );
@@ -288,6 +290,7 @@ export function phaseLogTimeline(state: GameState): PhaseLogTimelineItem[] {
         continue;
       }
       if (entry.kind === "incidentJudged") {
+        const culprit = normalizeIncidentCulprit(entry.culprit);
         const targetRefs = targetReferences(entry.targets);
         const changeRefs = (entry.publicChanges ?? []).map((change) =>
           changeReferences(change, entry.publicContext)
@@ -300,12 +303,15 @@ export function phaseLogTimeline(state: GameState): PhaseLogTimelineItem[] {
           sequence: entry.observedAt?.sequence,
           sourceOrder: sourceOrder++,
           characters: unique([
-            entry.culprit,
+            ...(culprit.kind === "character" ? [culprit.id] : []),
             ...targetRefs.characters,
             ...(entry.deaths ?? []),
             ...changeRefs.flatMap(({ characters }) => characters),
           ]),
-          locations: targetRefs.locations,
+          locations: unique([
+            ...(culprit.kind === "location" ? [culprit.at] : []),
+            ...targetRefs.locations,
+          ]),
           entry,
         });
         pushChanges(entry);
@@ -344,6 +350,7 @@ export function phaseLogTimeline(state: GameState): PhaseLogTimelineItem[] {
           locations: [],
         });
       } else if (information.kind === "incidentCulprit") {
+        const culprit = normalizeIncidentCulprit(information.culprit);
         items.push({
           kind: "incidentCulprit",
           loop: loop.loop,
@@ -354,10 +361,14 @@ export function phaseLogTimeline(state: GameState): PhaseLogTimelineItem[] {
           ),
           sequence: information.observedAt?.sequence,
           sourceOrder: sourceOrder++,
-          characters: [information.culprit],
-          locations: [],
+          characters: culprit.kind === "character"
+            ? [culprit.id]
+            : [],
+          locations: culprit.kind === "location"
+            ? [culprit.at]
+            : [],
           incident: information.incident,
-          culprit: information.culprit,
+          culprit,
         });
       }
     }

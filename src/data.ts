@@ -8,6 +8,7 @@ import {
   validateScenario,
 } from "./engine/validate";
 import { applyScenarioErrata } from "./errata";
+import { normalizeIncidentSchedule } from "./engine/incident-model";
 
 import type {
   CharacterId,
@@ -321,7 +322,7 @@ function parseIncidents(
   value: unknown,
   context: string,
 ): Scenario["incidents"] {
-  return requireArray(value, context).map((entry, index) => {
+  return normalizeIncidentSchedule(requireArray(value, context).map((entry, index) => {
     const raw = requireRecord(entry, `${context}[${index}]`);
     return {
       day: requireNumber(raw.day, `${context}[${index}].day`),
@@ -334,7 +335,7 @@ function parseIncidents(
         `${context}[${index}].culprit`,
       ),
     };
-  });
+  }));
 }
 
 export function scriptDifficulties(value: unknown): ScriptDifficulty[] {

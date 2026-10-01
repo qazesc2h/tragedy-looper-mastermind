@@ -9,6 +9,7 @@ import {
 } from "./engine/validate";
 import { PLOT_IMPL } from "./impl/plots";
 import { ROLE_IMPL } from "./impl/roles";
+import { normalizeIncidentSchedule } from "./engine/incident-model";
 import {
   rolesForTragedySet,
   TRAGEDY_SETS,
@@ -18,6 +19,7 @@ import {
   LOCATIONS,
   type CharacterId,
   type IncidentId,
+  type IncidentCulprit,
   type Location,
   type PlotId,
   type RoleId,
@@ -47,7 +49,7 @@ export interface ScenarioDraftIncidentRow {
   rowId: string;
   day?: number;
   incident?: IncidentId;
-  culprit?: CharacterId;
+  culprit?: IncidentCulprit;
 }
 
 export interface ScenarioDraftDifficultyRow {
@@ -648,13 +650,6 @@ function missingFieldDiagnostics(
         severity,
         "사건 범인을 선택하지 않았습니다.",
       ));
-    } else if (!firstCastRowByCharacter.has(row.culprit)) {
-      diagnostics.push(diagnostic(
-        `incidents.${row.rowId}.culprit`,
-        "INCIDENT_CULPRIT_NOT_IN_CAST",
-        "error",
-        "사건 범인은 캐스트에 포함된 캐릭터여야 합니다.",
-      ));
     }
   }
 
@@ -726,11 +721,11 @@ function finalizedScenario(draft: ScenarioDraft): Scenario {
     mainPlot: draft.mainPlot!,
     subPlots: (draft.subPlots ?? []).map(({ plot }) => plot!),
     cast,
-    incidents: (draft.incidents ?? []).map(({ day, incident, culprit }) => ({
+    incidents: normalizeIncidentSchedule((draft.incidents ?? []).map(({ day, incident, culprit }) => ({
       day: day!,
       incident: incident!,
       culprit: culprit!,
-    })),
+    }))),
     loops: (draft.difficultySets?.[0]?.numberOfLoops ?? draft.loops)!,
     daysPerLoop: draft.daysPerLoop!,
   };
@@ -836,7 +831,7 @@ export function scenarioToDraft(scenario: Scenario): ScenarioDraft {
       plot,
     })),
     cast,
-    incidents: scenario.incidents.map((incident, index) => ({
+    incidents: normalizeIncidentSchedule(scenario.incidents).map((incident, index) => ({
       rowId: `incident-${index + 1}`,
       ...incident,
     })),

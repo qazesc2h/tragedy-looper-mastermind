@@ -5,15 +5,15 @@ import {
   isCharacterAlive,
   isCharacterDead,
   isCharacterPresent,
-  type GameState, type Hook, type HookPoint, type IncidentChoice,
-  type HookContext, type IncidentResult, type Phase,
+  type GameState, type Hook, type HookPoint, type IncidentChoiceInput,
+  type HookContext, type Phase,
   type PublicAbilityTrigger, type Target, PHASE_ORDER,
 } from "../types";
 import { effectiveAbilityRoles, ROLE_IMPL } from "../impl/roles";
 import { PLOT_IMPL } from "../impl/plots";
 import { TRAIT_IMPL } from "../impl/traits";
 import { resolveActions } from "./resolve";
-import { resolveIncident } from "./incident";
+import { resolveIncident, type ResolvedIncidentBatch } from "./incident";
 import { requestLoopEnd } from "./flow";
 import { evaluateLoss } from "./loss";
 import { withDeathBatch } from "./death";
@@ -206,8 +206,8 @@ export function resolveHooks(
 
 export function advance(
   s: GameState,
-  incidentChoice?: IncidentChoice,
-): IncidentResult | undefined {
+  incidentChoice?: IncidentChoiceInput | readonly IncidentChoiceInput[],
+): ResolvedIncidentBatch | undefined {
   if (s.gamePhase !== "ROUND") {
     throw new Error(`round phase cannot advance during ${s.gamePhase}`);
   }
@@ -215,7 +215,7 @@ export function advance(
     return undefined;
   }
 
-  let incidentResult: IncidentResult | undefined;
+  let incidentResult: ResolvedIncidentBatch | undefined;
   switch (s.loop.phase) {
     case "P1_ROUND_START":
       resolveHooks(s, "P1_CHARACTER_ENTRY");

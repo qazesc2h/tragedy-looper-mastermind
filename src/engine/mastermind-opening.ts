@@ -10,6 +10,7 @@ import {
   type Target,
 } from "../types";
 import { validatePlacement } from "./legal";
+import { characterCulprit } from "./incident-model";
 import {
   mastermindGuidance,
   type GuidancePlacementNeed,
@@ -288,12 +289,14 @@ function decoyTargetCards(
         ({ incident: id }) => id === "butterflyEffect",
       );
       if (incident === undefined) return [];
-      const target = targetFromKey(state, `character:${incident.culprit}`);
+      const culprit = characterCulprit(incident.culprit);
+      if (culprit === undefined) return [];
+      const target = targetFromKey(state, `character:${culprit}`);
       return target === undefined ? [] : [{
         card: "paranoiaPlus1",
         target,
         amount: 1,
-        reason: `나비의 날갯짓 범인 ${characterDataOf(incident.culprit).ko}의 사건 발동 조건을 1칸 진척시킨다.`,
+        reason: `나비의 날갯짓 범인 ${characterDataOf(culprit).ko}의 사건 발동 조건을 1칸 진척시킨다.`,
       }];
     }
     case "role:factor":

@@ -1127,7 +1127,7 @@ describe("godlyBeing rank 3 / reveal an incident culprit", () => {
       source: "godlyBeing",
       day: 5,
       incident: "missingPerson",
-      culprit: "alien",
+      culprit: { kind: "character", id: "alien" },
     })]);
     expect(state.loop.incidentOccurrencesFiredThisLoop).toBeUndefined();
   });
@@ -1163,7 +1163,7 @@ describe("policeOfficer rank 4 / reveal a fired incident culprit", () => {
     state.loop.incidentOccurrencesFiredThisLoop = [{
       day: 1,
       incident: "suicide",
-      culprit: "boyStudent",
+      culprit: { kind: "character", id: "boyStudent" },
     }];
 
     resolveGoodwillAbility(state, {
@@ -1178,7 +1178,7 @@ describe("policeOfficer rank 4 / reveal a fired incident culprit", () => {
       source: "policeOfficer",
       day: 1,
       incident: "suicide",
-      culprit: "boyStudent",
+      culprit: { kind: "character", id: "boyStudent" },
     })]);
   });
 
@@ -1214,11 +1214,13 @@ describe("policeOfficer rank 4 / reveal a fired incident culprit", () => {
     );
     state.loop.phase = "P7_INCIDENT";
 
-    expect(resolveIncident(state)).toEqual({
-      incident: "suicide",
-      culprit: "boyStudent",
-      fired: false,
-      effectApplied: false,
+    expect(resolveIncident(state)).toMatchObject({
+      occurrences: [{
+        incident: "suicide",
+        culprit: { kind: "character", id: "boyStudent" },
+        fired: false,
+        effectApplied: false,
+      }],
     });
     expect(state.loop.incidentOccurrencesFiredThisLoop).toBeUndefined();
 
@@ -1317,7 +1319,7 @@ describe("ai rank 3 / resolve an incident effect as AI", () => {
       day: 2,
       resolvedOnDay: 1,
       incident: "murder",
-      culprit: "ai",
+      culprit: { kind: "character", id: "ai" },
       effectApplied: true,
     })]);
     expect(state.loop.phaseLog).toContainEqual(expect.objectContaining({

@@ -4,6 +4,7 @@ import {
   scenarioValidationErrorMessages,
   validateScenario,
 } from "../src/engine/validate";
+import { createGameState } from "../src/engine/game";
 import {
   assertOfficialScenariosValid,
   loadBasicTragedyScenarioCatalog,
@@ -162,6 +163,21 @@ describe("bundled firstSteps scenarios", () => {
 });
 
 describe("basic tragedy regression", () => {
+  it("loads and initializes all 47 bundled non-community difficulties", () => {
+    const difficulties = loadScenarioCatalog()
+      .filter(({ id }) => id !== "community:naughty-cat")
+      .flatMap(({ difficulties }) => difficulties);
+
+    expect(difficulties).toHaveLength(47);
+    for (const { scenario } of difficulties) {
+      const state = createGameState(structuredClone(scenario));
+      expect(state.scenario.incidents.every(
+        ({ culprit }) => typeof culprit !== "string",
+      )).toBe(true);
+      expect(state.gamePhase).toBe("SETUP_LEADER");
+    }
+  });
+
   it("validates all 47 bundled difficulty variants with only Trouble in Paradise rejected", () => {
     const difficulties = loadScenarioCatalog()
       .filter(({ id }) => id !== "community:naughty-cat")

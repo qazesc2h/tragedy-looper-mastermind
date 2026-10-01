@@ -2,6 +2,12 @@ import { characterDataOf, type GoodwillAbilityData } from "../data";
 import { CHARACTER_COUNTERS } from "../counters";
 import { ROLE_IMPL } from "../impl/roles";
 import {
+  incidentChoiceTargets,
+  incidentOccurrenceId,
+  normalizeIncidentChoice,
+  normalizeIncidentSchedule,
+} from "./incident-model";
+import {
   characterLocation,
   effectiveRole,
   isCharacterAlive,
@@ -10,7 +16,7 @@ import {
   type ActionCard,
   type CharacterId,
   type GameState,
-  type IncidentChoice,
+  type IncidentChoiceInput,
   type IncidentSelection,
   type Location,
   type PlotId,
@@ -62,7 +68,7 @@ export interface GoodwillDeclaration {
   specialGaugeDelta?: -1 | 1;
   card?: ActionCard;
   incident?: IncidentSelection;
-  incidentChoice?: IncidentChoice;
+  incidentChoice?: IncidentChoiceInput;
   declaredSubplot?: PlotId;
   revealedSubplot?: PlotId;
 }
@@ -293,16 +299,9 @@ function declarationTargets(declaration: GoodwillDeclaration): Target[] {
   if (declaration.destination !== undefined) {
     targets.push({ kind: "location", at: declaration.destination });
   }
-  const choice = declaration.incidentChoice;
-  if (choice?.target !== undefined) {
-    targets.push({ kind: "character", id: choice.target });
-  }
-  if (choice?.otherTarget !== undefined) {
-    targets.push({ kind: "character", id: choice.otherTarget });
-  }
-  if (choice?.location !== undefined) {
-    targets.push({ kind: "location", at: choice.location });
-  }
+  targets.push(...incidentChoiceTargets(
+    normalizeIncidentChoice(declaration.incidentChoice),
+  ));
   return targets.filter((target, index) =>
     targets.findIndex((candidate) =>
       candidate.kind === target.kind && (
@@ -566,8 +565,10 @@ function requireScenarioIncident(
   if (selected === undefined) {
     throw new Error("goodwill ability requires an incident choice");
   }
-  const scheduled = state.scenario.incidents.find(({ day, incident }) =>
-    day === selected.day && incident === selected.incident
+  const scheduled = normalizeIncidentSchedule(state.scenario.incidents).find(({ day, incident, occurrenceIndex }) =>
+    day === selected.day && incident === selected.incident &&
+    (selected.occurrenceIndex === undefined ||
+      selected.occurrenceIndex === occurrenceIndex)
   );
   if (scheduled === undefined) {
     throw new Error("chosen incident is not in the scenario");
@@ -607,11 +608,9 @@ function revealScenarioIncidentCulprit(
 ): boolean {
   const scheduled = requireScenarioIncident(state, declaration);
   if (source === "policeOfficer") {
+    const occurrenceId = incidentOccurrenceId(scheduled);
     const fired = state.loop.incidentOccurrencesFiredThisLoop?.some(
-      ({ day, incident, culprit }) =>
-        day === scheduled.day &&
-        incident === scheduled.incident &&
-        culprit === scheduled.culprit,
+      (occurrence) => incidentOccurrenceId(occurrence) === occurrenceId,
     ) ?? false;
     if (!fired) {
       throw new Error(
@@ -675,7 +674,7 @@ function resolveIncidentAsAi(
     day: scheduled.day,
     resolvedOnDay: state.loop.day,
     incident: scheduled.incident,
-    culprit: declaration.user,
+    culprit: { kind: "character", id: declaration.user },
     effectApplied,
   });
   return effectApplied;

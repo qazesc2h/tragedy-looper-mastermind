@@ -12,6 +12,11 @@ import {
   type RoleId,
 } from "../types";
 import { actionCardRestriction } from "./legal";
+import {
+  characterCulprit,
+  incidentOccurrenceId,
+  normalizeIncidentCulprit,
+} from "./incident-model";
 
 export type MastermindCautionCategory =
   | "identityExposure"
@@ -249,7 +254,8 @@ function addRoleRisks(
 
   const deadlyIncidentLabels = state.scenario.incidents.filter(
     ({ incident, culprit }) => DEATH_INCIDENTS.has(incident) &&
-      (incident !== "suicide" || keyPeople.includes(culprit)),
+      (incident !== "suicide" ||
+        keyPeople.includes(characterCulprit(culprit) ?? "")),
   ).map(({ day, incident }) => `${day}일 ${incidentName(incident)}`);
   if (
     keyPeople.length > 0 && holders(state, "killer").length > 0 &&
@@ -438,21 +444,27 @@ function addIncidentRisks(
   for (const scheduled of [...state.scenario.incidents].sort(
     (left, right) => left.day - right.day,
   )) {
-    const culprit = characterName(scheduled.culprit);
+    const culpritCharacter = characterCulprit(scheduled.culprit);
+    const normalizedCulprit = normalizeIncidentCulprit(scheduled.culprit);
+    const culprit = culpritCharacter === undefined
+      ? normalizedCulprit.kind === "location"
+        ? normalizedCulprit.at
+        : "(범인 없음)"
+      : characterName(culpritCharacter);
     let description = INCIDENT_EFFECTS[scheduled.incident] ??
       "사건 원문의 효과를 해결합니다.";
     let severity: MastermindCautionSeverity = DEATH_INCIDENTS.has(
       scheduled.incident,
     ) ? "critical" : "warning";
-    if (scheduled.culprit === "blackCat") {
+    if (culpritCharacter === "blackCat") {
       description = "불안 한계 판정상 사건은 발생하지만 효과는 없습니다. 발생 이력은 남으므로 ‘발생한 사건’ 조건에는 사용됩니다.";
       severity = "critical";
-    } else if (scheduled.culprit === "sectFounder") {
+    } else if (culpritCharacter === "sectFounder") {
       description += " 교주 특성 때문에 이 효과를 두 번 해결합니다.";
       severity = "critical";
     }
     output.push({
-      key: `risk:incident:${scheduled.day}:${scheduled.incident}:${scheduled.culprit}`,
+      key: `risk:incident:${incidentOccurrenceId(scheduled)}`,
       category: "operationalNote",
       title: `${scheduled.day}일 ${incidentName(scheduled.incident)} · 범인 ${culprit}`,
       condition: `${scheduled.day}일 · 범인 ${culprit} · 생존·등장 및 불안 한계 충족`,
@@ -463,7 +475,7 @@ function addIncidentRisks(
   }
 
   const aiIncidents = state.scenario.incidents.filter(
-    ({ culprit }) => culprit === "ai",
+    ({ culprit }) => characterCulprit(culprit) === "ai",
   );
   if (aiIncidents.length > 0) {
     output.push({

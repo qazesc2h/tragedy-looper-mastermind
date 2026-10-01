@@ -6,7 +6,10 @@ import {
   type GoodwillUse,
 } from "../../src/engine/goodwill";
 import { advanceGame } from "../../src/engine/game";
-import { incidentFires } from "../../src/engine/incident";
+import {
+  incidentFires,
+  type ResolvedIncidentBatch,
+} from "../../src/engine/incident";
 import { validatePlacement } from "../../src/engine/legal";
 import { distanceToLoss, setOptionalLossActivation } from "../../src/engine/loss";
 import { applyHookEffect, collectHooks } from "../../src/engine/phases";
@@ -19,7 +22,7 @@ import {
   type Hook,
   type IncidentChoice,
   type IncidentCounter,
-  type IncidentResult,
+  type IncidentDecision,
   type Location,
   type Phase,
   type PlacedCard,
@@ -67,7 +70,7 @@ export type HeadlessAction =
   | {
     kind: "P7_INCIDENT";
     choice?: IncidentChoice;
-    result: IncidentResult;
+    result: ResolvedIncidentBatch;
   }
   | {
     kind: "P9_SEQUENCE";
@@ -408,10 +411,10 @@ function* incidentChoicesForFields(
   state: GameState,
   fields: readonly AiIncidentChoiceField[],
   index = 0,
-  choice: IncidentChoice = {},
+  choice: IncidentChoice = { decisions: [] },
 ): Generator<IncidentChoice | undefined> {
   if (index === fields.length) {
-    yield Object.keys(choice).length === 0 ? undefined : structuredClone(choice);
+    yield choice.decisions.length === 0 ? undefined : structuredClone(choice);
     return;
   }
   const field = fields[index];
@@ -433,10 +436,19 @@ function* incidentChoicesForFields(
   for (const value of values) {
     const next = structuredClone(choice);
     if (value !== undefined) {
-      if (field === "location") next.location = value as Location;
-      else if (field === "counter") next.counter = value as IncidentCounter;
-      else if (field === "target") next.target = value;
-      else next.otherTarget = value;
+      let decision: IncidentDecision;
+      if (field === "location") {
+        decision = { kind: "location", key: "location", at: value as Location };
+      } else if (field === "counter") {
+        decision = { kind: "counter", key: "counter", counter: value as IncidentCounter };
+      } else {
+        decision = {
+          kind: "character",
+          key: field === "target" ? "target" : "otherTarget",
+          id: value,
+        };
+      }
+      next.decisions.push(decision);
     }
     yield* incidentChoicesForFields(state, fields, index + 1, next);
   }
@@ -592,7 +604,7 @@ export function* enumerateP7Transitions(
     seen.add(choiceKey);
     const next = cloneNode(input);
     const before = structuredClone(next.state);
-    let result: IncidentResult | undefined;
+    let result: ReturnType<typeof advanceGame>;
     try {
       result = advanceGame(next.state, choice, { deferSettlement: true });
     } catch {
@@ -603,7 +615,11 @@ export function* enumerateP7Transitions(
     }
     const collector = new PublicEventCollector(next.publicTrace);
     if (scheduled !== undefined) {
-      collector.recordIncidentOutcome(before, scheduled.incident, result.fired);
+      collector.recordIncidentOutcome(
+        before,
+        scheduled.incident,
+        result.occurrences[0]?.fired ?? false,
+      );
     }
     collector.recordStateDelta(before, next.state, "public", "P7_INCIDENT");
     next.publicTrace = collector.trace;

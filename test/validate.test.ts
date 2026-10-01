@@ -49,6 +49,31 @@ describe("validateScenario", () => {
     expect(scenarios).toHaveLength(23);
   });
 
+  it("validates incident culprit kind and character membership", () => {
+    const source = scenarios.find(({ incidents }) => incidents.length > 0);
+    if (source === undefined) throw new Error("missing incident scenario");
+    const wrongKind = structuredClone(source);
+    wrongKind.incidents[0].culprit = { kind: "location", at: "Shrine" };
+    expect(validateScenario(wrongKind).diagnostics).toContainEqual(
+      expect.objectContaining({
+        path: "incidents[0].culprit",
+        code: "INCIDENT_CULPRIT_KIND_MISMATCH",
+      }),
+    );
+
+    const missingCharacter = structuredClone(source);
+    missingCharacter.incidents[0].culprit = {
+      kind: "character",
+      id: "notInCast",
+    };
+    expect(validateScenario(missingCharacter).diagnostics).toContainEqual(
+      expect.objectContaining({
+        path: "incidents[0].culprit",
+        code: "INCIDENT_CULPRIT_NOT_IN_CAST",
+      }),
+    );
+  });
+
   it("keeps plotLessRole in runtime character data", () => {
     expect(characterDataOf("mysteryBoy").plotLessRole).toBe(true);
     expect(characterDataOf("boyStudent").plotLessRole).toBe(false);

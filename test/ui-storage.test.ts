@@ -294,6 +294,42 @@ describe("UI localStorage snapshots", () => {
     ]);
   });
 
+  it("migrates legacy string culprits in saved schedules and history", () => {
+    const storage = new MemoryStorage();
+    const defaults = storedGameDefaults("basicTragedy:1");
+    if (defaults === undefined) throw new Error("missing defaults");
+    const legacy = structuredClone(defaults);
+    legacy.state.scenario.incidents = [{
+      day: 1,
+      incident: "foulEvil",
+      culprit: "boyStudent",
+    }];
+    legacy.state.loop.incidentOccurrencesFiredThisLoop = [{
+      day: 1,
+      incident: "foulEvil",
+      culprit: "boyStudent",
+    }];
+    legacy.state.history = [structuredClone(legacy.state.loop)];
+    storage.setItem(TRACKER_STORAGE_KEY, JSON.stringify({
+      activeScenarioId: "basicTragedy:1",
+      mastermindOverlay: true,
+      games: { "basicTragedy:1": legacy },
+    }));
+
+    const restored = loadTrackerStore(storage, storedGameDefaults)
+      .games["basicTragedy:1"].state;
+    const canonical = {
+      day: 1,
+      incident: "foulEvil",
+      culprit: { kind: "character", id: "boyStudent" },
+      occurrenceIndex: 0,
+    };
+    expect(restored.scenario.incidents).toEqual([canonical]);
+    expect(restored.loop.incidentOccurrencesFiredThisLoop).toEqual([canonical]);
+    expect(restored.history[0].incidentOccurrencesFiredThisLoop)
+      .toEqual([canonical]);
+  });
+
   it("migrates legacy full observation snapshots to compact metadata", () => {
     const storage = new MemoryStorage();
     const defaults = storedGameDefaults("basicTragedy:1");

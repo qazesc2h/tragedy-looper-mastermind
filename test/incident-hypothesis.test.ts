@@ -4,22 +4,23 @@ import { advanceGame, createGameState } from "../src/engine/game";
 import { evaluateStateRoleTableHypotheses } from "../src/engine/hypothesis";
 import {
   evaluateIncidentHypotheses,
+  evaluateLocationIncidentHypotheses,
   evaluateStateIncidentHypotheses,
 } from "../src/engine/incident-hypothesis";
 import type { ProtagonistObservation } from "../src/engine/hypothesis";
 import type {
   CharacterId,
   GameState,
-  IncidentChoice,
+  IncidentChoiceInput,
   IncidentId,
   PublicBoardChange,
   PublicObservationContext,
-  ScheduledIncident,
+  ScheduledIncidentInput,
   Scenario,
 } from "../src/types";
 import { withCharacterLocation } from "../src/types";
 
-const incidents: ScheduledIncident[] = [
+const incidents: ScheduledIncidentInput[] = [
   { day: 1, incident: "murder", culprit: "doctor" },
   { day: 3, incident: "suicide", culprit: "girlStudent" },
 ];
@@ -118,15 +119,67 @@ function place(
 
 function resolveTraceIncident(
   state: GameState,
-  choice?: IncidentChoice,
+  choice?: IncidentChoiceInput,
 ): void {
   expect(advanceGame(state, choice)).toMatchObject({
-    fired: true,
-    effectApplied: true,
+    occurrences: [{ fired: true, effectApplied: true }],
   });
 }
 
 describe("incident culprit possibility table", () => {
+  it("separates character and location culprit columns and their uniqueness", () => {
+    const scheduled: ScheduledIncidentInput[] = [
+      { day: 1, incident: "murder", culprit: "doctor" },
+      {
+        day: 1,
+        incident: "murder",
+        culprit: { kind: "location", at: "Shrine" },
+      },
+      {
+        day: 2,
+        incident: "suicide",
+        culprit: { kind: "location", at: "Hospital" },
+      },
+    ];
+    const observations: ProtagonistObservation[] = [
+      {
+        kind: "incidentCulpritRevealed",
+        loop: 1,
+        day: 1,
+        incident: "murder",
+        occurrenceIndex: 0,
+        culprit: { kind: "character", id: "doctor" },
+      },
+      {
+        kind: "incidentCulpritRevealed",
+        loop: 1,
+        day: 1,
+        incident: "murder",
+        occurrenceIndex: 1,
+        culprit: { kind: "location", at: "Shrine" },
+      },
+    ];
+
+    const character = evaluateIncidentHypotheses(
+      ["doctor", "girlStudent"],
+      scheduled,
+      observations,
+    );
+    const location = evaluateLocationIncidentHypotheses(
+      scheduled,
+      observations,
+    );
+
+    expect(character.columns.map(({ id }) => id)).toEqual(["1:murder:0"]);
+    expect(location.columns.map(({ id }) => id)).toEqual([
+      "1:murder:1",
+      "2:suicide:0",
+    ]);
+    expect(character.cells.doctor["1:murder:0"].status).toBe("confirmed");
+    expect(location.cells.Shrine["1:murder:1"].status).toBe("confirmed");
+    expect(location.cells.Shrine["2:suicide:0"].status).toBe("impossible");
+  });
+
   it("excludes living characters below their limit when an incident fires", () => {
     const table = evaluateIncidentHypotheses(
       ["doctor", "girlStudent", "officeWorker", "ai"],
@@ -364,8 +417,7 @@ describe("incident culprit possibility table", () => {
     place(state, "doctor", "City");
 
     expect(advanceGame(state, { location: "School" })).toMatchObject({
-      fired: true,
-      effectApplied: false,
+      occurrences: [{ fired: true, effectApplied: false }],
     });
     const judgment = state.loop.phaseLog?.find((entry) =>
       entry.kind === "incidentJudged"
@@ -386,8 +438,7 @@ describe("incident culprit possibility table", () => {
     state.loop.incidentCulpritSuppressedFor = ["henchman"];
 
     expect(advanceGame(state)).toMatchObject({
-      fired: false,
-      effectApplied: false,
+      occurrences: [{ fired: false, effectApplied: false }],
     });
     const judgment = state.loop.phaseLog?.find((entry) =>
       entry.kind === "incidentJudged"
@@ -532,7 +583,9 @@ describe("incident culprit possibility table", () => {
     state.loop.charCounters.boyStudent.paranoia = 2;
     state.loop.charCounters.doctor.paranoia = 0;
 
-    expect(advanceGame(state)).toMatchObject({ fired: true });
+    expect(advanceGame(state)).toMatchObject({
+      occurrences: [{ fired: true }],
+    });
     expect(state.loop.phaseLog).toContainEqual(expect.objectContaining({
       kind: "incidentJudged",
       publicContext: expect.objectContaining({

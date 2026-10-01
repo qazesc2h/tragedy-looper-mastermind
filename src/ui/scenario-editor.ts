@@ -14,6 +14,7 @@ import {
   type ScenarioDraftValue,
 } from "../scenario-draft";
 import { TRAGEDY_SETS } from "../tragedy-sets";
+import { incidentDefinition } from "../engine/incident-definition";
 import { LOCATIONS, SCENARIO_SPECIAL_RULE_IDS, type Location, type ScenarioSpecialRuleId } from "../types";
 import { term } from "./terms";
 
@@ -242,7 +243,32 @@ function renderIncidentStep(draft: ScenarioDraft): string {
   const options = scenarioDraftOptions(draft);
   const cast = [...new Set((draft.cast ?? []).flatMap(({ character }) => character === undefined ? [] : [character]))];
   return `<p>날짜별 사건을 정합니다. 사건이 없으면 비워둘 수 있습니다.</p>
-    ${(draft.incidents ?? []).map((row, index) => `<div class="editor-row editor-incident-row">
+    ${(draft.incidents ?? []).map((row, index) => {
+      const culpritKind = row.incident === undefined
+        ? "character"
+        : incidentDefinition(row.incident).culpritKind;
+      const selected = row.culprit === undefined
+        ? undefined
+        : row.culprit.kind === "character"
+        ? row.culprit.id
+        : `location:${row.culprit.at}`;
+      const culpritOptions = culpritKind === "character"
+        ? cast.map((character) => option(
+          character,
+          term("characters", character, characterDataOf(character).ko),
+          selected,
+        )).join("")
+        : LOCATIONS.map((location) => option(
+          `location:${location}`,
+          location,
+          selected,
+        )).join("");
+      const selectedIsCompatible = row.culprit === undefined ||
+        row.culprit.kind === culpritKind;
+      const staleOption = row.culprit !== undefined && !selectedIsCompatible
+        ? option(selected!, `${selected} · 현재 사건과 종류 불일치`, selected, true)
+        : "";
+      return `<div class="editor-row editor-incident-row">
       <div class="editor-row-heading"><strong>${row.day ? `${row.day}일차` : `사건 ${index + 1}`}</strong>
         <button type="button" data-editor-action="remove-incident" data-row-id="${escape(row.rowId)}">삭제</button></div>
       <label>날짜<input type="number" min="1" data-editor-field="incidentDay" data-row-id="${escape(row.rowId)}" value="${row.day ?? ""}" /></label>${fieldDiagnostics(draft, `incidents.${row.rowId}.day`)}
@@ -251,10 +277,10 @@ function renderIncidentStep(draft: ScenarioDraft): string {
         ${row.incident && !options?.incidents.includes(row.incident) ? option(row.incident, `${term("incidents", row.incident)} · 현재 세트에서 불가`, row.incident, true) : ""}
       </select></label>${fieldDiagnostics(draft, `incidents.${row.rowId}.incident`)}
       <label>범인<select data-editor-field="incidentCulprit" data-row-id="${escape(row.rowId)}"><option value="">선택</option>
-        ${cast.map((character) => option(character, term("characters", character, characterDataOf(character).ko), row.culprit)).join("")}
-        ${row.culprit && !cast.includes(row.culprit) ? option(row.culprit, `${term("characters", row.culprit)} · 캐스트에서 빠짐`, row.culprit, true) : ""}
+        ${culpritOptions}${staleOption}
       </select></label>${fieldDiagnostics(draft, `incidents.${row.rowId}.culprit`)}
-    </div>`).join("")}
+    </div>`;
+    }).join("")}
     <button type="button" data-editor-action="add-incident">사건 추가</button>`;
 }
 
@@ -364,7 +390,21 @@ export function updateScenarioEditorField(
     case "castRole": draft.cast = (draft.cast ?? []).map((row) => row.rowId === rowRequired() ? { ...row, role: value || undefined } : row); break;
     case "incidentDay": draft.incidents = (draft.incidents ?? []).map((row) => row.rowId === rowRequired() ? { ...row, day: number } : row); break;
     case "incidentType": draft.incidents = (draft.incidents ?? []).map((row) => row.rowId === rowRequired() ? { ...row, incident: value || undefined } : row); break;
-    case "incidentCulprit": draft.incidents = (draft.incidents ?? []).map((row) => row.rowId === rowRequired() ? { ...row, culprit: value || undefined } : row); break;
+    case "incidentCulprit": {
+      const [kind, id] = value.split(":", 2);
+      const culprit = !value
+        ? undefined
+        : kind === "location"
+        ? { kind: "location" as const, at: id as Location }
+        : {
+          kind: "character" as const,
+          id: kind === "character" ? id : value,
+        };
+      draft.incidents = (draft.incidents ?? []).map((row) =>
+        row.rowId === rowRequired() ? { ...row, culprit } : row
+      );
+      break;
+    }
     case "startLocation": draft = updatedMetadata(draft, "startLocations", rowRequired(), value ? value as Location : undefined); break;
     case "turfLocation": draft = updatedMetadata(draft, "turfLocations", rowRequired(), value ? value as Location : undefined); break;
     case "entryLoop": draft = updatedMetadata(draft, "entryLoops", rowRequired(), number); break;

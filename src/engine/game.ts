@@ -3,10 +3,8 @@ import {
   type CharacterId,
   type FinalGuessAttempt,
   type GameState,
-  type IncidentChoice,
+  type IncidentChoiceInput,
   type IncidentCounter,
-  type IncidentFailureReason,
-  type IncidentResult,
   type Location,
   type LoopOutcome,
   type Phase,
@@ -18,10 +16,8 @@ import {
 import { tragedySetDefinition } from "../tragedy-sets";
 import { requestLoopEnd } from "./flow";
 import { expireExtraCards } from "./extra-cards";
-import {
-  incidentFailureReasons,
-  takeResolvedIncidentPublicChanges,
-} from "./incident";
+import type { ResolvedIncidentBatch } from "./incident";
+import { normalizeIncidentSchedule } from "./incident-model";
 import { evaluateLoss, type LossCondition } from "./loss";
 import { advance, collectHooks, resolveHooks } from "./phases";
 import { recordPhaseLog } from "./phase-log";
@@ -58,25 +54,6 @@ function expireAndRecordExtraCards(
       timing === "loopStart" ? "LOOP_START" : "LOOP_END",
     ),
   });
-}
-
-function incidentChoiceTargets(choice: IncidentChoice | undefined): Target[] {
-  if (choice === undefined) return [];
-  return [choice, choice.secondResolution].flatMap((resolution) =>
-    resolution === undefined
-      ? []
-      : [
-        ...(resolution.target === undefined
-          ? []
-          : [{ kind: "character" as const, id: resolution.target }]),
-        ...(resolution.otherTarget === undefined
-          ? []
-          : [{ kind: "character" as const, id: resolution.otherTarget }]),
-        ...(resolution.location === undefined
-          ? []
-          : [{ kind: "location" as const, at: resolution.location }]),
-      ]
-  );
 }
 
 function resetTimeGapTimer(state: GameState): void {
@@ -150,10 +127,14 @@ export function setLoopStartTraitLocationChoice(
 
 /** 새 게임을 만들고 자동 게임 준비 단계를 진행해 리더 선택에서 멈춘다. */
 export function createGameState(scenario: Scenario): GameState {
+  const normalizedScenario = {
+    ...structuredClone(scenario),
+    incidents: normalizeIncidentSchedule(scenario.incidents),
+  };
   const state: GameState = {
-    scenario,
+    scenario: normalizedScenario,
     gamePhase: "SETUP_SCENARIO",
-    loop: initLoop(scenario),
+    loop: initLoop(normalizedScenario),
     history: [],
     loopOutcomes: [],
     extraLoopsPlayed: 0,
@@ -358,32 +339,18 @@ function roundEndNeedsAttention(state: GameState): boolean {
 
 function advanceRoundOnce(
   state: GameState,
-  incidentChoice?: IncidentChoice,
+  incidentChoice?: IncidentChoiceInput | readonly IncidentChoiceInput[],
   deferSettlement = false,
-): IncidentResult | undefined {
+): ResolvedIncidentBatch | undefined {
   const phase = state.loop.phase;
   const loop = state.loop.loop;
   const day = state.loop.day;
   const leader = state.loop.leader;
   const scheduled = phase === "P7_INCIDENT"
-    ? state.scenario.incidents.find((incident) => incident.day === day)
-    : undefined;
-  const failureReasons: IncidentFailureReason[] = scheduled
-    ? incidentFailureReasons(state, scheduled.culprit)
+    ? state.scenario.incidents.filter((incident) => incident.day === day)
     : [];
-  const livingBeforeIncident = phase === "P7_INCIDENT"
-    ? new Set(Object.entries(state.loop.board)
-      .filter(([, position]) => position.status === "alive")
-      .map(([character]) => character))
-    : new Set<string>();
-  const incidentContext = phase === "P7_INCIDENT"
-    ? publicObservationContext(state.loop)
-    : undefined;
 
   const result = advance(state, incidentChoice);
-  const incidentPublicChanges = phase === "P7_INCIDENT"
-    ? takeResolvedIncidentPublicChanges(state)
-    : undefined;
 
   if (phase === "P1_ROUND_START") {
     if (!phaseAlreadyLogged(state, loop, day, phase)) {
@@ -418,12 +385,7 @@ function advanceRoundOnce(
       recordPhaseLog(state, { loop, day, phase, kind: "goodwillSkipped" });
     }
   } else if (phase === "P7_INCIDENT") {
-    const deaths = [...livingBeforeIncident].filter(
-      (character) => state.loop.board[character]?.status === "dead",
-    );
-    const protagonistsDied =
-      state.pendingLoopEnd?.reason === "protagonistDeath";
-    if (!scheduled) {
+    if (scheduled.length === 0) {
       recordPhaseLog(state, {
         loop,
         day,
@@ -431,27 +393,32 @@ function advanceRoundOnce(
         kind: "notApplicable",
       });
     } else if (result) {
-      const targets = incidentChoiceTargets(incidentChoice);
-      recordPhaseLog(state, {
-        loop,
-        day,
-        phase,
-        kind: "incidentJudged",
-        incident: scheduled.incident,
-        culprit: scheduled.culprit,
-        fired: result.fired,
-        effectApplied: result.effectApplied,
-        failureReasons: result.fired ? [] : failureReasons,
-        ...(targets.length === 0 ? {} : { targets }),
-        ...(incidentContext === undefined
-          ? {}
-          : { publicContext: incidentContext }),
-        ...(incidentPublicChanges === undefined
-          ? {}
-          : { publicChanges: incidentPublicChanges }),
-        ...(deaths.length > 0 ? { deaths } : {}),
-        ...(protagonistsDied ? { protagonistsDied: true } : {}),
-      });
+      for (const occurrence of result.occurrences) {
+        recordPhaseLog(state, {
+          loop,
+          day,
+          phase,
+          kind: "incidentJudged",
+          occurrenceId: occurrence.occurrenceId,
+          occurrenceIndex: occurrence.occurrenceIndex,
+          incident: occurrence.incident,
+          culprit: occurrence.culprit,
+          fired: occurrence.fired,
+          effectApplied: occurrence.effectApplied,
+          failureReasons: occurrence.failureReasons,
+          ...(occurrence.targets === undefined
+            ? {}
+            : { targets: occurrence.targets }),
+          publicContext: occurrence.publicContext,
+          ...(occurrence.publicChanges === undefined
+            ? {}
+            : { publicChanges: occurrence.publicChanges }),
+          ...(occurrence.deaths === undefined
+            ? {}
+            : { deaths: occurrence.deaths }),
+          ...(occurrence.protagonistsDied ? { protagonistsDied: true } : {}),
+        });
+      }
     }
   } else if (phase === "P8_LEADER_PASS") {
     recordPhaseLog(state, {
@@ -538,9 +505,9 @@ export function advanceAutomaticRoundPhases(
 /** 기존 9단계 advance 뒤 자동 통과 가능한 후속 단계를 함께 실행한다. */
 export function advanceGame(
   state: GameState,
-  incidentChoice?: IncidentChoice,
+  incidentChoice?: IncidentChoiceInput | readonly IncidentChoiceInput[],
   options: { deferSettlement?: boolean } = {},
-): IncidentResult | undefined {
+): ResolvedIncidentBatch | undefined {
   if (state.gamePhase !== "ROUND") {
     throw new Error(`round phase cannot advance during ${state.gamePhase}`);
   }

@@ -10,6 +10,7 @@ import {
   type GameState,
   type HookPoint,
   type IncidentId,
+  type IncidentCulprit,
   type Location,
   type LoopState,
   type LoopEndReason,
@@ -103,6 +104,8 @@ export type ProtagonistObservation = (
     loop: number;
     day: number;
     incident: IncidentId;
+    occurrenceIndex?: number;
+    occurrenceId?: string;
     occurred: boolean;
     context?: PublicObservationContext;
     /** 공개된 메이드 특성으로 사건 사망 대상이 교체되었는가. */
@@ -116,7 +119,9 @@ export type ProtagonistObservation = (
     loop: number;
     day: number;
     incident: IncidentId;
-    culprit: CharacterId;
+    occurrenceIndex?: number;
+    occurrenceId?: string;
+    culprit: IncidentCulprit | CharacterId;
   }
   | {
     kind: "subplotRevealed";
@@ -4127,6 +4132,8 @@ export function collectProtagonistObservations(
           loop: entry.loop,
           day: entry.day,
           incident: entry.incident,
+          occurrenceIndex: entry.occurrenceIndex,
+          occurrenceId: entry.occurrenceId,
           occurred: entry.fired,
           ...(incidentSequence !== undefined &&
               (servantSubstitutionSequencesByDay.get(entry.day) ?? []).some(

@@ -11,6 +11,7 @@ import {
   type LossRouteControl,
 } from "./loss";
 import { actionCardRestriction } from "./legal";
+import { characterCulprit } from "./incident-model";
 
 export interface GuidanceActions {
   cards: number;
@@ -188,7 +189,8 @@ function requirementTarget(
         candidateDay === day && route.key.includes(`:${incident}:`)
       )
       : undefined;
-    const culprit = condition.culprit ?? scheduled?.culprit ?? (
+    const culprit = condition.culprit ??
+      (scheduled === undefined ? undefined : characterCulprit(scheduled.culprit)) ?? (
       route.key.startsWith("death:incident:murder:") ? parts.at(-2) : parts.at(-1)
     );
     return `character:${culprit ?? "culprit"}`;
@@ -204,8 +206,10 @@ function butterflyEffectPlan(
     .filter(({ incident }) => incident === "butterflyEffect")
     .sort((left, right) => left.day - right.day)[0];
   if (incident === undefined) return undefined;
-  const needed = characterDataOf(incident.culprit).paranoiaLimit;
-  addParanoia(plan, needed, `character:${incident.culprit}`);
+  const culprit = characterCulprit(incident.culprit);
+  if (culprit === undefined) return undefined;
+  const needed = characterDataOf(culprit).paranoiaLimit;
+  addParanoia(plan, needed, `character:${culprit}`);
   return incident.day;
 }
 
@@ -384,7 +388,9 @@ function interferenceFor(
     const incident = state.scenario.incidents.find(
       ({ incident: id }) => id === "butterflyEffect",
     );
-    const culprit = incident?.culprit;
+    const culprit = incident === undefined
+      ? undefined
+      : characterCulprit(incident.culprit);
     return {
       difficulty: "보통",
       text: incident === undefined || culprit === undefined
@@ -475,7 +481,12 @@ function guidanceRoute(
     )
     : undefined;
   const warning = butterflyIncident !== undefined
-    ? `${butterflyIncident.day}일 나비의 날갯짓 범인은 ${characterDataOf(butterflyIncident.culprit).ko}다. 사건 단계까지 범인을 생존·등장 상태로 유지해야 하며, 검은 고양이가 범인이면 효과는 없어도 발생 이력은 남는다.`
+    ? (() => {
+      const culprit = characterCulprit(butterflyIncident.culprit);
+      return culprit === undefined
+        ? `${butterflyIncident.day}일 나비의 날갯짓은 장소 범인 사건이다.`
+        : `${butterflyIncident.day}일 나비의 날갯짓 범인은 ${characterDataOf(culprit).ko}다. 사건 단계까지 범인을 생존·등장 상태로 유지해야 하며, 검은 고양이가 범인이면 효과는 없어도 발생 이력은 남는다.`;
+    })()
     : condition.role === "timeTraveler"
     ? "각본가 행동은 0회다. 주인공이 우호를 쌓지 않고 방치하면 마지막 날에 성립한다."
     : route.control === "protagonist"

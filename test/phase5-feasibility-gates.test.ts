@@ -384,7 +384,13 @@ describe("Phase 5 gate 2-B headless follow-up choices", () => {
 
     expect(transitions).toHaveLength(2);
     expect(transitions.map(({ action }) =>
-      action.kind === "P7_INCIDENT" ? action.choice?.target : undefined
+      action.kind === "P7_INCIDENT"
+        ? action.choice?.decisions.flatMap((decision) =>
+          decision.kind === "character" && decision.key === "target"
+            ? [decision.id]
+            : []
+        )[0]
+        : undefined
     ).sort()).toEqual(["girlStudent", "policeOfficer"]);
     expect(transitions.every(({ node }) =>
       node.publicTrace[0]?.payload.kind === "incidentOutcome"

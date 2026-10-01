@@ -1,34 +1,53 @@
-import { characterDataOf } from "../data";
 import { totalCharacterCounters } from "../counters";
+import { characterDataOf } from "../data";
 import { INCIDENT_IMPL } from "../impl/incidents";
 import { isCharacterAlive, isCharacterPresent } from "../types";
 import type {
   CharacterId,
   GameState,
   IncidentChoice,
+  IncidentChoiceInput,
+  IncidentCulprit,
   IncidentFailureReason,
+  IncidentResolutionResult,
   IncidentResult,
+  PublicBoardChange,
+  PublicObservationContext,
+  ScheduledIncident,
+  Target,
 } from "../types";
 import { withDeathBatch } from "./death";
-import { publicBoardChanges } from "./public-observation";
+import { incidentDefinition } from "./incident-definition";
+import {
+  characterCulprit,
+  incidentChoiceTargets,
+  incidentOccurrenceId,
+  incidentSubIncidentDecision,
+  normalizeIncidentChoice,
+  normalizeIncidentCulprit,
+  normalizeIncidentSchedule,
+} from "./incident-model";
+import {
+  publicBoardChanges,
+  publicObservationContext,
+} from "./public-observation";
 
 type IncidentEffectResult = {
   effectApplied: boolean;
-  publicChanges?: ReturnType<typeof publicBoardChanges>;
+  publicChanges?: PublicBoardChange[];
 };
 
-const resolvedIncidentPublicChanges = new WeakMap<
-  GameState,
-  ReturnType<typeof publicBoardChanges>
->();
+export interface ResolvedIncidentOccurrence extends IncidentResult {
+  failureReasons: IncidentFailureReason[];
+  targets?: Target[];
+  publicContext: PublicObservationContext;
+  publicChanges?: PublicBoardChange[];
+  deaths?: CharacterId[];
+  protagonistsDied?: boolean;
+}
 
-/** P7 로그 기록기가 방금 해결된 사건 본체의 공개 변화만 한 번 가져간다. */
-export function takeResolvedIncidentPublicChanges(
-  state: GameState,
-): ReturnType<typeof publicBoardChanges> | undefined {
-  const changes = resolvedIncidentPublicChanges.get(state);
-  resolvedIncidentPublicChanges.delete(state);
-  return changes;
+export interface ResolvedIncidentBatch extends IncidentResolutionResult {
+  occurrences: ResolvedIncidentOccurrence[];
 }
 
 /** AI만 사건 발생 판정에서 캐릭터 위의 모든 카운터를 불안으로 센다. */
@@ -47,52 +66,84 @@ export function incidentParanoia(
 /** 예정 사건이 발생하지 않는 이유를 각본가 화면에 표시한다. */
 export function incidentFailureReasons(
   state: GameState,
-  culprit: CharacterId,
+  culpritInput: IncidentCulprit | CharacterId,
+  incident = "",
 ): IncidentFailureReason[] {
-  const position = state.loop.board[culprit];
-  const counters = state.loop.charCounters[culprit];
-  if (!position || !counters) {
-    throw new Error(`incident culprit "${culprit}" is not on the board`);
+  const culprit = normalizeIncidentCulprit(culpritInput);
+  const policy = incidentDefinition(incident).triggerPolicy;
+  if (culprit.kind === "location") {
+    if (policy.kind === "locationIntrigue") {
+      return state.loop.locIntrigue[culprit.at] >= policy.required
+        ? []
+        : ["insufficientLocationIntrigue"];
+    }
+    if (policy.kind === "locationCorpseCount") {
+      const corpses = Object.values(state.loop.board).filter(
+        (position) => position.status === "dead" && position.at === culprit.at,
+      ).length;
+      return corpses >= policy.required ? [] : ["insufficientCorpses"];
+    }
+    throw new Error(`incident "${incident}" requires a character culprit`);
   }
 
-  const reasons: IncidentFailureReason[] = [];
-  if (!isCharacterPresent(position)) return ["culpritAbsent"];
-  if (!isCharacterAlive(position)) reasons.push("culpritDead");
-  if (incidentParanoia(state, culprit) < characterDataOf(culprit).paranoiaLimit) {
-    reasons.push("insufficientParanoia");
+  const character = culprit.id;
+  const position = state.loop.board[character];
+  const counters = state.loop.charCounters[character];
+  if (!position || !counters) {
+    throw new Error(`incident culprit "${character}" is not on the board`);
   }
-  if (state.loop.incidentCulpritSuppressedFor?.includes(culprit)) {
+  if (!isCharacterPresent(position)) return ["culpritAbsent"];
+
+  const reasons: IncidentFailureReason[] = [];
+  if (policy.kind === "deadCharacter") {
+    if (isCharacterAlive(position)) reasons.push("culpritAlive");
+  } else {
+    if (!isCharacterAlive(position)) reasons.push("culpritDead");
+    if (
+      policy.kind === "characterParanoia" &&
+      incidentParanoia(state, character) <
+        characterDataOf(character).paranoiaLimit +
+          policy.paranoiaLimitAdjustment
+    ) {
+      reasons.push("insufficientParanoia");
+    }
+    if (
+      policy.kind === "characterIntrigue" &&
+      counters.intrigue < policy.required
+    ) {
+      reasons.push("insufficientIntrigue");
+    }
+  }
+  if (state.loop.incidentCulpritSuppressedFor?.includes(character)) {
     reasons.push("culpritSuppressed");
   }
   return reasons;
 }
 
-/**
- * 지정한 사건의 효과만 해결한다.
- * 발생 조건 판정과 발생 이력 기록은 호출자가 별도로 담당한다.
- */
+/** 지정한 사건의 효과만 해결한다. 발생 판정과 이력 기록은 호출자가 맡는다. */
 export function resolveIncidentEffect(
   state: GameState,
   incident: string,
-  culprit: CharacterId,
-  choice?: IncidentChoice,
+  culprit: IncidentCulprit | CharacterId,
+  choiceInput?: IncidentChoiceInput,
 ): boolean {
-  return resolveIncidentEffectResult(state, incident, culprit, choice)
-    .effectApplied;
+  return resolveIncidentEffectResult(
+    state,
+    incident,
+    normalizeIncidentCulprit(culprit),
+    normalizeIncidentChoice(choiceInput),
+  ).effectApplied;
 }
 
 function resolveIncidentEffectResult(
   state: GameState,
   incident: string,
-  culprit: CharacterId,
+  culprit: IncidentCulprit,
   choice?: IncidentChoice,
 ): IncidentEffectResult {
   const impl = INCIDENT_IMPL[incident];
-  if (!impl) {
-    throw new Error(`unknown incident "${incident}"`);
-  }
+  if (!impl) throw new Error(`unknown incident "${incident}"`);
 
-  // 조건은 효과 적용 전에 모두 판정한다. 활성 훅 전체가 P7 사망 배치 하나다.
   const before = structuredClone(state.loop);
   const activeHooks = impl.hooks.filter((hook) => hook.when(state, culprit));
   return withDeathBatch(state, () => {
@@ -100,46 +151,53 @@ function resolveIncidentEffectResult(
     for (const hook of activeHooks) {
       effectApplied = hook.effect(state, culprit, choice) || effectApplied;
     }
-    const publicChanges = publicBoardChanges(before, state.loop);
+    const changes = publicBoardChanges(before, state.loop);
     return {
       effectApplied,
-      ...(publicChanges.length === 0 ? {} : { publicChanges }),
+      ...(changes.length === 0 ? {} : { publicChanges: changes }),
     };
   });
 }
 
-/** 사건의 공통 발생 조건 두 가지를 판정한다. */
+/** 사건 정의에 등록된 공통 발생 조건을 판정한다. */
 export function incidentFires(
   state: GameState,
-  culprit: CharacterId,
+  culprit: IncidentCulprit | CharacterId,
+  incident = "",
 ): boolean {
-  return incidentFailureReasons(state, culprit).length === 0;
+  return incidentFailureReasons(state, culprit, incident).length === 0;
 }
 
-/** 현재 날짜에 예정된 사건을 판정하고, 발생했다면 그 효과를 해결한다. */
-export function resolveIncident(
+function resolveScheduledIncident(
   state: GameState,
-  choice?: IncidentChoice,
-): IncidentResult {
-  resolvedIncidentPublicChanges.delete(state);
-  const scheduled = state.scenario.incidents.find(
-    ({ day }) => day === state.loop.day,
+  scheduled: ScheduledIncident,
+  choice: IncidentChoice | undefined,
+): ResolvedIncidentOccurrence {
+  const occurrenceId = incidentOccurrenceId(scheduled);
+  const publicContext = publicObservationContext(state.loop);
+  const livingBefore = new Set(Object.entries(state.loop.board)
+    .filter(([, position]) => position.status === "alive")
+    .map(([character]) => character));
+  const failureReasons = incidentFailureReasons(
+    state,
+    scheduled.culprit,
+    scheduled.incident,
   );
-  if (!scheduled) {
-    return { fired: false, effectApplied: false };
-  }
-
   const base = {
+    occurrenceId,
+    occurrenceIndex: scheduled.occurrenceIndex,
     incident: scheduled.incident,
     culprit: scheduled.culprit,
+    publicContext,
+    failureReasons,
   };
-  if (!incidentFires(state, scheduled.culprit)) {
+  if (failureReasons.length > 0) {
     return { ...base, fired: false, effectApplied: false };
   }
 
-  // 검은 고양이는 사건이 발생한 뒤 효과만 "효과 없음"으로 바꾼다.
   const beforeEffects = structuredClone(state.loop);
-  const firstEffect = scheduled.culprit === "blackCat"
+  const culpritCharacter = characterCulprit(scheduled.culprit);
+  const firstEffect = culpritCharacter === "blackCat"
     ? { effectApplied: false }
     : resolveIncidentEffectResult(
       state,
@@ -148,33 +206,63 @@ export function resolveIncident(
       choice,
     );
   let effectApplied = firstEffect.effectApplied;
-  if (scheduled.culprit === "sectFounder" && firstEffect.effectApplied) {
+  if (culpritCharacter === "sectFounder" && firstEffect.effectApplied) {
     const secondEffect = resolveIncidentEffectResult(
       state,
       scheduled.incident,
       scheduled.culprit,
-      choice?.secondResolution,
+      incidentSubIncidentDecision(choice),
     );
     effectApplied = secondEffect.effectApplied || effectApplied;
   }
-  const publicChanges = publicBoardChanges(beforeEffects, state.loop);
+  const changes = publicBoardChanges(beforeEffects, state.loop);
+  const deaths = [...livingBefore].filter(
+    (character) => state.loop.board[character]?.status === "dead",
+  );
+  const targets = incidentChoiceTargets(choice);
 
   const firedIncidents = state.loop.incidentsFiredThisLoop ??= [];
   if (!firedIncidents.includes(scheduled.incident)) {
     firedIncidents.push(scheduled.incident);
   }
   const firedOccurrences = state.loop.incidentOccurrencesFiredThisLoop ??= [];
-  if (!firedOccurrences.some(({ day, incident, culprit }) =>
-    day === scheduled.day &&
-    incident === scheduled.incident &&
-    culprit === scheduled.culprit
+  if (!firedOccurrences.some((occurrence) =>
+    incidentOccurrenceId(occurrence) === occurrenceId
   )) {
-    firedOccurrences.push({ ...scheduled });
+    firedOccurrences.push(structuredClone(scheduled));
   }
 
-  if (publicChanges.length > 0) {
-    resolvedIncidentPublicChanges.set(state, publicChanges);
-  }
+  return {
+    ...base,
+    fired: true,
+    effectApplied,
+    failureReasons: [],
+    ...(targets.length === 0 ? {} : { targets }),
+    ...(changes.length === 0 ? {} : { publicChanges: changes }),
+    ...(deaths.length === 0 ? {} : { deaths }),
+    ...(state.pendingLoopEnd?.reason === "protagonistDeath"
+      ? { protagonistsDied: true }
+      : {}),
+  };
+}
 
-  return { ...base, fired: true, effectApplied };
+/** 현재 날짜의 모든 사건을 각본 기재 순서대로 독립 해결한다. */
+export function resolveIncident(
+  state: GameState,
+  choiceInput?: IncidentChoiceInput | readonly IncidentChoiceInput[],
+): ResolvedIncidentBatch {
+  const scheduled = normalizeIncidentSchedule(state.scenario.incidents).filter(
+    ({ day }) => day === state.loop.day,
+  );
+  const rawChoices = choiceInput === undefined
+    ? []
+    : Array.isArray(choiceInput)
+    ? choiceInput
+    : [choiceInput];
+  const choices = rawChoices.map((choice) => normalizeIncidentChoice(choice));
+  return {
+    occurrences: scheduled.map((incident, index) =>
+      resolveScheduledIncident(state, incident, choices[index])
+    ),
+  };
 }

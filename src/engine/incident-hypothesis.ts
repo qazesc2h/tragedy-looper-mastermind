@@ -1,16 +1,24 @@
 import { characterDataOf } from "../data";
+import { LOCATIONS } from "../types";
 import type {
   CharacterId,
   GameState,
   IncidentId,
   Location,
   ScheduledIncident,
+  ScheduledIncidentInput,
 } from "../types";
 import { publicCharacterCounter } from "../types";
 import {
   collectProtagonistObservations,
   type ProtagonistObservation,
 } from "./hypothesis";
+import { incidentDefinition } from "./incident-definition";
+import {
+  incidentOccurrenceId,
+  normalizeIncidentCulprit,
+  normalizeIncidentSchedule,
+} from "./incident-model";
 
 export type IncidentPossibilityStatus =
   | "possible"
@@ -113,18 +121,19 @@ interface IncidentConfirmation {
 
 function incidentColumnId(
   scheduled: ScheduledIncident,
-  index: number,
 ): string {
-  return `${scheduled.day}:${scheduled.incident}:${index}`;
+  return incidentOccurrenceId(scheduled);
 }
 
 function matchingColumns(
   columns: readonly IncidentHypothesisColumn[],
   day: number,
   incident: IncidentId,
+  occurrenceIndex?: number,
 ): IncidentHypothesisColumn[] {
   return columns.filter((column) =>
-    column.day === day && column.incident === incident
+    column.day === day && column.incident === incident &&
+    (occurrenceIndex === undefined || column.occurrenceIndex === occurrenceIndex)
   );
 }
 
@@ -141,13 +150,16 @@ function initialConfirmations(
   const confirmations = new Map<string, IncidentConfirmation>();
   for (const observation of observations) {
     if (observation.kind === "incidentCulpritRevealed") {
+      const culprit = normalizeIncidentCulprit(observation.culprit);
       for (const column of matchingColumns(
         columns,
         observation.day,
         observation.incident,
+        observation.occurrenceIndex,
       )) {
+        if (culprit.kind !== "character") continue;
         confirmations.set(column.id, {
-          character: observation.culprit,
+          character: culprit.id,
           reason: { code: "culpritRevealed", observation },
         });
       }
@@ -171,6 +183,7 @@ function initialConfirmations(
         columns,
         observation.day,
         observation.incident,
+        observation.occurrenceIndex,
       )) {
         confirmations.set(column.id, {
           character: culprit,
@@ -191,6 +204,7 @@ function initialConfirmations(
         columns,
         observation.day,
         observation.incident,
+        observation.occurrenceIndex,
       )) {
         confirmations.set(column.id, {
           character: movement.character,
@@ -212,6 +226,8 @@ function traceExclusionReason(
       observation.kind !== "incidentOccurred" ||
       observation.day !== column.day ||
       observation.incident !== column.incident ||
+      observation.occurrenceIndex !== undefined &&
+        observation.occurrenceIndex !== column.occurrenceIndex ||
       !observation.occurred ||
       observation.context === undefined ||
       observation.changes === undefined
@@ -292,7 +308,9 @@ function outcomeExclusionReason(
     if (
       observation.kind !== "incidentOccurred" ||
       observation.day !== column.day ||
-      observation.incident !== column.incident
+      observation.incident !== column.incident ||
+      observation.occurrenceIndex !== undefined &&
+        observation.occurrenceIndex !== column.occurrenceIndex
     ) {
       continue;
     }
@@ -327,11 +345,6 @@ function buildCells(
   observations: readonly ProtagonistObservation[],
   confirmations: ReadonlyMap<string, IncidentConfirmation>,
 ): Record<CharacterId, Record<string, IncidentPossibilityCell>> {
-  const confirmedColumnByCharacter = new Map<CharacterId, string>();
-  for (const [column, confirmation] of confirmations) {
-    confirmedColumnByCharacter.set(confirmation.character, column);
-  }
-
   const cells: Record<
     CharacterId,
     Record<string, IncidentPossibilityCell>
@@ -368,7 +381,16 @@ function buildCells(
         continue;
       }
 
-      const assigned = confirmedColumnByCharacter.get(character);
+      const assigned = [...confirmations.entries()].find(
+        ([assignedColumn, assignedConfirmation]) => {
+          if (assignedConfirmation.character !== character) return false;
+          const other = columns.find(({ id }) => id === assignedColumn);
+          return other !== undefined && !(
+            incidentDefinition(other.incident).allowsRepeatedCulprit &&
+            incidentDefinition(column.incident).allowsRepeatedCulprit
+          );
+        },
+      )?.[0];
       if (assigned !== undefined) {
         row[column.id] = {
           character,
@@ -411,14 +433,16 @@ function buildCells(
 /** 전체 범인 배정을 열거하지 않고 사건별 독립 가능성만 고정점까지 전파한다. */
 export function evaluateIncidentHypotheses(
   publicCast: readonly CharacterId[],
-  scheduledIncidents: readonly ScheduledIncident[],
+  scheduledIncidents: readonly ScheduledIncidentInput[],
   observations: readonly ProtagonistObservation[],
 ): IncidentPossibilityTable {
-  const columns = scheduledIncidents.map((scheduled, index) => ({
-    ...scheduled,
-    id: incidentColumnId(scheduled, index),
-    index,
-  }));
+  const columns = normalizeIncidentSchedule(scheduledIncidents)
+    .filter(({ culprit }) => culprit.kind === "character")
+    .map((scheduled, index) => ({
+      ...scheduled,
+      id: incidentColumnId(scheduled),
+      index,
+    }));
   const confirmations = initialConfirmations(columns, observations);
   let cells = buildCells(
     publicCast,
@@ -465,12 +489,124 @@ export function evaluateIncidentHypotheses(
   };
 }
 
+export interface LocationIncidentPossibilityCell {
+  location: Location;
+  column: string;
+  status: IncidentPossibilityStatus;
+}
+
+export interface LocationIncidentPossibilityTable {
+  locations: Location[];
+  columns: IncidentHypothesisColumn[];
+  cells: Record<Location, Record<string, LocationIncidentPossibilityCell>>;
+  propagationPasses: number;
+}
+
+function repeatedCulpritAllowed(
+  left: IncidentHypothesisColumn,
+  right: IncidentHypothesisColumn,
+): boolean {
+  return incidentDefinition(left.incident).allowsRepeatedCulprit &&
+    incidentDefinition(right.incident).allowsRepeatedCulprit;
+}
+
+function buildLocationCells(
+  columns: readonly IncidentHypothesisColumn[],
+  confirmations: ReadonlyMap<string, Location>,
+): LocationIncidentPossibilityTable["cells"] {
+  return Object.fromEntries(LOCATIONS.map((location) => [
+    location,
+    Object.fromEntries(columns.map((column) => {
+      const confirmed = confirmations.get(column.id);
+      const assignedElsewhere = [...confirmations.entries()].some(
+        ([assignedColumn, assignedLocation]) => {
+          if (assignedColumn === column.id || assignedLocation !== location) {
+            return false;
+          }
+          const other = columns.find(({ id }) => id === assignedColumn);
+          return other !== undefined && !repeatedCulpritAllowed(other, column);
+        },
+      );
+      const status: IncidentPossibilityStatus = confirmed === location
+        ? "confirmed"
+        : confirmed !== undefined || assignedElsewhere
+        ? "impossible"
+        : "possible";
+      return [column.id, { location, column: column.id, status }];
+    })),
+  ])) as LocationIncidentPossibilityTable["cells"];
+}
+
+/** 장소 범인 열은 캐릭터 범인 배정 제약과 완전히 분리한다. */
+export function evaluateLocationIncidentHypotheses(
+  scheduledIncidents: readonly ScheduledIncidentInput[],
+  observations: readonly ProtagonistObservation[],
+): LocationIncidentPossibilityTable {
+  const columns = normalizeIncidentSchedule(scheduledIncidents)
+    .filter(({ culprit }) => culprit.kind === "location")
+    .map((scheduled, index) => ({
+      ...scheduled,
+      id: incidentColumnId(scheduled),
+      index,
+    }));
+  const revealed = new Map<string, Location>();
+  for (const observation of observations) {
+    if (
+      observation.kind !== "incidentCulpritRevealed" ||
+      normalizeIncidentCulprit(observation.culprit).kind !== "location"
+    ) continue;
+    const culprit = normalizeIncidentCulprit(observation.culprit);
+    if (culprit.kind !== "location") continue;
+    for (const column of matchingColumns(
+      columns,
+      observation.day,
+      observation.incident,
+      observation.occurrenceIndex,
+    )) {
+      revealed.set(column.id, culprit.at);
+    }
+  }
+  let cells = buildLocationCells(columns, revealed);
+  let propagationPasses = 0;
+  while (true) {
+    propagationPasses += 1;
+    cells = buildLocationCells(columns, revealed);
+    let changed = false;
+    for (const column of columns) {
+      if (revealed.has(column.id)) continue;
+      const candidates = LOCATIONS.filter((location) =>
+        cells[location][column.id]?.status === "possible"
+      );
+      if (candidates.length !== 1 || candidates[0] === undefined) continue;
+      revealed.set(column.id, candidates[0]);
+      changed = true;
+      break;
+    }
+    if (!changed) break;
+  }
+  return { locations: [...LOCATIONS], columns, cells, propagationPasses };
+}
+
+export function evaluateStateIncidentHypothesisTables(state: GameState): {
+  character: IncidentPossibilityTable;
+  location: LocationIncidentPossibilityTable;
+} {
+  const observations = collectProtagonistObservations(state);
+  return {
+    character: evaluateIncidentHypotheses(
+      Object.keys(state.scenario.cast),
+      state.scenario.incidents,
+      observations,
+    ),
+    location: evaluateLocationIncidentHypotheses(
+      state.scenario.incidents,
+      observations,
+    ),
+  };
+}
+
 export function evaluateStateIncidentHypotheses(
   state: GameState,
 ): IncidentPossibilityTable {
-  return evaluateIncidentHypotheses(
-    Object.keys(state.scenario.cast),
-    state.scenario.incidents,
-    collectProtagonistObservations(state),
-  );
+  return evaluateStateIncidentHypothesisTables(state).character;
 }

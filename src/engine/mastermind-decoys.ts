@@ -18,6 +18,7 @@ import {
   hypotheticalLossObservation,
   type RuleCombination,
 } from "./hypothesis";
+import { normalizeIncidentCulprit } from "./incident-model";
 
 export type DecoyTargetKind = "location" | "character" | "incident";
 
@@ -311,9 +312,12 @@ function projectedConditionIsExplainable(
         {
           day: projected.loop.day,
           incident: "butterflyEffect",
-          culprit: projected.scenario.incidents.find(
-            ({ incident }) => incident === "butterflyEffect",
-          )?.culprit ?? castCharacters(projected)[0],
+          culprit: normalizeIncidentCulprit(
+            projected.scenario.incidents.find(
+              ({ incident }) => incident === "butterflyEffect",
+            )?.culprit ?? castCharacters(projected)[0],
+          ),
+          occurrenceIndex: 0,
         },
       ];
       break;

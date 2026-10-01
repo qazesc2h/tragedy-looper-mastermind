@@ -198,7 +198,7 @@ export interface Scenario {
   mainPlot: PlotId;
   subPlots: PlotId[];       // 입문 1, 기본 2
   cast: Record<CharacterId, RoleId>;
-  incidents: ScheduledIncident[];
+  incidents: ScheduledIncidentInput[];
   loops: number;
   /** 사용자 각본의 난이도 변형. 첫 항목이 기본 선택이며 날짜 수는 공통이다. */
   difficultySets?: { numberOfLoops: number; difficulty: number }[];
@@ -212,6 +212,11 @@ export interface Scenario {
   specialRuleIds?: ScenarioSpecialRuleId[];
   /** 하수인 시작 장소 등 각본가가 루프마다 지정하는 값 */
   scriptSpecified?: Record<string, unknown>;
+}
+
+/** 엔진 안에서는 범인과 발생 번호가 정규화된 시나리오만 보유한다. */
+export interface ResolvedScenario extends Omit<Scenario, "incidents"> {
+  incidents: ScheduledIncident[];
 }
 
 // ─────────────────────────────────────────────────────────── 진행 상태 (가변)
@@ -231,11 +236,25 @@ export interface SacredTreeTransferCondition {
 export interface IncidentSelection {
   day: number;
   incident: IncidentId;
+  /** 구 선택 데이터에는 없을 수 있으며 그 경우 첫 발생 건을 뜻한다. */
+  occurrenceIndex?: number;
 }
 
+export type IncidentCulprit =
+  | { kind: "character"; id: CharacterId }
+  | { kind: "location"; at: Location };
+
 export interface ScheduledIncident extends IncidentSelection {
-  culprit: CharacterId;
+  culprit: IncidentCulprit;
+  /** 같은 날짜·같은 사건을 각본 기재 순서대로 구분하는 0 기반 번호. */
+  occurrenceIndex: number;
 }
+
+/** JSON·구 저장·외부 각본 입력 경계에서만 허용하는 사건 형식. */
+export type ScheduledIncidentInput = IncidentSelection & {
+  culprit: IncidentCulprit | CharacterId;
+  occurrenceIndex?: number;
+};
 
 export type BoardCharacterState =
   | { status: "absent"; at?: never }
@@ -300,21 +319,40 @@ export function withCharacterLife(
   return { status: alive ? "alive" : "dead", at: position.at };
 }
 
-/** 임의 대상을 요구하는 사건 효과에 각본가가 제공하는 선택. */
+export type IncidentDecision =
+  | { kind: "character"; key: "target" | "otherTarget"; id: CharacterId }
+  | { kind: "location"; key: "location"; at: Location }
+  | { kind: "destination"; key: "destination"; at: Location }
+  | { kind: "counter"; key: "counter"; counter: IncidentCounter }
+  | { kind: "subIncident"; key: "secondResolution"; decisions: IncidentDecision[] };
+
+/** 사건 효과 하나에 필요한 결정을 순서와 종류를 보존해 전달한다. */
 export interface IncidentChoice {
+  decisions: IncidentDecision[];
+}
+
+/** 구 호출부·저장 데이터는 엔진 경계에서 IncidentChoice로 변환한다. */
+export interface LegacyIncidentChoice {
   target?: CharacterId;
   otherTarget?: CharacterId;
   location?: Location;
   counter?: IncidentCounter;
-  /** 교주가 범인일 때 두 번째 사건 효과 해결에 쓰는 별도 선택. */
-  secondResolution?: Omit<IncidentChoice, "secondResolution">;
+  secondResolution?: Omit<LegacyIncidentChoice, "secondResolution">;
 }
 
+export type IncidentChoiceInput = IncidentChoice | LegacyIncidentChoice;
+
 export interface IncidentResult {
-  incident?: IncidentId;
-  culprit?: CharacterId;
+  occurrenceId: string;
+  occurrenceIndex: number;
+  incident: IncidentId;
+  culprit: IncidentCulprit;
   fired: boolean;
   effectApplied: boolean;
+}
+
+export interface IncidentResolutionResult {
+  occurrences: IncidentResult[];
 }
 
 /** 원인을 숨긴 채 주인공도 확인할 수 있는 게임판 변화. */
@@ -405,7 +443,11 @@ export type PublicAbilityTrigger = {
 export type IncidentFailureReason =
   | "culpritAbsent"
   | "culpritDead"
+  | "culpritAlive"
   | "insufficientParanoia"
+  | "insufficientIntrigue"
+  | "insufficientLocationIntrigue"
+  | "insufficientCorpses"
   | "culpritSuppressed";
 
 /** 자동 통과와 판정 결과를 각본가가 나중에도 확인할 수 있는 라운드 기록. */
@@ -511,8 +553,12 @@ export type PhaseLogEntry = (
     day: number;
     phase: "P7_INCIDENT";
     kind: "incidentJudged";
+    /** 구 저장 기록에는 없을 수 있다. */
+    occurrenceId?: string;
+    /** 구 저장 기록에는 없을 수 있다. */
+    occurrenceIndex?: number;
     incident: IncidentId;
-    culprit: CharacterId;
+    culprit: IncidentCulprit | CharacterId;
     fired: boolean;
     effectApplied: boolean;
     failureReasons: IncidentFailureReason[];
@@ -625,7 +671,7 @@ export type PublicInformation = (
     source: "godlyBeing" | "policeOfficer";
     day: number;
     incident: IncidentId;
-    culprit: CharacterId;
+    culprit: IncidentCulprit | CharacterId;
   }
   | {
     kind: "subplot";
@@ -641,7 +687,7 @@ export type PublicInformation = (
     /** AI 능력을 실제로 해결한 현재 날짜. 구 저장에는 없을 수 있다. */
     resolvedOnDay?: number;
     incident: IncidentId;
-    culprit: CharacterId;
+    culprit: IncidentCulprit | CharacterId;
     effectApplied: boolean;
   }
 ) & {
@@ -714,7 +760,7 @@ export interface LoopState {
   incidentsFiredThisLoop?: IncidentId[];
 
   /** 같은 사건이 여러 번 예정된 경우도 구분하는 실제 발생 기록. */
-  incidentOccurrencesFiredThisLoop?: ScheduledIncident[];
+  incidentOccurrencesFiredThisLoop?: ScheduledIncidentInput[];
 
   /** 이 캐릭터가 범인인 사건은 이번 루프 동안 발생하지 않는다. */
   incidentCulpritSuppressedFor?: CharacterId[];
@@ -821,11 +867,16 @@ export interface Hook {
   ) => void | RoleId;
 }
 
-export interface IncidentHook extends Omit<Hook, "effect" | "effectTarget"> {
+export interface IncidentHook
+  extends Omit<Hook, "when" | "effect" | "effectTarget"> {
+  when: (
+    s: GameState,
+    culprit: IncidentCulprit | CharacterId,
+  ) => boolean;
   effect: (
     s: GameState,
-    culprit: CharacterId,
-    choice?: IncidentChoice,
+    culprit: IncidentCulprit | CharacterId,
+    choice?: IncidentChoiceInput,
   ) => boolean;
 }
 

@@ -320,7 +320,8 @@ describe("community scenario: 못된 고양이", () => {
       expect(state.loop.incidentOccurrencesFiredThisLoop).toContainEqual({
         day: 5,
         incident: "butterflyEffect",
-        culprit: "blackCat",
+        culprit: { kind: "character", id: "blackCat" },
+        occurrenceIndex: 0,
       });
       expect(state.loopOutcomes.at(-1)).toMatchObject({
         loop,
@@ -363,7 +364,7 @@ describe("community scenario: 못된 고양이", () => {
         description: expect.stringContaining("매 루프 시작 시 신사에 음모 1개"),
       }),
       expect.objectContaining({
-        key: "risk:incident:5:butterflyEffect:blackCat",
+        key: "risk:incident:5:butterflyEffect:0",
         title: expect.stringContaining("범인 검은 고양이"),
       }),
       expect.objectContaining({

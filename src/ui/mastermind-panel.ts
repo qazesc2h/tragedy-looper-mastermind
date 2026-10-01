@@ -23,6 +23,12 @@ import {
   incidentParanoia,
 } from "../engine/incident";
 import { distanceToLoss } from "../engine/loss";
+import {
+  characterCulprit,
+  incidentOccurrenceId,
+  normalizeIncidentSchedule,
+  sameIncidentCulprit,
+} from "../engine/incident-model";
 import { tragedySetDefinition } from "../tragedy-sets";
 import { characterEntryTiming } from "../types";
 import type {
@@ -434,10 +440,8 @@ function occurrenceFired(
   scheduled: ScheduledIncident,
 ): boolean {
   return state.loop.incidentOccurrencesFiredThisLoop?.some(
-    ({ day, incident, culprit }) =>
-      day === scheduled.day &&
-      incident === scheduled.incident &&
-      culprit === scheduled.culprit,
+    (occurrence) =>
+      incidentOccurrenceId(occurrence) === incidentOccurrenceId(scheduled),
   ) === true;
 }
 
@@ -445,14 +449,19 @@ function occurrenceFired(
 export function incidentScheduleRows(
   state: GameState,
 ): IncidentScheduleRow[] {
-  return state.scenario.incidents
+  return normalizeIncidentSchedule(state.scenario.incidents)
     .map((scheduled, index) => ({ scheduled, index }))
     .sort((left, right) =>
       left.scheduled.day - right.scheduled.day || left.index - right.index
     )
     .map(({ scheduled }) => {
-      const paranoia = incidentParanoia(state, scheduled.culprit);
-      const paranoiaLimit = characterDataOf(scheduled.culprit).paranoiaLimit;
+      const culprit = characterCulprit(scheduled.culprit);
+      const paranoia = culprit === undefined
+        ? 0
+        : incidentParanoia(state, culprit);
+      const paranoiaLimit = culprit === undefined
+        ? 0
+        : characterDataOf(culprit).paranoiaLimit;
       const daysUntil = scheduled.day - state.loop.day;
       const timing: IncidentScheduleTiming = daysUntil < 0
         ? "past"
@@ -462,13 +471,19 @@ export function incidentScheduleRows(
       const currentFailureReasons = incidentFailureReasons(
         state,
         scheduled.culprit,
+        scheduled.incident,
       );
-      const entry = characterEntryTiming(state.scenario, scheduled.culprit);
+      const entry = culprit === undefined
+        ? undefined
+        : characterEntryTiming(state.scenario, culprit);
       const judgment = state.loop.phaseLog?.find((entry) =>
         entry.kind === "incidentJudged" &&
-        entry.day === scheduled.day &&
-        entry.incident === scheduled.incident &&
-        entry.culprit === scheduled.culprit
+        (entry.occurrenceId === incidentOccurrenceId(scheduled) ||
+          entry.occurrenceId === undefined &&
+            scheduled.occurrenceIndex === 0 &&
+            entry.day === scheduled.day &&
+            entry.incident === scheduled.incident &&
+            sameIncidentCulprit(entry.culprit, scheduled.culprit))
       );
       const aiEffectResolvedOnDays = (state.loop.publicInformationThisLoop ?? [])
         .flatMap((information) =>
@@ -499,8 +514,12 @@ export function incidentScheduleRows(
         paranoia,
         paranoiaLimit,
         paranoiaNeeded: Math.max(0, paranoiaLimit - paranoia),
-        allCountersCountAsParanoia: scheduled.culprit === "ai",
-        conditionMet: incidentFires(state, scheduled.culprit),
+        allCountersCountAsParanoia: culprit === "ai",
+        conditionMet: incidentFires(
+          state,
+          scheduled.culprit,
+          scheduled.incident,
+        ),
         currentFailureReasons,
         outcome,
         effectApplied,
@@ -519,7 +538,7 @@ export function incidentScheduleRowsForCharacter(
   character: CharacterId,
 ): IncidentScheduleRow[] {
   return incidentScheduleRows(state).filter(
-    ({ culprit }) => culprit === character,
+    ({ culprit }) => culprit.kind === "character" && culprit.id === character,
   );
 }
 
@@ -528,7 +547,7 @@ export function incidentDaysForCharacter(
   character: CharacterId,
 ): number[] {
   return state.scenario.incidents
-    .filter(({ culprit }) => culprit === character)
+    .filter(({ culprit }) => characterCulprit(culprit) === character)
     .map(({ day }) => day)
     .sort((left, right) => left - right);
 }

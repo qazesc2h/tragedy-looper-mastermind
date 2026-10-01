@@ -6,6 +6,10 @@ import {
   type ScenarioDraft,
 } from "./scenario-draft";
 import type { Scenario } from "./types";
+import {
+  isIncidentCulprit,
+  normalizeIncidentSchedule,
+} from "./engine/incident-model";
 
 export const USER_SCENARIOS_KEY = "tragedy-looper-mastermind:scenarios";
 export const USER_DRAFTS_KEY = "tragedy-looper-mastermind:drafts";
@@ -83,7 +87,8 @@ function validScenarioShape(value: unknown): value is Scenario {
     !Array.isArray(value.incidents) ||
     !value.incidents.every((incident: unknown) =>
       record(incident) && finiteNumber(incident.day) &&
-      string(incident.incident) && string(incident.culprit)) ||
+      string(incident.incident) &&
+      (string(incident.culprit) || isIncidentCulprit(incident.culprit))) ||
     !finiteNumber(value.loops) || !finiteNumber(value.daysPerLoop)) return false;
   return (value.difficulty === undefined || finiteNumber(value.difficulty)) &&
     (value.difficultyIndex === undefined || finiteNumber(value.difficultyIndex)) &&
@@ -122,7 +127,8 @@ function validDraftShape(value: unknown): value is ScenarioDraft {
     record(row) && string(row.rowId) &&
     (row.day === undefined || finiteNumber(row.day)) &&
     (row.incident === undefined || string(row.incident)) &&
-    (row.culprit === undefined || string(row.culprit)))) return false;
+    (row.culprit === undefined || string(row.culprit) ||
+      isIncidentCulprit(row.culprit)))) return false;
   if (value.metadata !== undefined) {
     if (!record(value.metadata)) return false;
     for (const field of ["startLocations", "turfLocations", "entryLoops", "entryDays"] as const) {
@@ -158,34 +164,52 @@ function validateDocument(value: unknown, kind: "user" | "draft"): DocumentResul
   if (!validHeader(value, kind)) return {
     ok: false, diagnostics: [problem("document", "IMPORT_DOCUMENT_INVALID", "문서의 식별자·제목·날짜 형식이 올바르지 않습니다.")],
   };
+  value = structuredClone(value);
+  if (!record(value)) {
+    return { ok: false, diagnostics: [problem("document", "IMPORT_DOCUMENT_INVALID", "문서 형식이 올바르지 않습니다.")] };
+  }
+  const scenarioShapeValid = kind === "user" && validScenarioShape(value.scenario);
+  const draftShapeValid = kind === "draft" && validDraftShape(value.draft);
+  if (scenarioShapeValid && record(value.scenario)) {
+    value.scenario.incidents = normalizeIncidentSchedule(
+      value.scenario.incidents as Parameters<typeof normalizeIncidentSchedule>[0],
+    );
+  }
+  if (draftShapeValid && record(value.draft) && Array.isArray(value.draft.incidents)) {
+    value.draft.incidents = value.draft.incidents.map((row) => {
+      if (!record(row) || !string(row.culprit)) return row;
+      return { ...row, culprit: { kind: "character", id: row.culprit } };
+    });
+  }
   if (kind === "user") {
-    if (value.source !== "user" || !validScenarioShape(value.scenario)) return {
+    if (value.source !== "user" || !scenarioShapeValid) return {
       ok: false, diagnostics: [problem("scenario", "IMPORT_DOCUMENT_INVALID", "완성 시나리오 구조가 올바르지 않습니다.")],
     };
-    const validation = validateScenario(value.scenario);
+    const scenario = value.scenario as Scenario;
+    const validation = validateScenario(scenario);
     if (!validation.ok) return { ok: false, diagnostics: validation.diagnostics };
-    if (value.scenario.difficultySets !== undefined) {
-      const [first] = value.scenario.difficultySets;
-      if (first.numberOfLoops !== value.scenario.loops ||
-        first.difficulty !== value.scenario.difficulty) return {
+    if (scenario.difficultySets !== undefined) {
+      const [first] = scenario.difficultySets;
+      if (first.numberOfLoops !== scenario.loops ||
+        first.difficulty !== scenario.difficulty) return {
         ok: false, diagnostics: [problem("scenario.difficultySets", "IMPORT_DOCUMENT_INVALID",
           "기본 변형과 시나리오의 루프 수·난이도가 다릅니다.")],
       };
-      for (const [index, item] of value.scenario.difficultySets.entries()) {
-        const checked = validateScenario({ ...value.scenario, loops: item.numberOfLoops });
+      for (const [index, item] of scenario.difficultySets.entries()) {
+        const checked = validateScenario({ ...scenario, loops: item.numberOfLoops });
         if (!checked.ok) return { ok: false, diagnostics: checked.diagnostics.map((entry) => ({
           ...entry, path: `scenario.difficultySets[${index}].${entry.path}`,
         })) };
       }
     }
-    const finalized = finalizeScenarioDraft(scenarioToDraft(value.scenario));
+    const finalized = finalizeScenarioDraft(scenarioToDraft(scenario));
     if (!finalized.ok) return { ok: false, diagnostics: finalized.diagnostics };
     return { ok: true, value: value as unknown as UserScenarioDocument, diagnostics: [] };
   }
-  if (!validDraftShape(value.draft)) return {
+  if (!draftShapeValid) return {
     ok: false, diagnostics: [problem("draft", "IMPORT_DOCUMENT_INVALID", "초안 구조가 올바르지 않습니다.")],
   };
-  const validation = validateScenarioDraft(value.draft);
+  const validation = validateScenarioDraft(value.draft as ScenarioDraft);
   return { ok: true, value: value as unknown as UserDraftDocument, diagnostics: validation.diagnostics };
 }
 

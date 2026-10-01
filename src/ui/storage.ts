@@ -1,5 +1,6 @@
 import { LOCATIONS } from "../types";
 import { applyScenarioErrataToLoadedScenario } from "../errata";
+import { normalizeIncidentSchedule } from "../engine/incident-model";
 import type { GameState, Location, LoopState, Phase } from "../types";
 
 export const TRACKER_STORAGE_KEY = "tragedy-looper-mastermind:tracker";
@@ -223,7 +224,16 @@ function restoreStoredGame(
 ): StoredGame {
   validateStoredBoardShapes(saved, path);
   const restored = mergeDefaults(defaults, saved, path);
+  restored.state.scenario.incidents = normalizeIncidentSchedule(
+    restored.state.scenario.incidents,
+  );
   discardLegacyServantDecline(restored.state.loop);
+  if (restored.state.loop.incidentOccurrencesFiredThisLoop !== undefined) {
+    restored.state.loop.incidentOccurrencesFiredThisLoop =
+      normalizeIncidentSchedule(
+        restored.state.loop.incidentOccurrencesFiredThisLoop,
+      );
+  }
   restored.state.history = restored.state.history.map((loop, index) => {
     const restoredLoop = mergeDefaults(
       defaults.state.loop,
@@ -231,6 +241,12 @@ function restoreStoredGame(
       `${path}.state.history.${index}`,
     );
     discardLegacyServantDecline(restoredLoop);
+    if (restoredLoop.incidentOccurrencesFiredThisLoop !== undefined) {
+      restoredLoop.incidentOccurrencesFiredThisLoop =
+        normalizeIncidentSchedule(
+          restoredLoop.incidentOccurrencesFiredThisLoop,
+        );
+    }
     return restoredLoop;
   });
   restored.observationsByLoop = restoreObservations(

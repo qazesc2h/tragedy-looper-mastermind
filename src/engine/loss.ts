@@ -26,6 +26,7 @@ import {
 import { servantDeathReplacement } from "./servant";
 import { requestLoopEnd } from "./flow";
 import { incidentFires, incidentParanoia } from "./incident";
+import { characterCulprit, incidentOccurrenceId } from "./incident-model";
 
 export type LossCategory =
   | "plot"
@@ -596,10 +597,8 @@ function incidentAlreadyResolved(
   scheduled: GameState["scenario"]["incidents"][number],
 ): boolean {
   return state.loop.incidentOccurrencesFiredThisLoop?.some(
-    ({ day, incident, culprit }) =>
-      day === scheduled.day &&
-      incident === scheduled.incident &&
-      culprit === scheduled.culprit,
+    (occurrence) =>
+      incidentOccurrenceId(occurrence) === incidentOccurrenceId(scheduled),
   ) ?? false;
 }
 
@@ -633,11 +632,13 @@ function incidentCommonRequirements(
   state: GameState,
   scheduled: GameState["scenario"]["incidents"][number],
 ): LossRequirement[] {
-  const culpritPosition = state.loop.board[scheduled.culprit];
-  const paranoia = incidentParanoia(state, scheduled.culprit);
-  const paranoiaNeeded = characterDataOf(scheduled.culprit).paranoiaLimit;
+  const culprit = characterCulprit(scheduled.culprit);
+  if (culprit === undefined) return [];
+  const culpritPosition = state.loop.board[culprit];
+  const paranoia = incidentParanoia(state, culprit);
+  const paranoiaNeeded = characterDataOf(culprit).paranoiaLimit;
   const suppressed = state.loop.incidentCulpritSuppressedFor?.includes(
-    scheduled.culprit,
+    culprit,
   ) ?? false;
   return [
     booleanRequirement(
@@ -664,7 +665,7 @@ function incidentCommonRequirements(
     booleanRequirement(
       "effectNotSuppressed",
       "사건 효과 유효",
-      scheduled.culprit !== "blackCat",
+      culprit !== "blackCat",
       "사건 효과 유효",
       "검은 고양이로 사건 효과 없음",
     ),
@@ -676,9 +677,11 @@ function incidentDeathRoutes(
   target: CharacterId,
 ): LossRoute[] {
   return state.scenario.incidents.flatMap((scheduled) => {
+    const culprit = characterCulprit(scheduled.culprit);
+    if (culprit === undefined) return [];
     const common = incidentCommonRequirements(state, scheduled);
     const targetPosition = state.loop.board[target];
-    const culpritPosition = state.loop.board[scheduled.culprit];
+    const culpritPosition = state.loop.board[culprit];
     const targetAlive = isCharacterAlive(targetPosition);
     const daysUntil = Math.max(0, scheduled.day - state.loop.day);
     const base = {
@@ -690,7 +693,7 @@ function incidentDeathRoutes(
 
     switch (scheduled.incident) {
       case "suicide":
-        return scheduled.culprit === target
+        return culprit === target
           ? [route(
             `death:incident:suicide:${scheduled.day}:${target}`,
             incidentLabel,
@@ -703,13 +706,13 @@ function incidentDeathRoutes(
           : [];
       case "murder": {
         const sameLocation = targetAlive && isCharacterAlive(culpritPosition) &&
-          target !== scheduled.culprit &&
+          target !== culprit &&
           characterLocation(targetPosition, target) ===
-            characterLocation(culpritPosition, scheduled.culprit);
-        return target === scheduled.culprit
+            characterLocation(culpritPosition, culprit);
+        return target === culprit
           ? []
           : [route(
-            `death:incident:murder:${scheduled.day}:${scheduled.culprit}:${target}`,
+            `death:incident:murder:${scheduled.day}:${culprit}:${target}`,
             `${incidentLabel} · 각본가 대상 선택`,
             "mastermind",
             base.when,
@@ -1066,18 +1069,20 @@ function incidentLossDistance(
     );
   }
 
-  const culpritPosition = state.loop.board[scheduled.culprit];
-  const paranoiaNeeded = characterDataOf(scheduled.culprit).paranoiaLimit;
+  const culprit = characterCulprit(scheduled.culprit);
+  if (culprit === undefined) return [];
+  const culpritPosition = state.loop.board[culprit];
+  const paranoiaNeeded = characterDataOf(culprit).paranoiaLimit;
   const alive = isCharacterAlive(culpritPosition) ? 1 : 0;
-  const paranoia = incidentParanoia(state, scheduled.culprit);
-  const paranoiaLabel = scheduled.culprit === "ai"
+  const paranoia = incidentParanoia(state, culprit);
+  const paranoiaLabel = culprit === "ai"
     ? "범인 판정 불안"
     : "범인 불안";
   const hospitalIntrigue = state.loop.locIntrigue.Hospital;
   const notSuppressed = state.loop.incidentCulpritSuppressedFor?.includes(
-    scheduled.culprit,
+    culprit,
   ) ? 0 : 1;
-  const effectValid = scheduled.culprit === "blackCat" ? 0 : 1;
+  const effectValid = culprit === "blackCat" ? 0 : 1;
   const label = `${scheduled.day}일 ${impl.ko}: ` +
     `범인 생존 ${alive}/1 · ${paranoiaLabel} ${paranoia}/${paranoiaNeeded} · ` +
     `발생 억제 없음 ${notSuppressed}/1 · 효과 유효 ${effectValid}/1 · ` +
@@ -1088,7 +1093,7 @@ function incidentLossDistance(
     key: incidentKey(
       scheduled.incident,
       scheduled.day,
-      scheduled.culprit,
+      culprit,
     ),
     source: "incident",
     category: "protagonistDeath",
@@ -1096,12 +1101,12 @@ function incidentLossDistance(
     activation: "mandatory",
     when: "사건 단계",
     incident: scheduled.incident,
-    culprit: scheduled.culprit,
+    culprit,
     day: scheduled.day,
     ko: impl.ko,
     conditionMet:
-      incidentFires(state, scheduled.culprit) &&
-      scheduled.culprit !== "blackCat" &&
+      incidentFires(state, scheduled.culprit, scheduled.incident) &&
+      culprit !== "blackCat" &&
       lossHook.when(state, scheduled.culprit),
     label,
     requirements: [

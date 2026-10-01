@@ -4,6 +4,7 @@ import {
   incidentFailureReasons,
   resolveIncident,
 } from "../src/engine/incident";
+import { incidentDefinition } from "../src/engine/incident-definition";
 import { resolveGoodwillAbility } from "../src/engine/goodwill";
 import {
   chooseInitialLeader,
@@ -117,34 +118,99 @@ function incidentHook(incident: string, index = 0): IncidentHook {
 }
 
 describe("incident resolution", () => {
+  it("resolves every same-day occurrence in authored order with independent choices", () => {
+    const scenario: Scenario = {
+      tragedySet: "basicTragedy",
+      mainPlot: "",
+      subPlots: [],
+      cast: { boyStudent: "person", girlStudent: "person" },
+      incidents: [
+        { day: 1, incident: "missingPerson", culprit: "boyStudent" },
+        { day: 1, incident: "missingPerson", culprit: "girlStudent" },
+      ],
+      loops: 1,
+      daysPerLoop: 1,
+    };
+    const state: GameState = {
+      scenario,
+      gamePhase: "ROUND",
+      loop: initLoop(scenario),
+      history: [],
+      loopOutcomes: [],
+    };
+    state.loop.phase = "P7_INCIDENT";
+    state.loop.charCounters.boyStudent.paranoia = 10;
+    state.loop.charCounters.girlStudent.paranoia = 10;
+
+    const result = resolveIncident(state, [
+      { location: "Hospital" },
+      { location: "School" },
+    ]);
+
+    expect(result.occurrences.map(({ occurrenceId }) => occurrenceId)).toEqual([
+      "1:missingPerson:0",
+      "1:missingPerson:1",
+    ]);
+    expect(boardLocation(state.loop, "boyStudent")).toBe("Hospital");
+    expect(boardLocation(state.loop, "girlStudent")).toBe("School");
+    expect(state.loop.incidentOccurrencesFiredThisLoop).toEqual([
+      expect.objectContaining({
+        culprit: { kind: "character", id: "boyStudent" },
+        occurrenceIndex: 0,
+      }),
+      expect.objectContaining({
+        culprit: { kind: "character", id: "girlStudent" },
+        occurrenceIndex: 1,
+      }),
+    ]);
+  });
+
+  it("keeps current incidents on the default character policy", () => {
+    expect(incidentDefinition("murder")).toMatchObject({
+      triggerPolicy: {
+        kind: "characterParanoia",
+        paranoiaLimitAdjustment: 0,
+      },
+      culpritKind: "character",
+      allowsRepeatedCulprit: false,
+      choiceSchema: [{ kind: "character", key: "target" }],
+    });
+    expect(incidentDefinition("serialMurder").allowsRepeatedCulprit).toBe(false);
+  });
+
   it("returns fired separately when an incident has no applied effect", () => {
     const state = createState("suicide", {
       [CULPRIT]: "timeTraveler",
     });
 
-    expect(resolveIncident(state)).toEqual({
-      incident: "suicide",
-      culprit: CULPRIT,
-      fired: true,
-      effectApplied: false,
+    expect(resolveIncident(state)).toMatchObject({
+      occurrences: [{
+        incident: "suicide",
+        culprit: { kind: "character", id: CULPRIT },
+        fired: true,
+        effectApplied: false,
+      }],
     });
     expect(boardIsAlive(state.loop, CULPRIT)).toBe(true);
     expect(state.loop.incidentsFiredThisLoop).toEqual(["suicide"]);
     expect(state.loop.incidentOccurrencesFiredThisLoop).toEqual([{
       day: 1,
       incident: "suicide",
-      culprit: CULPRIT,
+      culprit: { kind: "character", id: CULPRIT },
+      occurrenceIndex: 0,
     }]);
   });
 
   it("returns the P7 result and advances to P8", () => {
     const state = createState("foulEvil");
 
-    expect(advance(state)).toEqual({
-      incident: "foulEvil",
-      culprit: CULPRIT,
-      fired: true,
-      effectApplied: true,
+    expect(advance(state)).toMatchObject({
+      occurrences: [{
+        incident: "foulEvil",
+        culprit: { kind: "character", id: CULPRIT },
+        fired: true,
+        effectApplied: true,
+      }],
     });
     expect(state.loop.phase).toBe("P8_LEADER_PASS");
     expect(state.loop.locIntrigue.Shrine).toBe(2);
@@ -154,10 +220,7 @@ describe("incident resolution", () => {
     const state = createState("foulEvil");
     state.scenario.incidents = [];
 
-    expect(resolveIncident(state)).toEqual({
-      fired: false,
-      effectApplied: false,
-    });
+    expect(resolveIncident(state)).toEqual({ occurrences: [] });
   });
 
   it("does not choose a required effect target or leave P7 implicitly", () => {
@@ -178,18 +241,21 @@ describe("sectFounder incident trait", () => {
       ["sectFounder", "boyStudent"],
     );
 
-    expect(resolveIncident(state)).toEqual({
-      incident: "foulEvil",
-      culprit: "sectFounder",
-      fired: true,
-      effectApplied: true,
+    expect(resolveIncident(state)).toMatchObject({
+      occurrences: [{
+        incident: "foulEvil",
+        culprit: { kind: "character", id: "sectFounder" },
+        fired: true,
+        effectApplied: true,
+      }],
     });
     expect(state.loop.locIntrigue.Shrine).toBe(4);
     expect(state.loop.incidentsFiredThisLoop).toEqual(["foulEvil"]);
     expect(state.loop.incidentOccurrencesFiredThisLoop).toEqual([{
       day: 1,
       incident: "foulEvil",
-      culprit: "sectFounder",
+      culprit: { kind: "character", id: "sectFounder" },
+      occurrenceIndex: 0,
     }]);
   });
 
@@ -219,8 +285,7 @@ describe("sectFounder incident trait", () => {
     state.scenario.cast.sectFounder = "timeTraveler";
 
     expect(resolveIncident(state)).toMatchObject({
-      fired: true,
-      effectApplied: false,
+      occurrences: [{ fired: true, effectApplied: false }],
     });
     expect(boardIsAlive(state.loop, "sectFounder")).toBe(true);
     expect(state.loop.incidentOccurrencesFiredThisLoop).toHaveLength(1);
@@ -262,7 +327,7 @@ describe("AI incident trigger check", () => {
     });
 
     expect(incidentFailureReasons(state, "ai")).toEqual([]);
-    expect(resolveIncident(state).fired).toBe(true);
+    expect(resolveIncident(state).occurrences[0]?.fired).toBe(true);
   });
 
   it("does not fire when AI's total counters are one below its limit", () => {
@@ -280,7 +345,7 @@ describe("AI incident trigger check", () => {
 
     expect(incidentFailureReasons(state, "ai"))
       .toContain("insufficientParanoia");
-    expect(resolveIncident(state).fired).toBe(false);
+    expect(resolveIncident(state).occurrences[0]?.fired).toBe(false);
   });
 
   it("continues to count only paranoia for an ordinary culprit", () => {
@@ -298,7 +363,7 @@ describe("AI incident trigger check", () => {
 
     expect(incidentFailureReasons(state, "boyStudent"))
       .toContain("insufficientParanoia");
-    expect(resolveIncident(state).fired).toBe(false);
+    expect(resolveIncident(state).occurrences[0]?.fired).toBe(false);
   });
 });
 
@@ -592,11 +657,13 @@ describe("henchman rank 3 / suppress incidents by culprit", () => {
     );
     activateHenchmanSuppression(state);
 
-    expect(resolveIncident(state)).toEqual({
-      incident: "foulEvil",
-      culprit: "henchman",
-      fired: false,
-      effectApplied: false,
+    expect(resolveIncident(state)).toMatchObject({
+      occurrences: [{
+        incident: "foulEvil",
+        culprit: { kind: "character", id: "henchman" },
+        fired: false,
+        effectApplied: false,
+      }],
     });
     expect(state.loop.locIntrigue.Shrine).toBe(0);
     expect(state.loop.incidentsFiredThisLoop).toBeUndefined();
@@ -611,11 +678,13 @@ describe("henchman rank 3 / suppress incidents by culprit", () => {
     );
     activateHenchmanSuppression(state);
 
-    expect(resolveIncident(state)).toEqual({
-      incident: "foulEvil",
-      culprit: "boyStudent",
-      fired: true,
-      effectApplied: true,
+    expect(resolveIncident(state)).toMatchObject({
+      occurrences: [{
+        incident: "foulEvil",
+        culprit: { kind: "character", id: "boyStudent" },
+        fired: true,
+        effectApplied: true,
+      }],
     });
     expect(state.loop.locIntrigue.Shrine).toBe(2);
     expect(state.loop.incidentsFiredThisLoop).toEqual(["foulEvil"]);
@@ -630,7 +699,7 @@ describe("henchman rank 3 / suppress incidents by culprit", () => {
     );
     activateHenchmanSuppression(state);
 
-    expect(resolveIncident(state).fired).toBe(false);
+    expect(resolveIncident(state).occurrences[0]?.fired).toBe(false);
     state.loop.day = state.scenario.daysPerLoop;
     state.loop.phase = "P9_ROUND_END";
 
@@ -646,11 +715,13 @@ describe("henchman rank 3 / suppress incidents by culprit", () => {
       "changeOfFuture",
     );
 
-    expect(resolveIncident(state)).toEqual({
-      incident: "butterflyEffect",
-      culprit: "blackCat",
-      fired: true,
-      effectApplied: false,
+    expect(resolveIncident(state)).toMatchObject({
+      occurrences: [{
+        incident: "butterflyEffect",
+        culprit: { kind: "character", id: "blackCat" },
+        fired: true,
+        effectApplied: false,
+      }],
     });
     expect(state.loop.incidentsFiredThisLoop).toEqual(["butterflyEffect"]);
     state.loop.day = state.scenario.daysPerLoop;

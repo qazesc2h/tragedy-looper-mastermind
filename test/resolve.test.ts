@@ -263,9 +263,10 @@ describe("manual resolution examples", () => {
         triggerCase.paranoiaLimit,
       );
       const result = resolveIncident(state);
+      const occurrence = result.occurrences[0];
 
-      expect(result.fired).toBe(triggerCase.expectFires);
-      expect(result.effectApplied).toBe(triggerCase.expectFires);
+      expect(occurrence?.fired).toBe(triggerCase.expectFires);
+      expect(occurrence?.effectApplied).toBe(triggerCase.expectFires);
     });
   }
 

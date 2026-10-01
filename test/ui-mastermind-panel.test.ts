@@ -169,7 +169,9 @@ describe("mastermind incident schedule", () => {
       protection: 1,
     };
 
-    expect(incidentScheduleRows(state).find(({ culprit }) => culprit === "ai"))
+    expect(incidentScheduleRows(state).find(({ culprit }) =>
+      culprit.kind === "character" && culprit.id === "ai"
+    ))
       .toMatchObject({
         paranoia: 4,
         paranoiaLimit: 4,
@@ -187,7 +189,7 @@ describe("mastermind incident schedule", () => {
     state.scenario.incidents = [{
       day: 5,
       incident: "murder",
-      culprit: "transferStudent",
+      culprit: { kind: "character", id: "transferStudent" },
     }];
     state.loop.board.transferStudent = { status: "absent" };
     state.loop.charCounters.transferStudent = {
@@ -200,7 +202,7 @@ describe("mastermind incident schedule", () => {
     expect(incidentScheduleRows(state)).toMatchObject([{
       day: 5,
       incident: "murder",
-      culprit: "transferStudent",
+      culprit: { kind: "character", id: "transferStudent" },
       culpritEntryLabel: "4일 등장",
       currentFailureReasons: ["culpritAbsent"],
     }]);
