@@ -11,7 +11,7 @@ import {
   type LossRouteControl,
 } from "./loss";
 import { actionCardRestriction } from "./legal";
-import { characterCulprit } from "./incident-model";
+import { actualIncidentOf, characterCulprit } from "./incident-model";
 
 export interface GuidanceActions {
   cards: number;
@@ -185,8 +185,9 @@ function requirementTarget(
     const dayIndex = route.key.startsWith("death:incident:") ? 3 : -1;
     const day = dayIndex < 0 ? undefined : Number(parts[dayIndex]);
     const scheduled = Number.isInteger(day)
-      ? state.scenario.incidents.find(({ day: candidateDay, incident }) =>
-        candidateDay === day && route.key.includes(`:${incident}:`)
+      ? state.scenario.incidents.find((scheduled) =>
+        scheduled.day === day &&
+        route.key.includes(`:${actualIncidentOf(scheduled)}:`)
       )
       : undefined;
     const culprit = condition.culprit ??
@@ -203,7 +204,7 @@ function butterflyEffectPlan(
   plan: MutablePlan,
 ): number | undefined {
   const incident = state.scenario.incidents
-    .filter(({ incident }) => incident === "butterflyEffect")
+    .filter((scheduled) => actualIncidentOf(scheduled) === "butterflyEffect")
     .sort((left, right) => left.day - right.day)[0];
   if (incident === undefined) return undefined;
   const culprit = characterCulprit(incident.culprit);
@@ -385,8 +386,8 @@ function interferenceFor(
     };
   }
   if (condition.plot === "changeOfFuture") {
-    const incident = state.scenario.incidents.find(
-      ({ incident: id }) => id === "butterflyEffect",
+    const incident = state.scenario.incidents.find((scheduled) =>
+      actualIncidentOf(scheduled) === "butterflyEffect"
     );
     const culprit = incident === undefined
       ? undefined
@@ -476,8 +477,8 @@ function guidanceRoute(
   const day = minimumDay(state, condition, planned.plan, planned.fixedDay);
   const interference = interferenceFor(state, condition, route);
   const butterflyIncident = condition.plot === "changeOfFuture"
-    ? state.scenario.incidents.find(({ incident }) =>
-      incident === "butterflyEffect"
+    ? state.scenario.incidents.find((scheduled) =>
+      actualIncidentOf(scheduled) === "butterflyEffect"
     )
     : undefined;
   const warning = butterflyIncident !== undefined

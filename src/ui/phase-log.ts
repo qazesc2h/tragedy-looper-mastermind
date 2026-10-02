@@ -319,7 +319,7 @@ export function phaseLogTimeline(state: GameState): PhaseLogTimelineItem[] {
     }
 
     for (const information of loop.publicInformationThisLoop ?? []) {
-      if (information.kind === "roleReveal") {
+      if (information.kind === "roleClaim") {
         items.push({
           kind: "roleReveal",
           loop: information.loop,
@@ -333,7 +333,7 @@ export function phaseLogTimeline(state: GameState): PhaseLogTimelineItem[] {
           characters: [information.character],
           locations: [],
           character: information.character,
-          role: information.role,
+          role: information.claimedRole,
         });
       } else if (information.kind === "sameRoleCharacters") {
         items.push({
@@ -367,7 +367,7 @@ export function phaseLogTimeline(state: GameState): PhaseLogTimelineItem[] {
           locations: culprit.kind === "location"
             ? [culprit.at]
             : [],
-          incident: information.incident,
+          incident: information.declaredIncident,
           culprit,
         });
       }

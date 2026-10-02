@@ -158,12 +158,11 @@ function currentLoopCompletedPhaseKeys(state: GameState): string[] {
 }
 
 function revealedRoleEver(state: GameState): string[] {
-  return sortedUnique([...state.history, state.loop].flatMap((loop) => [
-    ...(loop.revealedRoleCharacters ?? []),
-    ...(loop.publicInformationThisLoop ?? []).flatMap((information) =>
-      information.kind === "roleReveal" ? [information.character] : []
-    ),
-  ]));
+  return sortedUnique([...state.history, state.loop].flatMap((loop) =>
+    (loop.publicInformationThisLoop ?? []).flatMap((information) =>
+      information.kind === "roleClaim" ? [information.character] : []
+    )
+  ));
 }
 
 function previousLoopAliveGoodwill(state: GameState): string[] {

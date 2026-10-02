@@ -10,7 +10,7 @@ import {
   type Target,
 } from "../types";
 import { validatePlacement } from "./legal";
-import { characterCulprit } from "./incident-model";
+import { actualIncidentOf, characterCulprit } from "./incident-model";
 import {
   mastermindGuidance,
   type GuidancePlacementNeed,
@@ -285,8 +285,8 @@ function decoyTargetCards(
         );
       });
     case "plot:changeOfFuture": {
-      const incident = state.scenario.incidents.find(
-        ({ incident: id }) => id === "butterflyEffect",
+      const incident = state.scenario.incidents.find((scheduled) =>
+        actualIncidentOf(scheduled) === "butterflyEffect"
       );
       if (incident === undefined) return [];
       const culprit = characterCulprit(incident.culprit);

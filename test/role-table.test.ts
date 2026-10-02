@@ -1257,13 +1257,12 @@ describe("loop-end friend non-reveal observations", () => {
   it("does not repeat a friend exclusion after the role was already known", () => {
     const state = createGameState(friendScenario());
     state.loop.publicInformationThisLoop = [{
-      kind: "roleReveal",
+      kind: "roleClaim",
       character: "doctor",
-      role: "person",
+      claimedRole: "person",
       loop: 1,
       day: 1,
     }];
-    state.loop.revealedRoleCharacters = ["doctor"];
     state.history.push(structuredClone(state.loop));
 
     state.loop = initLoop(state.scenario, 2);

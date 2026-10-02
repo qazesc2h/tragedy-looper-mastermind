@@ -181,12 +181,13 @@ function resolveScheduledIncident(
   const failureReasons = incidentFailureReasons(
     state,
     scheduled.culprit,
-    scheduled.incident,
+    scheduled.actualIncident,
   );
   const base = {
     occurrenceId,
     occurrenceIndex: scheduled.occurrenceIndex,
-    incident: scheduled.incident,
+    declaredIncident: scheduled.declaredIncident,
+    actualIncident: scheduled.actualIncident,
     culprit: scheduled.culprit,
     publicContext,
     failureReasons,
@@ -201,7 +202,7 @@ function resolveScheduledIncident(
     ? { effectApplied: false }
     : resolveIncidentEffectResult(
       state,
-      scheduled.incident,
+      scheduled.actualIncident,
       scheduled.culprit,
       choice,
     );
@@ -209,7 +210,7 @@ function resolveScheduledIncident(
   if (culpritCharacter === "sectFounder" && firstEffect.effectApplied) {
     const secondEffect = resolveIncidentEffectResult(
       state,
-      scheduled.incident,
+      scheduled.actualIncident,
       scheduled.culprit,
       incidentSubIncidentDecision(choice),
     );
@@ -222,8 +223,8 @@ function resolveScheduledIncident(
   const targets = incidentChoiceTargets(choice);
 
   const firedIncidents = state.loop.incidentsFiredThisLoop ??= [];
-  if (!firedIncidents.includes(scheduled.incident)) {
-    firedIncidents.push(scheduled.incident);
+  if (!firedIncidents.includes(scheduled.actualIncident)) {
+    firedIncidents.push(scheduled.actualIncident);
   }
   const firedOccurrences = state.loop.incidentOccurrencesFiredThisLoop ??= [];
   if (!firedOccurrences.some((occurrence) =>

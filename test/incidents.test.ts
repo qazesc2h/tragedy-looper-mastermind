@@ -185,7 +185,7 @@ describe("incident resolution", () => {
 
     expect(resolveIncident(state)).toMatchObject({
       occurrences: [{
-        incident: "suicide",
+        declaredIncident: "suicide",
         culprit: { kind: "character", id: CULPRIT },
         fired: true,
         effectApplied: false,
@@ -196,6 +196,8 @@ describe("incident resolution", () => {
     expect(state.loop.incidentOccurrencesFiredThisLoop).toEqual([{
       day: 1,
       incident: "suicide",
+      declaredIncident: "suicide",
+      actualIncident: "suicide",
       culprit: { kind: "character", id: CULPRIT },
       occurrenceIndex: 0,
     }]);
@@ -206,7 +208,7 @@ describe("incident resolution", () => {
 
     expect(advance(state)).toMatchObject({
       occurrences: [{
-        incident: "foulEvil",
+        declaredIncident: "foulEvil",
         culprit: { kind: "character", id: CULPRIT },
         fired: true,
         effectApplied: true,
@@ -243,7 +245,7 @@ describe("sectFounder incident trait", () => {
 
     expect(resolveIncident(state)).toMatchObject({
       occurrences: [{
-        incident: "foulEvil",
+        declaredIncident: "foulEvil",
         culprit: { kind: "character", id: "sectFounder" },
         fired: true,
         effectApplied: true,
@@ -254,6 +256,8 @@ describe("sectFounder incident trait", () => {
     expect(state.loop.incidentOccurrencesFiredThisLoop).toEqual([{
       day: 1,
       incident: "foulEvil",
+      declaredIncident: "foulEvil",
+      actualIncident: "foulEvil",
       culprit: { kind: "character", id: "sectFounder" },
       occurrenceIndex: 0,
     }]);
@@ -659,7 +663,7 @@ describe("henchman rank 3 / suppress incidents by culprit", () => {
 
     expect(resolveIncident(state)).toMatchObject({
       occurrences: [{
-        incident: "foulEvil",
+        declaredIncident: "foulEvil",
         culprit: { kind: "character", id: "henchman" },
         fired: false,
         effectApplied: false,
@@ -680,7 +684,7 @@ describe("henchman rank 3 / suppress incidents by culprit", () => {
 
     expect(resolveIncident(state)).toMatchObject({
       occurrences: [{
-        incident: "foulEvil",
+        declaredIncident: "foulEvil",
         culprit: { kind: "character", id: "boyStudent" },
         fired: true,
         effectApplied: true,
@@ -717,7 +721,7 @@ describe("henchman rank 3 / suppress incidents by culprit", () => {
 
     expect(resolveIncident(state)).toMatchObject({
       occurrences: [{
-        incident: "butterflyEffect",
+        declaredIncident: "butterflyEffect",
         culprit: { kind: "character", id: "blackCat" },
         fired: true,
         effectApplied: false,

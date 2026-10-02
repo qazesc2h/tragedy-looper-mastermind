@@ -95,11 +95,10 @@ function difficultyLabel(difficulty: CoverDifficulty): string {
 }
 
 function wasRevealed(state: GameState, character: CharacterId): boolean {
-  return Boolean(
-    state.loop.revealedRoleCharacters?.includes(character) ||
-    state.history.some((loop) =>
-      loop.revealedRoleCharacters?.includes(character)
-    ),
+  return [...state.history, state.loop].some((loop) =>
+    (loop.publicInformationThisLoop ?? []).some((information) =>
+      information.kind === "roleClaim" && information.character === character
+    )
   );
 }
 

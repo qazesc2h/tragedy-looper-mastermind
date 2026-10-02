@@ -143,7 +143,9 @@ function main(): void {
   ).sort();
   const selectedIncidents = [...new Set(catalog.flatMap((entry) =>
     entry.difficulties.flatMap(({ scenario }) =>
-      scenario.incidents.map(({ incident }) => incident)
+      scenario.incidents.map((scheduled) =>
+        scheduled.actualIncident ?? scheduled.incident
+      )
     )
   ))].sort();
   const selectedPlots = [...new Set(catalog.flatMap((entry) =>

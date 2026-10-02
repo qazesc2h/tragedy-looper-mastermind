@@ -324,12 +324,23 @@ function parseIncidents(
 ): Scenario["incidents"] {
   return normalizeIncidentSchedule(requireArray(value, context).map((entry, index) => {
     const raw = requireRecord(entry, `${context}[${index}]`);
+    const incident = Array.isArray(raw.incident)
+      ? requireStringArray(raw.incident, `${context}[${index}].incident`)
+      : requireString(raw.incident, `${context}[${index}].incident`);
+    if (Array.isArray(incident) && incident.length !== 2) {
+      throw new Error(
+        `${context}[${index}].incident must contain [declaredIncident, actualIncident]`,
+      );
+    }
     return {
       day: requireNumber(raw.day, `${context}[${index}].day`),
-      incident: requireString(
-        raw.incident,
-        `${context}[${index}].incident`,
-      ),
+      ...(Array.isArray(incident)
+        ? {
+          incident: incident[0],
+          declaredIncident: incident[0],
+          actualIncident: incident[1],
+        }
+        : { incident }),
       culprit: requireString(
         raw.culprit,
         `${context}[${index}].culprit`,

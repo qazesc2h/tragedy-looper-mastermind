@@ -83,8 +83,8 @@ function characterWithRole(state: GameState, role: RoleId): string {
 }
 
 function scenarioActors(state: GameState): ScenarioActors {
-  const suicide = state.scenario.incidents.find(
-    ({ incident }) => incident === "suicide",
+  const suicide = state.scenario.incidents.find((scheduled) =>
+    (scheduled.actualIncident ?? scheduled.incident) === "suicide"
   );
   if (suicide === undefined) throw new Error("missing suicide incident");
   return {

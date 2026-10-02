@@ -679,7 +679,7 @@
           state.loop.phase = "P6_GOODWILL";
           state.loop.loop = 2;
           state.loop.charCounters.mysteryBoy.goodwill = 3;
-          state.loop.revealedRoleCharacters = [];
+          state.loop.roleRevealResolutionsThisLoop = [];
         });
         await reloadFrame("아웃사이더 플레이 중 특성");
         const scenarioInformation = await openLazyPanel(

@@ -597,9 +597,9 @@ describe("observation model", () => {
     }, "resolve");
 
     expect(state.loop.publicInformationThisLoop).toContainEqual(expect.objectContaining({
-      kind: "roleReveal",
+      kind: "roleClaim",
       character: "shrineMaiden",
-      role: "serialKiller",
+      claimedRole: "serialKiller",
       loop: 1,
       day: 1,
       observedAt: {
@@ -727,7 +727,14 @@ describe("observation model", () => {
   it("marks loop-snapshot role restoration as unconfirmed", () => {
     const state = firstStepsState();
     state.scenario.cast.shrineMaiden = "keyPerson";
-    state.loop.revealedRoleCharacters = ["shrineMaiden"];
+    state.loop.publicInformationThisLoop = [{
+      kind: "roleClaim",
+      character: "shrineMaiden",
+      claimedRole: "keyPerson",
+      loop: 1,
+      day: 1,
+      legacyRoleUnknown: true,
+    }];
 
     expect(collectProtagonistObservations(state)).toContainEqual({
       kind: "roleRevealed",
@@ -746,7 +753,7 @@ describe("observation model", () => {
       source: "ai",
       day: 4,
       resolvedOnDay: 2,
-      incident: "murder",
+      declaredIncident: "murder",
       culprit: "ai",
       effectApplied: true,
     }];
@@ -763,12 +770,11 @@ describe("observation model", () => {
   it("normalizes scattered public history without copying hidden causes", () => {
     const state = firstStepsState();
     state.scenario.cast.shrineMaiden = "keyPerson";
-    state.loop.revealedRoleCharacters = ["shrineMaiden"];
     state.loop.publicInformationThisLoop = [
       {
-        kind: "roleReveal",
+        kind: "roleClaim",
         character: "shrineMaiden",
-        role: "keyPerson",
+        claimedRole: "keyPerson",
         loop: 1,
         day: 2,
       },
@@ -784,7 +790,7 @@ describe("observation model", () => {
         kind: "incidentCulprit",
         source: "godlyBeing",
         day: 3,
-        incident: "murder",
+        declaredIncident: "murder",
         culprit: "boyStudent",
       },
       {
@@ -800,7 +806,8 @@ describe("observation model", () => {
         day: 3,
         phase: "P7_INCIDENT",
         kind: "incidentJudged",
-        incident: "murder",
+        declaredIncident: "murder",
+        actualIncident: "murder",
         culprit: "boyStudent",
         fired: false,
         effectApplied: false,
@@ -1184,7 +1191,8 @@ describe("loss observation filtering", () => {
       day: 2,
       phase: "P7_INCIDENT",
       kind: "incidentJudged",
-      incident: "hospitalIncident",
+      declaredIncident: "hospitalIncident",
+      actualIncident: "hospitalIncident",
       culprit: "doctor",
       fired: true,
       effectApplied: true,
@@ -1679,7 +1687,8 @@ describe("basicTragedy rule-layer regression", () => {
         day: 1,
         phase: "P7_INCIDENT",
         kind: "incidentJudged",
-        incident: "murder",
+        declaredIncident: "murder",
+        actualIncident: "murder",
         culprit: "boyStudent",
         fired: true,
         effectApplied: true,

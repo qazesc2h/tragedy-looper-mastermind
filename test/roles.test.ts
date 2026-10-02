@@ -726,11 +726,12 @@ describe("friend / reveal role", () => {
     expect(revealHook.when(state, FRIEND)).toBe(true);
     applyIfEligible(revealHook, state, FRIEND);
 
-    expect(state.loop.revealedRoleCharacters).toEqual([FRIEND]);
+    expect(state.loop.roleRevealResolutionsThisLoop?.map(({ character }) => character))
+      .toEqual([FRIEND]);
     expect(state.loop.publicInformationThisLoop).toContainEqual(expect.objectContaining({
-      kind: "roleReveal",
+      kind: "roleClaim",
       character: FRIEND,
-      role: "friend",
+      claimedRole: "friend",
       loop: 1,
       day: 1,
     }));
@@ -743,7 +744,7 @@ describe("friend / reveal role", () => {
     expect(revealHook.when(state, FRIEND)).toBe(false);
     applyIfEligible(revealHook, state, FRIEND);
 
-    expect(state.loop.revealedRoleCharacters).toBeUndefined();
+    expect(state.loop.roleRevealResolutionsThisLoop).toBeUndefined();
   });
 });
 
@@ -851,12 +852,13 @@ describe("friend / revealed role bonus", () => {
         ...(testCase.target === undefined ? {} : { target: testCase.target }),
       }, "resolve");
 
-      expect(state.loop.revealedRoleCharacters).toEqual([testCase.revealed]);
+      expect(state.loop.roleRevealResolutionsThisLoop?.map(({ character }) => character))
+        .toEqual([testCase.revealed]);
       expect(state.loop.publicInformationThisLoop).toContainEqual(
         expect.objectContaining({
-          kind: "roleReveal",
+          kind: "roleClaim",
           character: testCase.revealed,
-          role: "friend",
+          claimedRole: "friend",
           loop: testCase.loop,
         }),
       );
@@ -878,7 +880,8 @@ describe("friend / revealed role bonus", () => {
     state.loop = initLoop(state.scenario);
     state.loop.loop = 2;
 
-    expect(state.history[0].revealedRoleCharacters).toEqual([FRIEND]);
+    expect(state.history[0].roleRevealResolutionsThisLoop?.map(({ character }) => character))
+      .toEqual([FRIEND]);
     expect(loopStartHook.when(state, FRIEND)).toBe(true);
     resolveHooks(state, "LOOP_START");
 

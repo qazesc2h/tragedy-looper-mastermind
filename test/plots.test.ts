@@ -200,7 +200,12 @@ describe("threadsFate", () => {
       const state = createPlotState("threadsFate");
       state.scenario.cast[BOY] = "friend";
       state.loop.charCounters[BOY].goodwill = 3;
-      state.loop.revealedRoleCharacters = [BOY];
+      state.loop.roleRevealResolutionsThisLoop = [{
+        character: BOY,
+        actualRoleAtReveal: "friend",
+        claimedRole: "friend",
+        result: "truthful",
+      }];
       endLoop(state);
 
       state.loop = initLoop(state.scenario, 2);

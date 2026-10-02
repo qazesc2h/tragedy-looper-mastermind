@@ -10,6 +10,7 @@ import {
   incidentFires,
   type ResolvedIncidentBatch,
 } from "../../src/engine/incident";
+import { actualIncidentOf } from "../../src/engine/incident-model";
 import { validatePlacement } from "../../src/engine/legal";
 import { distanceToLoss, setOptionalLossActivation } from "../../src/engine/loss";
 import { applyHookEffect, collectHooks } from "../../src/engine/phases";
@@ -485,7 +486,16 @@ function* goodwillChoiceDeclarations(
           yield { ...base, incident: structuredClone(incident) };
           continue;
         }
-        const fields = aiIncidentChoiceFields(incident.incident);
+        const scheduled = state.scenario.incidents.find((candidate) =>
+          candidate.day === incident.day &&
+          candidate.incident === incident.incident &&
+          (candidate.occurrenceIndex ?? 0) === (incident.occurrenceIndex ?? 0)
+        );
+        const fields = aiIncidentChoiceFields(
+          scheduled === undefined
+            ? incident.incident
+            : actualIncidentOf(scheduled),
+        );
         for (const incidentChoice of incidentChoicesForFields(state, fields)) {
           yield {
             ...base,
@@ -594,9 +604,13 @@ export function* enumerateP7Transitions(
     ({ day }) => day === input.state.loop.day,
   );
   const fields = scheduled === undefined ||
-      !incidentFires(input.state, scheduled.culprit)
+      !incidentFires(
+        input.state,
+        scheduled.culprit,
+        actualIncidentOf(scheduled),
+      )
     ? []
-    : aiIncidentChoiceFields(scheduled.incident);
+    : aiIncidentChoiceFields(actualIncidentOf(scheduled));
   const seen = new Set<string>();
   for (const choice of incidentChoicesForFields(input.state, fields)) {
     const choiceKey = canonicalStringify(choice ?? null);

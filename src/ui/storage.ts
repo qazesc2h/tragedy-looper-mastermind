@@ -1,7 +1,15 @@
-import { LOCATIONS } from "../types";
+import { effectiveRole, LOCATIONS } from "../types";
 import { applyScenarioErrataToLoadedScenario } from "../errata";
 import { normalizeIncidentSchedule } from "../engine/incident-model";
-import type { GameState, Location, LoopState, Phase } from "../types";
+import type {
+  GameState,
+  Location,
+  LoopState,
+  Phase,
+  PhaseLogEntry,
+  PublicInformation,
+  PublicObservationContext,
+} from "../types";
 
 export const TRACKER_STORAGE_KEY = "tragedy-looper-mastermind:tracker";
 export const APP_STORAGE_PREFIX = "tragedy-looper-mastermind:";
@@ -249,12 +257,112 @@ function restoreStoredGame(
     }
     return restoredLoop;
   });
+  for (const loop of [...restored.state.history, restored.state.loop]) {
+    migrateLegacyRoleReveals(restored.state, loop);
+  }
   restored.observationsByLoop = restoreObservations(
     defaults,
     restored.observationsByLoop,
     `${path}.observationsByLoop`,
   );
   return restored;
+}
+
+function migrateLegacyRoleReveals(state: GameState, loop: LoopState): void {
+  const resolutions = loop.roleRevealResolutionsThisLoop ??= [];
+  loop.phaseLog = (loop.phaseLog ?? []).map((entry) => {
+    const legacy = entry as unknown as Record<string, unknown>;
+    if (
+      legacy.kind !== "incidentJudged" ||
+      typeof legacy.incident !== "string"
+    ) {
+      return entry;
+    }
+    const { incident, ...rest } = legacy;
+    return {
+      ...rest,
+      declaredIncident: legacy.declaredIncident ?? incident,
+      actualIncident: legacy.actualIncident ?? incident,
+    } as unknown as PhaseLogEntry;
+  });
+  const publicInformation: PublicInformation[] =
+    (loop.publicInformationThisLoop ?? []).map(
+    (information) => {
+      const legacy = information as unknown as Record<string, unknown>;
+      if (
+        (legacy.kind === "incidentCulprit" ||
+          legacy.kind === "incidentEffect") &&
+        typeof legacy.incident === "string"
+      ) {
+        const { incident, ...rest } = legacy;
+        return {
+          ...rest,
+          declaredIncident: legacy.declaredIncident ?? incident,
+        } as unknown as PublicInformation;
+      }
+      if (legacy.kind !== "roleReveal") return information;
+      const character = legacy.character as string;
+      const claimedRole = legacy.role as string;
+      const observedAt = legacy.observedAt as typeof information.observedAt;
+      if (!resolutions.some((resolution) =>
+        resolution.character === character &&
+        resolution.observedAt?.sequence === observedAt?.sequence
+      )) {
+        resolutions.push({
+          character,
+          actualRoleAtReveal: claimedRole,
+          claimedRole,
+          result: "truthful",
+          ...(observedAt === undefined ? {} : { observedAt }),
+        });
+      }
+      return {
+        kind: "roleClaim",
+        character,
+        claimedRole,
+        loop: legacy.loop as number,
+        day: legacy.day as number,
+        ...(legacy.context === undefined ? {} : {
+          context: legacy.context as PublicObservationContext,
+        }),
+        ...(observedAt === undefined ? {} : { observedAt }),
+      } satisfies PublicInformation;
+    },
+  );
+  loop.publicInformationThisLoop = publicInformation;
+
+  const legacyCharacters = Reflect.get(loop, "revealedRoleCharacters");
+  if (Array.isArray(legacyCharacters)) {
+    for (const character of legacyCharacters) {
+      if (typeof character !== "string") continue;
+      const alreadyClaimed = publicInformation.some(
+        (information) =>
+          information.kind === "roleClaim" &&
+          information.character === character,
+      );
+      if (alreadyClaimed) continue;
+      const role = effectiveRole({ ...state, loop }, character);
+      publicInformation.push({
+        kind: "roleClaim",
+        character,
+        claimedRole: role,
+        loop: loop.loop,
+        day: loop.day,
+        legacyRoleUnknown: true,
+      });
+      resolutions.push({
+        character,
+        actualRoleAtReveal: role,
+        claimedRole: role,
+        result: "truthful",
+      });
+    }
+    Reflect.deleteProperty(loop, "revealedRoleCharacters");
+  }
+  if (resolutions.length === 0) delete loop.roleRevealResolutionsThisLoop;
+  if (publicInformation.length === 0) {
+    delete loop.publicInformationThisLoop;
+  }
 }
 
 function discardLegacyServantDecline(loop: LoopState): void {

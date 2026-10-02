@@ -321,6 +321,8 @@ describe("UI localStorage snapshots", () => {
     const canonical = {
       day: 1,
       incident: "foulEvil",
+      declaredIncident: "foulEvil",
+      actualIncident: "foulEvil",
       culprit: { kind: "character", id: "boyStudent" },
       occurrenceIndex: 0,
     };
@@ -328,6 +330,83 @@ describe("UI localStorage snapshots", () => {
     expect(restored.loop.incidentOccurrencesFiredThisLoop).toEqual([canonical]);
     expect(restored.history[0].incidentOccurrencesFiredThisLoop)
       .toEqual([canonical]);
+  });
+
+  it("migrates legacy revealed-role flags into claims and private resolutions", () => {
+    const storage = new MemoryStorage();
+    const defaults = storedGameDefaults("basicTragedy:1");
+    if (defaults === undefined) throw new Error("missing defaults");
+    const legacy = structuredClone(defaults);
+    Reflect.set(legacy.state.loop, "revealedRoleCharacters", ["boyStudent"]);
+    storage.setItem(TRACKER_STORAGE_KEY, JSON.stringify({
+      activeScenarioId: "basicTragedy:1",
+      mastermindOverlay: true,
+      games: { "basicTragedy:1": legacy },
+    }));
+
+    const restored = loadTrackerStore(storage, storedGameDefaults)
+      .games["basicTragedy:1"].state.loop;
+    expect(Reflect.has(restored, "revealedRoleCharacters")).toBe(false);
+    expect(restored.publicInformationThisLoop).toContainEqual({
+      kind: "roleClaim",
+      character: "boyStudent",
+      claimedRole: "person",
+      loop: 1,
+      day: 1,
+      legacyRoleUnknown: true,
+    });
+    expect(restored.roleRevealResolutionsThisLoop).toContainEqual({
+      character: "boyStudent",
+      actualRoleAtReveal: "person",
+      claimedRole: "person",
+      result: "truthful",
+    });
+  });
+
+  it("migrates legacy incident records into declared and actual fields", () => {
+    const storage = new MemoryStorage();
+    const defaults = storedGameDefaults("basicTragedy:1");
+    if (defaults === undefined) throw new Error("missing defaults");
+    const legacy = structuredClone(defaults);
+    Reflect.set(legacy.state.loop, "phaseLog", [{
+      loop: 1,
+      day: 1,
+      phase: "P7_INCIDENT",
+      kind: "incidentJudged",
+      incident: "foulEvil",
+      culprit: "boyStudent",
+      fired: true,
+      effectApplied: true,
+      failureReasons: [],
+    }]);
+    Reflect.set(legacy.state.loop, "publicInformationThisLoop", [{
+      kind: "incidentCulprit",
+      source: "godlyBeing",
+      day: 1,
+      incident: "foulEvil",
+      culprit: "boyStudent",
+    }]);
+    storage.setItem(TRACKER_STORAGE_KEY, JSON.stringify({
+      activeScenarioId: "basicTragedy:1",
+      mastermindOverlay: true,
+      games: { "basicTragedy:1": legacy },
+    }));
+
+    const restored = loadTrackerStore(storage, storedGameDefaults)
+      .games["basicTragedy:1"].state.loop;
+    expect(restored.phaseLog?.[0]).toMatchObject({
+      kind: "incidentJudged",
+      declaredIncident: "foulEvil",
+      actualIncident: "foulEvil",
+    });
+    expect(restored.publicInformationThisLoop?.[0]).toMatchObject({
+      kind: "incidentCulprit",
+      declaredIncident: "foulEvil",
+    });
+    expect(restored.phaseLog?.[0]).not.toHaveProperty("incident");
+    expect(restored.publicInformationThisLoop?.[0]).not.toHaveProperty(
+      "incident",
+    );
   });
 
   it("migrates legacy full observation snapshots to compact metadata", () => {

@@ -1261,19 +1261,18 @@
         }
 
         mutateActiveState((state) => {
-          state.loop.revealedRoleCharacters = ["boyStudent", "girlStudent"];
           state.loop.publicInformationThisLoop = [
             {
-              kind: "roleReveal",
+              kind: "roleClaim",
               character: "boyStudent",
-              role: "brain",
+              claimedRole: "brain",
               loop: 1,
               day: 1,
             },
             {
-              kind: "roleReveal",
+              kind: "roleClaim",
               character: "girlStudent",
-              role: "keyPerson",
+              claimedRole: "keyPerson",
               loop: 1,
               day: 2,
             },
@@ -1406,11 +1405,10 @@
           state.loop.phaseLog = [];
           state.loop.incidentsFiredThisLoop = [];
           state.loop.incidentOccurrencesFiredThisLoop = [];
-          state.loop.revealedRoleCharacters = ["shrineMaiden"];
           state.loop.publicInformationThisLoop = [{
-            kind: "roleReveal",
+            kind: "roleClaim",
             character: "shrineMaiden",
-            role: "person",
+            claimedRole: "person",
             loop: state.loop.loop,
             day: state.loop.day,
           }];
@@ -1465,7 +1463,7 @@
           state.history = [];
           state.loopOutcomes = [];
           state.scenario.subPlots = ["loveAffair", "threadsFate"];
-          state.loop.revealedRoleCharacters = [];
+          state.loop.roleRevealResolutionsThisLoop = [];
           state.loop.publicInformationThisLoop = [];
           state.loop.phaseLog = [];
           state.loop.phaseLog.push({
@@ -1574,12 +1572,11 @@
           state.history = [];
           state.loopOutcomes = [];
           state.loop.phaseLog = [];
-          state.loop.revealedRoleCharacters = ["girlStudent"];
           state.loop.publicInformationThisLoop = [
             {
-              kind: "roleReveal",
+              kind: "roleClaim",
               character: "girlStudent",
-              role: "friend",
+              claimedRole: "friend",
               loop: 1,
               day: 1,
             },
@@ -1872,7 +1869,7 @@
             loop.phase = "P9_ROUND_END";
             loop.phaseLog = [];
             loop.publicInformationThisLoop = [];
-            loop.revealedRoleCharacters = [];
+            loop.roleRevealResolutionsThisLoop = [];
             loop.roundEvidence = Array.from({ length: 5 }, (_, dayIndex) => ({
               day: dayIndex + 1,
               roundEndPairs: [{
@@ -2194,7 +2191,7 @@
             source: "ai",
             day: scheduled.day,
             resolvedOnDay: state.loop.day,
-            incident: scheduled.incident,
+            declaredIncident: scheduled.declaredIncident ?? scheduled.incident,
             culprit: "ai",
             effectApplied: true,
           });
@@ -2864,7 +2861,7 @@
             loop.phase = "P9_ROUND_END";
             loop.phaseLog = [];
             loop.publicInformationThisLoop = [];
-            loop.revealedRoleCharacters = [];
+            loop.roleRevealResolutionsThisLoop = [];
             loop.roundEvidence = [];
             for (const character of characters) {
               loop.board[character] = { status: "alive", at: "City" };
@@ -2960,9 +2957,9 @@
               });
             }
             loop.publicInformationThisLoop.push({
-              kind: "roleReveal",
+              kind: "roleClaim",
               character: filteredCharacter,
-              role: state.scenario.cast[filteredCharacter],
+              claimedRole: state.scenario.cast[filteredCharacter],
               loop: loop.loop,
               day: 2,
               observedAt: {

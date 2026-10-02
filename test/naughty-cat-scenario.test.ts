@@ -179,7 +179,8 @@ describe("community scenario: 못된 고양이", () => {
     killCharacter(outsider, "mysteryBoy");
     expect(boardIsAlive(outsider.loop, "mysteryBoy")).toBe(false);
     resolveHooks(outsider, "LOOP_END");
-    expect(outsider.loop.revealedRoleCharacters).toContain("mysteryBoy");
+    expect(outsider.loop.roleRevealResolutionsThisLoop?.map(({ character }) => character))
+      .toContain("mysteryBoy");
   });
 
   it("applies Friend and Threads of Fate after the revealed Mystery Boy dies", () => {
@@ -195,7 +196,8 @@ describe("community scenario: 못된 고양이", () => {
       rank: 3,
       abilityIndex: 1,
     }, "resolve");
-    expect(state.loop.revealedRoleCharacters).toContain("mysteryBoy");
+    expect(state.loop.roleRevealResolutionsThisLoop?.map(({ character }) => character))
+      .toContain("mysteryBoy");
 
     for (const character of [
       "sacredTree",
@@ -317,12 +319,12 @@ describe("community scenario: 못된 고양이", () => {
 
       expect(state.gamePhase).toBe("LOOP_JUDGMENT");
       expect(days).toEqual(new Set([1, 2, 3, 4, 5]));
-      expect(state.loop.incidentOccurrencesFiredThisLoop).toContainEqual({
+      expect(state.loop.incidentOccurrencesFiredThisLoop).toContainEqual(expect.objectContaining({
         day: 5,
         incident: "butterflyEffect",
         culprit: { kind: "character", id: "blackCat" },
         occurrenceIndex: 0,
-      });
+      }));
       expect(state.loopOutcomes.at(-1)).toMatchObject({
         loop,
         day: 5,

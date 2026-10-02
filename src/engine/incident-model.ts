@@ -20,17 +20,33 @@ export function normalizeIncidentCulprit(
     : structuredClone(culprit);
 }
 
+export function declaredIncidentOf(
+  incident: Pick<ScheduledIncidentInput, "incident" | "declaredIncident">,
+): string {
+  return incident.declaredIncident ?? incident.incident;
+}
+
+export function actualIncidentOf(
+  incident: Pick<ScheduledIncidentInput, "incident" | "actualIncident">,
+): string {
+  return incident.actualIncident ?? incident.incident;
+}
+
 export function normalizeIncidentSchedule(
   incidents: readonly ScheduledIncidentInput[],
 ): ScheduledIncident[] {
   const occurrenceCounts = new Map<string, number>();
   return incidents.map((incident) => {
-    const key = `${incident.day}:${incident.incident}`;
-    const occurrenceIndex = occurrenceCounts.get(key) ?? 0;
+    const declaredIncident = declaredIncidentOf(incident);
+    const actualIncident = actualIncidentOf(incident);
+    const key = `${incident.day}:${declaredIncident}`;
+    const occurrenceIndex = incident.occurrenceIndex ?? occurrenceCounts.get(key) ?? 0;
     occurrenceCounts.set(key, occurrenceIndex + 1);
     return {
       day: incident.day,
-      incident: incident.incident,
+      incident: declaredIncident,
+      declaredIncident,
+      actualIncident,
       culprit: normalizeIncidentCulprit(incident.culprit),
       occurrenceIndex,
     };
@@ -38,9 +54,13 @@ export function normalizeIncidentSchedule(
 }
 
 export function incidentOccurrenceId(
-  incident: Pick<ScheduledIncidentInput, "day" | "incident" | "occurrenceIndex">,
+  incident: Pick<
+    ScheduledIncidentInput,
+    "day" | "incident" | "declaredIncident" | "occurrenceIndex"
+  >,
 ): string {
-  return `${incident.day}:${incident.incident}:${incident.occurrenceIndex ?? 0}`;
+  const declaredIncident = incident.declaredIncident ?? incident.incident;
+  return `${incident.day}:${declaredIncident}:${incident.occurrenceIndex ?? 0}`;
 }
 
 export function characterCulprit(

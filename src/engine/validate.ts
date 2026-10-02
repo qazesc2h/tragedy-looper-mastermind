@@ -88,6 +88,8 @@ export interface ScenarioValidationInput {
   incidents?: readonly Readonly<{
     day?: number;
     incident?: string;
+    declaredIncident?: string;
+    actualIncident?: string;
     culprit?: string | IncidentCulprit;
   }>[];
   loops?: number;
@@ -320,23 +322,32 @@ function validateIncidentsInTragedySet(
   scenario: ScenarioValidationInput,
   definition: TragedySetDefinition,
 ): ScenarioDiagnostic[] {
-  return (scenario.incidents ?? []).flatMap(({ day, incident }, index) => {
-    if (incident === undefined || definition.incidents.includes(incident)) {
-      return [];
-    }
-    return [errorDiagnostic(
-      `incidents[${index}].incident`,
-      "INCIDENT_NOT_IN_TRAGEDY_SET",
-      `사건: ${day}일의 ${incident}은(는) ` +
-        `${definition.id} 참극 세트에 없습니다.`,
-    )];
+  return (scenario.incidents ?? []).flatMap((scheduled, index) => {
+    const incidents = new Set([
+      scheduled.incident,
+      scheduled.declaredIncident ?? scheduled.incident,
+      scheduled.actualIncident ?? scheduled.incident,
+    ]);
+    return [...incidents].flatMap((incident) => {
+      if (incident === undefined || definition.incidents.includes(incident)) {
+        return [];
+      }
+      return [errorDiagnostic(
+        `incidents[${index}].incident`,
+        "INCIDENT_NOT_IN_TRAGEDY_SET",
+        `사건: ${scheduled.day}일의 ${incident}은(는) ` +
+          `${definition.id} 참극 세트에 없습니다.`,
+      )];
+    });
   });
 }
 
 function validateIncidentCulprits(
   scenario: ScenarioValidationInput,
 ): ScenarioDiagnostic[] {
-  return (scenario.incidents ?? []).flatMap(({ incident, culprit }, index) => {
+  return (scenario.incidents ?? []).flatMap((scheduled, index) => {
+    const incident = scheduled.actualIncident ?? scheduled.incident;
+    const culprit = scheduled.culprit;
     if (incident === undefined || culprit === undefined) return [];
     const normalized = normalizeIncidentCulprit(culprit);
     if (incidentDefinition(incident).culpritKind !== normalized.kind) {

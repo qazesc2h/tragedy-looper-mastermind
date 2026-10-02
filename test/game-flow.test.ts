@@ -150,7 +150,12 @@ describe("game setup and loop preparation", () => {
     }));
     state.history.push({
       ...structuredClone(state.loop),
-      revealedRoleCharacters: ["henchman"],
+      roleRevealResolutionsThisLoop: [{
+        character: "henchman",
+        actualRoleAtReveal: "friend",
+        claimedRole: "friend",
+        result: "truthful",
+      }],
     });
 
     chooseInitialLeader(state, 0);
@@ -642,7 +647,7 @@ describe("automatic empty round phases", () => {
 
     expect(advanceGame(state)).toMatchObject({
       occurrences: [{
-        incident: "foulEvil",
+        declaredIncident: "foulEvil",
         culprit: { kind: "character", id: "boyStudent" },
         fired: false,
         effectApplied: false,
@@ -657,7 +662,8 @@ describe("automatic empty round phases", () => {
       day: 1,
       phase: "P7_INCIDENT",
       kind: "incidentJudged",
-      incident: "foulEvil",
+      declaredIncident: "foulEvil",
+      actualIncident: "foulEvil",
       culprit: { kind: "character", id: "boyStudent" },
       fired: false,
       effectApplied: false,
@@ -710,7 +716,7 @@ describe("automatic empty round phases", () => {
     expect(state.loop.phase).toBe("P7_INCIDENT");
     expect(advanceGame(state)).toMatchObject({
       occurrences: [{
-        incident: "foulEvil",
+        declaredIncident: "foulEvil",
         culprit: { kind: "character", id: "transferStudent" },
         fired: false,
         effectApplied: false,
@@ -721,7 +727,8 @@ describe("automatic empty round phases", () => {
       day: 1,
       phase: "P7_INCIDENT",
       kind: "incidentJudged",
-      incident: "foulEvil",
+      declaredIncident: "foulEvil",
+      actualIncident: "foulEvil",
       culprit: { kind: "character", id: "transferStudent" },
       fired: false,
       effectApplied: false,
@@ -774,7 +781,7 @@ describe("immediate loop interruption and judgment", () => {
       { deferSettlement: true },
     )).toMatchObject({
       occurrences: [{
-        incident: "hospitalIncident",
+        declaredIncident: "hospitalIncident",
         culprit: { kind: "character", id: "boyStudent" },
         fired: true,
         effectApplied: true,
@@ -792,7 +799,8 @@ describe("immediate loop interruption and judgment", () => {
       day: 1,
       phase: "P7_INCIDENT",
       kind: "incidentJudged",
-      incident: "hospitalIncident",
+      declaredIncident: "hospitalIncident",
+      actualIncident: "hospitalIncident",
       culprit: { kind: "character", id: "boyStudent" },
       fired: true,
       effectApplied: true,
@@ -823,7 +831,8 @@ describe("immediate loop interruption and judgment", () => {
     expect(state.gamePhase).toBe("LOOP_JUDGMENT");
     expect(state.loop.phase).toBe("P7_INCIDENT");
     expect(state.history).toHaveLength(1);
-    expect(state.history[0].revealedRoleCharacters).toEqual(["boss"]);
+    expect(state.history[0].roleRevealResolutionsThisLoop?.map(({ character }) => character))
+      .toEqual(["boss"]);
     expect(state.loopOutcomes[0].losses.map(({ id }) => id)).toEqual(
       expect.arrayContaining(["keyPerson", "friend"]),
     );

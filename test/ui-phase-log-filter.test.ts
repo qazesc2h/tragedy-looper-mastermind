@@ -104,7 +104,8 @@ function historicalLoop(): LoopState {
     day: 2,
     phase: "P7_INCIDENT",
     kind: "incidentJudged",
-    incident: "murder",
+    declaredIncident: "murder",
+    actualIncident: "murder",
     culprit: "nurse",
     fired: true,
     effectApplied: true,
@@ -113,9 +114,9 @@ function historicalLoop(): LoopState {
     deaths: ["girlStudent"],
   }];
   loop.publicInformationThisLoop = [{
-    kind: "roleReveal",
+    kind: "roleClaim",
     character: "girlStudent",
-    role: "serialKiller",
+    claimedRole: "serialKiller",
     loop: 1,
     day: 2,
   }];

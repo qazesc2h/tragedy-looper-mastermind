@@ -118,9 +118,9 @@ describe("Phase 5 gate 2-A public event trace", () => {
     const after = structuredClone(before);
     after.loop.charCounters.girlStudent.paranoia += 1;
     after.loop.publicInformationThisLoop = [{
-      kind: "roleReveal",
+      kind: "roleClaim",
       character: "girlStudent",
-      role: "person",
+      claimedRole: "person",
       loop: 1,
       day: 1,
     }];
@@ -150,9 +150,9 @@ describe("Phase 5 gate 2-A public event trace", () => {
       payload: {
         kind: "publicInformation",
         information: {
-          kind: "roleReveal",
+          kind: "roleClaim",
           character: "girlStudent",
-          role: "person",
+          claimedRole: "person",
           day: 1,
         },
       },

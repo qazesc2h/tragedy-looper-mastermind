@@ -18,7 +18,10 @@ import {
   hypotheticalLossObservation,
   type RuleCombination,
 } from "./hypothesis";
-import { normalizeIncidentCulprit } from "./incident-model";
+import {
+  actualIncidentOf,
+  normalizeIncidentCulprit,
+} from "./incident-model";
 
 export type DecoyTargetKind = "location" | "character" | "incident";
 
@@ -313,8 +316,8 @@ function projectedConditionIsExplainable(
           day: projected.loop.day,
           incident: "butterflyEffect",
           culprit: normalizeIncidentCulprit(
-            projected.scenario.incidents.find(
-              ({ incident }) => incident === "butterflyEffect",
+            projected.scenario.incidents.find((scheduled) =>
+              actualIncidentOf(scheduled) === "butterflyEffect"
             )?.culprit ?? castCharacters(projected)[0],
           ),
           occurrenceIndex: 0,
@@ -481,8 +484,8 @@ function fakeLossConditions(state: GameState): FakeLossCondition[] {
     signCandidates,
   );
 
-  if (state.scenario.incidents.some(({ incident }) =>
-    incident === "butterflyEffect"
+  if (state.scenario.incidents.some((scheduled) =>
+    actualIncidentOf(scheduled) === "butterflyEffect"
   )) {
     addPlot(
       "changeOfFuture",
@@ -507,7 +510,7 @@ function fakeLossConditions(state: GameState): FakeLossCondition[] {
   ));
   const hasProtagonistDeathDelivery = actualRoles.has("killer") ||
     actualRoles.has("lovedOne") || state.scenario.incidents.some(
-      ({ incident }) => incident === "hospitalIncident",
+      (scheduled) => actualIncidentOf(scheduled) === "hospitalIncident",
     );
   const addRole = (
     role: RoleId,

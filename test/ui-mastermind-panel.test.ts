@@ -52,7 +52,8 @@ function createState(): GameState {
       day: 1,
       phase: "P7_INCIDENT",
       kind: "incidentJudged",
-      incident: "foulEvil",
+      declaredIncident: "foulEvil",
+      actualIncident: "foulEvil",
       culprit: "girlStudent",
       fired: true,
       effectApplied: true,
@@ -63,7 +64,8 @@ function createState(): GameState {
       day: 2,
       phase: "P7_INCIDENT",
       kind: "incidentJudged",
-      incident: "suicide",
+      declaredIncident: "suicide",
+      actualIncident: "suicide",
       culprit: "girlStudent",
       fired: false,
       effectApplied: false,
@@ -140,7 +142,7 @@ describe("mastermind incident schedule", () => {
       source: "ai",
       day: 4,
       resolvedOnDay: 2,
-      incident: "murder",
+      declaredIncident: "murder",
       culprit: "ai",
       effectApplied: true,
     }];
@@ -247,13 +249,12 @@ describe("mastermind rule hypothesis summary", () => {
     const state = createState();
     const revealedLoop = initLoop(state.scenario, 1);
     revealedLoop.publicInformationThisLoop = [{
-      kind: "roleReveal",
+      kind: "roleClaim",
       character: "girlStudent",
-      role: "friend",
+      claimedRole: "friend",
       loop: 1,
       day: 1,
     }];
-    revealedLoop.revealedRoleCharacters = ["girlStudent"];
     state.history = [revealedLoop];
     state.loop = initLoop(state.scenario, 2);
     state.loop.phaseLog?.push({
@@ -343,9 +344,9 @@ describe("mastermind rule hypothesis summary", () => {
     expect(ruleHypothesisSummary(state)).toEqual(fullAtLoss);
 
     state.loop.publicInformationThisLoop = [{
-      kind: "roleReveal",
+      kind: "roleClaim",
       character: "officeWorker",
-      role: "killer",
+      claimedRole: "killer",
       loop: 2,
       day: 1,
     }];
@@ -379,16 +380,16 @@ describe("mastermind rule hypothesis summary", () => {
     const state = createState();
     state.loop.publicInformationThisLoop = [
       {
-        kind: "roleReveal",
+        kind: "roleClaim",
         character: "girlStudent",
-        role: "brain",
+        claimedRole: "brain",
         loop: 1,
         day: 1,
       },
       {
-        kind: "roleReveal",
+        kind: "roleClaim",
         character: "officeWorker",
-        role: "keyPerson",
+        claimedRole: "keyPerson",
         loop: 1,
         day: 2,
       },
@@ -579,9 +580,9 @@ describe("mastermind deduction table summary", () => {
     const state = createState();
     state.loop.publicInformationThisLoop = [
       {
-        kind: "roleReveal",
+        kind: "roleClaim",
         character: "nurse",
-        role: "person",
+        claimedRole: "person",
         loop: 1,
         day: 1,
       },
@@ -597,7 +598,7 @@ describe("mastermind deduction table summary", () => {
         kind: "incidentCulprit",
         source: "godlyBeing",
         day: 1,
-        incident: "foulEvil",
+        declaredIncident: "foulEvil",
         culprit: "girlStudent",
       },
     ];

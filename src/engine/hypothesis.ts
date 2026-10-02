@@ -3767,7 +3767,7 @@ function publicLossObservationContext(
 
   const firedIncidents = (loop.phaseLog ?? []).flatMap((entry) =>
     entry.kind === "incidentJudged" && entry.fired
-      ? [{ day: entry.day, incident: entry.incident }]
+      ? [{ day: entry.day, incident: entry.declaredIncident }]
       : []
   );
   for (const occurrence of loop.incidentOccurrencesFiredThisLoop ?? []) {
@@ -3953,7 +3953,6 @@ export function collectProtagonistObservations(
   });
 
   for (const loop of loops) {
-    const exactRoleReveals = new Set<CharacterId>();
     const servantSubstitutionSequencesByDay = new Map<number, number[]>();
     for (const entry of loop.phaseLog ?? []) {
       if (
@@ -3975,14 +3974,13 @@ export function collectProtagonistObservations(
     }
     for (const information of loop.publicInformationThisLoop ?? []) {
       switch (information.kind) {
-        case "roleReveal":
-          exactRoleReveals.add(information.character);
+        case "roleClaim":
           observations.push({
             kind: "roleRevealed",
             loop: information.loop,
             character: information.character,
-            role: information.role,
-            confirmed: true,
+            role: information.claimedRole,
+            confirmed: information.legacyRoleUnknown ? false : true,
             ...(information.context === undefined
               ? {}
               : { context: information.context }),
@@ -4024,7 +4022,7 @@ export function collectProtagonistObservations(
             kind: "incidentCulpritRevealed",
             loop: loop.loop,
             day: information.day,
-            incident: information.incident,
+            incident: information.declaredIncident,
             culprit: information.culprit,
             ...(information.observedAt === undefined
               ? {}
@@ -4047,7 +4045,7 @@ export function collectProtagonistObservations(
             kind: "goodwillIncidentEffect",
             loop: loop.loop,
             day: information.resolvedOnDay ?? information.day,
-            incident: information.incident,
+            incident: information.declaredIncident,
             effectApplied: information.effectApplied,
             ...(information.observedAt === undefined
               ? {}
@@ -4055,17 +4053,6 @@ export function collectProtagonistObservations(
           });
           break;
       }
-    }
-    for (const character of loop.revealedRoleCharacters ?? []) {
-      if (exactRoleReveals.has(character)) continue;
-      // 구 저장에는 공개 순간 역할이 없으므로 해당 루프 스냅샷으로만 복원한다.
-      observations.push({
-        kind: "roleRevealed",
-        loop: loop.loop,
-        character,
-        role: effectiveRole({ ...state, loop }, character),
-        confirmed: false,
-      });
     }
     for (const entry of loop.phaseLog ?? []) {
       if (
@@ -4131,7 +4118,7 @@ export function collectProtagonistObservations(
           kind: "incidentOccurred",
           loop: entry.loop,
           day: entry.day,
-          incident: entry.incident,
+          incident: entry.declaredIncident,
           occurrenceIndex: entry.occurrenceIndex,
           occurrenceId: entry.occurrenceId,
           occurred: entry.fired,
@@ -4383,9 +4370,9 @@ export function collectProtagonistObservations(
     const completedOutcome = state.loopOutcomes.find((outcome) =>
       outcome.loop === loop.loop
     );
-    const revealed = new Set(loop.revealedRoleCharacters ?? []);
+    const revealed = new Set<CharacterId>();
     for (const information of loop.publicInformationThisLoop ?? []) {
-      if (information.kind === "roleReveal") {
+      if (information.kind === "roleClaim") {
         revealed.add(information.character);
       }
     }

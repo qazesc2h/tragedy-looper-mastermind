@@ -235,6 +235,7 @@ export interface SacredTreeTransferCondition {
 
 export interface IncidentSelection {
   day: number;
+  /** UI 선택과 공개 정보에서 사용하는 선언 사건. */
   incident: IncidentId;
   /** 구 선택 데이터에는 없을 수 있으며 그 경우 첫 발생 건을 뜻한다. */
   occurrenceIndex?: number;
@@ -244,17 +245,27 @@ export type IncidentCulprit =
   | { kind: "character"; id: CharacterId }
   | { kind: "location"; at: Location };
 
-export interface ScheduledIncident extends IncidentSelection {
+export interface ScheduledIncident {
+  day: number;
+  /** 기존 공개 소비자 호환 별칭. declaredIncident와 항상 같다. */
+  incident: IncidentId;
+  declaredIncident: IncidentId;
+  actualIncident: IncidentId;
   culprit: IncidentCulprit;
   /** 같은 날짜·같은 사건을 각본 기재 순서대로 구분하는 0 기반 번호. */
   occurrenceIndex: number;
 }
 
 /** JSON·구 저장·외부 각본 입력 경계에서만 허용하는 사건 형식. */
-export type ScheduledIncidentInput = IncidentSelection & {
+export interface ScheduledIncidentInput {
+  day: number;
+  /** 공개 소비자 호환 필드. 선언 사건과 같다. */
+  incident: IncidentId;
+  declaredIncident?: IncidentId;
+  actualIncident?: IncidentId;
   culprit: IncidentCulprit | CharacterId;
   occurrenceIndex?: number;
-};
+}
 
 export type BoardCharacterState =
   | { status: "absent"; at?: never }
@@ -345,7 +356,8 @@ export type IncidentChoiceInput = IncidentChoice | LegacyIncidentChoice;
 export interface IncidentResult {
   occurrenceId: string;
   occurrenceIndex: number;
-  incident: IncidentId;
+  declaredIncident: IncidentId;
+  actualIncident: IncidentId;
   culprit: IncidentCulprit;
   fired: boolean;
   effectApplied: boolean;
@@ -432,6 +444,16 @@ export interface PublicObservationAt {
   day: number;
   phase: HookPoint;
   sequence: number;
+}
+
+/** 역할 공개를 해결한 실제 내용. 각본가 전용이며 공개 관측에 섞지 않는다. */
+export interface RoleRevealResolution {
+  character: CharacterId;
+  actualRoleAtReveal: RoleId;
+  claimedRole: RoleId;
+  result: "truthful" | "ninjaLie";
+  /** 구 저장의 캐릭터 단위 플래그에는 정확한 시점이 없어 존재하지 않을 수 있다. */
+  observedAt?: PublicObservationAt;
 }
 
 /** 능력의 정체를 밝히지 않고 공개된 직전 사건만 보존한다. */
@@ -557,7 +579,10 @@ export type PhaseLogEntry = (
     occurrenceId?: string;
     /** 구 저장 기록에는 없을 수 있다. */
     occurrenceIndex?: number;
-    incident: IncidentId;
+    /** 주인공에게 보인 사건. */
+    declaredIncident: IncidentId;
+    /** 실제 판정·효과를 수행한 사건. 각본가 전용 진행 기록에만 둔다. */
+    actualIncident: IncidentId;
     culprit: IncidentCulprit | CharacterId;
     fired: boolean;
     effectApplied: boolean;
@@ -641,13 +666,15 @@ export interface RoundEvidence {
 /** 이번 루프에 각본가가 주인공에게 전달해야 하는 공개·해결 결과. */
 export type PublicInformation = (
   | {
-    kind: "roleReveal";
+    kind: "roleClaim";
     character: CharacterId;
-    role: RoleId;
+    claimedRole: RoleId;
     loop: number;
     day: number;
-    /** 공개 순간의 게임판. 없으면 동적 역할 판정에 쓰지 않는다. */
+    /** 주장 순간의 공개 게임판. 실제 역할이나 거짓 여부는 포함하지 않는다. */
     context?: PublicObservationContext;
+    /** 구 캐릭터 단위 플래그에서 복원되어 주장 역할의 정확성이 보장되지 않는다. */
+    legacyRoleUnknown?: true;
   }
   | {
     kind: "goodwillRefusal";
@@ -670,7 +697,7 @@ export type PublicInformation = (
     kind: "incidentCulprit";
     source: "godlyBeing" | "policeOfficer";
     day: number;
-    incident: IncidentId;
+    declaredIncident: IncidentId;
     culprit: IncidentCulprit | CharacterId;
   }
   | {
@@ -686,7 +713,7 @@ export type PublicInformation = (
     day: number;
     /** AI 능력을 실제로 해결한 현재 날짜. 구 저장에는 없을 수 있다. */
     resolvedOnDay?: number;
-    incident: IncidentId;
+    declaredIncident: IncidentId;
     culprit: IncidentCulprit | CharacterId;
     effectApplied: boolean;
   }
@@ -753,8 +780,8 @@ export interface LoopState {
   /** 이번 P4에서 자신의 우호 금지를 무시하는 시간 여행자 */
   timeTravelersIgnoringForbidGoodwill?: CharacterId[];
 
-  /** 이번 루프에 역할이 공개된 캐릭터 */
-  revealedRoleCharacters?: CharacterId[];
+  /** 역할 공개 해결의 각본가 전용 사실. 공개 주장과 같은 observedAt을 공유한다. */
+  roleRevealResolutionsThisLoop?: RoleRevealResolution[];
 
   /** 이번 루프에 실제로 발생한 사건. 효과가 없었어도 기록한다. */
   incidentsFiredThisLoop?: IncidentId[];

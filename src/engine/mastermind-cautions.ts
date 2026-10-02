@@ -13,6 +13,7 @@ import {
 } from "../types";
 import { actionCardRestriction } from "./legal";
 import {
+  actualIncidentOf,
   characterCulprit,
   incidentOccurrenceId,
   normalizeIncidentCulprit,
@@ -253,10 +254,13 @@ function addRoleRisks(
   }
 
   const deadlyIncidentLabels = state.scenario.incidents.filter(
-    ({ incident, culprit }) => DEATH_INCIDENTS.has(incident) &&
-      (incident !== "suicide" ||
-        keyPeople.includes(characterCulprit(culprit) ?? "")),
-  ).map(({ day, incident }) => `${day}일 ${incidentName(incident)}`);
+    (scheduled) => DEATH_INCIDENTS.has(actualIncidentOf(scheduled)) &&
+      (actualIncidentOf(scheduled) !== "suicide" ||
+        // 자살은 범인 자신만 죽인다.
+        keyPeople.includes(characterCulprit(scheduled.culprit) ?? "")),
+  ).map((scheduled) =>
+    `${scheduled.day}일 ${incidentName(actualIncidentOf(scheduled))}`
+  );
   if (
     keyPeople.length > 0 && holders(state, "killer").length > 0 &&
     deadlyIncidentLabels.length > 0
@@ -444,6 +448,7 @@ function addIncidentRisks(
   for (const scheduled of [...state.scenario.incidents].sort(
     (left, right) => left.day - right.day,
   )) {
+    const actualIncident = actualIncidentOf(scheduled);
     const culpritCharacter = characterCulprit(scheduled.culprit);
     const normalizedCulprit = normalizeIncidentCulprit(scheduled.culprit);
     const culprit = culpritCharacter === undefined
@@ -451,10 +456,10 @@ function addIncidentRisks(
         ? normalizedCulprit.at
         : "(범인 없음)"
       : characterName(culpritCharacter);
-    let description = INCIDENT_EFFECTS[scheduled.incident] ??
+    let description = INCIDENT_EFFECTS[actualIncident] ??
       "사건 원문의 효과를 해결합니다.";
     let severity: MastermindCautionSeverity = DEATH_INCIDENTS.has(
-      scheduled.incident,
+      actualIncident,
     ) ? "critical" : "warning";
     if (culpritCharacter === "blackCat") {
       description = "불안 한계 판정상 사건은 발생하지만 효과는 없습니다. 발생 이력은 남으므로 ‘발생한 사건’ 조건에는 사용됩니다.";
@@ -466,10 +471,10 @@ function addIncidentRisks(
     output.push({
       key: `risk:incident:${incidentOccurrenceId(scheduled)}`,
       category: "operationalNote",
-      title: `${scheduled.day}일 ${incidentName(scheduled.incident)} · 범인 ${culprit}`,
+      title: `${scheduled.day}일 ${incidentName(actualIncident)} · 범인 ${culprit}`,
       condition: `${scheduled.day}일 · 범인 ${culprit} · 생존·등장 및 불안 한계 충족`,
       description,
-      source: `${incidentName(scheduled.incident)} [강제] 사건 원문`,
+      source: `${incidentName(actualIncident)} [강제] 사건 원문`,
       severity,
     });
   }
@@ -482,7 +487,9 @@ function addIncidentRisks(
       key: "risk:trait:ai-incident-counters",
       category: "operationalNote",
       title: "AI · 모든 카운터를 불안으로 사건 판정",
-      condition: `AI · ${aiIncidents.map(({ day, incident }) => `${day}일 ${incidentName(incident)}`).join(" · ")} 범인`,
+      condition: `AI · ${aiIncidents.map((scheduled) =>
+        `${scheduled.day}일 ${incidentName(actualIncidentOf(scheduled))}`
+      ).join(" · ")} 범인`,
       description: "AI가 범인인 사건의 발생 여부를 판정할 때 AI 위의 우호·불안·음모·보호 카운터를 모두 불안으로 셉니다.",
       source: "AI [사건 판정·강제] 특성 원문",
       severity: "critical",

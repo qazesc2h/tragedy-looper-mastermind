@@ -1022,12 +1022,36 @@ upstream에 없는 각본 80편과 그 제목·본문·세트 배정이다.
   캐릭터 특성·390×844 레이아웃·390×844 편집기의 네 실제 브라우저 경로, production
   build까지 통과했다.
 
-공통 기반 1A~1C는 완료됐다. 다음 **미드나이트 존** 단계에서는 (1) 세트·룰·역할·사건
-데이터와 `source` 대조 훅, (2) `serialMurder`의 반복 범인 허용과 실제 효과,
-(3) 추가 카드의 실제 배치·수명·행동 카드 금지 정책, (4) 닌자·위장 사건의 “관측된
-주장”과 확정 사실 분리, (5) `Romance Antithesis` 복수 사건의 실제 각본 경로,
-(6) 한국어 본문 누락 1건과 4편 8변형의 UI·저장·가설 회귀를 구현한다. 공통 기반에
-세트별 효과를 미리 넣지 않는다.
+#### 미드나이트 존 MZ-1 — 공개 주장과 실제 해결 분리
+
+- 역할 공개는 신규 기록부터 공개 `roleClaim`과 각본가 전용
+  `roleRevealResolutionsThisLoop`로 분리한다. 공개 쪽에는 캐릭터·`claimedRole`·공개
+  보드·관측 시점만 있고, 실제 역할과 거짓 여부는 없다. 전용 해결 기록은 같은
+  `observedAt`에 `actualRoleAtReveal`, `claimedRole`, `truthful | ninjaLie`를 보존한다.
+  기본편의 두 역할 공개 경로는 공용 `resolveRoleReveal()`을 거치며 claim과 actual이
+  같다.
+- `revealedRoleCharacters`는 신규 상태에서 제거했다. 구 저장의 정확한 `roleReveal`
+  기록은 claim/해결 쌍으로 옮기고, 캐릭터만 있던 구 플래그는 시점 역할을 확정할 수
+  없다는 `legacyRoleUnknown` 공개 주장으로 복원한다. 친구의 공개 이력 판정은 공개
+  주장 대신 `actualRoleAtReveal === friend`인 각본가 전용 기록을 읽는다.
+- MZ 원본 각본의 사건 값이 `[fakeIncident, hospitalIncident]` 같은 쌍이면 어댑터가
+  `declaredIncident`와 `actualIncident`로 나눈다. 발생 조건·효과는 actual만 실행하고,
+  진행 공개 관측과 사건 가설 입력은 declared만 읽는다. 각본가 진행 기록에는 둘을
+  함께 남겨 복기할 수 있다. 기본편의 단일 사건은 두 값이 같아 동작이 바뀌지 않는다.
+- 닌자의 거짓 선언 후보에 동적으로 얻은 핵심 인물을 포함하는지는 Q10으로 남겼다.
+  MZ-3에서 확정 전까지 각본의 기본 배정 비-엑스트라 역할만 후보로 둔다.
+- 미드나이트 존 공식 각본 4편의 제목·story·힌트·승리 조건은 각 4건, 합계 16건이
+  upstream 한국어 번역에서 비어 있다. 실물 각본집 대조 전에는 영어 폴백을 유지한다.
+  친구의 prerequisite `This role has been revealed`도
+  `data/ko-translations.json`에서 빈 문자열임을 다시 확인했다. 이는 기본편 화면에도
+  닿는 누락이며, 정발 문구를 임의 번역하지 않고 실물 근거를 기다린다.
+
+공통 기반 1A~1C와 MZ-1은 완료됐다. 다음 **MZ-2~4**에서는 (1) 인과의 인연에 따른
+`effectiveRole` 역할 교체와 시점별 역할표, (2) 닌자의 거짓 선언 합법성·가설 합집합,
+(3) 세트·룰·역할·사건 데이터와 `source` 대조 훅, (4) `serialMurder`의 반복 범인
+허용과 실제 효과, (5) 추가 카드의 실제 배치·수명·행동 카드 금지 정책,
+(6) `Romance Antithesis` 복수 사건의 실제 각본 경로와 4편 8변형의 UI·저장·가설
+회귀를 구현한다. 공통 기반에 세트별 효과를 미리 넣지 않는다.
 
 #### MTS Q&A 정오표 확인 결과
 

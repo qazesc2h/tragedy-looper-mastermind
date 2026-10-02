@@ -26,7 +26,11 @@ import {
 import { servantDeathReplacement } from "./servant";
 import { requestLoopEnd } from "./flow";
 import { incidentFires, incidentParanoia } from "./incident";
-import { characterCulprit, incidentOccurrenceId } from "./incident-model";
+import {
+  actualIncidentOf,
+  characterCulprit,
+  incidentOccurrenceId,
+} from "./incident-model";
 
 export type LossCategory =
   | "plot"
@@ -677,6 +681,7 @@ function incidentDeathRoutes(
   target: CharacterId,
 ): LossRoute[] {
   return state.scenario.incidents.flatMap((scheduled) => {
+    const actualIncident = actualIncidentOf(scheduled);
     const culprit = characterCulprit(scheduled.culprit);
     if (culprit === undefined) return [];
     const common = incidentCommonRequirements(state, scheduled);
@@ -689,9 +694,9 @@ function incidentDeathRoutes(
       available: incidentRouteAvailable(state, scheduled),
       daysUntil,
     };
-    const incidentLabel = `${scheduled.day}일 ${INCIDENT_IMPL[scheduled.incident].ko}`;
+    const incidentLabel = `${scheduled.day}일 ${INCIDENT_IMPL[actualIncident].ko}`;
 
-    switch (scheduled.incident) {
+    switch (actualIncident) {
       case "suicide":
         return culprit === target
           ? [route(
@@ -1058,14 +1063,15 @@ function incidentLossDistance(
   state: GameState,
   scheduled: GameState["scenario"]["incidents"][number],
 ): LossDistance[] {
-  const impl = INCIDENT_IMPL[scheduled.incident];
+  const actualIncident = actualIncidentOf(scheduled);
+  const impl = INCIDENT_IMPL[actualIncident];
   const lossHook = impl?.hooks.find((hook) => hook.kind === "lossDeath");
   if (!lossHook) {
     return [];
   }
-  if (scheduled.incident !== "hospitalIncident") {
+  if (actualIncident !== "hospitalIncident") {
     throw new Error(
-      `loss distance is not implemented for incident "${scheduled.incident}"`,
+      `loss distance is not implemented for incident "${actualIncident}"`,
     );
   }
 
@@ -1089,9 +1095,9 @@ function incidentLossDistance(
     `병원 음모 ${hospitalIntrigue}/2`;
 
   const condition = distance({
-    id: scheduled.incident,
+    id: actualIncident,
     key: incidentKey(
-      scheduled.incident,
+      actualIncident,
       scheduled.day,
       culprit,
     ),
@@ -1100,12 +1106,12 @@ function incidentLossDistance(
     timing: "incident",
     activation: "mandatory",
     when: "사건 단계",
-    incident: scheduled.incident,
+    incident: actualIncident,
     culprit,
     day: scheduled.day,
     ko: impl.ko,
     conditionMet:
-      incidentFires(state, scheduled.culprit, scheduled.incident) &&
+      incidentFires(state, scheduled.culprit, actualIncident) &&
       culprit !== "blackCat" &&
       lossHook.when(state, scheduled.culprit),
     label,

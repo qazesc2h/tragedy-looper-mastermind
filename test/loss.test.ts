@@ -776,7 +776,8 @@ describe("soldier rank 5 / protagonist death prevention", () => {
 
     expect(resolveIncident(state)).toMatchObject({
       occurrences: [{
-        incident: "hospitalIncident",
+        declaredIncident: "hospitalIncident",
+        actualIncident: "hospitalIncident",
         culprit: { kind: "character", id: "boyStudent" },
         fired: true,
         effectApplied: false,

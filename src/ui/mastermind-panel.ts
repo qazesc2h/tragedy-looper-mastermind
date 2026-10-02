@@ -471,7 +471,7 @@ export function incidentScheduleRows(
       const currentFailureReasons = incidentFailureReasons(
         state,
         scheduled.culprit,
-        scheduled.incident,
+        scheduled.actualIncident,
       );
       const entry = culprit === undefined
         ? undefined
@@ -482,14 +482,14 @@ export function incidentScheduleRows(
           entry.occurrenceId === undefined &&
             scheduled.occurrenceIndex === 0 &&
             entry.day === scheduled.day &&
-            entry.incident === scheduled.incident &&
+            entry.actualIncident === scheduled.actualIncident &&
             sameIncidentCulprit(entry.culprit, scheduled.culprit))
       );
       const aiEffectResolvedOnDays = (state.loop.publicInformationThisLoop ?? [])
         .flatMap((information) =>
           information.kind === "incidentEffect" &&
             information.day === scheduled.day &&
-            information.incident === scheduled.incident
+            information.declaredIncident === scheduled.declaredIncident
             ? [information.resolvedOnDay ?? information.day]
             : []
         );
@@ -518,7 +518,7 @@ export function incidentScheduleRows(
         conditionMet: incidentFires(
           state,
           scheduled.culprit,
-          scheduled.incident,
+          scheduled.actualIncident,
         ),
         currentFailureReasons,
         outcome,

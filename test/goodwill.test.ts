@@ -287,7 +287,8 @@ describe("group 1 youngGirl and sectFounder goodwill abilities", () => {
       abilityIndex: 2,
       target: "youngGirl",
     }, "resolve");
-    expect(state.loop.revealedRoleCharacters).toEqual(["youngGirl"]);
+    expect(state.loop.roleRevealResolutionsThisLoop?.map(({ character }) => character))
+      .toEqual(["youngGirl"]);
   });
 
   it("rejects a sectFounder target below that character's paranoia limit", () => {
@@ -674,7 +675,7 @@ describe("goodwill availability and refusal", () => {
       target: "girlStudent",
     }, "resolve")).toThrow("is dead and cannot use goodwill abilities");
 
-    expect(state.loop.revealedRoleCharacters).toBeUndefined();
+    expect(state.loop.roleRevealResolutionsThisLoop).toBeUndefined();
     expect(state.loop.charCounters.girlStudent.paranoia).toBe(1);
   });
 
@@ -874,7 +875,8 @@ describe("goodwill availability and refusal", () => {
 
     expect(result.response).toBe("resolve");
     expect(result.effectApplied).toBe(true);
-    expect(state.loop.revealedRoleCharacters).toEqual(["mysteryBoy"]);
+    expect(state.loop.roleRevealResolutionsThisLoop?.map(({ character }) => character))
+      .toEqual(["mysteryBoy"]);
     expect(effectiveRole(state, "mysteryBoy")).toBe("witch");
   });
 
@@ -903,7 +905,7 @@ describe("goodwill availability and refusal", () => {
       rank: 3,
       abilityIndex: 1,
     }, "resolve")).toThrow("available from loop 2");
-    expect(state.loop.revealedRoleCharacters).toBeUndefined();
+    expect(state.loop.roleRevealResolutionsThisLoop).toBeUndefined();
   });
 
   it("reveals copycat's same-role names from loop 2 without revealing a role", () => {
@@ -951,7 +953,7 @@ describe("goodwill availability and refusal", () => {
         day: 1,
       }),
     );
-    expect(state.loop.revealedRoleCharacters).toBeUndefined();
+    expect(state.loop.roleRevealResolutionsThisLoop).toBeUndefined();
     expect(collectProtagonistObservations(state)).toContainEqual(
       expect.objectContaining({
         kind: "sameRoleCharactersRevealed",
@@ -985,7 +987,7 @@ describe("goodwill availability and refusal", () => {
     );
     expect(copycatFriend).toBeDefined();
     expect(copycatFriend?.hook.when(friendState, "copycat")).toBe(false);
-    expect(friendState.loop.revealedRoleCharacters).toBeUndefined();
+    expect(friendState.loop.roleRevealResolutionsThisLoop).toBeUndefined();
   });
 
   it("rejects copycat's protected ability in loop 1 and all refusals", () => {
@@ -1053,7 +1055,7 @@ describe("goodwill availability and refusal", () => {
     }, "refuse");
 
     expect(result).toMatchObject({ refused: true, effectApplied: false });
-    expect(state.loop.revealedRoleCharacters).toBeUndefined();
+    expect(state.loop.roleRevealResolutionsThisLoop).toBeUndefined();
   });
 
   it("does not let an optional-refusal role refuse nurse's protected ability", () => {
@@ -1126,7 +1128,7 @@ describe("godlyBeing rank 3 / reveal an incident culprit", () => {
       kind: "incidentCulprit",
       source: "godlyBeing",
       day: 5,
-      incident: "missingPerson",
+      declaredIncident: "missingPerson",
       culprit: { kind: "character", id: "alien" },
     })]);
     expect(state.loop.incidentOccurrencesFiredThisLoop).toBeUndefined();
@@ -1177,7 +1179,7 @@ describe("policeOfficer rank 4 / reveal a fired incident culprit", () => {
       kind: "incidentCulprit",
       source: "policeOfficer",
       day: 1,
-      incident: "suicide",
+      declaredIncident: "suicide",
       culprit: { kind: "character", id: "boyStudent" },
     })]);
   });
@@ -1216,7 +1218,7 @@ describe("policeOfficer rank 4 / reveal a fired incident culprit", () => {
 
     expect(resolveIncident(state)).toMatchObject({
       occurrences: [{
-        incident: "suicide",
+        declaredIncident: "suicide",
         culprit: { kind: "character", id: "boyStudent" },
         fired: false,
         effectApplied: false,
@@ -1318,7 +1320,7 @@ describe("ai rank 3 / resolve an incident effect as AI", () => {
       source: "ai",
       day: 2,
       resolvedOnDay: 1,
-      incident: "murder",
+      declaredIncident: "murder",
       culprit: { kind: "character", id: "ai" },
       effectApplied: true,
     })]);
@@ -1581,7 +1583,8 @@ describe("boss rank 5 / reveal a role in turf", () => {
     }, "resolve");
 
     expect(result.effectApplied).toBe(true);
-    expect(state.loop.revealedRoleCharacters).toEqual(["boyStudent"]);
+    expect(state.loop.roleRevealResolutionsThisLoop?.map(({ character }) => character))
+      .toEqual(["boyStudent"]);
   });
 
   it("rejects a character outside the turf", () => {

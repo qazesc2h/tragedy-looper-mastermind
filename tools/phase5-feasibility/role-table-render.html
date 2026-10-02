@@ -123,7 +123,7 @@
         loop.phaseLog = [];
         loop.roundEvidence = [];
         loop.publicInformationThisLoop = [];
-        loop.revealedRoleCharacters = [];
+        loop.roleRevealResolutionsThisLoop = [];
         let sequence = 0;
         for (let day = 1; day <= 5; day += 1) {
           const context = publicContext(state, loopNumber, day);
@@ -172,7 +172,8 @@
             day: incident.day,
             phase: "P7_INCIDENT",
             kind: "incidentJudged",
-            incident: incident.incident,
+            declaredIncident: incident.declaredIncident ?? incident.incident,
+            actualIncident: incident.actualIncident ?? incident.incident,
             culprit: incident.culprit,
             fired: false,
             effectApplied: false,

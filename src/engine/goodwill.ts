@@ -37,6 +37,7 @@ import {
   publicObservationContext,
 } from "./public-observation";
 import { recordPublicInformation } from "./public-information";
+import { resolveRoleReveal } from "./role-reveal";
 
 export type GoodwillResponse = "resolve" | "refuse";
 export type GoodwillRefusalKind = "none" | "optional" | "mandatory";
@@ -515,18 +516,7 @@ function requirePanickedCharacter(
 }
 
 function revealRole(state: GameState, character: CharacterId): boolean {
-  const revealed = state.loop.revealedRoleCharacters ??= [];
-  if (revealed.includes(character)) return false;
-  revealed.push(character);
-  recordPublicInformation(state, {
-    kind: "roleReveal",
-    character,
-    role: effectiveRole(state, character),
-    loop: state.loop.loop,
-    day: state.loop.day,
-    context: publicObservationContext(state.loop),
-  });
-  return true;
+  return resolveRoleReveal(state, character);
 }
 
 function revealCopycatRoleCharacters(state: GameState): boolean {
@@ -623,7 +613,7 @@ function revealScenarioIncidentCulprit(
     kind: "incidentCulprit",
     source,
     day: scheduled.day,
-    incident: scheduled.incident,
+    declaredIncident: scheduled.declaredIncident,
     culprit: scheduled.culprit,
   });
   return true;
@@ -664,7 +654,7 @@ function resolveIncidentAsAi(
   const scheduled = requireScenarioIncident(state, declaration);
   const effectApplied = resolveIncidentEffect(
     state,
-    scheduled.incident,
+    scheduled.actualIncident,
     declaration.user,
     declaration.incidentChoice,
   );
@@ -673,7 +663,7 @@ function resolveIncidentAsAi(
     source: "ai",
     day: scheduled.day,
     resolvedOnDay: state.loop.day,
-    incident: scheduled.incident,
+    declaredIncident: scheduled.declaredIncident,
     culprit: { kind: "character", id: declaration.user },
     effectApplied,
   });

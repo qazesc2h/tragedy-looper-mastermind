@@ -139,7 +139,13 @@ describe("mastermind cover guidance", () => {
   it("moves a directly revealed role behind every unrevealed candidate", () => {
     const state = stateFor("basicTragedy:1");
     const first = mastermindCoverGuidance(state).candidates[0];
-    state.loop.revealedRoleCharacters = [first.character];
+    state.loop.publicInformationThisLoop = [{
+      kind: "roleClaim",
+      character: first.character,
+      claimedRole: first.role,
+      loop: state.loop.loop,
+      day: state.loop.day,
+    }];
     const recalculated = mastermindCoverGuidance(state);
 
     expect(recalculated.recommendation?.character).not.toBe(first.character);

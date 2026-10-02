@@ -1569,7 +1569,10 @@ function phaseLogTimelineLine(item: PhaseLogTimelineItem): string {
     const result = entry.fired
       ? entry.effectApplied ? "발생 · 효과 적용" : "발생 · 효과 없음"
       : `발생하지 않음 (${entry.failureReasons.map(incidentFailureLabel).join(" · ")})`;
-    return `${incidentName(entry.incident)} · 범인 ${incidentCulpritName(entry.culprit)} · ${result}${
+    const incident = entry.declaredIncident === entry.actualIncident
+      ? incidentName(entry.declaredIncident)
+      : `${incidentName(entry.declaredIncident)} (실제 ${incidentName(entry.actualIncident)})`;
+    return `${incident} · 범인 ${incidentCulpritName(entry.culprit)} · ${result}${
       phaseLogTargetList(entry.targets)
     }`;
   }
@@ -1741,7 +1744,7 @@ function renderPhaseLog(state: GameState): string {
     const result = entry.fired
       ? entry.effectApplied ? "발생 · 효과 적용" : "발생 · 효과 없음"
       : `발생하지 않음 (${entry.failureReasons.map(incidentFailureLabel).join(" · ")})`;
-    return [`${incidentName(entry.incident)} · ${result}`];
+    return [`${incidentName(entry.declaredIncident)} · ${result}`];
   };
   const entryCount = loopGroups.reduce(
     (loopSum, loopGroup) => loopSum + loopGroup.days.reduce(
@@ -2737,6 +2740,15 @@ function renderGoodwillChoice(
       const selectedIncident = choice.options.find((selection) =>
         encodeIncidentSelection(selection) === draftValue(draftKey)
       );
+      const selectedActualIncident = selectedIncident === undefined
+        ? undefined
+        : normalizeIncidentSchedule(state.scenario.incidents).find(
+          (scheduled) =>
+            scheduled.day === selectedIncident.day &&
+            scheduled.declaredIncident === selectedIncident.incident &&
+            (selectedIncident.occurrenceIndex === undefined ||
+              scheduled.occurrenceIndex === selectedIncident.occurrenceIndex),
+        )?.actualIncident;
       return `
         <select data-goodwill-choice="${escapeHtml(key)}"
           ${choice.kind === "incident" ? `data-action="goodwill-incident-selection" data-goodwill-key="${escapeHtml(key)}"` : ""}
@@ -2753,7 +2765,7 @@ function renderGoodwillChoice(
           ? renderAiIncidentChoiceFields(
               state,
               view,
-              selectedIncident?.incident,
+              selectedActualIncident,
               disabled,
             )
           : ""}`;
@@ -3707,8 +3719,13 @@ function renderTodayIncidents(
     return `<p class="empty-overlay">${escapeHtml(misc("No incident"))}</p>`;
   }
 
-  return scheduled.map(({ incident, culprit, occurrenceIndex, ...rest }) => {
-    const scheduledIncident = { incident, culprit, occurrenceIndex, ...rest };
+  return scheduled.map((scheduledIncident) => {
+    const {
+      declaredIncident,
+      actualIncident,
+      culprit,
+      occurrenceIndex,
+    } = scheduledIncident;
     const culpritCharacter = characterCulprit(culprit);
     const judgment = [...(state.loop.phaseLog ?? [])].reverse().find(
       (entry): entry is Extract<PhaseLogEntry, { kind: "incidentJudged" }> =>
@@ -3718,8 +3735,12 @@ function renderTodayIncidents(
       entry.kind === "incidentJudged" &&
       entry.occurrenceId === incidentOccurrenceId(scheduledIncident),
     );
-    const fires = incidentFires(state, culprit, incident);
-    const failureReasons = incidentFailureReasons(state, culprit, incident);
+    const fires = incidentFires(state, culprit, actualIncident);
+    const failureReasons = incidentFailureReasons(
+      state,
+      culprit,
+      actualIncident,
+    );
     const effectSuppressed = culpritCharacter === "blackCat";
     const alive = culpritCharacter === undefined
       ? true
@@ -3732,18 +3753,21 @@ function renderTodayIncidents(
       : characterDataOf(culpritCharacter).paranoiaLimit;
     const culpritSuppressed = state.loop.incidentCulpritSuppressedFor
       ?.includes(culpritCharacter ?? "") === true;
-    const effectSources = INCIDENT_IMPL[incident]?.hooks
+    const effectSources = INCIDENT_IMPL[actualIncident]?.hooks
       .map(({ source }) => source.description)
       .filter((description): description is string => Boolean(description)) ??
       [];
     const effectText = effectSuppressed
       ? "효과 없음"
-      : incidentRuleText(incident, effectSources);
+      : incidentRuleText(actualIncident, effectSources);
+    const incidentTitle = declaredIncident === actualIncident
+      ? incidentName(declaredIncident)
+      : `${incidentName(declaredIncident)} · 실제 ${incidentName(actualIncident)}`;
     return `
       <article class="incident-card">
         <div class="incident-title">
           ${mark(fires)}
-          <div><strong>${escapeHtml(incidentName(incident))}</strong>
+          <div><strong>${escapeHtml(incidentTitle)}</strong>
           <span>${escapeHtml(misc("Culprit"))} · ${escapeHtml(incidentCulpritName(culprit))}</span></div>
         </div>
         ${effectText
@@ -3760,14 +3784,14 @@ function renderTodayIncidents(
         </p>
         ${judgment?.deaths && judgment.deaths.length > 0
           ? `<p class="incident-public-result">${escapeHtml(
-            `${incidentName(incident)}이 발생하여 ${
+            `${incidentName(declaredIncident)}이 발생하여 ${
               judgment.deaths.map(characterName).join("·")
             }가 사망했습니다.`,
           )}</p>`
           : ""}
         ${judgment?.protagonistsDied
           ? `<p class="incident-public-result">${escapeHtml(
-            `${incidentName(incident)}이 발생하여 주인공이 사망했습니다.`,
+            `${incidentName(declaredIncident)}이 발생하여 주인공이 사망했습니다.`,
           )}</p>`
           : ""}
         ${culpritCharacter === undefined ? "" : `<div class="incident-conditions">
@@ -3778,7 +3802,7 @@ function renderTodayIncidents(
         ${interactive
           ? renderIncidentChoice(
             state,
-            incident,
+            actualIncident,
             culprit,
             fires && !effectSuppressed,
             occurrenceIndex,
@@ -5636,25 +5660,15 @@ function renderCollapsedMastermindOverlay(
 
 function renderPublicInformation(state: GameState): string {
   const exactRoleReveals = (state.loop.publicInformationThisLoop ?? []).filter(
-    (information) => information.kind === "roleReveal",
+    (information) => information.kind === "roleClaim",
   );
-  const exactRoleCharacters = new Set(
-    exactRoleReveals.map(({ character }) => character),
+  const roleItems = exactRoleReveals.map(({ character, claimedRole }) =>
+    `${characterName(character)}의 역할: ${roleName(claimedRole)}`
   );
-  const roleItems = [
-    ...exactRoleReveals.map(({ character, role }) =>
-      `${characterName(character)}의 역할: ${roleName(role)}`
-    ),
-    ...(state.loop.revealedRoleCharacters ?? [])
-      .filter((character) => !exactRoleCharacters.has(character))
-      .map((character) =>
-        `${characterName(character)}의 역할: ${roleName(effectiveRole(state, character))}`
-      ),
-  ];
   const informationItems = (state.loop.publicInformationThisLoop ?? []).flatMap(
     (information): string[] => {
       switch (information.kind) {
-        case "roleReveal":
+        case "roleClaim":
         case "goodwillRefusal":
           return [];
         case "sameRoleCharacters":
@@ -5663,13 +5677,13 @@ function renderPublicInformation(state: GameState): string {
           ];
         case "incidentCulprit":
           return [`${characterName(information.source)}: ${misc("Day")} ${information.day} · ` +
-            `${incidentName(information.incident)}의 범인은 ${incidentCulpritName(information.culprit)}`];
+            `${incidentName(information.declaredIncident)}의 범인은 ${incidentCulpritName(information.culprit)}`];
         case "subplot":
           return [`리더 선언: ${plotName(information.declaredSubplot)} / ` +
             `각본가 공개: ${plotName(information.revealedSubplot)}`];
         case "incidentEffect":
           return [`${information.resolvedOnDay ?? information.day}일차에 AI 능력으로 ` +
-            `${misc("Day")} ${information.day} · ${incidentName(information.incident)} 효과 선행 해결` +
+            `${misc("Day")} ${information.day} · ${incidentName(information.declaredIncident)} 효과 선행 해결` +
             (information.effectApplied ? "" : " (적용된 효과 없음)")];
       }
     },
