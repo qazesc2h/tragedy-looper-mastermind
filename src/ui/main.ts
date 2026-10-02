@@ -95,6 +95,7 @@ import {
 import { applyHookEffect, collectHooks } from "../engine/phases";
 import { recordPhaseLog } from "../engine/phase-log";
 import { extraCardsAt } from "../engine/extra-cards";
+import { roleClaimOptions } from "../engine/role-reveal";
 import { scenarioValidationErrorMessages, validateScenario } from "../engine/validate";
 import {
   publicBoardChanges,
@@ -286,6 +287,7 @@ type GoodwillDraftField =
   | "card"
   | "choice"
   | "reveal"
+  | "role-claim"
   | "incident-target"
   | "incident-other-target"
   | "incident-location"
@@ -2566,6 +2568,83 @@ function renderGoodwillTarget(
     </select>`;
 }
 
+function goodwillRoleRevealCharacter(
+  view: GoodwillAbilityView,
+  selectedTarget: Target | undefined,
+): CharacterId | undefined {
+  if (view.schema.effect.operation !== "revealRole") return undefined;
+  if (view.schema.target.scope === "self") return view.character;
+  return selectedTarget?.kind === "character" ? selectedTarget.id : undefined;
+}
+
+function ninjaRoleClaimSelection(
+  state: GameState,
+  view: GoodwillAbilityView,
+  selectedTarget: Target | undefined,
+) {
+  const character = goodwillRoleRevealCharacter(view, selectedTarget);
+  if (character === undefined) return undefined;
+  const options = roleClaimOptions(state, character);
+  if (!options.some(({ result }) => result === "ninjaLie")) return undefined;
+  const draftKey = goodwillDraftKey(view.key, "role-claim");
+  const selected = options.find(({ claimedRole }) =>
+    claimedRole === draftValue(draftKey)
+  );
+  return { character, options, draftKey, selected };
+}
+
+function renderNinjaRoleClaimChoice(
+  state: GameState,
+  view: GoodwillAbilityView,
+  selectedTarget: Target | undefined,
+  disabled: boolean,
+): string {
+  const selection = ninjaRoleClaimSelection(state, view, selectedTarget);
+  if (selection === undefined) return "";
+  return `<label class="goodwill-choice-field ninja-role-claim-choice">
+    <span>닌자 역할 선언</span>
+    <select data-action="goodwill-role-claim"
+      data-ui-draft-key="${escapeHtml(selection.draftKey)}"
+      ${disabled ? "disabled" : ""}>
+      <option value="">${escapeHtml(misc("Select", "Select"))}</option>
+      ${selection.options.map(({ claimedRole, result }) => `
+        <option value="${escapeHtml(claimedRole)}"
+          ${selectedDraftOption(selection.draftKey, claimedRole)}>${escapeHtml(
+            result === "truthful"
+              ? `진실 공개 · ${roleName(claimedRole)}`
+              : `거짓 공개 · ${roleName(claimedRole)}`,
+          )}</option>`).join("")}
+    </select>
+  </label>`;
+}
+
+function goodwillResolveChoiceText(
+  state: GameState,
+  view: GoodwillAbilityView,
+  selectedTarget: Target | undefined,
+  mandatoryRefusal: boolean,
+): string {
+  if (mandatoryRefusal) return "선택 불가 · 반드시 거부";
+  const character = goodwillRoleRevealCharacter(view, selectedTarget);
+  if (character === undefined) {
+    return view.schema.effect.operation === "revealRole"
+      ? "대상 선택 후 공개 판정"
+      : "변화 없음 · 안전";
+  }
+  const selection = ninjaRoleClaimSelection(state, view, selectedTarget);
+  if (selection === undefined) {
+    const role = effectiveRole(state, character);
+    return role !== "person" && role !== "ninja" &&
+        Object.values(state.scenario.cast).includes("ninja")
+      ? `${roleName(role)} 선언 · 닌자 가능성 유지`
+      : `역할 공개 · ${roleName(role)} 확정`;
+  }
+  if (selection.selected === undefined) return "선언 역할 선택 필요";
+  return selection.selected.result === "truthful"
+    ? "진실 공개 · 닌자 확정"
+    : `${roleName(selection.selected.claimedRole)} 선언 · 닌자 가능성 유지`;
+}
+
 function renderAiIncidentChoiceFields(
   state: GameState,
   view: GoodwillAbilityView,
@@ -2886,6 +2965,14 @@ function renderLittleSisterBorrowingModal(state: GameState): string {
   const selectedAbility = selectedOwner?.abilities.find(
     ({ abilityIndex }) => abilityIndex === selection.abilityIndex,
   );
+  const selectedTarget = selectedAbility === undefined
+    ? undefined
+    : decodeTarget(
+      draftValue(goodwillDraftKey(selectedAbility.key, "target")) || undefined,
+    );
+  const ninjaClaim = selectedAbility === undefined
+    ? undefined
+    : ninjaRoleClaimSelection(state, selectedAbility, selectedTarget);
   const step = selection.owner === undefined
     ? 1
     : selection.abilityIndex === undefined
@@ -2928,6 +3015,12 @@ function renderLittleSisterBorrowingModal(state: GameState): string {
         <div class="goodwill-inputs">
           ${renderGoodwillTarget(selectedAbility, false)}
           ${renderGoodwillChoice(state, selectedAbility, false)}
+          ${renderNinjaRoleClaimChoice(
+            state,
+            selectedAbility,
+            selectedTarget,
+            false,
+          )}
         </div>
         <div class="goodwill-actions little-sister-complete-action">
           ${selectedAbility.schema.effect.operation === "moveCounter"
@@ -2936,7 +3029,10 @@ function renderLittleSisterBorrowingModal(state: GameState): string {
                 data-ability-owner="${escapeHtml(selectedOwner.owner)}"
                 data-rank="${selectedAbility.schema.rank}"
                 data-ability-index="${selectedAbility.abilityIndex}"
-                data-goodwill-key="${escapeHtml(selectedAbility.key)}">
+                data-goodwill-key="${escapeHtml(selectedAbility.key)}"
+                ${ninjaClaim !== undefined && ninjaClaim.selected === undefined
+                  ? "disabled"
+                  : ""}>
                 <span>카운터 이동 선택</span>
               </button>`
             : `<button type="button" data-action="goodwill" data-response="resolve"
@@ -2944,7 +3040,10 @@ function renderLittleSisterBorrowingModal(state: GameState): string {
                 data-ability-owner="${escapeHtml(selectedOwner.owner)}"
                 data-rank="${selectedAbility.schema.rank}"
                 data-ability-index="${selectedAbility.abilityIndex}"
-                data-goodwill-key="${escapeHtml(selectedAbility.key)}">
+                data-goodwill-key="${escapeHtml(selectedAbility.key)}"
+                ${ninjaClaim !== undefined && ninjaClaim.selected === undefined
+                  ? "disabled"
+                  : ""}>
                 <span>빌린 능력 해결</span>
               </button>`}
         </div>
@@ -3177,9 +3276,15 @@ function renderGoodwillAbilities(state: GameState): string {
         (targetWarning.restrictionRemovalAvailable
           ? " 우호1 로 금지 장소를 먼저 해제할 수 있습니다."
           : "");
-    const resolveChoiceText = availability.refusalKind === "mandatory"
-      ? "선택 불가 · 반드시 거부"
-      : "변화 없음 · 안전";
+    const ninjaClaim = ninjaRoleClaimSelection(state, view, selectedTarget);
+    const roleClaimMissing = ninjaClaim !== undefined &&
+      ninjaClaim.selected === undefined;
+    const resolveChoiceText = goodwillResolveChoiceText(
+      state,
+      view,
+      selectedTarget,
+      availability.refusalKind === "mandatory",
+    );
     const refuseChoiceText = availability.refusalKind === "mandatory"
       ? "선택 불가 · 반드시 거부"
       : schema.immuneToGoodwillRefusel || availability.refusalKind === "none"
@@ -3227,7 +3332,9 @@ function renderGoodwillAbilities(state: GameState): string {
         <button type="button" data-action="goodwill" data-response="resolve"
           data-character="${escapeHtml(character)}" data-rank="${schema.rank}"
           data-ability-index="${abilityIndex}" data-goodwill-key="${escapeHtml(key)}"
-          ${disabled || !availability.resolveAllowed ? "disabled" : ""}
+          ${disabled || !availability.resolveAllowed || roleClaimMissing
+            ? "disabled"
+            : ""}
           ${resolveRuleTitle ? `title="${escapeHtml(resolveRuleTitle)}"` : ""}>
           <span>${escapeHtml(misc("Resolve", "Resolve"))}</span>
           ${!disabled
@@ -3265,6 +3372,7 @@ function renderGoodwillAbilities(state: GameState): string {
       <div class="goodwill-inputs">
         ${renderGoodwillTarget(view, disabled)}
         ${renderGoodwillChoice(state, view, disabled)}
+        ${renderNinjaRoleClaimChoice(state, view, selectedTarget, disabled)}
         ${targetWarningText
           ? `<p class="goodwill-target-warning" role="alert">${escapeHtml(targetWarningText)}</p>`
           : ""}
@@ -4902,6 +5010,7 @@ function roleCellReasonLabel(code: string): string {
     case "roleRevealed": return "역할 공개";
     case "otherRoleConfirmed": return "다른 역할 확정";
     case "effectiveRoleRevealed": return "공개 시점 유효 역할";
+    case "ninjaLiePossible": return "닌자의 거짓 공개 가능";
     case "otherRoleInferred": return "다른 역할 추론 확정";
     case "onlyRemainingRole": return "유일 역할 후보";
     case "requiredRoleForcedCandidate": return "필수 역할 남은 후보";
@@ -4987,6 +5096,29 @@ function roleInferenceGroups(
   const noDeathPartners = new Map<CharacterId, Set<CharacterId>>();
 
   for (const observation of summary.observations) {
+    if (observation.kind === "roleRevealed") {
+      const ninjaCell = summary.roleTable.cells[observation.character]?.ninja;
+      const declaredCell = summary.roleTable.cells[observation.character]?.[
+        observation.role
+      ];
+      const lieReason = [...(ninjaCell?.reasons ?? []), ...(
+        declaredCell?.reasons ?? []
+      )].some(({ code }) => code === "ninjaLiePossible");
+      if (lieReason) {
+        const day = observation.observedAt?.day;
+        addTrace(
+          [observation.character],
+          `${characterName(observation.character)} = ${
+            roleName(observation.role)
+          } 또는 ${roleName("ninja")}`,
+          "역할 공개",
+          `${observation.loop}루프${day === undefined ? "" : ` ${day}일`}`,
+          `${roleName(observation.role)} 선언`,
+          "닌자의 거짓 공개일 수 있음",
+        );
+      }
+      continue;
+    }
     if (observation.kind === "sacredTreeMastermindTransferJudged") {
       if (!observation.eligible) continue;
       addTrace(
@@ -6609,6 +6741,7 @@ function resolveGoodwillFromButton(button: HTMLButtonElement): void {
   const cardValue = goodwillInput("card");
   const choiceValue = goodwillInput("choice");
   const revealValue = goodwillInput("reveal");
+  const roleClaim = goodwillInput("role-claim");
 
   try {
     const view = abilityOwner === undefined
@@ -6694,6 +6827,7 @@ function resolveGoodwillFromButton(button: HTMLButtonElement): void {
         incidentChoice,
         declaredSubplot,
         revealedSubplot,
+        roleClaim,
       },
       response,
     );
@@ -7569,6 +7703,23 @@ root.addEventListener("change", (event) => {
       return;
     }
     if (draftKey.startsWith("sacred-tree:")) {
+      render();
+      return;
+    }
+    if (control.dataset.goodwillTarget !== undefined) {
+      const key = control.dataset.goodwillTarget;
+      const view = goodwillAbilityViews(currentState()).find(
+        (candidate) => candidate.key === key,
+      ) ?? littleSisterBorrowingOptions(currentState())
+        .flatMap(({ abilities }) => abilities)
+        .find((candidate) => candidate.key === key);
+      if (view?.schema.effect.operation === "revealRole") {
+        uiInputDrafts.delete(goodwillDraftKey(key, "role-claim"));
+        render();
+        return;
+      }
+    }
+    if (action === "goodwill-role-claim") {
       render();
       return;
     }

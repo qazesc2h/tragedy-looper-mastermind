@@ -200,6 +200,11 @@ export const ROLE_IMPL: Record<string, {
     ko: "엑스트라",
     hooks: [], // 능력 없음
   },
+  // ── 닌자 (Ninja) — 역할 공개 분기는 engine/role-reveal.ts가 담당한다.
+  ninja: {
+    ko: "닌자",
+    hooks: [],
+  },
   // ── 골칫거리 (Curmudgeon)
   curmudgeon: {
     ko: "골칫거리",

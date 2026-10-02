@@ -3,6 +3,7 @@ import { PLOT_IMPL } from "../impl/plots";
 import { ROLE_IMPL } from "../impl/roles";
 import { tragedySetDefinition } from "../tragedy-sets";
 import { actionCardRestriction } from "./legal";
+import { roleClaimOptions } from "./role-reveal";
 import {
   effectiveRole,
   type CharacterId,
@@ -95,11 +96,45 @@ function difficultyLabel(difficulty: CoverDifficulty): string {
 }
 
 function wasRevealed(state: GameState, character: CharacterId): boolean {
-  return [...state.history, state.loop].some((loop) =>
-    (loop.publicInformationThisLoop ?? []).some((information) =>
-      information.kind === "roleClaim" && information.character === character
-    )
+  return [...state.history, state.loop].some((loop) => {
+    const resolutions = loop.roleRevealResolutionsThisLoop ?? [];
+    if (resolutions.some((resolution) =>
+      resolution.character === character &&
+      resolution.result === "truthful" &&
+      (
+        resolution.claimedRole === "person" ||
+        resolution.claimedRole === "ninja" ||
+        !Object.values(state.scenario.cast).includes("ninja")
+      )
+    )) return true;
+    // 구 저장처럼 공개 주장만 있고 전용 해결 기록이 없으면 기존처럼 실제 공개로 본다.
+    return !resolutions.some((resolution) =>
+        resolution.character === character
+      ) &&
+      (loop.publicInformationThisLoop ?? []).some((information) =>
+        information.kind === "roleClaim" && information.character === character
+      );
+  });
+}
+
+function ninjaLieIsAvailable(
+  state: GameState,
+  character: CharacterId,
+): boolean {
+  return roleClaimOptions(state, character).some(
+    ({ result }) => result === "ninjaLie",
   );
+}
+
+function ninjaClaimCouldKeepRoleAmbiguous(
+  state: GameState,
+  character: CharacterId,
+): boolean {
+  const role = effectiveRole(state, character);
+  if (role === "person" || role === "ninja") {
+    return ninjaLieIsAvailable(state, character);
+  }
+  return Object.values(state.scenario.cast).includes("ninja");
 }
 
 function isRefusable(ability: GoodwillAbilityData): boolean {
@@ -190,7 +225,11 @@ function goodwillRevealPaths(
       return [{
         key: `goodwill-reveal:${target}:${abilityIndex}:${target}`,
         title: `${characterDataOf(target).ko} [우호${ability.rank}] 역할 공개`,
-        observation: `${goodwillAbilityCondition(ability)} · 이 캐릭터의 역할이 직접 공개된다.`,
+        observation: `${goodwillAbilityCondition(ability)} · ${
+          ninjaClaimCouldKeepRoleAmbiguous(state, target)
+            ? "선언한 역할만 공개되며 닌자의 거짓 공개 가능성은 남는다."
+            : "이 캐릭터의 실제 역할이 직접 공개된다."
+        }`,
         control: "protagonist" as const,
         avoidable: true,
         avoidance: ROLE_IMPL[effectiveRole(state, target)]?.goodwillRefusal
@@ -223,7 +262,13 @@ function commonGoodwillRevealPaths(
       return [{
         key: `common-goodwill-reveal:${user}:${abilityIndex}`,
         title: `${characterDataOf(user).ko} [우호${ability.rank}] 역할 공개`,
-        observation: `${goodwillAbilityCondition(ability)} · 대상으로 고른 캐릭터의 역할을 공개한다.`,
+        observation: `${goodwillAbilityCondition(ability)} · ${
+          targets.some((target) =>
+            ninjaClaimCouldKeepRoleAmbiguous(state, target)
+          )
+            ? "대상의 선언 역할을 공개한다. 닌자는 거짓 선언으로 실제 역할 노출을 피할 수 있다."
+            : "대상으로 고른 캐릭터의 실제 역할을 공개한다."
+        }`,
         targetCharacterNames: targets.map((target) => characterDataOf(target).ko),
         excludedCharacterNames: excluded.map((target) => characterDataOf(target).ko),
       }];

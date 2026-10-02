@@ -72,6 +72,8 @@ export interface GoodwillDeclaration {
   incidentChoice?: IncidentChoiceInput;
   declaredSubplot?: PlotId;
   revealedSubplot?: PlotId;
+  /** 닌자 역할 공개 시 각본가가 고른 공개 선언. */
+  roleClaim?: RoleId;
 }
 
 export interface GoodwillUse extends GoodwillDeclaration {
@@ -515,8 +517,12 @@ function requirePanickedCharacter(
   }
 }
 
-function revealRole(state: GameState, character: CharacterId): boolean {
-  return resolveRoleReveal(state, character);
+function revealRole(
+  state: GameState,
+  character: CharacterId,
+  claimedRole?: RoleId,
+): boolean {
+  return resolveRoleReveal(state, character, claimedRole);
 }
 
 function revealCopycatRoleCharacters(state: GameState): boolean {
@@ -759,14 +765,14 @@ function applySimpleBaseAbility(
 
     case "mysteryBoy:1":
     case "officeWorker:0":
-      return revealRole(state, declaration.user);
+      return revealRole(state, declaration.user, declaration.roleClaim);
 
     case "copycat:1":
       return revealCopycatRoleCharacters(state);
 
     case "boss:1": {
       const target = requireLivingCharacterInTurf(state, declaration);
-      return revealRole(state, target);
+      return revealRole(state, target, declaration.roleClaim);
     }
 
     case "shrineMaiden:0": {
@@ -777,7 +783,7 @@ function applySimpleBaseAbility(
 
     case "shrineMaiden:1": {
       const target = requireLivingCharacterInSameLocation(state, declaration);
-      return revealRole(state, target);
+      return revealRole(state, target, declaration.roleClaim);
     }
 
     case "alien:0": {
@@ -948,7 +954,7 @@ function applySimpleBaseAbility(
         );
       }
       requirePanickedCharacter(state, target, "sectFounder");
-      return revealRole(state, target);
+      return revealRole(state, target, declaration.roleClaim);
     }
 
     case "henchman:1":
@@ -973,7 +979,7 @@ function applySimpleBaseAbility(
       if (!characterDataOf(target).tags.includes("student")) {
         throw new Error("teacher goodwill ability target must be a student");
       }
-      return revealRole(state, target);
+      return revealRole(state, target, declaration.roleClaim);
     }
 
     case "transferStudent:1": {
@@ -1006,7 +1012,7 @@ function applySimpleBaseAbility(
       if (!isCharacterDead(state.loop.board[target])) {
         throw new Error("forensicSpecialist rank 5 target must be a corpse");
       }
-      return revealRole(state, target);
+      return revealRole(state, target, declaration.roleClaim);
     }
 
     case "forensicSpecialist:0":

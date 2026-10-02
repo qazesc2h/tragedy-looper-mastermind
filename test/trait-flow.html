@@ -430,6 +430,9 @@
             state.loop.day = 3;
             state.history = [];
             state.loop.publicInformationThisLoop = [];
+            state.loop.roleRevealResolutionsThisLoop = [];
+            state.loop.phaseLog = [];
+            state.loop.abilitiesUsedThisRound = [];
             state.loop.abilitiesUsedThisLoop = [];
             state.scenario.cast.officeWorker = role;
             state.loop.charCounters.officeWorker.goodwill = 3;
@@ -492,7 +495,7 @@
           resolveDisabled: false,
           refuseDisabled: true,
           expectedText: "회사원 (엑스트라)",
-          expectedResolvePreview: "변화 없음 · 안전",
+          expectedResolvePreview: "역할 공개 · 엑스트라 확정",
           expectedRefusePreview: "선택 불가 · 거부 불가",
         });
         await assertOfficeWorkerPolicy({
@@ -501,7 +504,7 @@
           resolveDisabled: false,
           refuseDisabled: false,
           expectedText: "회사원 (살인 청부업자 · 우호 무시)",
-          expectedResolvePreview: "변화 없음 · 안전",
+          expectedResolvePreview: "역할 공개 · 살인 청부업자 확정",
           expectedRefusePreview: "회사원 = 우호 무시 계열 확정 후보 12 → 5",
         });
         await assertOfficeWorkerPolicy({
@@ -513,6 +516,134 @@
           expectedResolvePreview: "선택 불가 · 반드시 거부",
           expectedRefusePreview: "선택 불가 · 반드시 거부",
         });
+
+        prepareOfficeWorker("ninja");
+        await reloadFrame("닌자 거짓 역할 공개");
+        await openOperationSheet("닌자 거짓 역할 공개 조작 패널");
+        const ninjaClaim = await waitFor(
+          () => frameDocument().querySelector(
+            "[data-action='goodwill-role-claim']",
+          ),
+          "닌자 역할 선언 선택",
+        );
+        const ninjaResolve = goodwillButton("officeWorker", "resolve");
+        const claimOptions = [...ninjaClaim.options].map((option) => ({
+          value: option.value,
+          text: option.textContent?.trim(),
+        }));
+        assert(
+          ninjaResolve?.disabled,
+          "닌자 선언을 고르기 전에 역할 공개 해결 버튼이 활성임",
+        );
+        assert(
+          claimOptions.some(({ value, text }) =>
+            value === "ninja" && text?.includes("진실 공개")
+          ) &&
+            !claimOptions.some(({ value, text }) =>
+              value === "person" ||
+              (value === "ninja" && text?.includes("거짓 공개"))
+            ),
+          `닌자 선언 후보: ${JSON.stringify(claimOptions)}`,
+        );
+        changeSelect("[data-action='goodwill-role-claim']", "keyPerson");
+        const selectedNinjaResolve = await waitFor(
+          () => {
+            const button = goodwillButton("officeWorker", "resolve");
+            return button && !button.disabled ? button : undefined;
+          },
+          "닌자 거짓 선언 반영",
+        );
+        assert(
+          selectedNinjaResolve.textContent?.includes(
+            "핵심 인물 선언 · 닌자 가능성 유지",
+          ),
+          `닌자 공개 예고: ${selectedNinjaResolve.textContent}`,
+        );
+        selectedNinjaResolve.click();
+        const ninjaState = await waitFor(() => {
+          const stored = storedState(scenarioId);
+          return stored.loop.roleRevealResolutionsThisLoop?.length
+            ? stored
+            : undefined;
+        }, "닌자 거짓 공개 저장");
+        const publicClaim = ninjaState.loop.publicInformationThisLoop.find(
+          (information) => information.kind === "roleClaim" &&
+            information.character === "officeWorker",
+        );
+        const privateResolution = ninjaState.loop
+          .roleRevealResolutionsThisLoop.find(
+            (resolution) => resolution.character === "officeWorker",
+          );
+        assert(
+          publicClaim?.claimedRole === "keyPerson" &&
+            publicClaim.result === undefined &&
+            publicClaim.actualRoleAtReveal === undefined,
+          `닌자 공개 주장: ${JSON.stringify(publicClaim)}`,
+        );
+        assert(
+          privateResolution?.actualRoleAtReveal === "ninja" &&
+            privateResolution.claimedRole === "keyPerson" &&
+            privateResolution.result === "ninjaLie",
+          `닌자 비공개 해결: ${JSON.stringify(privateResolution)}`,
+        );
+
+        mutateStoredState(scenarioId, (state) => {
+          state.gamePhase = "ROUND";
+          state.loop.phase = "P6_GOODWILL";
+          state.loop.loop = 2;
+          state.loop.day = 3;
+          state.history = [];
+          state.loop.publicInformationThisLoop = [];
+          state.loop.roleRevealResolutionsThisLoop = [];
+          state.loop.phaseLog = [];
+          state.loop.abilitiesUsedThisRound = [];
+          state.loop.abilitiesUsedThisLoop = [];
+          state.scenario.cast.officeWorker = "ninja";
+          state.scenario.cast.littleSister = "person";
+          state.loop.board.officeWorker = { status: "alive", at: "City" };
+          state.loop.board.littleSister = { status: "alive", at: "City" };
+          state.loop.charCounters.officeWorker.goodwill = 0;
+          state.loop.charCounters.littleSister = {
+            goodwill: 5,
+            paranoia: 0,
+            intrigue: 0,
+            protection: 0,
+          };
+        });
+        await reloadFrame("여동생 닌자 공개 선택");
+        await openOperationSheet("여동생 닌자 공개 선택 조작 패널");
+        click("[data-action='open-little-sister-borrowing']");
+        await waitFor(
+          () => frameDocument().querySelector(
+            "[data-action='little-sister-owner'][data-owner='officeWorker']",
+          ),
+          "여동생 닌자 능력 소유자",
+        );
+        click("[data-action='little-sister-owner'][data-owner='officeWorker']");
+        click("[data-action='little-sister-ability'][data-ability-index='0']");
+        const borrowedNinjaClaim = await waitFor(
+          () => frameDocument().querySelector(
+            "[data-little-sister-step='3'] [data-action='goodwill-role-claim']",
+          ),
+          "여동생 닌자 역할 선언 선택",
+        );
+        const borrowedResolveSelector =
+          "[data-little-sister-step='3'] [data-action='goodwill'][data-response='resolve']";
+        assert(
+          frameDocument().querySelector(borrowedResolveSelector)?.disabled,
+          "여동생이 빌린 닌자 공개 능력이 선언 선택 전에 활성임",
+        );
+        borrowedNinjaClaim.value = "keyPerson";
+        borrowedNinjaClaim.dispatchEvent(
+          new (frameWindow().Event)("change", { bubbles: true }),
+        );
+        await waitFor(
+          () => {
+            const button = frameDocument().querySelector(borrowedResolveSelector);
+            return button && !button.disabled ? button : undefined;
+          },
+          "여동생 닌자 거짓 선언 반영",
+        );
 
         mutateStoredState(scenarioId, (state) => {
           state.gamePhase = "ROUND";
@@ -590,6 +721,7 @@
         reports.push({
           goodwillRefusalButtons: "none/optional/mandatory/protected + disclosure preview",
           goodwillRefusalHistory: "2루프 3일",
+          ninjaRoleClaim: "direct and borrowed keyPerson claim; private ninjaLie",
         });
       }
 

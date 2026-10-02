@@ -349,6 +349,10 @@ export type RolePossibilityReason =
     observation: Extract<ProtagonistObservation, { kind: "roleRevealed" }>;
   }
   | {
+    code: "ninjaLiePossible";
+    observation: Extract<ProtagonistObservation, { kind: "roleRevealed" }>;
+  }
+  | {
     code: "otherRoleInferred";
     role: RoleId;
   }
@@ -678,6 +682,43 @@ function fatedConnectionsExplainsDeath(
   );
 }
 
+/** 공개 선언을 그 시점의 닌자가 한 거짓 선언으로 설명할 수 있는가. */
+function ninjaLieCouldExplainRoleClaim(
+  observation: Extract<ProtagonistObservation, { kind: "roleRevealed" }>,
+  combination: RuleCombination,
+  tragedySetRoles: readonly RoleId[],
+  ranges: ReadonlyMap<RoleId, RoleRange>,
+  publicCast: readonly CharacterId[],
+): boolean {
+  if (observation.role === "person" || observation.role === "ninja") {
+    return false;
+  }
+  // 특수 카드 부착이 확인되면 실제 역할은 핵심 인물이고 닌자 능력은 없다.
+  if (
+    fatedConnectionsIsActive(combination) &&
+    observedExtraCardAttached(
+      observation.context,
+      observation.character,
+    ) === true
+  ) {
+    return false;
+  }
+  return roleCouldBelongToCharacter(
+      tragedySetRoles,
+      ranges,
+      "ninja",
+      observation.character,
+      publicCast,
+    ) &&
+    // Q10 보수 판정: 동적 역할이 아니라 이 룰 조합의 기본 배정 역할만 허용한다.
+    roleCouldAppear(
+      tragedySetRoles,
+      ranges,
+      observation.role,
+      publicCast,
+    );
+}
+
 function roleAbilityCouldAppear(
   tragedySetRoles: readonly RoleId[],
   ranges: ReadonlyMap<RoleId, RoleRange>,
@@ -758,13 +799,21 @@ function roleObservationContradiction(
       observation.character,
       observation.context,
     );
+  const ninjaLieCouldExplain = ninjaLieCouldExplainRoleClaim(
+    observation,
+    combination,
+    tragedySetRoles,
+    ranges,
+    publicCast,
+  );
   const compatible = roleCouldBelongToCharacter(
     tragedySetRoles,
     ranges,
     observation.role,
     observation.character,
     publicCast,
-  ) || mutatedPersonCouldExplain || fatedKeyPersonCouldExplain;
+  ) || mutatedPersonCouldExplain || fatedKeyPersonCouldExplain ||
+    ninjaLieCouldExplain;
   if (compatible) return undefined;
 
   return {
@@ -859,7 +908,10 @@ interface ObservationCauseClause {
 function confirmedRoleByCharacter(
   observations: readonly ProtagonistObservation[],
   combination: RuleCombination,
+  tragedySetRoles: readonly RoleId[],
+  publicCast: readonly CharacterId[],
 ): Map<CharacterId, RoleId> {
+  const ranges = roleRanges(combination);
   const roles = new Map<CharacterId, RoleId>();
   for (const observation of observations) {
     if (
@@ -877,6 +929,18 @@ function confirmedRoleByCharacter(
         // 공개된 것은 그 시점의 유효 역할이다. 기본 배정 역할은 확정하지 않는다.
         continue;
       }
+      if (
+        ninjaLieCouldExplainRoleClaim(
+          observation,
+          combination,
+          tragedySetRoles,
+          ranges,
+          publicCast,
+        )
+      ) {
+        // 공개된 선언 역할과 실제 닌자를 모두 유지한다.
+        continue;
+      }
       const paranoia = publicCharacterCounter(
         observation.context?.characters?.[observation.character],
         "paranoia",
@@ -887,7 +951,7 @@ function confirmedRoleByCharacter(
         (paranoia === undefined || paranoia >= 3);
       if (
         mutatedPerson &&
-        activeRoleIsPossible(roleRanges(combination), "serialKiller")
+        activeRoleIsPossible(ranges, "serialKiller")
       ) {
         // 공개된 유효 역할만으로 기본 person/serialKiller를 구별할 수 없다.
         continue;
@@ -1820,7 +1884,12 @@ function crossObservationPrefixIsContradictory(
 ): boolean {
   incrementRoleTableProfile("crossObservationPrefixEvaluations");
   const prefix = observations.slice(0, prefixLength);
-  const confirmedRoles = confirmedRoleByCharacter(prefix, combination);
+  const confirmedRoles = confirmedRoleByCharacter(
+    prefix,
+    combination,
+    tragedySetRoles,
+    publicCast,
+  );
   const contextCharacters = prefix.flatMap((candidate) =>
     candidate.kind === "mastermindAbilityResult"
       ? Object.keys(candidate.context?.characters ?? {})
@@ -2147,7 +2216,12 @@ function lossRoleCandidates(
 ): CharacterId[] {
   const tragedySetRoles = rolesForTragedySet(tragedySet);
   const ranges = roleRanges(combination);
-  const confirmed = confirmedRoleByCharacter(observations, combination);
+  const confirmed = confirmedRoleByCharacter(
+    observations,
+    combination,
+    tragedySetRoles,
+    publicCast,
+  );
   return publicCast.filter((character) => {
     const confirmedRole = confirmed.get(character);
     if (confirmedRole !== undefined && confirmedRole !== role) return false;
@@ -2692,6 +2766,17 @@ function revealedBaseRoleCandidates(
     )) {
       candidates.add(observation.role);
     }
+    if (
+      ninjaLieCouldExplainRoleClaim(
+        observation,
+        combination,
+        tragedySetRoles,
+        ranges,
+        publicCast,
+      )
+    ) {
+      candidates.add("ninja");
+    }
     const paranoia = publicCharacterCounter(
       observation.context?.characters?.[observation.character],
       "paranoia",
@@ -3178,7 +3263,12 @@ function causeConstraintForCellUnprofiled(
       combination.id,
     );
     if (confirmedRoles === undefined) {
-      confirmedRoles = confirmedRoleByCharacter(observations, combination);
+      confirmedRoles = confirmedRoleByCharacter(
+        observations,
+        combination,
+        tragedySetRoles,
+        publicCast,
+      );
       context.confirmedRolesByCombination.set(combination.id, confirmedRoles);
     }
     const alreadyConfirmed = confirmedRoles.get(character);
@@ -3341,6 +3431,25 @@ export function buildRolePossibilityTable(
     );
   }
 
+  const ninjaLieObservations = observations.filter(
+    (
+      observation,
+    ): observation is Extract<
+      ProtagonistObservation,
+      { kind: "roleRevealed" }
+    > => observation.kind === "roleRevealed" &&
+      observation.confirmed !== false &&
+      combinations.some((combination) =>
+        ninjaLieCouldExplainRoleClaim(
+          observation,
+          combination,
+          tragedySetRoles,
+          roleRanges(combination),
+          publicCast,
+        )
+      ),
+  );
+
   const cells: Record<
     CharacterId,
     Record<RoleId, RolePossibilityCell>
@@ -3471,7 +3580,18 @@ export function buildRolePossibilityTable(
         continue;
       }
 
-      row[role] = { character, role, status: "possible", reasons: [] };
+      const ninjaLieReasons: RolePossibilityReason[] = ninjaLieObservations
+        .filter((observation) =>
+          observation.character === character &&
+          (role === observation.role || role === "ninja")
+        )
+        .map((observation) => ({ code: "ninjaLiePossible", observation }));
+      row[role] = {
+        character,
+        role,
+        status: "possible",
+        reasons: ninjaLieReasons,
+      };
     }
     cells[character] = row;
   }
