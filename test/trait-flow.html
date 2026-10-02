@@ -1181,8 +1181,16 @@
           frameDocument().querySelector(".extra-card-badge") === null,
           "부착 카드가 없는데 배지가 표시됨",
         );
-        const character = Object.keys(storedState(scenarioId).loop.board)[0];
+        const stored = storedState(scenarioId);
+        const character = Object.entries(stored.scenario.cast).find(
+          ([, role]) => role !== "keyPerson",
+        )?.[0];
+        if (!character) throw new Error("인과의 인연 역할 교체 대상이 없습니다.");
+        const originalRole = frameDocument().querySelector(
+          `.character-chip[data-character='${character}'] .character-chip-role`,
+        )?.textContent?.trim();
         mutateStoredState(scenarioId, (state) => {
+          state.scenario.subPlots.push("fatedConnections");
           state.loop.extraCards = [
             {
               instanceId: "ui-character-one",
@@ -1223,7 +1231,29 @@
         );
         assert(characterCards.length === 2, `캐릭터 부착 카드 수: ${characterCards.length}`);
         assert(locationCards.length === 1, `장소 부착 카드 수: ${locationCards.length}`);
-        reports.push({ extraCards: "hidden when empty; character 2; location 1" });
+        assert(
+          frameDocument().querySelector(
+            `.character-chip[data-character='${character}'] .character-chip-role`,
+          )?.textContent?.trim() === "핵심 인물",
+          "인과의 인연 특수 카드가 현재 역할 표시에 반영되지 않음",
+        );
+
+        mutateStoredState(scenarioId, (state) => {
+          state.loop.extraCards = state.loop.extraCards.filter(
+            (card) => card.target.kind !== "character" ||
+              card.target.id !== character,
+          );
+        });
+        await reloadFrame("extra-card-role-restored");
+        assert(
+          frameDocument().querySelector(
+            `.character-chip[data-character='${character}'] .character-chip-role`,
+          )?.textContent?.trim() === originalRole,
+          `특수 카드 제거 뒤 역할 복귀: ${originalRole}`,
+        );
+        reports.push({
+          extraCards: "hidden when empty; character 2; location 1; fated role changes and returns",
+        });
       }
 
       async function runUnsettlingRumorTransactionCase() {

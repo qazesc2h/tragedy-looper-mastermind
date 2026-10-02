@@ -1,6 +1,7 @@
 // 코어 타입 — 손으로 작성. 생성기가 덮어쓰지 않음.
 
 import { characterDataOf } from "./data";
+import { extraCardsAt } from "./engine/extra-cards";
 import type {
   CharacterCounter,
   CharacterCounters,
@@ -910,11 +911,19 @@ export interface IncidentHook
 // ─────────────────────────────────────────────────────────── 파생 조회
 /**
  * 역할은 상수가 아니라 상태의 함수다.
+ * 인과의 인연(fatedConnections): 특수 카드 부착 → 핵심 인물
  * 망상 확대 바이러스(paranoiaVirus): 엑스트라 + 불안 3개 이상 → 연쇄 살인마
  * 반드시 이 함수를 통해서만 역할을 읽을 것. scenario.cast 직접 참조 금지.
  */
 export function effectiveRole(s: GameState, c: CharacterId): RoleId {
   const base = s.scenario.cast[c];
+  // 사용자 확인 MZ-2: 카드 출처와 무관하게 현재 부착 여부만 본다.
+  if (
+    [s.scenario.mainPlot, ...s.scenario.subPlots].includes("fatedConnections") &&
+    extraCardsAt(s.loop, { kind: "character", id: c }).length > 0
+  ) {
+    return "keyPerson";
+  }
   // SOURCE: src/impl/plots.ts paranoiaVirus 훅의 source 참조
   if (
     s.scenario.subPlots.includes("paranoiaVirus") &&

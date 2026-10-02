@@ -639,6 +639,45 @@ function factorAbilityConditionMet(
     : context.locationIntrigue.City >= 2;
 }
 
+function fatedConnectionsIsActive(combination: RuleCombination): boolean {
+  return [combination.mainPlot, ...combination.subPlots].includes(
+    "fatedConnections",
+  );
+}
+
+/** undefined는 구 저장에 특수 카드 스냅샷이 없어 부착 여부를 모른다는 뜻이다. */
+function observedExtraCardAttached(
+  context: PublicObservationContext | undefined,
+  character: CharacterId,
+): boolean | undefined {
+  if (context?.extraCards === undefined) return undefined;
+  return context.extraCards.some(({ target }) =>
+    target.kind === "character" && target.id === character
+  );
+}
+
+function fatedConnectionsCouldExplainKeyPerson(
+  combination: RuleCombination,
+  character: CharacterId,
+  context: PublicObservationContext | undefined,
+): boolean {
+  if (!fatedConnectionsIsActive(combination)) return false;
+  return observedExtraCardAttached(context, character) !== false;
+}
+
+function fatedConnectionsExplainsDeath(
+  combination: RuleCombination,
+  context: PublicObservationContext,
+  deaths: ReadonlySet<CharacterId>,
+): boolean {
+  if (!fatedConnectionsIsActive(combination)) return false;
+  if (deaths.size === 0) return false;
+  if (context.extraCards === undefined) return true;
+  return context.extraCards.some(({ target }) =>
+    target.kind === "character" && deaths.has(target.id)
+  );
+}
+
 function roleAbilityCouldAppear(
   tragedySetRoles: readonly RoleId[],
   ranges: ReadonlyMap<RoleId, RoleRange>,
@@ -672,6 +711,22 @@ function roleObservationContradiction(
   // 공개 순간 역할이 없는 구 저장의 복원값은 확정 증거로 쓰지 않는다.
   if (observation.confirmed === false) return undefined;
   const outsider = observation.character === "mysteryBoy";
+  const attached = observedExtraCardAttached(
+    observation.context,
+    observation.character,
+  );
+  if (
+    fatedConnectionsIsActive(combination) &&
+    attached === true &&
+    observation.role !== "keyPerson"
+  ) {
+    return {
+      code: "revealedDynamicRoleMismatch",
+      observation,
+      reason: `${observation.character}는 역할 공개 시 특수 카드가 있으므로 ` +
+        "인과의 인연 아래에서는 핵심 인물이어야 합니다.",
+    };
+  }
   const paranoia = publicCharacterCounter(
     observation.context?.characters?.[observation.character],
     "paranoia",
@@ -697,13 +752,19 @@ function roleObservationContradiction(
     paranoiaVirusActive &&
     (paranoia === undefined || paranoia >= 3) &&
     activeRoleIsPossible(ranges, "person");
+  const fatedKeyPersonCouldExplain = observation.role === "keyPerson" &&
+    fatedConnectionsCouldExplainKeyPerson(
+      combination,
+      observation.character,
+      observation.context,
+    );
   const compatible = roleCouldBelongToCharacter(
     tragedySetRoles,
     ranges,
     observation.role,
     observation.character,
     publicCast,
-  ) || mutatedPersonCouldExplain;
+  ) || mutatedPersonCouldExplain || fatedKeyPersonCouldExplain;
   if (compatible) return undefined;
 
   return {
@@ -805,6 +866,17 @@ function confirmedRoleByCharacter(
       observation.kind === "roleRevealed" &&
       observation.confirmed !== false
     ) {
+      if (
+        observation.role === "keyPerson" &&
+        fatedConnectionsCouldExplainKeyPerson(
+          combination,
+          observation.character,
+          observation.context,
+        )
+      ) {
+        // 공개된 것은 그 시점의 유효 역할이다. 기본 배정 역할은 확정하지 않는다.
+        continue;
+      }
       const paranoia = publicCharacterCounter(
         observation.context?.characters?.[observation.character],
         "paranoia",
@@ -1157,6 +1229,14 @@ function roundEvidenceCauseClauses(
   ) {
     const alternatives: ObservationCauseAlternative[] = [];
     if (deaths.length > 0) {
+      if (fatedConnectionsExplainsDeath(
+        combination,
+        observation.context,
+        new Set(deaths),
+      )) {
+        // 특수 카드가 붙은 사망자는 기본 역할과 무관하게 핵심 인물이다.
+        alternatives.push({ requirements: [] });
+      }
       alternatives.push({
         requirements: [{
           role: "keyPerson",
@@ -2250,6 +2330,7 @@ function nonDeathLossCouldExplain(
   if (path !== "immediate" && path !== "lastDayImmediate") return false;
 
   const deaths = new Set(endingDeathCharacters(context));
+  if (fatedConnectionsExplainsDeath(combination, context, deaths)) return true;
   if (lossRoleCandidates(
     tragedySet,
     combination,
@@ -2577,6 +2658,31 @@ function revealedBaseRoleCandidates(
   const candidates = new Set<RoleId>();
   for (const combination of combinations) {
     const ranges = roleRanges(combination);
+    if (
+      observation.role === "keyPerson" &&
+      fatedConnectionsCouldExplainKeyPerson(
+        combination,
+        observation.character,
+        observation.context,
+      )
+    ) {
+      for (const role of new Set<RoleId>([
+        "person",
+        ...tragedySetRoles,
+        ...ranges.keys(),
+      ])) {
+        if (roleCouldBelongToCharacter(
+          tragedySetRoles,
+          ranges,
+          role,
+          observation.character,
+          publicCast,
+        )) {
+          candidates.add(role);
+        }
+      }
+      continue;
+    }
     if (roleCouldBelongToCharacter(
       tragedySetRoles,
       ranges,
@@ -2880,6 +2986,14 @@ function lossRoleCauseCandidates(
           observations,
         )
       )) {
+        nonRoleCauseExists = true;
+      }
+
+      if (
+        (path === "immediate" || path === "lastDayImmediate") &&
+        fatedConnectionsExplainsDeath(combination, context, deaths)
+      ) {
+        // 종료는 핵심 인물의 유효 역할로 설명되지만 기본 배정 역할은 알 수 없다.
         nonRoleCauseExists = true;
       }
 
@@ -3893,6 +4007,12 @@ export function explainableLossConditions(
 
     const deaths = new Set(endingDeathCharacters(context));
     const factorDeaths = new Set(endingFactorDeathCharacters(context));
+    if (
+      (path === "immediate" || path === "lastDayImmediate") &&
+      fatedConnectionsExplainsDeath(combination, context, deaths)
+    ) {
+      add({ key: "role:keyPerson", kind: "role", role: "keyPerson" });
+    }
     const roleConditions: ReadonlyArray<{
       role: "keyPerson" | "friend" | "timeTraveler" | "factor";
       paths: readonly PublicLossPath[];
