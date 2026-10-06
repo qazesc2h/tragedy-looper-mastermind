@@ -329,16 +329,16 @@ function parseIncidents(
       : requireString(raw.incident, `${context}[${index}].incident`);
     if (Array.isArray(incident) && incident.length !== 2) {
       throw new Error(
-        `${context}[${index}].incident must contain [declaredIncident, actualIncident]`,
+        `${context}[${index}].incident must contain [actualIncident, declaredIncident]`,
       );
     }
     return {
       day: requireNumber(raw.day, `${context}[${index}].day`),
       ...(Array.isArray(incident)
         ? {
-          incident: incident[0],
-          declaredIncident: incident[0],
-          actualIncident: incident[1],
+          incident: incident[1],
+          declaredIncident: incident[1],
+          actualIncident: incident[0],
         }
         : { incident }),
       culprit: requireString(

@@ -87,36 +87,36 @@ describe("MZ-1 public claims and private facts", () => {
       daysPerLoop: 4,
     }, { skipValidation: true });
     expect(scenario.incidents).toEqual([expect.objectContaining({
-      incident: "fakeIncident",
-      declaredIncident: "fakeIncident",
-      actualIncident: "hospitalIncident",
+      incident: "hospitalIncident",
+      declaredIncident: "hospitalIncident",
+      actualIncident: "fakeIncident",
     })]);
 
     const state = createGameState(scenario);
     state.gamePhase = "ROUND";
     state.loop.phase = "P7_INCIDENT";
     state.loop.charCounters.boyStudent.paranoia = 3;
-    state.loop.locIntrigue.Hospital = 1;
+    state.loop.locIntrigue.School = 2;
 
     expect(advanceGame(state, undefined, { deferSettlement: true }))
       .toMatchObject({
         occurrences: [{
-          declaredIncident: "fakeIncident",
-          actualIncident: "hospitalIncident",
+          declaredIncident: "hospitalIncident",
+          actualIncident: "fakeIncident",
           fired: true,
           effectApplied: true,
         }],
       });
-    expect(state.loop.board.doctor.status).toBe("dead");
+    expect(state.pendingLoopEnd?.reason).toBe("protagonistDeath");
     expect(state.loop.phaseLog).toContainEqual(expect.objectContaining({
       kind: "incidentJudged",
-      declaredIncident: "fakeIncident",
-      actualIncident: "hospitalIncident",
+      declaredIncident: "hospitalIncident",
+      actualIncident: "fakeIncident",
     }));
     expect(collectProtagonistObservations(state)).toContainEqual(
       expect.objectContaining({
         kind: "incidentOccurred",
-        incident: "fakeIncident",
+        incident: "hospitalIncident",
       }),
     );
   });

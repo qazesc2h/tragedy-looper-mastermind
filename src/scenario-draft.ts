@@ -49,6 +49,9 @@ export interface ScenarioDraftIncidentRow {
   rowId: string;
   day?: number;
   incident?: IncidentId;
+  declaredIncident?: IncidentId;
+  actualIncident?: IncidentId;
+  occurrenceIndex?: number;
   culprit?: IncidentCulprit;
 }
 
@@ -721,9 +724,19 @@ function finalizedScenario(draft: ScenarioDraft): Scenario {
     mainPlot: draft.mainPlot!,
     subPlots: (draft.subPlots ?? []).map(({ plot }) => plot!),
     cast,
-    incidents: normalizeIncidentSchedule((draft.incidents ?? []).map(({ day, incident, culprit }) => ({
+    incidents: normalizeIncidentSchedule((draft.incidents ?? []).map(({
+      day,
+      incident,
+      declaredIncident,
+      actualIncident,
+      occurrenceIndex,
+      culprit,
+    }) => ({
       day: day!,
       incident: incident!,
+      ...(declaredIncident === undefined ? {} : { declaredIncident }),
+      ...(actualIncident === undefined ? {} : { actualIncident }),
+      ...(occurrenceIndex === undefined ? {} : { occurrenceIndex }),
       culprit: culprit!,
     }))),
     loops: (draft.difficultySets?.[0]?.numberOfLoops ?? draft.loops)!,

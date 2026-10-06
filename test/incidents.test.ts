@@ -175,7 +175,7 @@ describe("incident resolution", () => {
       allowsRepeatedCulprit: false,
       choiceSchema: [{ kind: "character", key: "target" }],
     });
-    expect(incidentDefinition("serialMurder").allowsRepeatedCulprit).toBe(false);
+    expect(incidentDefinition("serialMurder").allowsRepeatedCulprit).toBe(true);
   });
 
   it("returns fired separately when an incident has no applied effect", () => {

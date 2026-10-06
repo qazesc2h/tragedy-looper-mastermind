@@ -73,12 +73,51 @@ function parseDefinition(id: string, value: unknown): TragedySetDefinition {
   };
 }
 
-export const TRAGEDY_SETS: Readonly<Record<string, TragedySetDefinition>> =
-  Object.fromEntries(
+const MIDNIGHT_ZONE: TragedySetDefinition = {
+  id: "midnightZone",
+  name: "Midnight Zone",
+  numberOfMainPlots: 1,
+  numberOfSubPlots: 2,
+  mainPlots: [
+    "sealedItem",
+    "secretRecord",
+    "devilsHand",
+    "maleConfrontation",
+    "fatedConnections",
+  ],
+  subPlots: [
+    "loveHateSpiral",
+    "showtimeDeath",
+    "witchesTeaTime",
+    "diceOfGods",
+    "unansweredHeart",
+    "unsafeTrigger",
+    "worshippersApocalypse",
+  ],
+  incidents: [
+    "serialMurder",
+    "missingPerson",
+    "suicide",
+    "conspiracies",
+    "increasingUnease",
+    "hospitalIncident",
+    "uproar",
+    "fakeIncident",
+    "breakthrough",
+    "fakedSuicide",
+    "confession",
+  ],
+  hasFinalGuess: true,
+};
+
+export const TRAGEDY_SETS: Readonly<Record<string, TragedySetDefinition>> = {
+  ...Object.fromEntries(
     Object.entries(tragedySetsJson as Record<string, unknown>).map(
       ([id, value]) => [id, parseDefinition(id, value)],
     ),
-  );
+  ),
+  midnightZone: MIDNIGHT_ZONE,
+};
 
 export function tragedySetDefinition(id: string): TragedySetDefinition {
   const definition = TRAGEDY_SETS[id];

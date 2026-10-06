@@ -6,7 +6,11 @@ export type IncidentTriggerPolicy =
     requiresAlive: true;
     paranoiaLimitAdjustment: number;
   }
-  | { kind: "characterIntrigue"; requiresAlive: true; required: number }
+  | {
+    kind: "characterIntrigue";
+    requiresAlive: true;
+    required: number | "paranoiaLimit";
+  }
   | { kind: "deadCharacter" }
   | { kind: "locationIntrigue"; required: number }
   | { kind: "locationCorpseCount"; required: number };
@@ -16,6 +20,8 @@ export type IncidentChoiceSchemaEntry =
   | { kind: "location"; key: "location" }
   | { kind: "counter"; key: "counter" }
   | { kind: "destination"; key: "destination" }
+  | { kind: "incident"; key: "incident"; incidents: readonly IncidentId[] }
+  | { kind: "role"; key: "roleClaim" }
   | {
     kind: "subIncident";
     key: "secondResolution";
@@ -51,6 +57,26 @@ const INCIDENT_DEFINITION_OVERRIDES: Readonly<
   butterflyEffect: {
     choiceSchema: [CHARACTER("target"), { kind: "counter", key: "counter" }],
   },
+  serialMurder: {
+    allowsRepeatedCulprit: true,
+    choiceSchema: [CHARACTER("target")],
+  },
+  conspiracies: {
+    triggerPolicy: {
+      kind: "characterIntrigue",
+      requiresAlive: true,
+      required: "paranoiaLimit",
+    },
+    choiceSchema: [
+      { kind: "incident", key: "incident", incidents: ["serialMurder", "missingPerson"] },
+      CHARACTER("target"),
+      { kind: "location", key: "location" },
+    ],
+  },
+  breakthrough: {
+    choiceSchema: [CHARACTER("target"), { kind: "location", key: "location" }],
+  },
+  confession: { choiceSchema: [{ kind: "role", key: "roleClaim" }] },
   farawayMurder: { choiceSchema: [CHARACTER("target")] },
   increasingUnease: {
     choiceSchema: [CHARACTER("target"), CHARACTER("otherTarget")],
@@ -64,7 +90,6 @@ const INCIDENT_DEFINITION_OVERRIDES: Readonly<
 
 /**
  * 미지원 세트의 사건은 해당 세트 구현 때 이 레지스트리에 명시한다.
- * serialMurder도 아직 등록하지 않아 반복 범인 허용은 현재 모두 false다.
  */
 export function incidentDefinition(incident: IncidentId): IncidentDefinition {
   const override = INCIDENT_DEFINITION_OVERRIDES[incident];

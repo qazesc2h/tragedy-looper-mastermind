@@ -2,6 +2,8 @@ import { totalCharacterCounters } from "../counters";
 import { characterDataOf } from "../data";
 import { INCIDENT_IMPL } from "../impl/incidents";
 import { isCharacterAlive, isCharacterPresent } from "../types";
+import { effectiveRole, characterLocation } from "../types";
+import { effectiveAbilityRoles } from "../impl/roles";
 import type {
   CharacterId,
   GameState,
@@ -95,21 +97,30 @@ export function incidentFailureReasons(
   if (!isCharacterPresent(position)) return ["culpritAbsent"];
 
   const reasons: IncidentFailureReason[] = [];
+  const obstinate = isCharacterAlive(position) &&
+    effectiveAbilityRoles(state, character).includes("obstinate");
   if (policy.kind === "deadCharacter") {
     if (isCharacterAlive(position)) reasons.push("culpritAlive");
   } else {
     if (!isCharacterAlive(position)) reasons.push("culpritDead");
     if (
+      !obstinate &&
       policy.kind === "characterParanoia" &&
       incidentParanoia(state, character) <
         characterDataOf(character).paranoiaLimit +
-          policy.paranoiaLimitAdjustment
+          policy.paranoiaLimitAdjustment +
+          worshippersParanoiaAdjustment(state, character)
     ) {
       reasons.push("insufficientParanoia");
     }
     if (
+      !obstinate &&
       policy.kind === "characterIntrigue" &&
-      counters.intrigue < policy.required
+      counters.intrigue < (
+        policy.required === "paranoiaLimit"
+          ? characterDataOf(character).paranoiaLimit
+          : policy.required
+      )
     ) {
       reasons.push("insufficientIntrigue");
     }
@@ -117,7 +128,47 @@ export function incidentFailureReasons(
   if (state.loop.incidentCulpritSuppressedFor?.includes(character)) {
     reasons.push("culpritSuppressed");
   }
+  if (
+    reasons.length === 0 &&
+    incidentSuppressedByProphet(state, character)
+  ) {
+    reasons.push("culpritSuppressed");
+  }
   return reasons;
+}
+
+function livingCharactersWithAbilityRole(
+  state: GameState,
+  role: string,
+): CharacterId[] {
+  return Object.entries(state.loop.board)
+    .filter(([character, position]) =>
+      isCharacterAlive(position) &&
+      effectiveAbilityRoles(state, character).includes(role)
+    )
+    .map(([character]) => character);
+}
+
+function worshippersParanoiaAdjustment(
+  state: GameState,
+  culprit: CharacterId,
+): number {
+  if (!state.scenario.subPlots.includes("worshippersApocalypse")) return 0;
+  if (effectiveRole(state, culprit) !== "person") return 0;
+  return livingCharactersWithAbilityRole(state, "prophet").length > 0 ? -1 : 0;
+}
+
+function incidentSuppressedByProphet(
+  state: GameState,
+  culprit: CharacterId,
+): boolean {
+  const culpritPosition = state.loop.board[culprit];
+  if (!isCharacterAlive(culpritPosition)) return false;
+  const culpritLocation = characterLocation(culpritPosition, culprit);
+  return livingCharactersWithAbilityRole(state, "prophet").some(
+    (prophet) =>
+      characterLocation(state.loop.board[prophet], prophet) !== culpritLocation,
+  );
 }
 
 /** 지정한 사건의 효과만 해결한다. 발생 판정과 이력 기록은 호출자가 맡는다. */

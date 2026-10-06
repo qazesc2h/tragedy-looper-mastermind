@@ -101,6 +101,12 @@ function legacyDecisions(choice: Exclude<IncidentChoiceInput, IncidentChoice>): 
   if (choice.counter !== undefined) {
     decisions.push({ kind: "counter", key: "counter", counter: choice.counter });
   }
+  if (choice.incident !== undefined) {
+    decisions.push({ kind: "incident", key: "incident", incident: choice.incident });
+  }
+  if (choice.roleClaim !== undefined) {
+    decisions.push({ kind: "role", key: "roleClaim", role: choice.roleClaim });
+  }
   if (choice.secondResolution !== undefined) {
     decisions.push({
       kind: "subIncident",
@@ -128,6 +134,26 @@ export function incidentCharacterDecision(
     (decision): decision is Extract<IncidentDecision, { kind: "character" }> =>
       decision.kind === "character" && decision.key === key,
   )?.id;
+}
+
+export function incidentTypeDecision(
+  choiceInput: IncidentChoiceInput | undefined,
+): string | undefined {
+  const choice = normalizeIncidentChoice(choiceInput);
+  return choice?.decisions.find(
+    (decision): decision is Extract<IncidentDecision, { kind: "incident" }> =>
+      decision.kind === "incident" && decision.key === "incident",
+  )?.incident;
+}
+
+export function incidentRoleDecision(
+  choiceInput: IncidentChoiceInput | undefined,
+): string | undefined {
+  const choice = normalizeIncidentChoice(choiceInput);
+  return choice?.decisions.find(
+    (decision): decision is Extract<IncidentDecision, { kind: "role" }> =>
+      decision.kind === "role" && decision.key === "roleClaim",
+  )?.role;
 }
 
 export function incidentLocationDecision(

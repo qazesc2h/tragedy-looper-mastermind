@@ -5,6 +5,7 @@
 import {
   characterLocation,
   isCharacterAlive,
+  startLocationOf,
   withCharacterLocation,
 } from "../types";
 import { isIncidentSelectableCounter } from "../counters";
@@ -12,6 +13,8 @@ import {
   incidentCharacterDecision,
   incidentCounterDecision,
   incidentLocationDecision,
+  incidentRoleDecision,
+  incidentTypeDecision,
 } from "../engine/incident-model";
 import {
   attemptProtagonistDeath,
@@ -25,7 +28,11 @@ import type {
   IncidentCulprit,
   IncidentHook,
   Location,
+  RoleId,
 } from "../types";
+import { placeExtraCard } from "../engine/extra-cards";
+import { recordPublicInformation } from "../engine/public-information";
+import { resolveRoleReveal } from "../engine/role-reveal";
 
 function requiredCharacterCulprit(
   culprit: IncidentCulprit | CharacterId,
@@ -35,6 +42,20 @@ function requiredCharacterCulprit(
     throw new Error("this incident requires a character culprit");
   }
   return culprit.id;
+}
+
+function culpritStartLocation(
+  state: GameState,
+  character: CharacterId,
+): Location {
+  if (character !== "henchman") {
+    return startLocationOf(character, state.scenario);
+  }
+  const selected = state.loop.loopStartTraitLocationChoices?.henchman;
+  if (selected === undefined) {
+    throw new Error("henchman loop-start location choice is required");
+  }
+  return selected;
 }
 
 function livingCharacters(state: GameState): CharacterId[] {
@@ -387,6 +408,234 @@ export const INCIDENT_IMPL: Record<string, {
         when: (_s: GameState, _self: IncidentCulprit | CharacterId) => true,
         effect: (s: GameState, culprit: IncidentCulprit | CharacterId) =>
           killEffectApplied(s, requiredCharacterCulprit(culprit)),
+      },
+    ],
+  },
+  // ── 연속 살인 (Serial Murder)
+  serialMurder: {
+    ko: "연속 살인",
+    hooks: [
+      {
+        phase: "ALWAYS",
+        kind: "mandatory",
+        source: {
+          timing: "Always",
+          description: `One other character in the culprit’s location dies. The same character may be the culprit of several Serial Murder Incidents.`,
+        },
+        when: () => true,
+        effect: (
+          s: GameState,
+          culprit: IncidentCulprit | CharacterId,
+          choice?: IncidentChoiceInput,
+        ) => {
+          const character = requiredCharacterCulprit(culprit);
+          const location = characterLocation(s.loop.board[character], character);
+          const target = selectedCharacter(
+            livingCharacters(s).filter((candidate) =>
+              candidate !== character &&
+              characterLocation(s.loop.board[candidate], candidate) === location
+            ),
+            incidentCharacterDecision(choice, "target"),
+            "serialMurder",
+          );
+          return target === undefined ? false : killEffectApplied(s, target);
+        },
+      },
+    ],
+  },
+  // ── 음모 공작 (Conspiracies)
+  conspiracies: {
+    ko: "음모 공작",
+    hooks: [
+      {
+        phase: "ALWAYS",
+        kind: "mandatory",
+        source: {
+          timing: "Always",
+          description: `Resolve either a :serialMurder: or a :missingPerson: Incident. Check :intrigue: instead of :paranoia: conters to trigger the Incident.`,
+        },
+        when: () => true,
+        effect: (
+          s: GameState,
+          culprit: IncidentCulprit | CharacterId,
+          choice?: IncidentChoiceInput,
+        ) => {
+          const selected = incidentTypeDecision(choice);
+          if (selected !== "serialMurder" && selected !== "missingPerson") {
+            throw new Error("conspiracies requires Serial Murder or Missing Person");
+          }
+          const hooks = INCIDENT_IMPL[selected].hooks.filter((hook) =>
+            hook.when(s, culprit)
+          );
+          let applied = false;
+          for (const hook of hooks) {
+            applied = hook.effect(s, culprit, choice) || applied;
+          }
+          return applied;
+        },
+      },
+    ],
+  },
+  // ── 대폭동 (Uproar)
+  uproar: {
+    ko: "대폭동",
+    hooks: [
+      {
+        phase: "ALWAYS",
+        kind: "mandatory",
+        source: {
+          timing: "Always",
+          prerequisite: `1 :intrigue: on the School`,
+          description: `Everyone in the School dies.`,
+        },
+        when: (s: GameState) => s.loop.locIntrigue.School >= 1,
+        effect: (s: GameState) => {
+          let applied = false;
+          for (const character of livingCharacters(s)) {
+            if (characterLocation(s.loop.board[character], character) === "School") {
+              applied = killEffectApplied(s, character) || applied;
+            }
+          }
+          return applied;
+        },
+      },
+      {
+        phase: "ALWAYS",
+        kind: "mandatory",
+        source: {
+          timing: "Always",
+          prerequisite: `1 :intrigue: on the City`,
+          description: `Everyone in the City dies.`,
+        },
+        when: (s: GameState) => s.loop.locIntrigue.City >= 1,
+        effect: (s: GameState) => {
+          let applied = false;
+          for (const character of livingCharacters(s)) {
+            if (characterLocation(s.loop.board[character], character) === "City") {
+              applied = killEffectApplied(s, character) || applied;
+            }
+          }
+          return applied;
+        },
+      },
+    ],
+  },
+  // ── 위장 사건 (Fake Incident)
+  fakeIncident: {
+    ko: "위장 사건",
+    hooks: [
+      {
+        phase: "ALWAYS",
+        kind: "lossDeath",
+        source: {
+          timing: "Always",
+          prerequisite: `2 :intrigue: on the culprit’s starting location`,
+        },
+        when: (s: GameState, culprit: IncidentCulprit | CharacterId) => {
+          const character = requiredCharacterCulprit(culprit);
+          return s.loop.locIntrigue[culpritStartLocation(s, character)] >= 2;
+        },
+        effect: (s: GameState) => attemptProtagonistDeath(s).died,
+      },
+    ],
+  },
+  // ── 타개 (Breakthrough)
+  breakthrough: {
+    ko: "타개",
+    hooks: [
+      {
+        phase: "ALWAYS",
+        kind: "mandatory",
+        source: {
+          timing: "Always",
+          description: `The Protagonist Leader chooses one location or character, and removes 2 :intrigue: counters from there.`,
+        },
+        when: () => true,
+        effect: (
+          s: GameState,
+          _culprit: IncidentCulprit | CharacterId,
+          choice?: IncidentChoiceInput,
+        ) => {
+          const character = incidentCharacterDecision(choice, "target");
+          const location = incidentLocationDecision(choice, "location");
+          if ((character === undefined) === (location === undefined)) {
+            throw new Error("breakthrough requires exactly one target");
+          }
+          if (character !== undefined) {
+            const counters = s.loop.charCounters[character];
+            if (counters === undefined) throw new Error("unknown breakthrough target");
+            const before = counters.intrigue;
+            counters.intrigue = Math.max(0, before - 2);
+            return counters.intrigue !== before;
+          }
+          const before = s.loop.locIntrigue[location!];
+          s.loop.locIntrigue[location!] = Math.max(0, before - 2);
+          return s.loop.locIntrigue[location!] !== before;
+        },
+      },
+    ],
+  },
+  // ── 위장 자살 (Faked Suicide)
+  fakedSuicide: {
+    ko: "위장 자살",
+    hooks: [
+      {
+        phase: "ALWAYS",
+        kind: "mandatory",
+        source: {
+          timing: "Always",
+          description: `Set an Extra Card on the culprit. The Protagonists may not play any cards on character(s) with an Extra Card.`,
+        },
+        when: () => true,
+        effect: (s: GameState, culprit: IncidentCulprit | CharacterId) => {
+          const character = requiredCharacterCulprit(culprit);
+          placeExtraCard(s.loop, {
+            instanceId: `fakedSuicide:${s.loop.loop}:${s.loop.day}:${s.loop.extraCards.length}`,
+            cardId: "fakedSuicide",
+            controller: "mastermind",
+            source: { kind: "incident", id: "fakedSuicide" },
+            target: { kind: "character", id: character },
+            expiresAt: "loopStart",
+          });
+          s.loop.fakedSuicideRestrictionActive = true;
+          return true;
+        },
+      },
+    ],
+  },
+  // ── 고백 (Confession)
+  confession: {
+    ko: "고백",
+    hooks: [
+      {
+        phase: "ALWAYS",
+        kind: "mandatory",
+        source: {
+          timing: "Always",
+          description: `Reveal the culprit and the culprit’s role.`,
+        },
+        when: () => true,
+        effect: (
+          s: GameState,
+          culprit: IncidentCulprit | CharacterId,
+          choice?: IncidentChoiceInput,
+        ) => {
+          const character = requiredCharacterCulprit(culprit);
+          recordPublicInformation(s, {
+            kind: "incidentCulprit",
+            source: "confession",
+            day: s.loop.day,
+            declaredIncident: "confession",
+            culprit: { kind: "character", id: character },
+          }, "P7_INCIDENT");
+          const claimedRole = incidentRoleDecision(choice) as RoleId | undefined;
+          return resolveRoleReveal(
+            s,
+            character,
+            claimedRole,
+            "P7_INCIDENT",
+          );
+        },
       },
     ],
   },
