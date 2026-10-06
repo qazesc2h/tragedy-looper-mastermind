@@ -92,8 +92,10 @@ export function resolveRoleReveal(
 export function claimedRoleWasRevealed(
   state: GameState,
   role: RoleId,
+  scope: "allLoops" | "currentLoop" = "allLoops",
 ): boolean {
-  return [...state.history, state.loop].some((loop) =>
+  const loops = scope === "currentLoop" ? [state.loop] : [...state.history, state.loop];
+  return loops.some((loop) =>
     (loop.publicInformationThisLoop ?? []).some((information) =>
       information.kind === "roleClaim" && information.claimedRole === role
     )

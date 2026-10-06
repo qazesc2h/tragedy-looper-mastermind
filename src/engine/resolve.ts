@@ -71,7 +71,22 @@ export function resolveMovement(
   state: GameState,
   placed: readonly PlacedCard[],
 ): void {
-  resolveMovementPlan(state, placed);
+  const unansweredHeartActive = [
+    state.scenario.mainPlot,
+    ...state.scenario.subPlots,
+  ].includes("unansweredHeart");
+  const movementCards = unansweredHeartActive
+    ? [
+      ...placed,
+      ...placed
+        .filter(({ card }) => card === "forbidGoodwill")
+        .map((placedCard): PlacedCard => ({
+          ...placedCard,
+          card: "forbidMove",
+        })),
+    ]
+    : placed;
+  resolveMovementPlan(state, movementCards);
 }
 
 /** 현재 P4 카드 전체를 반영한 메이드 동행 후보. */

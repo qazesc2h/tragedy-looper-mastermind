@@ -28,7 +28,7 @@ function stateFor(id: string, difficultyIndex = 0) {
 }
 
 describe("mastermind decoy guidance", () => {
-  it("generates C for all 48 bundled difficulties", () => {
+  it("generates C for all 56 bundled difficulties", () => {
     const results = loadScenarioCatalog().flatMap((entry) =>
       entry.difficulties.map((difficulty) => ({
         key: `${entry.id}#${difficulty.index}`,

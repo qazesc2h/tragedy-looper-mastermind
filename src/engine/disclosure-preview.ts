@@ -197,6 +197,7 @@ export function previewP5Disclosure(
   hook: Hook,
   self: CharacterId,
   target?: Target,
+  destination?: import("../types").Location,
 ): P5DisclosurePreview {
   if (hook.phase !== "P5_MASTERMIND_ABILITY") {
     throw new Error("P5 disclosure preview requires a P5 hook");
@@ -216,6 +217,17 @@ export function previewP5Disclosure(
   ) {
     throw new Error("P5 disclosure preview requires a selectable target");
   }
+  const destinations = hook.selectableDestinations?.(
+    assumedState,
+    self,
+    target,
+  ) ?? [];
+  if (
+    destinations.length > 0 &&
+    (destination === undefined || !destinations.includes(destination))
+  ) {
+    throw new Error("P5 disclosure preview requires a selectable destination");
+  }
 
   const beforeEvaluation = evaluateStateRoleTableHypotheses(baselineState);
   withDeathBatch(assumedState, () => {
@@ -227,6 +239,7 @@ export function previewP5Disclosure(
       target,
       undefined,
       true,
+      destination,
     );
   });
   const afterEvaluation = evaluateStateRoleTableHypotheses(assumedState);

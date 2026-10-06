@@ -190,6 +190,18 @@ describe("Phase 5 canonical state Section 1", () => {
       expiresAt: "manual",
     });
     expect(engineStateKey(state)).not.toBe(engineStateKey(extraCardVariant));
+    const loopStartChoiceVariant = structuredClone(state);
+    loopStartChoiceVariant.loop.loopStartExtraCardChoices = {
+      fatedConnections: "boyStudent",
+    };
+    expect(engineStateKey(state)).not.toBe(
+      engineStateKey(loopStartChoiceVariant),
+    );
+    const fakedSuicideVariant = structuredClone(state);
+    fakedSuicideVariant.loop.fakedSuicideRestrictionActive = true;
+    expect(engineStateKey(state)).not.toBe(
+      engineStateKey(fakedSuicideVariant),
+    );
     expect(protagonistPolicyStateKey(
       "perfect-recall",
       state,

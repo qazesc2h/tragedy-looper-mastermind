@@ -7,6 +7,7 @@ import {
   type IncidentCounter,
   type Location,
   type LoopOutcome,
+  type PlotId,
   type Phase,
   type RecordedLoss,
   type RoleId,
@@ -66,7 +67,62 @@ export function loopStartTraitChoicesComplete(state: GameState): boolean {
     state.loop.loopStartTraitCounterChoices?.scientist !== undefined;
   const henchmanComplete = !("henchman" in state.scenario.cast) ||
     state.loop.loopStartTraitLocationChoices?.henchman !== undefined;
-  return scientistComplete && henchmanComplete;
+  const extraCardPlots = activeLoopStartExtraCardPlots(state);
+  const extraCardChoicesComplete = loopStartExtraCardCandidates(state).length === 0 ||
+    extraCardPlots.every((plot) =>
+      state.loop.loopStartExtraCardChoices?.[plot] !== undefined
+    );
+  return scientistComplete && henchmanComplete && extraCardChoicesComplete;
+}
+
+export function loopStartExtraCardCandidates(
+  state: GameState,
+): CharacterId[] {
+  const previous = state.history.at(-1);
+  if (previous === undefined) return [];
+  return Object.entries(previous.board)
+    .filter(([, position]) => position.status === "dead")
+    .map(([character]) => character);
+}
+
+/** 두 룰을 함께 채택해도 공식 원문의 "does not stack"에 따라 한 번만 고른다. */
+export function activeLoopStartExtraCardPlots(
+  state: GameState,
+): ("fatedConnections" | "diceOfGods")[] {
+  const plots = [state.scenario.mainPlot, ...state.scenario.subPlots];
+  if (plots.includes("fatedConnections")) return ["fatedConnections"];
+  return plots.includes("diceOfGods") ? ["diceOfGods"] : [];
+}
+
+export function setLoopStartExtraCardChoice(
+  state: GameState,
+  plot: PlotId,
+  character: CharacterId | undefined,
+): void {
+  if (state.gamePhase !== "LOOP_TIME_GAP") {
+    throw new Error(
+      `loop-start Extra Card choice cannot change during ${state.gamePhase}`,
+    );
+  }
+  if (plot !== "fatedConnections" && plot !== "diceOfGods") {
+    throw new Error(`plot "${plot}" has no loop-start Extra Card choice`);
+  }
+  if (!activeLoopStartExtraCardPlots(state).includes(plot)) {
+    throw new Error(`plot "${plot}" is not the active Extra Card rule`);
+  }
+  if (character === undefined) {
+    if (!state.loop.loopStartExtraCardChoices) return;
+    delete state.loop.loopStartExtraCardChoices[plot];
+    if (Object.keys(state.loop.loopStartExtraCardChoices).length === 0) {
+      delete state.loop.loopStartExtraCardChoices;
+    }
+    return;
+  }
+  if (!loopStartExtraCardCandidates(state).includes(character)) {
+    throw new Error(`character "${character}" did not die last loop`);
+  }
+  const choices = state.loop.loopStartExtraCardChoices ??= {};
+  choices[plot] = character;
 }
 
 /** 루프 시작 전에 각본가가 고르는 캐릭터 특성 카운터를 기록한다. */
@@ -179,6 +235,13 @@ export function continueFromTimeGap(state: GameState): void {
     ) {
       throw new Error("henchman loop-start location choice is required");
     }
+    if (
+      activeLoopStartExtraCardPlots(state).some((plot) =>
+        state.loop.loopStartExtraCardChoices?.[plot] === undefined
+      ) && loopStartExtraCardCandidates(state).length > 0
+    ) {
+      throw new Error("loop-start Extra Card target is required");
+    }
     throw new Error("scientist loop-start counter choice is required");
   }
 
@@ -188,6 +251,7 @@ export function continueFromTimeGap(state: GameState): void {
     state.loop.loopStartTraitCounterChoices;
   const loopStartTraitLocationChoices =
     state.loop.loopStartTraitLocationChoices;
+  const loopStartExtraCardChoices = state.loop.loopStartExtraCardChoices;
 
   state.gamePhase = "LOOP_CHARACTER_PLACEMENT";
   const prepared = initLoop(state.scenario, loopNumber, state.loop);
@@ -200,6 +264,11 @@ export function continueFromTimeGap(state: GameState): void {
   if (loopStartTraitLocationChoices !== undefined) {
     prepared.loopStartTraitLocationChoices = {
       ...loopStartTraitLocationChoices,
+    };
+  }
+  if (loopStartExtraCardChoices !== undefined) {
+    prepared.loopStartExtraCardChoices = {
+      ...loopStartExtraCardChoices,
     };
   }
   state.loop = prepared;

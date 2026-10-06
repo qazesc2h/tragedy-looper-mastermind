@@ -2,10 +2,17 @@
 //    재생성해도 when/effect 는 덮어쓰지 않도록 주의할 것.
 //    source 는 원본 영문 텍스트(수정 금지). ko 는 정발 용어.
 
-import { LOCATIONS } from "../types";
+import {
+  characterLocation,
+  effectiveRole,
+  isCharacterAlive,
+  LOCATIONS,
+} from "../types";
 import type { GameState, CharacterId, Hook, Target } from "../types";
+import { placeExtraCard } from "../engine/extra-cards";
 
 const UNSETTLING_RUMOR_USE_KEY = "unsettlingRumor:plot:0";
+const UNSAFE_TRIGGER_USE_KEY = "unsafeTrigger:plot:0";
 
 function unsettlingRumorAvailable(state: GameState): boolean {
   return !state.loop.abilitiesUsedThisLoop.includes(
@@ -22,6 +29,43 @@ function charactersWithGoodwillLastLoop(
   return Object.entries(previousLoop.charCounters)
     .filter(([, counters]) => counters.goodwill >= 1)
     .map(([character]) => character);
+}
+
+function charactersWhoDiedLastLoop(state: GameState): CharacterId[] {
+  const previousLoop = state.history.at(-1);
+  if (previousLoop === undefined) return [];
+  return Object.entries(previousLoop.board)
+    .filter(([, position]) => position.status === "dead")
+    .map(([character]) => character);
+}
+
+function loopStartExtraCardTarget(
+  state: GameState,
+  plot: "fatedConnections" | "diceOfGods",
+): Target | undefined {
+  const character = state.loop.loopStartExtraCardChoices?.[plot];
+  return character === undefined ? undefined : { kind: "character", id: character };
+}
+
+function placePlotExtraCard(
+  state: GameState,
+  plot: "fatedConnections" | "diceOfGods",
+  target?: Target,
+): void {
+  if (
+    target?.kind !== "character" ||
+    !charactersWhoDiedLastLoop(state).includes(target.id)
+  ) {
+    throw new Error(`${plot} requires a character who died last loop`);
+  }
+  placeExtraCard(state.loop, {
+    instanceId: `${plot}:${state.loop.loop}`,
+    cardId: plot,
+    controller: "mastermind",
+    source: { kind: "rule", id: plot },
+    target: { kind: "character", id: target.id },
+    expiresAt: "loopStart",
+  });
 }
 
 /** 입문편·기본편 룰(플롯) — 총 16건 */
@@ -93,6 +137,81 @@ export const PLOT_IMPL: Record<string, {
         // 이 훅은 원문 보존용이다. 여기에 로직을 넣지 마라 — 이중 구현이 된다.
         when: () => false,
         effect: () => {},
+      },
+    ],
+  },
+  // ── 비밀 기록 (Secret Record)
+  secretRecord: {
+    ko: "비밀 기록",
+    addsRoles: {"keyPerson": 1, "brain": 1, "conspiracyTheorist": 1},
+    hooks: [
+      {
+        phase: "LOOP_END",
+        kind: "lossTragedy",
+        source: {
+          timing: "Loop End",
+          prerequisite: `If the Brain, Factor, or Magician were revealed during this loop, the Protagonists lose.`,
+        },
+        // IMPLEMENTED_ELSEWHERE: src/engine/loss.ts evaluateLoss()
+        when: () => false,
+        effect: () => {},
+      },
+    ],
+  },
+  // ── 뻗쳐오는 마수 (The Devil's Hand)
+  devilsHand: {
+    ko: "뻗쳐오는 마수",
+    addsRoles: {"keyPerson": 1, "cultist": 1, "ninja": 1},
+    hooks: [],
+  },
+  // ── 사나이의 싸움 (Male Confrontation)
+  maleConfrontation: {
+    ko: "사나이의 싸움",
+    addsRoles: {"ninja": 1},
+    hooks: [
+      {
+        phase: "LOOP_END",
+        kind: "lossTragedy",
+        source: {
+          timing: "Loop End",
+          prerequisite: `The :ninja: (or its corpse) has at least 2 :intrigue: counters.`,
+        },
+        // IMPLEMENTED_ELSEWHERE: src/engine/loss.ts evaluateLoss()
+        when: () => false,
+        effect: () => {},
+      },
+      {
+        phase: "SCRIPT_BUILD",
+        kind: "scriptBuild",
+        source: {
+          timing: "Script Creation",
+          description: `The :ninja: (for this plot) must have the tag man.`,
+        },
+        // IMPLEMENTED_ELSEWHERE: src/engine/validate.ts validateScenario()
+        when: () => false,
+        effect: () => {},
+      },
+    ],
+  },
+  // ── 인과의 인연 (Fated Connections)
+  fatedConnections: {
+    ko: "인과의 인연",
+    addsRoles: {"conspiracyTheorist": 1, "friend": 1, "serialKiller": 1},
+    hooks: [
+      {
+        phase: "LOOP_START",
+        kind: "mandatory",
+        source: {
+          timing: "Loop Start",
+          prerequisite: `A Character died the last turn.`,
+          description: `Chose one of those. Plac any Extra Card on that character. Character(s) with an Extra card has their role changed into a :keyPerson:.`,
+        },
+        when: (s: GameState) => charactersWhoDiedLastLoop(s).length > 0,
+        effectTarget: (s: GameState) =>
+          loopStartExtraCardTarget(s, "fatedConnections"),
+        effect: (s: GameState, _self: CharacterId, target?: Target) => {
+          placePlotExtraCard(s, "fatedConnections", target);
+        },
       },
     ],
   },
@@ -292,5 +411,147 @@ export const PLOT_IMPL: Record<string, {
     ko: "불확정 인자 χ",
     addsRoles: {"factor": 1},
     hooks: [], // 능력 없음
+  },
+  // ── 애증의 나선 (Love-Hate Spiral)
+  loveHateSpiral: {
+    ko: "애증의 나선",
+    addsRoles: {"friend": 1, "obstinate": 1},
+    hooks: [],
+  },
+  // ── 죽음의 쇼타임 (Showtime of Death)
+  showtimeDeath: {
+    ko: "죽음의 쇼타임",
+    addsRoles: {"magician": 1, "immortalRole": 1},
+    hooks: [
+      {
+        phase: "LOOP_END",
+        kind: "lossTragedy",
+        source: {
+          timing: "Loop End",
+          prerequisite: `There are 6 or less characters alive.`,
+        },
+        // IMPLEMENTED_ELSEWHERE: src/engine/loss.ts evaluateLoss()
+        when: () => false,
+        effect: () => {},
+      },
+    ],
+  },
+  // ── 마녀의 다과회 (Witches' Tea Time)
+  witchesTeaTime: {
+    ko: "마녀의 다과회",
+    addsRoles: {"conspiracyTheorist": 1, "friend": 1, "witch": 2},
+    hooks: [],
+  },
+  // ── 신의 주사위 (Dice of the Gods)
+  diceOfGods: {
+    ko: "신의 주사위",
+    addsRoles: {"serialKiller": 1, "obstinate": 1},
+    hooks: [
+      {
+        phase: "LOOP_START",
+        kind: "mandatory",
+        source: {
+          timing: "Loop Start",
+          prerequisite: `A Character died the last turn.`,
+          description: `Chose one of those. Plac any Extra Card on that character.`,
+        },
+        // 공식 요약표: 인과의 인연과 함께 채택해도 이 효과는 중첩되지 않는다.
+        when: (s: GameState) =>
+          ![s.scenario.mainPlot, ...s.scenario.subPlots].includes(
+            "fatedConnections",
+          ) && charactersWhoDiedLastLoop(s).length > 0,
+        effectTarget: (s: GameState) =>
+          loopStartExtraCardTarget(s, "diceOfGods"),
+        effect: (s: GameState, _self: CharacterId, target?: Target) => {
+          placePlotExtraCard(s, "diceOfGods", target);
+        },
+      },
+    ],
+  },
+  // ── 통하지 않는 마음 (Unanswered Heart)
+  unansweredHeart: {
+    ko: "통하지 않는 마음",
+    addsRoles: {"conspiracyTheorist": 1, "magician": 1},
+    hooks: [
+      {
+        phase: "ALWAYS",
+        kind: "mandatory",
+        source: {
+          timing: "Always",
+          description: `"Forbid :goodwill:" has the effect of "Forbid Movement"`,
+        },
+        // IMPLEMENTED_ELSEWHERE: src/engine/resolve.ts resolveMovement()
+        when: () => false,
+        effect: () => {},
+      },
+    ],
+  },
+  // ── 불확정 인자 χ괴 (Unsafe Trigger)
+  unsafeTrigger: {
+    ko: "불확정 인자 χ괴",
+    addsRoles: {"factor": 1},
+    hooks: [
+      {
+        phase: "P5_MASTERMIND_ABILITY",
+        kind: "optional",
+        timesPerLoop: 1,
+        source: {
+          timing: "Mastermind Ability",
+          prerequisite: `The :factor: is alive.`,
+          description: `You may place 1 Intruge counter on the :factor:’s location`,
+        },
+        when: (s: GameState) =>
+          !s.loop.abilitiesUsedThisLoop.includes(UNSAFE_TRIGGER_USE_KEY) &&
+          Object.keys(s.scenario.cast).some((character) =>
+            effectiveRole(s, character) === "factor" &&
+            isCharacterAlive(s.loop.board[character])
+          ),
+        effect: (s: GameState) => {
+          const factor = Object.keys(s.scenario.cast).find((character) =>
+            effectiveRole(s, character) === "factor" &&
+            isCharacterAlive(s.loop.board[character])
+          );
+          if (factor === undefined) {
+            throw new Error("unsafeTrigger requires a living factor");
+          }
+          if (s.loop.abilitiesUsedThisLoop.includes(UNSAFE_TRIGGER_USE_KEY)) {
+            throw new Error("unsafeTrigger is already spent this loop");
+          }
+          const location = characterLocation(s.loop.board[factor], factor);
+          s.loop.locIntrigue[location] += 1;
+          s.loop.abilitiesUsedThisLoop.push(UNSAFE_TRIGGER_USE_KEY);
+        },
+      },
+    ],
+  },
+  // ── 멸망을 노래하는 자 (Worshippers of the Apocalypse)
+  worshippersApocalypse: {
+    ko: "멸망을 노래하는 자",
+    addsRoles: {"prophet": 1},
+    hooks: [
+      {
+        phase: "SCRIPT_BUILD",
+        kind: "scriptBuild",
+        source: {
+          timing: "Script Creation",
+          description: `There must be at least one :suicide: Incident`,
+        },
+        // IMPLEMENTED_ELSEWHERE: src/engine/validate.ts validateScenario()
+        when: () => false,
+        effect: () => {},
+      },
+      {
+        phase: "P7_INCIDENT",
+        kind: "mandatory",
+        source: {
+          timing: "Incident step",
+          prerequisite: `The Culprit is a :person: and the :prophet: is alive.`,
+          description: `When determning whether an Incident triggers, the culprit is regarded as having 1 less than its printed :paranoia: limit.`,
+        },
+        // IMPLEMENTED_ELSEWHERE: src/engine/incident.ts incidentFailureReasons()
+        when: () => false,
+        effect: () => {},
+      },
+    ],
   },
 };

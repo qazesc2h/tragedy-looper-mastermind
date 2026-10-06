@@ -8,6 +8,7 @@ import {
   effectiveRole,
   isCharacterAlive,
   isCharacterDead,
+  withCharacterLocation,
 } from "../types";
 import type {
   GameState,
@@ -25,6 +26,9 @@ import {
   resolveRoleReveal,
 } from "../engine/role-reveal";
 import { publicObservationContext } from "../engine/public-observation";
+import { adjacentLocations } from "../engine/movement";
+
+const MAGICIAN_USE_KEY = "magician:role:0";
 
 function isLastDay(state: GameState): boolean {
   return state.loop.day === state.scenario.daysPerLoop;
@@ -186,6 +190,34 @@ function counterpartDied(
   );
 }
 
+function ninjaLossTargets(
+  state: GameState,
+  self: CharacterId,
+): Target[] {
+  const locations = abilityLocationsOf(state, self);
+  return Object.entries(state.loop.board)
+    .filter(([character, position]) =>
+      isCharacterAlive(position) &&
+      state.loop.charCounters[character].intrigue >= 2 &&
+      locations.includes(characterLocation(position, character))
+    )
+    .map(([id]) => ({ kind: "character", id }));
+}
+
+function magicianTargets(
+  state: GameState,
+  self: CharacterId,
+): Target[] {
+  const locations = abilityLocationsOf(state, self);
+  return Object.entries(state.loop.board)
+    .filter(([character, position]) =>
+      isCharacterAlive(position) &&
+      state.loop.charCounters[character].paranoia >= 1 &&
+      locations.includes(characterLocation(position, character))
+    )
+    .map(([id]) => ({ kind: "character", id }));
+}
+
 /** 입문편·기본편 역할 — 총 14건 */
 export const ROLE_IMPL: Record<string, {
   ko: string;
@@ -203,7 +235,157 @@ export const ROLE_IMPL: Record<string, {
   // ── 닌자 (Ninja) — 역할 공개 분기는 engine/role-reveal.ts가 담당한다.
   ninja: {
     ko: "닌자",
+    goodwillRefusal: "Optional",
+    hooks: [
+      {
+        phase: "P9_ROUND_END",
+        kind: "lossDeath",
+        source: {
+          timing: "Day End",
+          prerequisite: `There is any charcter with at least 2 :intrigue: Counters in this location`,
+        },
+        when: (s: GameState, self: CharacterId) =>
+          ninjaLossTargets(s, self).length > 0,
+        // source.description이 없으므로 선택 패배 판정 외 적용 효과는 없다.
+        effect: () => {},
+      },
+    ],
+  },
+  // ── 절대자 (Obstinate)
+  obstinate: {
+    ko: "절대자",
+    goodwillRefusal: "Mandatory",
+    hooks: [
+      {
+        phase: "SCRIPT_BUILD",
+        kind: "scriptBuild",
+        source: {
+          timing: "Script creation",
+          description: `This character must be the culprit of an Incident.`,
+        },
+        // IMPLEMENTED_ELSEWHERE: src/engine/validate.ts validateScenario()
+        when: () => false,
+        effect: () => {},
+      },
+      {
+        phase: "P7_INCIDENT",
+        kind: "mandatory",
+        source: {
+          timing: "Incident step",
+          description: `This character always triggers its Incidents (if alive), regardless of the amount of :paranoia: counters on it.`,
+        },
+        // IMPLEMENTED_ELSEWHERE: src/engine/incident.ts incidentFailureReasons()
+        when: () => false,
+        effect: () => {},
+      },
+    ],
+  },
+  // ── 마술사 (Magician)
+  magician: {
+    ko: "마술사",
+    hooks: [
+      {
+        phase: "P5_MASTERMIND_ABILITY",
+        kind: "optional",
+        timesPerLoop: 1,
+        source: {
+          timing: "Mastermind Ability",
+          description: `You may move one character with at least one :paranoia: counter from this location to an adjacent location (not diagonal).`,
+        },
+        when: (s: GameState, self: CharacterId) =>
+          !s.loop.abilitiesUsedThisLoop.includes(MAGICIAN_USE_KEY) &&
+          magicianTargets(s, self).length > 0,
+        selectableTargets: magicianTargets,
+        selectableDestinations: (s: GameState, _self: CharacterId, target?: Target) =>
+          target?.kind === "character"
+            ? adjacentLocations(
+              characterLocation(s.loop.board[target.id], target.id),
+            )
+            : [],
+        effect: (
+          s: GameState,
+          self: CharacterId,
+          target?: Target,
+          destination?: import("../types").Location,
+        ) => {
+          if (s.loop.abilitiesUsedThisLoop.includes(MAGICIAN_USE_KEY)) {
+            throw new Error("magician is already spent this loop");
+          }
+          if (
+            target?.kind !== "character" ||
+            !magicianTargets(s, self).some((candidate) =>
+              candidate.kind === "character" && candidate.id === target.id
+            )
+          ) {
+            throw new Error("magician requires an eligible character target");
+          }
+          const from = characterLocation(s.loop.board[target.id], target.id);
+          if (
+            destination === undefined ||
+            !adjacentLocations(from).includes(destination)
+          ) {
+            throw new Error("magician requires an adjacent destination");
+          }
+          s.loop.board[target.id] = withCharacterLocation(
+            s.loop.board[target.id],
+            destination,
+            target.id,
+          );
+          s.loop.abilitiesUsedThisLoop.push(MAGICIAN_USE_KEY);
+        },
+      },
+      {
+        phase: "ON_DEATH",
+        kind: "mandatory",
+        source: {
+          timing: "On character death",
+          description: `Remove all :paranoia: counters from its corpse.`,
+        },
+        when: (
+          _s: GameState,
+          self: CharacterId,
+          context?: HookContext,
+        ) => context?.kind === "death" && context.deadCharacters.includes(self),
+        effect: (s: GameState, self: CharacterId) => {
+          s.loop.charCounters[self].paranoia = 0;
+        },
+      },
+    ],
+  },
+  // ── 불멸자 (Immortal)
+  immortalRole: {
+    ko: "불멸자",
+    tags: ["immortal"],
     hooks: [],
+  },
+  // ── 예언자 (Prophet)
+  prophet: {
+    ko: "예언자",
+    hooks: [
+      {
+        phase: "P2_MASTERMIND_ACTION",
+        kind: "mandatory",
+        source: {
+          timing: "Mastermind Action step",
+          description: `The Mastermind cannot place cards on this character.`,
+        },
+        // IMPLEMENTED_ELSEWHERE: src/engine/legal.ts validatePlacement()
+        when: () => false,
+        effect: () => {},
+      },
+      {
+        phase: "P7_INCIDENT",
+        kind: "mandatory",
+        source: {
+          timing: "Incident step",
+          prerequisite: `The culprit of an incident that would trigger is in another location`,
+          description: `That incident does not trigger, regardless of the number of :paranoia: conters on the culprit.`,
+        },
+        // IMPLEMENTED_ELSEWHERE: src/engine/incident.ts incidentFailureReasons()
+        when: () => false,
+        effect: () => {},
+      },
+    ],
   },
   // ── 골칫거리 (Curmudgeon)
   curmudgeon: {

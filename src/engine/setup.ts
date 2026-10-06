@@ -67,6 +67,7 @@ export function initLoop(
     servantAdditionalServedCharacters: [],
     placed: [],
     extraCards: carryExtraCards(previousLoop),
+    fakedSuicideRestrictionActive: false,
     actionResolutionComplete: false,
     phaseLog: [],
     ...(specialGauge === undefined ? {} : { specialGauge }),

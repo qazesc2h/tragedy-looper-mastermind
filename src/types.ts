@@ -336,6 +336,8 @@ export type IncidentDecision =
   | { kind: "location"; key: "location"; at: Location }
   | { kind: "destination"; key: "destination"; at: Location }
   | { kind: "counter"; key: "counter"; counter: IncidentCounter }
+  | { kind: "incident"; key: "incident"; incident: IncidentId }
+  | { kind: "role"; key: "roleClaim"; role: RoleId }
   | { kind: "subIncident"; key: "secondResolution"; decisions: IncidentDecision[] };
 
 /** 사건 효과 하나에 필요한 결정을 순서와 종류를 보존해 전달한다. */
@@ -349,6 +351,8 @@ export interface LegacyIncidentChoice {
   otherTarget?: CharacterId;
   location?: Location;
   counter?: IncidentCounter;
+  incident?: IncidentId;
+  roleClaim?: RoleId;
   secondResolution?: Omit<LegacyIncidentChoice, "secondResolution">;
 }
 
@@ -696,7 +700,7 @@ export type PublicInformation = (
   }
   | {
     kind: "incidentCulprit";
-    source: "godlyBeing" | "policeOfficer";
+    source: "godlyBeing" | "policeOfficer" | "confession";
     day: number;
     declaredIncident: IncidentId;
     culprit: IncidentCulprit | CharacterId;
@@ -821,6 +825,14 @@ export interface LoopState {
     Record<CharacterId, Location>
   >;
 
+  /** MZ 룰이 직전 루프 사망자에게 붙일 특수 카드의 대상. */
+  loopStartExtraCardChoices?: Partial<
+    Record<"fatedConnections" | "diceOfGods", CharacterId>
+  >;
+
+  /** 위장 자살이 정상 발생한 뒤 이 루프 동안 지속되는 행동 카드 제한. */
+  fakedSuicideRestrictionActive?: boolean;
+
   /** 참극 세트가 정의한 전역 특수 게이지. */
   specialGauge?: SpecialGaugeState;
 }
@@ -886,12 +898,19 @@ export interface Hook {
   ) => boolean;
   /** 선택형 훅이 사용자에게 요구하는 합법 대상. 없으면 발동 여부만 선택한다. */
   selectableTargets?: (s: GameState, self: CharacterId) => Target[];
+  /** 선택한 캐릭터를 옮기는 능력처럼 별도 목적지까지 요구할 때 사용한다. */
+  selectableDestinations?: (
+    s: GameState,
+    self: CharacterId,
+    target?: Target,
+  ) => Location[];
   /** 동시 해결 전에 확정해야 하는 효과 대상 */
   effectTarget?: (s: GameState, self: CharacterId) => Target | undefined;
   effect: (
     s: GameState,
     self: CharacterId,
     target?: Target,
+    destination?: Location,
   ) => void | RoleId;
 }
 

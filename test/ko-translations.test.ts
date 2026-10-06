@@ -34,7 +34,7 @@ describe("root Korean translation dictionary", () => {
     }
   });
 
-  it("reports the one untranslated base hook prerequisite", () => {
+  it("reports the known untranslated hook prerequisites", () => {
     const prerequisites = IMPLEMENTATIONS.flatMap(
       (records) => Object.values(records).flatMap(({ hooks }) =>
         hooks.flatMap(({ source }) => source.prerequisite ?? [])
@@ -42,6 +42,7 @@ describe("root Korean translation dictionary", () => {
     );
     expect(prerequisites.filter((source) => !translations[source])).toEqual([
       "This role has been revealed",
+      "If the Brain, Factor, or Magician were revealed during this loop, the Protagonists lose.",
     ]);
   });
 });

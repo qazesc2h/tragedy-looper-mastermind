@@ -16,6 +16,7 @@ import {
   enumerateRuleCombinations,
   explainableLossConditions,
   hypotheticalLossObservation,
+  type ProtagonistObservation,
   type RuleCombination,
 } from "./hypothesis";
 import {
@@ -206,6 +207,49 @@ export const PLOT_OBSERVATION_PROFILES: Readonly<
     { type: "mastermindParanoia", label: "각본가 능력으로 불안 증가" },
     { type: "conditionalRole", label: "장소 음모에 따라 다른 역할 능력 획득" },
   ],
+  secretRecord: [
+    { type: "roleRevealLoss", label: "특정 역할 공개로 루프 종료 패배" },
+  ],
+  devilsHand: [
+    { type: "keyPersonDeath", label: "핵심 인물 사망으로 즉시 패배" },
+    { type: "goodwillRefusal", label: "우호 능력 거부" },
+    { type: "protagonistDeath", label: "라운드 종료 때 주인공 사망" },
+  ],
+  maleConfrontation: [
+    { type: "protagonistDeath", label: "라운드 종료 때 주인공 사망" },
+    { type: "characterIntrigueLoss", label: "닌자 음모 2개로 루프 종료 패배" },
+  ],
+  fatedConnections: [
+    { type: "loopStartExtraCard", label: "직전 루프 사망자에게 특수 카드 부착" },
+    { type: "keyPersonDeath", label: "특수 카드 보유자의 사망으로 즉시 패배" },
+  ],
+  loveHateSpiral: [
+    { type: "friendDeath", label: "사망 뒤 루프 종료 때 역할 공개·패배" },
+    { type: "goodwillRefusal", label: "우호 능력 거부" },
+  ],
+  showtimeDeath: [
+    { type: "aliveCountLoss", label: "생존자 6명 이하로 루프 종료 패배" },
+    { type: "deathPrevention", label: "불멸자의 사망 무효" },
+  ],
+  witchesTeaTime: [
+    { type: "friendDeath", label: "사망 뒤 루프 종료 때 역할 공개·패배" },
+    { type: "goodwillRefusal", label: "우호 능력 거부" },
+  ],
+  diceOfGods: [
+    { type: "loopStartExtraCard", label: "직전 루프 사망자에게 특수 카드 부착" },
+    { type: "goodwillRefusal", label: "우호 능력 거부" },
+  ],
+  unansweredHeart: [
+    { type: "forbidMovement", label: "우호 금지가 이동도 금지" },
+    { type: "mastermindMovement", label: "마술사의 인접 이동" },
+  ],
+  unsafeTrigger: [
+    { type: "mastermindLocationIntrigue", label: "각본가 능력으로 장소 음모 증가" },
+  ],
+  worshippersApocalypse: [
+    { type: "lowerIncidentThreshold", label: "엑스트라 사건의 불안 한계 감소" },
+    { type: "incidentSuppression", label: "예언자가 다른 장소의 사건 억제" },
+  ],
 };
 
 const LOCATION_NAMES: Readonly<Record<Location, string>> = {
@@ -286,6 +330,7 @@ function projectedConditionIsExplainable(
   }
   projected.loop.phase = "P9_ROUND_END";
   projected.loop.day = projected.scenario.daysPerLoop;
+  const supportingObservations: ProtagonistObservation[] = [];
 
   switch (plan.explanationKey) {
     case "plot:lightAvenger":
@@ -323,6 +368,15 @@ function projectedConditionIsExplainable(
           occurrenceIndex: 0,
         },
       ];
+      break;
+    case "plot:secretRecord":
+      if (character === undefined) return false;
+      supportingObservations.push({
+        kind: "roleRevealed",
+        loop: projected.loop.loop,
+        character,
+        role: "brain",
+      });
       break;
     case "role:keyPerson":
     case "role:friend":
@@ -370,12 +424,20 @@ function projectedConditionIsExplainable(
         1,
       );
       break;
+    case "role:ninja":
+      if (character === undefined) return false;
+      projected.loop.charCounters[character].intrigue = Math.max(
+        projected.loop.charCounters[character].intrigue,
+        2,
+      );
+      break;
     default:
       return false;
   }
 
   const timing = plan.explanationKey === "role:killer" ||
-      plan.explanationKey === "role:lovedOne"
+      plan.explanationKey === "role:lovedOne" ||
+      plan.explanationKey === "role:ninja"
     ? "protagonistDeath"
     : plan.explanationKey === "role:keyPerson" ||
         plan.explanationKey === "role:factor"
@@ -386,7 +448,7 @@ function projectedConditionIsExplainable(
     projected,
     observation,
     combinations,
-    [],
+    supportingObservations,
   ).some(({ key }) => key === plan.explanationKey);
 }
 
@@ -473,6 +535,19 @@ function fakeLossConditions(state: GameState): FakeLossCondition[] {
   addPlot("placeProtect", "location", "학교(장소)에 음모 2개", ["학교"]);
   addPlot("sealedItem", "location", "신사(장소)에 음모 2개", ["신사"]);
 
+  const confessionCulprits = state.scenario.incidents.flatMap((scheduled) => {
+    if (actualIncidentOf(scheduled) !== "confession") return [];
+    const culprit = normalizeIncidentCulprit(scheduled.culprit);
+    return culprit.kind === "character" ? [culprit.id] : [];
+  });
+  addPlot(
+    "secretRecord",
+    "character",
+    "고백 범인의 불안을 올려 역할 공개를 발생시킴",
+    confessionCulprits.map((character) => characterDataOf(character).ko),
+    confessionCulprits,
+  );
+
   const signCombinations = combinationsWithPlot(combinations, "signWithMe");
   const signCandidates = roleCandidates(state, signCombinations, "keyPerson")
     .filter((character) => characterDataOf(character).tags.includes("girl"));
@@ -543,6 +618,7 @@ function fakeLossConditions(state: GameState): FakeLossCondition[] {
     addRole("killer", "character", "후보 캐릭터(본인)에 음모 4개");
     addRole("lovedOne", "character", "후보 캐릭터(본인)에 불안 3개와 음모 1개");
   }
+  addRole("ninja", "character", "후보 캐릭터와 같은 장소의 캐릭터에 음모 2개");
 
   return plans.filter((plan) =>
     projectedConditionIsExplainable(state, plan, combinations)

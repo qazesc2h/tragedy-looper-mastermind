@@ -57,6 +57,9 @@ export type ScenarioDiagnosticCode =
   | "INCIDENT_NOT_IN_TRAGEDY_SET"
   | "ROLE_NOT_IN_TRAGEDY_SET"
   | "SIGN_WITH_ME_KEY_PERSON_NOT_GIRL"
+  | "MALE_CONFRONTATION_NINJA_NOT_MAN"
+  | "OBSTINATE_NOT_INCIDENT_CULPRIT"
+  | "WORSHIPPERS_APOCALYPSE_SUICIDE_MISSING"
   | "AI_ROLE_IS_PERSON"
   | "LITTLE_SISTER_GOODWILL_REFUSAL_ROLE"
   | "MYSTERY_BOY_ROLE_IS_PERSON"
@@ -157,6 +160,58 @@ function validateSignWithMe(
           `소녀 속성이어야 합니다. 현재 배정: ${characterLabel(character)}.`,
       )
     );
+}
+
+function validateMaleConfrontation(
+  scenario: ScenarioValidationInput,
+): ScenarioDiagnostic[] {
+  if (!activePlots(scenario).includes("maleConfrontation")) return [];
+
+  return Object.entries(scenario.cast ?? {})
+    .filter(([, role]) => role === "ninja")
+    .filter(([character]) => !characterHasTag(character, "man"))
+    .map(([character]) =>
+      errorDiagnostic(
+        `cast.${character}`,
+        "MALE_CONFRONTATION_NINJA_NOT_MAN",
+        "사나이의 싸움: 닌자는 남성 속성 캐릭터여야 합니다. " +
+          `현재 배정: ${characterLabel(character)}.`,
+      )
+    );
+}
+
+function validateObstinateCulprit(
+  scenario: ScenarioValidationInput,
+): ScenarioDiagnostic[] {
+  const culprits = new Set((scenario.incidents ?? []).flatMap((scheduled) => {
+    if (scheduled.culprit === undefined) return [];
+    const culprit = normalizeIncidentCulprit(scheduled.culprit);
+    return culprit.kind === "character" ? [culprit.id] : [];
+  }));
+  return Object.entries(scenario.cast ?? {})
+    .filter(([, role]) => role === "obstinate")
+    .filter(([character]) => !culprits.has(character))
+    .map(([character]) => errorDiagnostic(
+      `cast.${character}`,
+      "OBSTINATE_NOT_INCIDENT_CULPRIT",
+      `절대자: ${characterLabel(character)}은(는) 사건의 범인이어야 합니다.`,
+    ));
+}
+
+function validateWorshippersApocalypse(
+  scenario: ScenarioValidationInput,
+): ScenarioDiagnostic[] {
+  if (!activePlots(scenario).includes("worshippersApocalypse")) return [];
+  const includesSuicide = (scenario.incidents ?? []).some((scheduled) =>
+    scheduled.incident === "suicide" ||
+    scheduled.declaredIncident === "suicide" ||
+    scheduled.actualIncident === "suicide"
+  );
+  return includesSuicide ? [] : [errorDiagnostic(
+    "incidents",
+    "WORSHIPPERS_APOCALYPSE_SUICIDE_MISSING",
+    "멸망을 노래하는 자: 자살 사건이 1건 이상 있어야 합니다.",
+  )];
 }
 
 function validateAiRole(
@@ -605,6 +660,9 @@ export function validateScenario(
           : []),
       ]),
     ...validateSignWithMe(scenario),
+    ...validateMaleConfrontation(scenario),
+    ...validateObstinateCulprit(scenario),
+    ...validateWorshippersApocalypse(scenario),
     ...validateAiRole(scenario),
     ...validateLittleSisterRole(scenario),
     ...validateMysteryBoyRole(scenario, definition),

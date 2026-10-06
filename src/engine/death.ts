@@ -129,7 +129,8 @@ function killAfterDefenses(
   const { position, counters } = characterState(state, character);
 
   // 형사 FAQ: 불사로 사망하지 않으면 보호 카운터를 제거하지 않는다.
-  if (effectiveRole(state, character) === "timeTraveler") {
+  const role = effectiveRole(state, character);
+  if (role === "timeTraveler" || role === "immortalRole") {
     return false;
   }
   if (!isCharacterAlive(position)) {

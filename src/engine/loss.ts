@@ -9,8 +9,10 @@ import {
   isCharacterAlive,
   isCharacterDead,
   isCharacterPresent,
+  LOCATIONS,
   PHASE_ORDER,
   resolvePlaceX,
+  startLocationOf,
   type CharacterId,
   type GameState,
   type IncidentId,
@@ -26,6 +28,7 @@ import {
 import { servantDeathReplacement } from "./servant";
 import { requestLoopEnd } from "./flow";
 import { incidentFires, incidentParanoia } from "./incident";
+import { claimedRoleWasRevealed } from "./role-reveal";
 import {
   actualIncidentOf,
   characterCulprit,
@@ -330,6 +333,104 @@ function plotLossDistance(
         requirements: [
           requirement("shrineIntrigue", "신사 음모", current, 2,
             `신사 음모 ${current}/2`),
+        ],
+      });
+    }
+
+    case "secretRecord": {
+      // SOURCE: src/impl/plots.ts secretRecord 훅의 source 참조
+      const revealedRoles = (["brain", "factor", "magician"] as const)
+        .filter((role) => claimedRoleWasRevealed(state, role, "currentLoop"));
+      const current = revealedRoles.length > 0 ? 1 : 0;
+      return distance({
+        id: plot,
+        key: plotKey(plot),
+        source: "plot",
+        category: "plot",
+        timing: "loopEnd",
+        activation: "mandatory",
+        when: "루프 종료",
+        plot,
+        ko: impl.ko,
+        label: revealedRoles.length === 0
+          ? "흑막·변수·마술사 공개 없음"
+          : `${revealedRoles.map((role) => ROLE_IMPL[role].ko).join("·")} 공개`,
+        requirements: [
+          requirement(
+            "roleRevealed",
+            "흑막·변수·마술사 중 역할 공개",
+            current,
+            1,
+            revealedRoles.length === 0
+              ? "흑막·변수·마술사 공개 없음"
+              : `${revealedRoles.map((role) => ROLE_IMPL[role].ko).join("·")} 공개`,
+          ),
+        ],
+      });
+    }
+
+    case "maleConfrontation": {
+      // SOURCE: src/impl/plots.ts maleConfrontation 훅의 source 참조
+      const ninja = Object.keys(state.scenario.cast).find(
+        (character) => effectiveRole(state, character) === "ninja",
+      );
+      const current = ninja === undefined
+        ? 0
+        : state.loop.charCounters[ninja].intrigue;
+      return distance({
+        id: plot,
+        key: plotKey(plot),
+        source: "plot",
+        category: "plot",
+        timing: "loopEnd",
+        activation: "mandatory",
+        when: "루프 종료",
+        plot,
+        ...(ninja === undefined ? {} : { character: ninja }),
+        ko: impl.ko,
+        label: ninja === undefined
+          ? "현재 닌자 없음 · 음모 0/2"
+          : `${characterDataOf(ninja).ko} 음모 ${current}/2`,
+        requirements: [
+          requirement(
+            "ninjaIntrigue",
+            "닌자 음모",
+            current,
+            2,
+            `닌자 음모 ${current}/2`,
+          ),
+        ],
+      });
+    }
+
+    case "showtimeDeath": {
+      // SOURCE: src/impl/plots.ts showtimeDeath 훅의 source 참조
+      const total = Object.keys(state.scenario.cast).length;
+      const alive = Object.values(state.loop.board).filter(
+        (position) => isCharacterAlive(position),
+      ).length;
+      const dead = total - alive;
+      const deadNeeded = Math.max(0, total - 6);
+      return distance({
+        id: plot,
+        key: plotKey(plot),
+        source: "plot",
+        category: "plot",
+        timing: "loopEnd",
+        activation: "mandatory",
+        when: "루프 종료",
+        plot,
+        ko: impl.ko,
+        conditionMet: alive <= 6,
+        label: `생존 ${alive}명/6명 이하`,
+        requirements: [
+          requirement(
+            "deadCharacters",
+            "사망 캐릭터",
+            dead,
+            deadNeeded,
+            `생존 ${alive}명/6명 이하`,
+          ),
         ],
       });
     }
@@ -1025,6 +1126,42 @@ function roleLossDistance(
       continue;
     }
 
+    if (role === "ninja" && hookIndex === 0) {
+      const locations = abilityLocationsOf(state, character);
+      const eligible = Object.entries(state.loop.board).filter(
+        ([candidate, position]) =>
+          isCharacterAlive(position) &&
+          state.loop.charCounters[candidate].intrigue >= 2 &&
+          locations.includes(characterLocation(position, candidate)),
+      );
+      const routeTarget = eligible[0]?.[0] ?? character;
+      const current = state.loop.charCounters[routeTarget].intrigue;
+      out.push(distance({
+        id: role,
+        key: roleKey(role, character),
+        source: "role",
+        category: "protagonistDeath",
+        timing: "dayEnd",
+        activation: "optional",
+        when: "라운드 종료",
+        role,
+        character,
+        ko: impl.ko,
+        conditionMet: hook.when(state, character),
+        label: `${labelPrefix} 장소의 음모 2 이상 캐릭터 ${eligible.length}명`,
+        requirements: [
+          requirement(
+            "ninjaIntrigue",
+            "같은 장소의 음모 2 이상 캐릭터",
+            current,
+            2,
+            `${characterDataOf(routeTarget).ko} 음모 ${current}/2`,
+          ),
+        ],
+      }));
+      continue;
+    }
+
     if (role === "lovedOne" && hookIndex === 1) {
       const paranoia = state.loop.charCounters[character].paranoia;
       const intrigue = state.loop.charCounters[character].intrigue;
@@ -1069,7 +1206,7 @@ function incidentLossDistance(
   if (!lossHook) {
     return [];
   }
-  if (actualIncident !== "hospitalIncident") {
+  if (actualIncident !== "hospitalIncident" && actualIncident !== "fakeIncident") {
     throw new Error(
       `loss distance is not implemented for incident "${actualIncident}"`,
     );
@@ -1084,53 +1221,71 @@ function incidentLossDistance(
   const paranoiaLabel = culprit === "ai"
     ? "범인 판정 불안"
     : "범인 불안";
-  const hospitalIntrigue = state.loop.locIntrigue.Hospital;
   const notSuppressed = state.loop.incidentCulpritSuppressedFor?.includes(
     culprit,
   ) ? 0 : 1;
   const effectValid = culprit === "blackCat" ? 0 : 1;
-  const label = `${scheduled.day}일 ${impl.ko}: ` +
-    `범인 생존 ${alive}/1 · ${paranoiaLabel} ${paranoia}/${paranoiaNeeded} · ` +
-    `발생 억제 없음 ${notSuppressed}/1 · 효과 유효 ${effectValid}/1 · ` +
-    `병원 음모 ${hospitalIntrigue}/2`;
+  const configuredStart = culprit === "henchman"
+    ? state.loop.loopStartTraitLocationChoices?.henchman
+    : startLocationOf(culprit, state.scenario);
+  const targetLocations: readonly Location[] = actualIncident === "fakeIncident"
+    ? configuredStart === undefined ? LOCATIONS : [configuredStart]
+    : ["Hospital"];
+  const startLocationKnown = actualIncident !== "fakeIncident" ||
+    configuredStart !== undefined;
 
-  const condition = distance({
-    id: actualIncident,
-    key: incidentKey(
-      actualIncident,
-      scheduled.day,
+  return targetLocations.map((targetLocation) => {
+    const targetIntrigue = state.loop.locIntrigue[targetLocation];
+    const locationLabel = LOCATION_KO[targetLocation];
+    const label = `${scheduled.day}일 ${impl.ko}: ` +
+      `범인 생존 ${alive}/1 · ${paranoiaLabel} ${paranoia}/${paranoiaNeeded} · ` +
+      `발생 억제 없음 ${notSuppressed}/1 · 효과 유효 ${effectValid}/1 · ` +
+      `${locationLabel} 음모 ${targetIntrigue}/2`;
+    const baseKey = incidentKey(actualIncident, scheduled.day, culprit);
+    const condition = distance({
+      id: actualIncident,
+      key: targetLocations.length === 1
+        ? baseKey
+        : `${baseKey}:${targetLocation}`,
+      source: "incident",
+      category: "protagonistDeath",
+      timing: "incident",
+      activation: "mandatory",
+      when: "사건 단계",
+      incident: actualIncident,
       culprit,
-    ),
-    source: "incident",
-    category: "protagonistDeath",
-    timing: "incident",
-    activation: "mandatory",
-    when: "사건 단계",
-    incident: actualIncident,
-    culprit,
-    day: scheduled.day,
-    ko: impl.ko,
-    conditionMet:
-      incidentFires(state, scheduled.culprit, actualIncident) &&
-      culprit !== "blackCat" &&
-      lossHook.when(state, scheduled.culprit),
-    label,
-    requirements: [
-      ...incidentCommonRequirements(state, scheduled),
-      requirement("hospitalIntrigue", "병원 음모", hospitalIntrigue, 2,
-        `병원 음모 ${hospitalIntrigue}/2`),
-    ],
+      day: scheduled.day,
+      ko: impl.ko,
+      conditionMet:
+        startLocationKnown &&
+        incidentFires(state, scheduled.culprit, actualIncident) &&
+        culprit !== "blackCat" &&
+        lossHook.when(state, scheduled.culprit),
+      label,
+      requirements: [
+        ...incidentCommonRequirements(state, scheduled),
+        requirement(
+          actualIncident === "fakeIncident"
+            ? "culpritStartIntrigue"
+            : "hospitalIntrigue",
+          `${locationLabel} 음모`,
+          targetIntrigue,
+          2,
+          `${locationLabel} 음모 ${targetIntrigue}/2`,
+        ),
+      ],
+    });
+    condition.routes = [route(
+      `${condition.key}:protagonistDeath`,
+      `${scheduled.day}일 ${impl.ko} · 주인공 사망`,
+      "automatic",
+      incidentWhen(state, scheduled),
+      incidentRouteAvailable(state, scheduled),
+      condition.requirements,
+      Math.max(0, scheduled.day - state.loop.day),
+    )];
+    return condition;
   });
-  condition.routes = [route(
-    `${condition.key}:protagonistDeath`,
-    `${scheduled.day}일 ${impl.ko} · 주인공 사망`,
-    "automatic",
-    incidentWhen(state, scheduled),
-    incidentRouteAvailable(state, scheduled),
-    condition.requirements,
-    Math.max(0, scheduled.day - state.loop.day),
-  )];
-  return [condition];
 }
 
 /** 현재 시나리오의 모든 패배 조건과 남은 카운터/사건 거리를 반환한다. */

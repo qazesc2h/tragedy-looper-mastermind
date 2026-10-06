@@ -6,6 +6,8 @@ import type {
   ScenarioSpecialRuleId,
   Target,
 } from "../types";
+import { effectiveAbilityRoles } from "../impl/roles";
+import { extraCardsAt } from "./extra-cards";
 
 export interface LegalResult {
   ok: boolean;
@@ -105,6 +107,33 @@ export function validatePlacement(
     placement.card,
   );
   if (restriction) return restriction;
+
+  if (
+    placement.owner === "mastermind" &&
+    placement.target.kind === "character" &&
+    state.loop.board[placement.target.id] !== undefined &&
+    effectiveAbilityRoles(state, placement.target.id).includes("prophet")
+  ) {
+    return {
+      ok: false,
+      reason: "예언자 능력",
+    };
+  }
+
+  if (
+    placement.owner !== "mastermind" &&
+    state.loop.fakedSuicideRestrictionActive === true &&
+    placement.target.kind === "character" &&
+    extraCardsAt(state.loop, {
+      kind: "character",
+      id: placement.target.id,
+    }).length > 0
+  ) {
+    return {
+      ok: false,
+      reason: "위장 자살",
+    };
+  }
 
   if (
     placement.target.kind === "character" &&

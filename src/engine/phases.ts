@@ -99,6 +99,9 @@ export function collectHooks(s: GameState, at: HookPoint): {
               // "사용"하는 예외가 아니라 사망 상태 자체의 패배·공개 처리다.
               ((at === "ALWAYS" || at === "LOOP_END") &&
                 h.kind === "lossTragedy" &&
+                isCharacterDead(position)) ||
+              (at === "ON_DEATH" &&
+                abilityRole === "magician" &&
                 isCharacterDead(position))
             )
           ) out.push({ self: c, hook: h });
@@ -148,9 +151,10 @@ export function applyHookEffect(
   target?: Target,
   context?: HookContext,
   recordWhenUnchanged = false,
+  destination?: import("../types").Location,
 ): void {
   const before = structuredClone(s.loop);
-  hook.effect(s, self, target);
+  hook.effect(s, self, target, destination);
   const publicChanges = publicBoardChanges(before, s.loop);
   if (publicChanges.length === 0 && !recordWhenUnchanged) return;
   const trigger = publicTrigger(context);
@@ -162,7 +166,16 @@ export function applyHookEffect(
     kind: "abilityActivated",
     timing: at,
     ...(self ? { character: self } : {}),
-    ...(target === undefined ? {} : { targets: [structuredClone(target)] }),
+    ...(target === undefined && destination === undefined
+      ? {}
+      : {
+        targets: [
+          ...(target === undefined ? [] : [structuredClone(target)]),
+          ...(destination === undefined
+            ? []
+            : [{ kind: "location" as const, at: destination }]),
+        ],
+      }),
     description:
       hook.source.description ?? hook.source.prerequisite ?? hook.source.timing,
     publicChanges,
