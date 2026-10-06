@@ -2321,6 +2321,7 @@ function plotLossCouldExplain(
   context: PublicLossObservationContext,
   publicCast: readonly CharacterId[],
   observations: readonly ProtagonistObservation[],
+  loop: number,
 ): boolean {
   switch (plot) {
     case "lightAvenger":
@@ -2366,6 +2367,32 @@ function plotLossCouldExplain(
         const start = context.startingLocations[character];
         return start !== undefined && context.locationIntrigue[start] >= 2;
       });
+    case "secretRecord":
+      return observations.some((observation) =>
+        observation.kind === "roleRevealed" &&
+        observation.loop === loop &&
+        (["brain", "factor", "magician"] as RoleId[]).includes(
+          observation.role,
+        )
+      );
+    case "maleConfrontation":
+      return lossRoleCandidates(
+        tragedySet,
+        combination,
+        "ninja",
+        publicCast,
+        observations,
+      ).some((character) =>
+        (publicCharacterCounter(
+          publicCharacterAtLoss(context, character),
+          "intrigue",
+        ) ?? 0) >= 2
+      );
+    case "showtimeDeath":
+      if (context.characters === undefined) return false;
+      return Object.values(context.characters ?? {}).filter(
+        ({ status }) => status === "alive",
+      ).length <= 6;
     default:
       return false;
   }
@@ -2378,6 +2405,7 @@ function nonDeathLossCouldExplain(
   context: PublicLossObservationContext,
   publicCast: readonly CharacterId[],
   observations: readonly ProtagonistObservation[],
+  loop: number,
 ): boolean {
   const path = publicLossPath(timing, context);
   if (path === "naturalLoopEnd") {
@@ -2389,6 +2417,7 @@ function nonDeathLossCouldExplain(
         context,
         publicCast,
         observations,
+        loop,
       )
     )) return true;
     return lossRoleCandidates(
@@ -2451,6 +2480,13 @@ function protagonistDeathCouldExplain(
       day === observation.day && incident === "hospitalIncident"
   );
   if (hospitalIncident) return true;
+  const fakeIncident = path === "protagonistIncident" &&
+    tragedySet === "midnightZone" &&
+    context.firedIncidents.some(({ day }) => day === observation.day) &&
+    Object.values(context.startingLocations).some((location) =>
+      location !== undefined && context.locationIntrigue[location] >= 2
+    );
+  if (fakeIncident) return true;
   if (path !== "protagonistRoundEnd") return false;
 
   const killerCouldAct = lossRoleCandidates(
@@ -2466,6 +2502,25 @@ function protagonistDeathCouldExplain(
     ) ?? 0) >= 4
   );
   if (killerCouldAct) return true;
+
+  const ninjaCouldAct = lossRoleCandidates(
+    tragedySet,
+    combination,
+    "ninja",
+    publicCast,
+    observations,
+  ).some((ninja) => {
+    const ninjaState = publicCharacterAtLoss(context, ninja);
+    if (ninjaState?.status !== "alive" || ninjaState.location === undefined) {
+      return false;
+    }
+    return Object.values(context.characters ?? {}).some((candidate) =>
+      candidate.status === "alive" &&
+      candidate.location === ninjaState.location &&
+      (publicCharacterCounter(candidate, "intrigue") ?? 0) >= 2
+    );
+  });
+  if (ninjaCouldAct) return true;
 
   return lossRoleCandidates(
     tragedySet,
@@ -2503,9 +2558,10 @@ function lossObservationContradiction(
       combination,
       observation.timing,
       context,
-      publicCast,
-      observations,
-    );
+        publicCast,
+        observations,
+        observation.loop,
+      );
   return explained
     ? undefined
     : {
@@ -3069,6 +3125,7 @@ function lossRoleCauseCandidates(
           context,
           publicCast,
           observations,
+          observation.loop,
         )
       )) {
         nonRoleCauseExists = true;
@@ -4090,8 +4147,22 @@ export function explainableLossConditions(
           incident: "hospitalIncident",
         });
       }
+      if (
+        path === "protagonistIncident" &&
+        tragedySet === "midnightZone" &&
+        context.firedIncidents.some(({ day }) => day === observation.day) &&
+        Object.values(context.startingLocations).some((location) =>
+          location !== undefined && context.locationIntrigue[location] >= 2
+        )
+      ) {
+        add({
+          key: "incident:fakeIncident",
+          kind: "incident",
+          incident: "fakeIncident",
+        });
+      }
       if (path !== "protagonistRoundEnd") continue;
-      for (const role of ["killer", "lovedOne"] as const) {
+      for (const role of ["killer", "lovedOne", "ninja"] as const) {
         const met = lossRoleCandidates(
           tragedySet,
           combination,
@@ -4100,10 +4171,22 @@ export function explainableLossConditions(
           observations,
         ).some((character) => {
           const characterState = publicCharacterAtLoss(context, character);
-          return role === "killer"
-            ? (publicCharacterCounter(characterState, "intrigue") ?? 0) >= 4
-            : (publicCharacterCounter(characterState, "paranoia") ?? 0) >= 3 &&
+          if (role === "killer") {
+            return (publicCharacterCounter(characterState, "intrigue") ?? 0) >= 4;
+          }
+          if (role === "lovedOne") {
+            return (publicCharacterCounter(characterState, "paranoia") ?? 0) >= 3 &&
               (publicCharacterCounter(characterState, "intrigue") ?? 0) >= 1;
+          }
+          if (
+            characterState?.status !== "alive" ||
+            characterState.location === undefined
+          ) return false;
+          return Object.values(context.characters ?? {}).some((candidate) =>
+            candidate.status === "alive" &&
+            candidate.location === characterState.location &&
+            (publicCharacterCounter(candidate, "intrigue") ?? 0) >= 2
+          );
         });
         if (met) add({ key: `role:${role}`, kind: "role", role });
       }
@@ -4119,6 +4202,7 @@ export function explainableLossConditions(
           context,
           publicCast,
           observations,
+          observation.loop,
         )) {
           add({ key: `plot:${plot}`, kind: "plot", plot });
         }

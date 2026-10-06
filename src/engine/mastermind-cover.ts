@@ -470,6 +470,72 @@ function roleSpecificPaths(
         sacrifice: "두 장소의 음모 기반 승리·미끼와 변수의 추가 능력을 포기한다.",
       });
       break;
+    case "ninja":
+      add({
+        key: "role:ninja:false-reveal",
+        title: "역할 거짓 공개",
+        observation: "다른 비-엑스트라 역할을 선언할 수 있어 선언만으로 닌자 여부는 확정되지 않는다.",
+        control: "mastermind", avoidable: true,
+        avoidance: "진실을 선언한다.",
+        sacrifice: "거짓 선언으로 역할표 후보를 분산하는 기회를 포기한다.",
+      });
+      add({
+        key: "role:ninja:loss",
+        title: "동소 음모 2 이상 패배 조건",
+        observation: "해당 상태의 라운드 종료 패배는 닌자 후보를 좁힌다.",
+        control: "mastermind", avoidable: true,
+        avoidance: "닌자의 선택 패배 조건을 발동하지 않는다.",
+        sacrifice: "닌자의 주인공 사망 경로를 포기한다.",
+      });
+      break;
+    case "obstinate":
+      add({
+        key: "role:obstinate:incident",
+        title: "불안과 무관한 사건 발생",
+        observation: "불안 한계 미만인데 사건이 발생하면 절대자 후보가 좁혀진다.",
+        control: "automatic", avoidable: true,
+        avoidance: "사건 전에 불안을 인쇄 한계까지 올린다.",
+        sacrifice: "불안 카드를 다른 패배 경로에 쓰지 못한다.",
+      });
+      break;
+    case "magician":
+      add({
+        key: "role:magician:movement",
+        title: "P5 인접 이동",
+        observation: "불안이 있는 캐릭터가 P5에 인접 장소로 이동하면 마술사 후보가 좁혀진다.",
+        control: "mastermind", avoidable: true,
+        avoidance: "마술사 이동 능력을 사용하지 않는다.",
+        sacrifice: "이동으로 사건·사망 배치를 조정하는 경로를 포기한다.",
+      });
+      break;
+    case "immortalRole":
+      add({
+        key: "role:immortal:death",
+        title: "불사 · 사망 무효",
+        observation: "사망 효과의 대상이 되었는데 살아남으면 불멸자 후보가 좁혀진다.",
+        control: "automatic", avoidable: true,
+        avoidance: "사망 효과의 대상으로 선택하지 않는다.",
+        sacrifice: "불멸자를 안전한 사망 미끼로 쓰지 못한다.",
+      });
+      break;
+    case "prophet":
+      add({
+        key: "role:prophet:placement",
+        title: "각본가 카드 배치 금지",
+        observation: "각본가가 이 캐릭터를 카드 대상으로 삼을 수 없어 예언자 후보가 좁혀질 수 있다.",
+        control: "automatic", avoidable: false,
+        avoidance: "강제 제한이라 피할 수 없다.",
+        sacrifice: "없음",
+      });
+      add({
+        key: "role:prophet:incident",
+        title: "다른 장소 사건 억제",
+        observation: "발생할 사건이 억제되면 예언자와 범인의 장소 관계가 드러난다.",
+        control: "automatic", avoidable: true,
+        avoidance: "범인을 예언자와 같은 장소에 둔다.",
+        sacrifice: "사건 전 이동·배치 선택이 제한된다.",
+      });
+      break;
   }
   return paths;
 }
@@ -493,6 +559,13 @@ function routeUsesRole(
     case "lovedOne": return key.includes(`lovedOne:${character}`);
     case "factor": return key.includes(`factor:${character}`);
     case "keyPerson": return key.includes(`keyPerson:${character}`);
+    case "ninja": return key.includes(`ninja:${character}`);
+    case "magician": return route.actions.abilityLabels.some((label) =>
+      label.includes("마술사") || label.includes("역할 공개")
+    );
+    case "immortalRole": return key.includes(`immortalRole:${character}`);
+    case "prophet": return key.includes(`prophet:${character}`);
+    case "obstinate": return key.includes(`obstinate:${character}`);
     default: return false;
   }
 }

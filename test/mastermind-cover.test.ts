@@ -22,7 +22,7 @@ function stateFor(id: string, difficultyIndex = 0) {
 }
 
 describe("mastermind cover guidance", () => {
-  it("generates a complete ranking for all 48 bundled difficulties", () => {
+  it("generates a complete ranking for all 56 bundled difficulties", () => {
     const results = loadScenarioCatalog().flatMap((entry) =>
       entry.difficulties.map((difficulty) => ({
         key: `${entry.id}#${difficulty.index}`,
@@ -35,7 +35,7 @@ describe("mastermind cover guidance", () => {
       }))
     );
 
-    expect(results).toHaveLength(48);
+    expect(results).toHaveLength(56);
     for (const { key, roleHolderCount, guidance } of results) {
       expect(guidance.candidates, key).toHaveLength(roleHolderCount);
       expect(guidance.recommendation, key).toBeDefined();

@@ -163,12 +163,12 @@ describe("bundled firstSteps scenarios", () => {
 });
 
 describe("basic tragedy regression", () => {
-  it("loads and initializes all 47 bundled non-community difficulties", () => {
+  it("loads and initializes all 55 bundled non-community difficulties", () => {
     const difficulties = loadScenarioCatalog()
       .filter(({ id }) => id !== "community:naughty-cat")
       .flatMap(({ difficulties }) => difficulties);
 
-    expect(difficulties).toHaveLength(47);
+    expect(difficulties).toHaveLength(55);
     for (const { scenario } of difficulties) {
       const state = createGameState(structuredClone(scenario));
       expect(state.scenario.incidents.every(
@@ -178,7 +178,7 @@ describe("basic tragedy regression", () => {
     }
   });
 
-  it("validates all 47 bundled difficulty variants with only Trouble in Paradise rejected", () => {
+  it("validates all 55 bundled difficulty variants with only Trouble in Paradise rejected", () => {
     const difficulties = loadScenarioCatalog()
       .filter(({ id }) => id !== "community:naughty-cat")
       .flatMap((entry) =>
@@ -188,7 +188,7 @@ describe("basic tragedy regression", () => {
           validation,
         }))
       );
-    expect(difficulties).toHaveLength(47);
+    expect(difficulties).toHaveLength(55);
     expect(difficulties.filter(({ validation }) => !validation.ok).map(
       ({ title, index, validation }) => ({
         title,
@@ -218,13 +218,13 @@ describe("basic tragedy regression", () => {
     ]);
   });
 
-  it("keeps 22 upstream scripts plus the local community scenario", () => {
+  it("keeps 22 base scripts, four MZ scripts, and the local community scenario", () => {
     const entries = loadBasicTragedyScenarioCatalog();
     expect(entries).toHaveLength(23);
     expect(entries.reduce(
       (sum, entry) => sum + entry.difficulties.length,
       0,
     )).toBe(39);
-    expect(loadScenarioCatalog()).toHaveLength(30);
+    expect(loadScenarioCatalog()).toHaveLength(34);
   });
 });

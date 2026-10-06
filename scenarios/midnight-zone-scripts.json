@@ -1,0 +1,130 @@
+[
+  {
+    "id": "midnightZone:4",
+    "title": "Romance Antithesis",
+    "creator": "BakaFire",
+    "tragedySet": "midnightZone",
+    "mainPlot": ["maleConfrontation"],
+    "subPlots": ["unsafeTrigger", "loveHateSpiral"],
+    "difficultySets": [
+      { "numberOfLoops": 4, "difficulty": 2 },
+      { "numberOfLoops": 3, "difficulty": 4 }
+    ],
+    "daysPerLoop": 5,
+    "cast": {
+      "boyStudent": "person",
+      "girlStudent": "obstinate",
+      "richStudent": "friend",
+      "shrineMaiden": "person",
+      "alien": "factor",
+      "policeOfficer": "person",
+      "officeWorker": "ninja"
+    },
+    "incidents": [
+      { "day": 2, "incident": "confession", "culprit": "richStudent" },
+      { "day": 4, "incident": "confession", "culprit": "officeWorker" },
+      { "day": 4, "incident": "increasingUnease", "culprit": "girlStudent" }
+    ],
+    "victory-conditions": "See Tragedy Looper: Midnight Circle Mastermind Handbook",
+    "story": "See Tragedy Looper: Midnight Circle Mastermind Handbook",
+    "mastermindHints": "See Tragedy Looper: Midnight Circle Mastermind Handbook"
+  },
+  {
+    "id": "midnightZone:5",
+    "title": "In the Hands of Evil Fate",
+    "creator": "Bodogetta",
+    "tragedySet": "midnightZone",
+    "mainPlot": ["secretRecord"],
+    "subPlots": ["diceOfGods", "unsafeTrigger"],
+    "difficultySets": [
+      { "numberOfLoops": 4, "difficulty": 3 },
+      { "numberOfLoops": 3, "difficulty": 5 }
+    ],
+    "daysPerLoop": 4,
+    "cast": {
+      "boyStudent": "obstinate",
+      "richStudent": "person",
+      "shrineMaiden": "person",
+      "alien": "conspiracyTheorist",
+      "godlyBeing": ["brain", { "enters on loop": 2 }],
+      "policeOfficer": "serialKiller",
+      "officeWorker": "factor",
+      "doctor": "person",
+      "patient": "keyPerson"
+    },
+    "incidents": [
+      { "day": 2, "incident": ["fakeIncident", "hospitalIncident"], "culprit": "boyStudent" },
+      { "day": 3, "incident": "increasingUnease", "culprit": "richStudent" },
+      { "day": 4, "incident": "serialMurder", "culprit": "doctor" }
+    ],
+    "victory-conditions": "See Tragedy Looper: Midnight Circle Mastermind Handbook",
+    "story": "See Tragedy Looper: Midnight Circle Mastermind Handbook",
+    "mastermindHints": "See Tragedy Looper: Midnight Circle Mastermind Handbook"
+  },
+  {
+    "id": "midnightZone:6",
+    "title": "Singer of the Heretic Idol",
+    "creator": "Satoshi Sawamura",
+    "tragedySet": "midnightZone",
+    "mainPlot": ["sealedItem"],
+    "subPlots": ["loveHateSpiral", "worshippersApocalypse"],
+    "difficultySets": [
+      { "numberOfLoops": 8, "difficulty": 4 },
+      { "numberOfLoops": 7, "difficulty": 5 },
+      { "numberOfLoops": 6, "difficulty": 6 }
+    ],
+    "daysPerLoop": 4,
+    "cast": {
+      "boyStudent": "obstinate",
+      "classRep": "friend",
+      "mysteryBoy": "immortalRole",
+      "shrineMaiden": "person",
+      "illusion": "brain",
+      "popIdol": "person",
+      "journalist": "prophet",
+      "doctor": "cultist",
+      "henchman": "person"
+    },
+    "incidents": [
+      { "day": 1, "incident": "suicide", "culprit": "popIdol" },
+      { "day": 2, "incident": ["fakeIncident", "breakthrough"], "culprit": "henchman" },
+      { "day": 3, "incident": ["fakeIncident", "uproar"], "culprit": "classRep" },
+      { "day": 4, "incident": ["fakeIncident", "hospitalIncident"], "culprit": "boyStudent" }
+    ],
+    "victory-conditions": "See Tragedy Looper: Midnight Circle Mastermind Handbook",
+    "story": "See Tragedy Looper: Midnight Circle Mastermind Handbook",
+    "mastermindHints": "See Tragedy Looper: Midnight Circle Mastermind Handbook"
+  },
+  {
+    "id": "midnightZone:7",
+    "title": "Spinning Duplicate Spiral",
+    "creator": "Gaijin",
+    "tragedySet": "midnightZone",
+    "mainPlot": ["fatedConnections"],
+    "subPlots": ["unansweredHeart", "showtimeDeath"],
+    "difficultySets": [
+      { "numberOfLoops": 4, "difficulty": 7 }
+    ],
+    "daysPerLoop": 6,
+    "cast": {
+      "boyStudent": "magician",
+      "richStudent": "person",
+      "mysteryBoy": "prophet",
+      "shrineMaiden": "serialKiller",
+      "policeOfficer": "magician",
+      "popIdol": "friend",
+      "journalist": "conspiracyTheorist",
+      "doctor": "person",
+      "patient": "immortalRole"
+    },
+    "incidents": [
+      { "day": 3, "incident": "fakedSuicide", "culprit": "boyStudent" },
+      { "day": 4, "incident": "missingPerson", "culprit": "richStudent" },
+      { "day": 5, "incident": "uproar", "culprit": "journalist" },
+      { "day": 6, "incident": "confession", "culprit": "patient" }
+    ],
+    "victory-conditions": "See Tragedy Looper: Midnight Circle Mastermind Handbook",
+    "story": "See Tragedy Looper: Midnight Circle Mastermind Handbook",
+    "mastermindHints": "See Tragedy Looper: Midnight Circle Mastermind Handbook"
+  }
+]

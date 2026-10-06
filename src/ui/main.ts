@@ -25,14 +25,17 @@ import {
 } from "../engine/disclosure-preview";
 import {
   advanceGame,
+  activeLoopStartExtraCardPlots,
   chooseInitialLeader,
   continueAfterLoopJudgment,
   continueFromTimeGap,
   createGameState,
   loopStartTraitChoicesComplete,
+  loopStartExtraCardCandidates,
   settleGameFlow,
   setLoopStartTraitCounterChoice,
   setLoopStartTraitLocationChoice,
+  setLoopStartExtraCardChoice,
   skipToFinalGuess,
   startHouseRuleExtraLoop,
   submitFinalGuess,
@@ -276,6 +279,7 @@ interface ResolutionReceipt {
 interface OptionalHookSelection {
   selected: boolean;
   target?: string;
+  destination?: Location;
 }
 
 type GoodwillDraftField =
@@ -329,6 +333,10 @@ const INCIDENT_CHOICE_FIELDS: Record<string, readonly string[]> = {
   increasingUnease: ["target", "otherTarget"],
   missingPerson: ["location"],
   murder: ["target"],
+  serialMurder: ["target"],
+  conspiracies: ["incident", "target", "location"],
+  breakthrough: ["target", "location"],
+  confession: ["roleClaim"],
   spreading: ["target", "otherTarget"],
 };
 
@@ -2173,6 +2181,15 @@ function hookTargetOptions(
   return hook.selectableTargets?.(state, self) ?? [];
 }
 
+function hookDestinationOptions(
+  state: GameState,
+  self: CharacterId,
+  hook: Hook,
+  target: Target | undefined,
+): Location[] {
+  return hook.selectableDestinations?.(state, self, target) ?? [];
+}
+
 function cultistIgnoreSummary(
   state: GameState,
   self: CharacterId,
@@ -2231,11 +2248,22 @@ function renderP5DisclosurePreview(
     return `${baseline}<p class="disclosure-pending">대상 선택 후 노출 계산</p>`;
   }
 
+  const destinations = hookDestinationOptions(
+    state,
+    self,
+    hook,
+    selectedTarget,
+  );
+  if (destinations.length > 0 && selection?.destination === undefined) {
+    return `${baseline}<p class="disclosure-pending">목적지 선택 후 노출 계산</p>`;
+  }
+
   const preview = previewP5Disclosure(
     state,
     hook,
     self,
     selectedTarget,
+    selection?.destination,
   );
   return `${baseline}${renderDisclosureResult(preview)}`;
 }
@@ -2431,6 +2459,13 @@ function renderHookList(
     const optional = hook.kind === "optional";
     const text = hook.source.description ?? hook.source.prerequisite ?? "";
     const targets = hookTargetOptions(state, self, hook);
+    const selectedTarget = decodeTarget(selection?.target);
+    const destinations = hookDestinationOptions(
+      state,
+      self,
+      hook,
+      selectedTarget,
+    );
     const activationSummary = cultistIgnoreSummary(state, self, hook);
     const disclosurePreview = phase === "P5_MASTERMIND_ABILITY"
       ? renderP5DisclosurePreview(state, hook, self, selection, targets)
@@ -2466,6 +2501,14 @@ function renderHookList(
               ${targets.map((target) => `<option value="${escapeHtml(encodeTarget(target))}"
                 ${selection?.target === encodeTarget(target) ? "selected" : ""}>
                 ${escapeHtml(targetLabel(target))}</option>`).join("")}
+            </select>`
+          : ""}
+        ${interactive && optional && destinations.length > 0
+          ? `<select data-action="optional-hook-destination" data-hook-key="${escapeHtml(key)}">
+              <option value="">목적지 선택</option>
+              ${destinations.map((destination) => `<option value="${destination}"
+                ${selection?.destination === destination ? "selected" : ""}>
+                ${escapeHtml(locationName(destination))}</option>`).join("")}
             </select>`
           : ""}
         ${disclosurePreview}
@@ -3777,8 +3820,36 @@ function renderIncidentChoice(
       resolution,
       occurrenceIndex,
     );
+    const incidentDraft = incidentDraftKey(
+      "incident",
+      resolution,
+      occurrenceIndex,
+    );
+    const roleClaimDraftKey = incidentDraftKey(
+      "roleClaim",
+      resolution,
+      occurrenceIndex,
+    );
+    const selectedSubIncident = draftValue(incidentDraft);
+    const showCharacterTarget = fields.includes("target") &&
+      (incident !== "conspiracies" || selectedSubIncident === "serialMurder");
+    const showLocationTarget = fields.includes("location") &&
+      (incident !== "conspiracies" || selectedSubIncident === "missingPerson");
+    const culpritCharacter = characterCulprit(culprit);
+    const claimOptions = culpritCharacter === undefined
+      ? []
+      : roleClaimOptions(state, culpritCharacter);
     return `
-      ${fields.includes("target")
+      ${fields.includes("incident")
+        ? `<label><span>해결할 사건</span>
+            <select data-incident-field="incident"
+              data-ui-draft-key="${escapeHtml(incidentDraft)}">
+              <option value="">사건 선택</option>
+              <option value="serialMurder" ${selectedDraftOption(incidentDraft, "serialMurder")}>${escapeHtml(incidentName("serialMurder"))}</option>
+              <option value="missingPerson" ${selectedDraftOption(incidentDraft, "missingPerson")}>${escapeHtml(incidentName("missingPerson"))}</option>
+            </select></label>`
+        : ""}
+      ${showCharacterTarget
         ? characterSelect("target", misc("Target", "Target"), resolution)
         : ""}
       ${fields.includes("otherTarget")
@@ -3788,7 +3859,7 @@ function renderIncidentChoice(
           resolution,
         )
         : ""}
-      ${fields.includes("location")
+      ${showLocationTarget
         ? `<label><span>${escapeHtml(misc("Location", "Location"))}</span>
             <select data-incident-field="location"
               data-ui-draft-key="${escapeHtml(locationDraftKey)}">
@@ -3804,6 +3875,16 @@ function renderIncidentChoice(
               <option value="goodwill" ${selectedDraftOption(counterDraftKey, "goodwill")}>${escapeHtml(misc("Goodwill"))}</option>
               <option value="paranoia" ${selectedDraftOption(counterDraftKey, "paranoia")}>${escapeHtml(misc("Paranoia"))}</option>
               <option value="intrigue" ${selectedDraftOption(counterDraftKey, "intrigue")}>${escapeHtml(misc("Intrigue"))}</option>
+            </select></label>`
+        : ""}
+      ${fields.includes("roleClaim")
+        ? `<label><span>공개할 역할</span>
+            <select data-incident-field="roleClaim"
+              data-ui-draft-key="${escapeHtml(roleClaimDraftKey)}">
+              <option value="">역할 선택</option>
+              ${claimOptions.map(({ claimedRole, result }) =>
+                `<option value="${escapeHtml(claimedRole)}" ${selectedDraftOption(roleClaimDraftKey, claimedRole)}>${escapeHtml(roleName(claimedRole))}${result === "ninjaLie" ? " (거짓)" : " (진실)"}</option>`
+              ).join("")}
             </select></label>`
         : ""}`;
   };
@@ -5891,6 +5972,8 @@ function renderTimeGap(state: GameState): string {
   const henchmanAppears = "henchman" in state.scenario.cast;
   const henchmanLocation =
     state.loop.loopStartTraitLocationChoices?.henchman;
+  const extraCardCandidates = loopStartExtraCardCandidates(state);
+  const extraCardPlots = activeLoopStartExtraCardPlots(state);
   const hasFinalGuess = tragedySetDefinition(
     state.scenario.tragedySet,
   ).hasFinalGuess;
@@ -5930,6 +6013,21 @@ function renderTimeGap(state: GameState): string {
             </label>
           </div>`
         : ""}
+      ${extraCardCandidates.length === 0
+        ? ""
+        : extraCardPlots.map((plot) => {
+          const selected = state.loop.loopStartExtraCardChoices?.[plot];
+          return `<div class="final-guess-form loop-start-trait-choice">
+            <label><span>${escapeHtml(plotName(plot))} · 특수 카드 대상</span>
+              <select data-action="loop-start-extra-card" data-plot="${plot}">
+                <option value="">직전 루프 사망자 선택</option>
+                ${extraCardCandidates.map((character) =>
+                  `<option value="${escapeHtml(character)}" ${selected === character ? "selected" : ""}>${escapeHtml(characterName(character))}</option>`
+                ).join("")}
+              </select>
+            </label>
+          </div>`;
+        }).join("")}
       <div class="flow-actions">
         <button type="button" data-action="time-gap-${running ? "pause" : "start"}">${running ? "일시 정지" : "타이머 시작"}</button>
         <button type="button" data-action="time-gap-reset">10분으로 초기화</button>
@@ -6496,7 +6594,12 @@ function incidentChoiceFromDraft(): IncidentChoice[] | undefined {
     const otherTarget = field("otherTarget");
     const location = field("location");
     const counter = field("counter");
-    if (!target && !otherTarget && !location && !counter) return undefined;
+    const incident = field("incident");
+    const roleClaim = field("roleClaim");
+    if (
+      !target && !otherTarget && !location && !counter &&
+      !incident && !roleClaim
+    ) return undefined;
     const decisions: IncidentDecision[] = [];
     if (target) decisions.push({ kind: "character", key: "target", id: target });
     if (otherTarget) {
@@ -6507,6 +6610,12 @@ function incidentChoiceFromDraft(): IncidentChoice[] | undefined {
     }
     if (counter) {
       decisions.push({ kind: "counter", key: "counter", counter: counter as IncidentCounter });
+    }
+    if (incident) {
+      decisions.push({ kind: "incident", key: "incident", incident });
+    }
+    if (roleClaim) {
+      decisions.push({ kind: "role", key: "roleClaim", role: roleClaim });
     }
     return { decisions };
   };
@@ -6559,8 +6668,13 @@ function applySelectedOptionalHooks(state: GameState): void {
 
     const targetOptions = hookTargetOptions(state, self, hook);
     const target = decodeTarget(selection.target);
+    const destinations = hookDestinationOptions(state, self, hook, target);
+    const destination = selection.destination;
     if (targetOptions.length > 0 && target === undefined) {
       throw new Error(misc("Select a target", "Select a target"));
+    }
+    if (destinations.length > 0 && destination === undefined) {
+      throw new Error("목적지를 선택하세요");
     }
     // 선택 훅은 선택한 하나마다 사망 배치를 닫는다. 종료 판정은 단계 결과를
     // 한 번 렌더한 뒤 다음 사용자 입력에서 확정한다.
@@ -6573,6 +6687,7 @@ function applySelectedOptionalHooks(state: GameState): void {
         target,
         undefined,
         phase === "P5_MASTERMIND_ABILITY",
+        destination,
       );
     });
   }
@@ -7808,6 +7923,18 @@ root.addEventListener("change", (event) => {
     });
     return;
   }
+  if (action === "loop-start-extra-card") {
+    const plot = control.dataset.plot;
+    if (plot !== "fatedConnections" && plot !== "diceOfGods") return;
+    commit("loop-start-extra-card", (state) => {
+      setLoopStartExtraCardChoice(
+        state,
+        plot,
+        control.value === "" ? undefined : control.value,
+      );
+    });
+    return;
+  }
   if (action === "optional-hook") {
     const key = control.dataset.hookKey;
     if (!key) return;
@@ -7824,6 +7951,20 @@ root.addEventListener("change", (event) => {
     if (!key) return;
     const current = optionalHookSelections.get(key) ?? { selected: false };
     current.target = control.value || undefined;
+    current.destination = undefined;
+    optionalHookSelections.set(key, current);
+    notice = "";
+    render();
+    return;
+  }
+
+  if (action === "optional-hook-destination") {
+    const key = control.dataset.hookKey;
+    if (!key) return;
+    const current = optionalHookSelections.get(key) ?? { selected: false };
+    current.destination = isLocationValue(control.value)
+      ? control.value
+      : undefined;
     optionalHookSelections.set(key, current);
     notice = "";
     render();

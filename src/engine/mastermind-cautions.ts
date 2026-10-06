@@ -50,6 +50,10 @@ const DEATH_INCIDENTS = new Set([
   "hospitalIncident",
   "murder",
   "suicide",
+  "serialMurder",
+  "uproar",
+  "fakeIncident",
+  "conspiracies",
 ]);
 
 const INCIDENT_EFFECTS: Readonly<Record<string, string>> = {
@@ -62,6 +66,13 @@ const INCIDENT_EFFECTS: Readonly<Record<string, string>> = {
   murder: "범인과 같은 장소의 다른 캐릭터 1명이 사망합니다.",
   spreading: "캐릭터 1명의 우호를 최대 2개 제거한 뒤 다른 캐릭터에게 우호 2개를 놓습니다.",
   suicide: "범인이 사망합니다.",
+  serialMurder: "범인과 같은 장소의 다른 캐릭터 1명이 사망합니다.",
+  conspiracies: "음모로 발생을 판정하고 연속 살인 또는 행방불명 하나를 해결합니다.",
+  uproar: "학교·도심에 음모가 있으면 해당 장소의 전원이 사망합니다.",
+  fakeIncident: "범인의 시작 장소에 음모 2개 이상이면 주인공이 사망합니다.",
+  breakthrough: "주인공 리더가 캐릭터 또는 장소의 음모를 2개 제거합니다.",
+  fakedSuicide: "범인에게 특수 카드를 붙이고, 남은 루프 동안 특수 카드 보유자에게 주인공 행동 카드 배치를 금지합니다.",
+  confession: "범인과 범인의 역할 선언을 공개합니다. 닌자는 거짓 선언을 선택할 수 있습니다.",
 };
 
 function roleName(role: RoleId): string {
@@ -146,7 +157,7 @@ function addIdentityExposure(
   state: GameState,
   output: MastermindCaution[],
 ): void {
-  for (const role of ["cultist", "witch"] as const) {
+  for (const role of ["cultist", "witch", "obstinate"] as const) {
     for (const character of holders(state, role)) {
       const refusable = rankedAbilities(character).filter(
         ({ ability }) => !cannotBeRefused(ability),
@@ -176,6 +187,18 @@ function addIdentityExposure(
       condition: actualRoleCondition(state, character),
       description: "이 캐릭터의 우호 금지는 강제로 무시됩니다. 우호 금지를 놓으면 불사 계열임이 드러납니다.",
       source: "시간 여행자 [강제] · 주인공 설명서 34p",
+      severity: "warning",
+    });
+  }
+
+  for (const character of holders(state, "prophet")) {
+    output.push({
+      key: `identity:prophet:${character}`,
+      category: "identityExposure",
+      title: `${characterName(character)} · 각본가 카드 배치 금지`,
+      condition: actualRoleCondition(state, character),
+      description: "각본가는 이 캐릭터에게 행동 카드를 놓을 수 없습니다. 사건 억제가 관측되어도 예언자 후보가 좁혀집니다.",
+      source: "예언자 [각본가 행동/사건 단계·강제] 역할 원문",
       severity: "warning",
     });
   }
@@ -253,6 +276,18 @@ function addRoleRisks(
     });
   }
 
+  for (const character of holders(state, "immortalRole")) {
+    output.push({
+      key: `risk:immortal:${character}`,
+      category: "uncontrolledRisk",
+      title: `${characterName(character)} · 불사`,
+      condition: actualRoleCondition(state, character),
+      description: "사망 효과의 대상이 되어도 죽지 않으므로 불멸자 정체가 드러날 수 있습니다.",
+      source: "불멸자 역할 태그",
+      severity: "warning",
+    });
+  }
+
   const deadlyIncidentLabels = state.scenario.incidents.filter(
     (scheduled) => DEATH_INCIDENTS.has(actualIncidentOf(scheduled)) &&
       (actualIncidentOf(scheduled) !== "suicide" ||
@@ -314,6 +349,32 @@ function addPlotRisks(
       description: `${people.length === 0 ? "엑스트라" : people.map(characterName).join(" · ")}에게 불안 3개 이상이 놓이면 연쇄 살인마로 취급되어 단둘이 사망 효과가 강제 발동할 수 있습니다.`,
       source: "망상 확대 바이러스 [상시·강제] 룰 원문",
       severity: "critical",
+    });
+  }
+  if (plots.includes("fatedConnections") || plots.includes("diceOfGods")) {
+    output.push({
+      key: "risk:plot:mz-extra-card",
+      category: "uncontrolledRisk",
+      title: "직전 루프 사망자 · 특수 카드",
+      condition: plots.includes("fatedConnections")
+        ? "인과의 인연이 선택된 시나리오"
+        : "신의 주사위가 선택된 시나리오",
+      description: plots.includes("fatedConnections")
+        ? "루프 시작에 직전 루프 사망자 한 명에게 특수 카드를 붙이며, 그 캐릭터는 핵심 인물로 역할이 교체됩니다."
+        : "루프 시작에 직전 루프 사망자 한 명에게 특수 카드를 붙입니다.",
+      source: `${plotName(plots.includes("fatedConnections") ? "fatedConnections" : "diceOfGods")} [루프 시작·강제] 룰 원문`,
+      severity: "critical",
+    });
+  }
+  if (plots.includes("unansweredHeart")) {
+    output.push({
+      key: "risk:plot:unanswered-heart",
+      category: "operationalNote",
+      title: `${plotName("unansweredHeart")} · 우호 금지는 이동도 금지`,
+      condition: "통하지 않는 마음이 선택된 시나리오",
+      description: "우호 금지 카드는 같은 대상의 이동 효과도 함께 막습니다.",
+      source: "통하지 않는 마음 [상시·강제] 룰 원문",
+      severity: "warning",
     });
   }
 }

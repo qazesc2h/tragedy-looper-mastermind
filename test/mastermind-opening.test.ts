@@ -30,7 +30,7 @@ function stateFor(id: string, difficultyIndex = 0): GameState {
 }
 
 describe("mastermind opening guidance E", () => {
-  it("exhaustively generates a legal three-card recommendation for all 48 difficulties", () => {
+  it("exhaustively generates a legal three-card recommendation for all 56 difficulties", () => {
     const rows = loadScenarioCatalog().flatMap((entry) =>
       entry.difficulties.map((difficulty) => ({
         key: `${entry.id}#${difficulty.index}`,
@@ -38,7 +38,7 @@ describe("mastermind opening guidance E", () => {
       }))
     );
 
-    expect(rows).toHaveLength(48);
+    expect(rows).toHaveLength(56);
     for (const { key, state } of rows) {
       const guidance = mastermindOpeningGuidance(state);
       expect(guidance.contributingPlacementCount, key).toBeLessThan(63_360);

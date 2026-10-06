@@ -2,7 +2,12 @@
   "_basis": {
     "community": "사용자가 제공한 제작자와 사용자 제작 시나리오 분류"
   },
-  "official": [],
+  "official": [
+    "midnightZone:4",
+    "midnightZone:5",
+    "midnightZone:6",
+    "midnightZone:7"
+  ],
   "community": [
     "community:naughty-cat"
   ],

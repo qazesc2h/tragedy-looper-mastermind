@@ -2141,6 +2141,19 @@ P9 단계 패널과 각본가 상시 패널은 계산 결과를 공유한다. �
 16~40페이지에 실린 10편부터 정발 한국어 제목을 대조하고, 출처가 확인된 제목만
 UI 번역 데이터에 반영해야 한다.
 
+### Midnight Zone 번역 누락
+
+- MZ 룰·역할·사건 이름은 `translations/ko.jsonc`에 모두 있어 구현에 사용했다.
+- 공식 MZ 각본 4편의 제목·story·힌트·승리 조건 16건은 정발 한국어 원문이
+  확보되지 않았다. upstream 각본 데이터의 영문 제목과 각본가 설명서 안내 문구를
+  그대로 보존했으며 임의 번역하지 않았다. 이후 한국어 실물 각본집으로 채워야 한다.
+- 친구 역할의 prerequisite `This role has been revealed`는
+  `translations/ko.jsonc`와 현재 `data/ko-translations.json` 모두 빈 문자열이다.
+  기본편에도 영향을 주는 기존 번역 누락이므로 규칙 로직을 바꾸지 않고 기록만 남긴다.
+- 비밀 기록의 정정된 공식 prerequisite
+  `If the Brain, Factor, or Magician were revealed during this loop, the Protagonists lose.`도
+  upstream 한국어 번역 키가 없다. 임의 번역하지 않고 영문 `source`를 보존했다.
+
 ### 390px 실제 렌더 회귀 검사
 
 - 일반 Vitest DOM 환경은 CSS 레이아웃을 계산하지 않으므로 실제 요소 경계 검사를

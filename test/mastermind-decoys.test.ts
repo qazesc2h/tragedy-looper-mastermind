@@ -38,7 +38,7 @@ describe("mastermind decoy guidance", () => {
       }))
     );
 
-    expect(results).toHaveLength(48);
+    expect(results).toHaveLength(56);
     for (const { key, guidance } of results) {
       expect(guidance.confusableRules.length, key).toBeGreaterThan(0);
       expect(guidance.fakeLossConditions.length, key).toBeGreaterThan(0);

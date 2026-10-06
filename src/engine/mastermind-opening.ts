@@ -145,7 +145,11 @@ function targetFromKey(state: GameState, key: string): Target | undefined {
 
 function cardForResource(resource: string): ActionCard[] {
   if (resource === "card:intriguePlus1") return ["intriguePlus1"];
-  if (resource === "card:intriguePlus2") return ["intriguePlus2"];
+  // E는 완성 수만이 아니라 1일차의 실제 진척도도 비교한다. +2가 필요한
+  // 경로에 +1을 놓아도 공개 보드에서 조건을 한 칸 전진시키므로 후보에 남긴다.
+  if (resource === "card:intriguePlus2") {
+    return ["intriguePlus1", "intriguePlus2"];
+  }
   if (resource.startsWith("card:paranoiaPlus1:")) return ["paranoiaPlus1"];
   if (resource === "card:movement") {
     return ["moveVertical", "moveHorizontal", "moveDiagonal"];
@@ -299,6 +303,16 @@ function decoyTargetCards(
         reason: `나비의 날갯짓 범인 ${characterDataOf(culprit).ko}의 사건 발동 조건을 1칸 진척시킨다.`,
       }];
     }
+    case "plot:secretRecord":
+      return decoy.candidateCharacters.flatMap((id) => {
+        const target = targetFromKey(state, `character:${id}`);
+        return target === undefined ? [] : [{
+          card: "paranoiaPlus1" as const,
+          target,
+          amount: 1,
+          reason: `고백 범인 ${characterDataOf(id).ko}의 사건 발동 조건을 1칸 진척시켜 비밀 기록으로 오인할 역할 공개를 준비한다.`,
+        }];
+      });
     case "role:factor":
       return intrigueCards(
         { kind: "location", at: "City" },
@@ -349,9 +363,8 @@ function candidatePlacements(state: GameState): {
 } {
   const byKey = new Map<string, CandidatePlacement>();
   const guidance = mastermindGuidance(state);
-  if (guidance.primary !== undefined) addRouteCandidates(state, guidance.primary, 0, byKey);
-  guidance.alternatives.forEach((route, index) =>
-    addRouteCandidates(state, route, index + 1, byKey)
+  guidance.rankedRoutes.forEach((route, index) =>
+    addRouteCandidates(state, route, index, byKey)
   );
 
   let eligibleDecoyCount = 0;

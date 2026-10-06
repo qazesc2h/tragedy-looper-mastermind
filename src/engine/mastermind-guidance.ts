@@ -284,7 +284,27 @@ function planForRoute(
       case "targetIntrigue":
       case "hospitalIntrigue":
       case "hospitalIntrigueForDeath":
+      case "ninjaIntrigue":
+      case "culpritStartIntrigue":
         addIntrigue(plan, requirement.remaining, target);
+        break;
+      case "roleRevealed":
+        addAbility(
+          plan,
+          "ability:roleReveal",
+          "흑막·변수·마술사 역할 공개",
+          conditionTarget(condition),
+        );
+        break;
+      case "deadCharacters":
+        for (let index = 0; index < requirement.remaining; index += 1) {
+          addAbility(
+            plan,
+            `ability:characterDeath:${index}`,
+            "캐릭터 사망 효과",
+            conditionTarget(condition),
+          );
+        }
         break;
       case "paranoia":
       case "culpritParanoia":
