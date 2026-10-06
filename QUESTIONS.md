@@ -2,6 +2,37 @@
 
 ## 미해결
 
+### Q12. 쌍둥이의 “대각선 반대 장소” 취급 범위
+- source: "When this character triggers an Incident, it is considered as being on the diagonally opposite location."
+- 확인된 범위: 공식 MC 각본 `The Temple of Poisoned Loneliness`는 쌍둥이를 연속
+  살인의 범인으로 두므로, 적어도 그 사건의 사망 대상 장소는 대각선 반대 장소를
+  참조해야 한다. 캐릭터 자체를 실제로 이동시키는 문장은 없다.
+- 쟁점: 이 가상 장소가 사건의 모든 “범인의 장소” 참조에 적용되는지, 아니면 사건
+  발생 판정/직접 효과에만 적용되는지 원문만으로 확정되지 않는다. 특히 클로즈드 서클의
+  “범인의 장소를 공개하고 3일간 봉쇄”가 실제 물리 장소와 대각선 반대 장소 중 무엇을
+  공개·봉쇄하는지에 차이가 난다.
+- 해석 A: 사건 해결이 끝날 때까지 모든 범인 장소 참조에 대각선 반대 장소를 쓴다.
+- 해석 B: 발생 판정과 위치 기반 직접 효과에만 쓰고, 장소 공개·지속 상태는 실제
+  물리 장소를 쓴다.
+- 현재 처리 방침: 미구현. 공식 각본 5편에는 쌍둥이와 클로즈드 서클 조합이 없으므로
+  공식 각본 지원과 사용자 각본의 완전 지원을 구분한다. 구현 승인 뒤에도 근거 없이
+  B를 만들지 말고, 공식 판정이 없으면 A를 문자 그대로의 보수 판정으로 명시한 뒤
+  사용자 승인을 받는다.
+
+### Q11. 편집증 환자의 각본가 능력 upstream/설명서 불일치
+- 고정 upstream source:
+  "You may place 1 :intrigue: counter on this location or an any character in this location."
+- 공개 영문 주인공 설명서:
+  "You may place an Intrigue or Paranoia counter on this character."
+- 번역 사전에도 후자에 대응하는
+  `Place 1 :intrigue: or 1 :paranoia: on this Character.` 한국어 키가 있다.
+- 쟁점: 대상이 “현재 장소 또는 그 장소의 임의 캐릭터”인지, “편집증 환자 자신”인지와
+  선택 가능한 카운터가 음모만인지 음모/불안인지가 모두 다르다. 게임 상태와 공개
+  관측이 크게 달라지므로 오타를 추측해 합칠 수 없다.
+- 현재 처리 방침: 미구현. 저장소 규칙에 따라 구현 근거는 고정 upstream `source`지만,
+  차이를 숨기지 않고 공식 한국어 실물 또는 정정 요약표를 대조한 뒤 source 자체를
+  확정한다. 확인 전에는 설명서 문구로 upstream을 임의 수정하지 않는다.
+
 ### Q10. 닌자의 거짓 선언 대상에 동적으로 얻은 핵심 인물이 포함되는가?
 - source: "When this role would be revealed, you may declare any other non-Person Role in the Script instead."
 - 쟁점: “시나리오에 포함된 다른 비-엑스트라 역할”이 각본에 기본 배정된 역할만
