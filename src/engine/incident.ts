@@ -32,6 +32,7 @@ import {
 import {
   characterCulprit,
   incidentChoiceTargets,
+  incidentEffectCulpritLocation,
   incidentOccurrenceId,
   incidentSubIncidentDecision,
   normalizeIncidentChoice,
@@ -181,7 +182,7 @@ function incidentSuppressedByProphet(
 ): boolean {
   const culpritPosition = state.loop.board[culprit];
   if (!isCharacterAlive(culpritPosition)) return false;
-  const culpritLocation = characterLocation(culpritPosition, culprit);
+  const culpritLocation = incidentEffectCulpritLocation(state, culprit);
   return livingCharactersWithAbilityRole(state, "prophet").some(
     (prophet) =>
       characterLocation(state.loop.board[prophet], prophet) !== culpritLocation,
@@ -195,7 +196,7 @@ function incidentForcedByPrivateInvestigator(
   if (state.loop.specialGauge?.value !== 0) return false;
   const culpritPosition = state.loop.board[culprit];
   if (!isCharacterAlive(culpritPosition)) return false;
-  const culpritLocation = characterLocation(culpritPosition, culprit);
+  const culpritLocation = incidentEffectCulpritLocation(state, culprit);
   return livingCharactersWithAbilityRole(state, "privateInvestigator").some(
     (investigator) =>
       abilityLocationsOf(state, investigator).includes(culpritLocation),
@@ -296,6 +297,12 @@ function resolveScheduledIncident(
       incidentSubIncidentDecision(choice),
     );
     effectApplied = secondEffect.effectApplied || effectApplied;
+  }
+  if (
+    culpritCharacter !== undefined &&
+    effectiveAbilityRoles(state, culpritCharacter).includes("fool")
+  ) {
+    state.loop.charCounters[culpritCharacter].paranoia = 0;
   }
   const definition = incidentDefinition(scheduled.actualIncident);
   const gaugeDelta = incidentTriggeredGaugeDelta(

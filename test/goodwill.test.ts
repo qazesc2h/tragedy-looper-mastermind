@@ -1858,6 +1858,34 @@ describe("loop-long goodwill effects", () => {
     });
   });
 
+  it("lets scientist decrease a positive special gauge after removing all counters", () => {
+    const state = createInformationState(["scientist"], []);
+    Object.assign(state.loop.charCounters.scientist, {
+      goodwill: 3,
+      paranoia: 1,
+      intrigue: 1,
+      protection: 1,
+    });
+    state.loop.specialGauge = { value: 2, increasedThisLoop: false };
+
+    expect(resolveGoodwillAbility(state, {
+      user: "scientist",
+      rank: 3,
+      abilityIndex: 1,
+      specialGaugeDelta: -1,
+    }, "resolve")).toMatchObject({ resolved: true, effectApplied: true });
+    expect(state.loop.charCounters.scientist).toEqual({
+      goodwill: 0,
+      paranoia: 0,
+      intrigue: 0,
+      protection: 0,
+    });
+    expect(state.loop.specialGauge).toEqual({
+      value: 1,
+      increasedThisLoop: false,
+    });
+  });
+
   it("removes illusion for the rest of the loop and restores it next loop", () => {
     const state = createInformationState(["illusion"], []);
     state.loop.charCounters.illusion.goodwill = 4;

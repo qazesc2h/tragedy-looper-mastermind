@@ -85,6 +85,13 @@ const BASE_DIFFICULTY: Readonly<Partial<Record<RoleId, CoverDifficulty>>> = {
   lovedOne: "hard",
   serialKiller: "hard",
   factor: "hard",
+  poisoner: "hard",
+  fool: "hard",
+  privateInvestigator: "hard",
+  therapist: "hard",
+  paranoiac: "controlled",
+  twin: "hard",
+  obstinate: "hard",
 };
 
 function difficultyLabel(difficulty: CoverDifficulty): string {
@@ -498,6 +505,82 @@ function roleSpecificPaths(
         sacrifice: "불안 카드를 다른 패배 경로에 쓰지 못한다.",
       });
       break;
+    case "poisoner":
+      add({
+        key: "role:poisoner:gauge-kill",
+        title: "게이지 2 이상 동소 사망",
+        observation: "특수 게이지 2 이상에서 같은 장소 캐릭터가 라운드 종료에 사망하면 바리스타 후보가 좁혀진다.",
+        control: "mastermind", avoidable: true,
+        avoidance: "바리스타 사망 능력을 쓰지 않거나 특수 게이지를 2 미만으로 유지한다.",
+        sacrifice: "바리스타의 사망 경로를 포기한다.",
+      });
+      add({
+        key: "role:poisoner:gauge-loss",
+        title: "게이지 4 이상 주인공 사망",
+        observation: "특수 게이지 4 이상에서 라운드 종료 패배가 발생하면 바리스타 후보가 좁혀진다.",
+        control: "automatic", avoidable: true,
+        avoidance: "라운드 종료 전에 특수 게이지를 4 미만으로 유지한다.",
+        sacrifice: "바리스타의 주인공 사망 경로를 포기한다.",
+      });
+      break;
+    case "fool":
+      add({
+        key: "role:fool:paranoia-reset",
+        title: "사건 발생 뒤 불안 전부 제거",
+        observation: "범인이 사건을 발생시킨 직후 그 캐릭터의 불안이 모두 사라지면 어리석은 자 후보가 좁혀진다.",
+        control: "automatic", avoidable: true,
+        avoidance: "사건 전에 이 캐릭터의 불안을 0으로 만들어 변화가 드러나지 않게 한다.",
+        sacrifice: "사건 한계를 맞추는 데 불안 카운터를 쓸 수 없다.",
+      });
+      break;
+    case "privateInvestigator":
+      add({
+        key: "role:private-investigator:forced-incident",
+        title: "게이지 0 동소 사건 강제 발생",
+        observation: "특수 게이지 0에서 불안 한계 미만 사건이 발생하면 같은 장소의 명탐정 후보가 좁혀진다.",
+        control: "automatic", avoidable: true,
+        avoidance: "게이지를 1 이상으로 유지하거나 사건 전에 범인을 명탐정과 다른 장소에 둔다.",
+        sacrifice: "게이지 0에서 불안 없이 사건을 여는 경로를 포기한다.",
+      });
+      add({
+        key: "role:private-investigator:immortal",
+        title: "불사 · 사망 무효",
+        observation: "사망 효과의 대상이 되었는데 살아남으면 명탐정 후보가 좁혀진다.",
+        control: "automatic", avoidable: true,
+        avoidance: "사망 효과의 대상으로 선택하지 않는다.",
+        sacrifice: "명탐정을 안전한 사망 미끼로 쓰지 못한다.",
+      });
+      break;
+    case "therapist":
+      add({
+        key: "role:therapist:paranoia-removal",
+        title: "게이지 1 이상 동소 불안 제거",
+        observation: "P5에 같은 장소의 다른 캐릭터 불안이 1개 줄면 심리 치료사 후보가 좁혀진다.",
+        control: "automatic", avoidable: true,
+        avoidance: "게이지를 0으로 유지하거나 같은 장소의 다른 캐릭터 불안을 0으로 둔다.",
+        sacrifice: "사건 발생을 늦추는 강제 불안 제거를 이용하지 못한다.",
+      });
+      break;
+    case "paranoiac":
+      add({
+        key: "role:paranoiac:self-counter",
+        title: "본인 음모·불안 +1",
+        observation: "P5에 자기 자신에게 음모나 불안이 늘면 편집증 환자 후보가 좁혀진다.",
+        control: "mastermind", avoidable: true,
+        avoidance: "편집증 환자 능력을 사용하지 않는다.",
+        sacrifice: "자기 카운터를 매일 1개씩 쌓는 경로를 포기한다.",
+      });
+      break;
+    case "twin":
+      add({
+        key: "role:twin:virtual-location",
+        title: "사건 처리 중 대각선 가상 위치",
+        observation: "사건의 발생 판정과 효과가 실제 장소가 아니라 대각선 장소를 기준으로 나타나면 쌍둥이 후보가 좁혀진다.",
+        control: "automatic", avoidable: true,
+        avoidance: "실제 장소와 대각선 장소의 차이가 결과에 드러나지 않는 사건·배치를 고른다.",
+        sacrifice: "쌍둥이의 대각선 사건 배치를 이용하지 못한다.",
+      });
+      break;
     case "magician":
       add({
         key: "role:magician:movement",
@@ -566,6 +649,7 @@ function routeUsesRole(
     case "immortalRole": return key.includes(`immortalRole:${character}`);
     case "prophet": return key.includes(`prophet:${character}`);
     case "obstinate": return key.includes(`obstinate:${character}`);
+    case "poisoner": return key.includes(`poisoner:${character}`);
     default: return false;
   }
 }

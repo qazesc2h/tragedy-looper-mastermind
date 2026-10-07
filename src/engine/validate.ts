@@ -60,7 +60,9 @@ export type ScenarioDiagnosticCode =
   | "SIGN_WITH_ME_KEY_PERSON_NOT_GIRL"
   | "MALE_CONFRONTATION_NINJA_NOT_MAN"
   | "OBSTINATE_NOT_INCIDENT_CULPRIT"
+  | "FOOL_NOT_INCIDENT_CULPRIT"
   | "TWIN_NOT_INCIDENT_CULPRIT"
+  | "PRIVATE_INVESTIGATOR_IS_INCIDENT_CULPRIT"
   | "WORSHIPPERS_APOCALYPSE_SUICIDE_MISSING"
   | "AI_ROLE_IS_PERSON"
   | "LITTLE_SISTER_GOODWILL_REFUSAL_ROLE"
@@ -191,17 +193,43 @@ function validateRequiredIncidentCulprit(
     return culprit.kind === "character" ? [culprit.id] : [];
   }));
   return Object.entries(scenario.cast ?? {})
-    .filter(([, role]) => role === "obstinate" || role === "twin")
+    .filter(([, role]) =>
+      role === "obstinate" || role === "fool" || role === "twin"
+    )
     .filter(([character]) => !culprits.has(character))
     .map(([character, role]) => {
-      const twin = role === "twin";
+      const [code, label] = role === "twin"
+        ? ["TWIN_NOT_INCIDENT_CULPRIT", "쌍둥이"] as const
+        : role === "fool"
+        ? ["FOOL_NOT_INCIDENT_CULPRIT", "어리석은 자"] as const
+        : ["OBSTINATE_NOT_INCIDENT_CULPRIT", "절대자"] as const;
       return errorDiagnostic(
         `cast.${character}`,
-        twin ? "TWIN_NOT_INCIDENT_CULPRIT" : "OBSTINATE_NOT_INCIDENT_CULPRIT",
-        `${twin ? "쌍둥이" : "절대자"}: ${characterLabel(character)}은(는) ` +
+        code,
+        `${label}: ${characterLabel(character)}은(는) ` +
           "사건의 범인이어야 합니다.",
       );
     });
+}
+
+function validatePrivateInvestigatorCulprit(
+  scenario: ScenarioValidationInput,
+): ScenarioDiagnostic[] {
+  const investigators = new Set(Object.entries(scenario.cast ?? {})
+    .filter(([, role]) => role === "privateInvestigator")
+    .map(([character]) => character));
+  return (scenario.incidents ?? []).flatMap((scheduled, index) => {
+    if (scheduled.culprit === undefined) return [];
+    const culprit = normalizeIncidentCulprit(scheduled.culprit);
+    if (culprit.kind !== "character" || !investigators.has(culprit.id)) {
+      return [];
+    }
+    return [errorDiagnostic(
+      `incidents[${index}].culprit`,
+      "PRIVATE_INVESTIGATOR_IS_INCIDENT_CULPRIT",
+      `명탐정: ${characterLabel(culprit.id)}은(는) 사건의 범인이 될 수 없습니다.`,
+    )];
+  });
 }
 
 function validateWorshippersApocalypse(
@@ -688,6 +716,7 @@ export function validateScenario(
     ...validateSignWithMe(scenario),
     ...validateMaleConfrontation(scenario),
     ...validateRequiredIncidentCulprit(scenario),
+    ...validatePrivateInvestigatorCulprit(scenario),
     ...validateWorshippersApocalypse(scenario),
     ...validateAiRole(scenario),
     ...validateLittleSisterRole(scenario),

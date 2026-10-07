@@ -157,7 +157,7 @@ function addIdentityExposure(
   state: GameState,
   output: MastermindCaution[],
 ): void {
-  for (const role of ["cultist", "witch", "obstinate"] as const) {
+  for (const role of ["cultist", "witch", "obstinate", "paranoiac"] as const) {
     for (const character of holders(state, role)) {
       const refusable = rankedAbilities(character).filter(
         ({ ability }) => !cannotBeRefused(ability),
@@ -284,6 +284,17 @@ function addRoleRisks(
       condition: actualRoleCondition(state, character),
       description: "사망 효과의 대상이 되어도 죽지 않으므로 불멸자 정체가 드러날 수 있습니다.",
       source: "불멸자 역할 태그",
+      severity: "warning",
+    });
+  }
+  for (const character of holders(state, "privateInvestigator")) {
+    output.push({
+      key: `risk:private-investigator:${character}`,
+      category: "uncontrolledRisk",
+      title: `${characterName(character)} · 불사`,
+      condition: actualRoleCondition(state, character),
+      description: "사망 효과의 대상이 되어도 죽지 않으므로 명탐정 정체가 드러날 수 있습니다.",
+      source: "명탐정 역할 태그",
       severity: "warning",
     });
   }

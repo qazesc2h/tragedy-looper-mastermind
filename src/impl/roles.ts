@@ -300,6 +300,35 @@ export const ROLE_IMPL: Record<string, {
       },
     ],
   },
+  // ── 어리석은 자 (Fool)
+  fool: {
+    ko: "어리석은 자",
+    max: 1,
+    hooks: [
+      {
+        phase: "SCRIPT_BUILD",
+        kind: "scriptBuild",
+        source: {
+          timing: "Script creation",
+          description: `This character must be the culprit of an Incident`,
+        },
+        // IMPLEMENTED_ELSEWHERE: src/engine/validate.ts validateRequiredIncidentCulprit()
+        when: () => false,
+        effect: () => {},
+      },
+      {
+        phase: "P7_INCIDENT",
+        kind: "mandatory",
+        source: {
+          timing: "Incident step",
+          description: `After this character has triggered an Incident, remove all :paranoia: counters from this card.`,
+        },
+        // IMPLEMENTED_ELSEWHERE: src/engine/incident.ts resolveScheduledIncident()
+        when: () => false,
+        effect: () => {},
+      },
+    ],
+  },
   // ── 명탐정 (Private Investigator)
   privateInvestigator: {
     ko: "명탐정",

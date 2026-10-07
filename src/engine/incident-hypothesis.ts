@@ -1,5 +1,5 @@
 import { characterDataOf } from "../data";
-import { LOCATIONS } from "../types";
+import { DIAGONAL, LOCATIONS } from "../types";
 import type {
   CharacterId,
   GameState,
@@ -11,6 +11,7 @@ import type {
 import { publicCharacterCounter } from "../types";
 import {
   collectProtagonistObservations,
+  evaluateStateRoleTableHypotheses,
   type ProtagonistObservation,
 } from "./hypothesis";
 import { incidentDefinition } from "./incident-definition";
@@ -215,6 +216,11 @@ function traceExclusionReason(
   character: CharacterId,
   column: IncidentHypothesisColumn,
   observations: readonly ProtagonistObservation[],
+  virtualLocationCouldExplain?: (
+    character: CharacterId,
+    traceLocation: Location,
+    observation: Extract<ProtagonistObservation, { kind: "incidentOccurred" }>,
+  ) => boolean,
 ): IncidentPossibilityReason | undefined {
   for (const observation of observations) {
     if (
@@ -246,7 +252,9 @@ function traceExclusionReason(
           ? [change.target.at]
           : []
       );
-    } else if (column.incident === "murder") {
+    } else if (
+      column.incident === "murder" || column.incident === "serialMurder"
+    ) {
       const victims = observation.changes.flatMap((change) =>
         change.kind === "status" &&
           change.from === "alive" &&
@@ -284,7 +292,12 @@ function traceExclusionReason(
     const uniqueLocations = [...new Set(traceLocations)];
     if (
       uniqueLocations.length === 1 &&
-      observedCharacter?.location !== uniqueLocations[0]
+      observedCharacter?.location !== uniqueLocations[0] &&
+      !virtualLocationCouldExplain?.(
+        character,
+        uniqueLocations[0]!,
+        observation,
+      )
     ) {
       return { code: "incidentTraceLocationMismatch", observation };
     }
@@ -296,6 +309,15 @@ function outcomeExclusionReason(
   character: CharacterId,
   column: IncidentHypothesisColumn,
   observations: readonly ProtagonistObservation[],
+  forcedBelowParanoiaCouldExplain?: (
+    character: CharacterId,
+    observation: Extract<ProtagonistObservation, { kind: "incidentOccurred" }>,
+  ) => boolean,
+  virtualLocationCouldExplain?: (
+    character: CharacterId,
+    traceLocation: Location,
+    observation: Extract<ProtagonistObservation, { kind: "incidentOccurred" }>,
+  ) => boolean,
 ): IncidentPossibilityReason | undefined {
   for (const observation of observations) {
     if (
@@ -315,7 +337,8 @@ function outcomeExclusionReason(
       // AI는 사건 판정에서 모든 카운터를 불안으로 취급하므로 불안만 보고 배제하지 않는다.
       if (
         character !== "ai" &&
-        (publicCharacterCounter(state, "paranoia") ?? 0) < limit
+        (publicCharacterCounter(state, "paranoia") ?? 0) < limit &&
+        !forcedBelowParanoiaCouldExplain?.(character, observation)
       ) {
         return { code: "firedBelowParanoia", observation };
       }
@@ -335,6 +358,15 @@ function buildCells(
   columns: readonly IncidentHypothesisColumn[],
   observations: readonly ProtagonistObservation[],
   confirmations: ReadonlyMap<string, IncidentConfirmation>,
+  forcedBelowParanoiaCouldExplain?: (
+    character: CharacterId,
+    observation: Extract<ProtagonistObservation, { kind: "incidentOccurred" }>,
+  ) => boolean,
+  virtualLocationCouldExplain?: (
+    character: CharacterId,
+    traceLocation: Location,
+    observation: Extract<ProtagonistObservation, { kind: "incidentOccurred" }>,
+  ) => boolean,
 ): Record<CharacterId, Record<string, IncidentPossibilityCell>> {
   const cells: Record<
     CharacterId,
@@ -349,7 +381,13 @@ function buildCells(
           character,
           column,
           observations,
-        ) ?? outcomeExclusionReason(character, column, observations);
+          virtualLocationCouldExplain,
+        ) ?? outcomeExclusionReason(
+          character,
+          column,
+          observations,
+          forcedBelowParanoiaCouldExplain,
+        );
         row[column.id] = confirmation.character === character
           ? {
             character,
@@ -395,11 +433,13 @@ function buildCells(
         character,
         column,
         observations,
+        forcedBelowParanoiaCouldExplain,
       );
       const traceReason = traceExclusionReason(
         character,
         column,
         observations,
+        virtualLocationCouldExplain,
       );
       const reason = traceReason ?? outcomeReason;
       row[column.id] = reason === undefined
@@ -426,6 +466,15 @@ export function evaluateIncidentHypotheses(
   publicCast: readonly CharacterId[],
   scheduledIncidents: readonly ScheduledIncidentInput[],
   observations: readonly ProtagonistObservation[],
+  forcedBelowParanoiaCouldExplain?: (
+    character: CharacterId,
+    observation: Extract<ProtagonistObservation, { kind: "incidentOccurred" }>,
+  ) => boolean,
+  virtualLocationCouldExplain?: (
+    character: CharacterId,
+    traceLocation: Location,
+    observation: Extract<ProtagonistObservation, { kind: "incidentOccurred" }>,
+  ) => boolean,
 ): IncidentPossibilityTable {
   const columns = normalizeIncidentSchedule(scheduledIncidents)
     .filter(({ culprit }) => culprit.kind === "character")
@@ -440,6 +489,8 @@ export function evaluateIncidentHypotheses(
     columns,
     observations,
     confirmations,
+    forcedBelowParanoiaCouldExplain,
+    virtualLocationCouldExplain,
   );
   let propagationPasses = 0;
 
@@ -450,6 +501,8 @@ export function evaluateIncidentHypotheses(
       columns,
       observations,
       confirmations,
+      forcedBelowParanoiaCouldExplain,
+      virtualLocationCouldExplain,
     );
     let changed = false;
     for (const column of columns) {
@@ -577,16 +630,86 @@ export function evaluateLocationIncidentHypotheses(
   return { locations: [...LOCATIONS], columns, cells, propagationPasses };
 }
 
+function stateIncidentHypothesisOverrides(
+  state: GameState,
+): {
+  forcedBelowParanoiaCouldExplain: (
+    character: CharacterId,
+    observation: Extract<ProtagonistObservation, { kind: "incidentOccurred" }>,
+  ) => boolean;
+  virtualLocationCouldExplain: (
+    character: CharacterId,
+    traceLocation: Location,
+    observation: Extract<ProtagonistObservation, { kind: "incidentOccurred" }>,
+  ) => boolean;
+} {
+  const roleEvaluation = evaluateStateRoleTableHypotheses(state);
+  const roleTable = roleEvaluation.table;
+  const rolePossible = (character: CharacterId, role: string): boolean => {
+    const cell = roleTable.cells[character]?.[role];
+    return cell !== undefined && cell.status !== "impossible";
+  };
+
+  const forcedBelowParanoiaCouldExplain = (character: CharacterId, observation: Extract<ProtagonistObservation, { kind: "incidentOccurred" }>): boolean => {
+    const observed = observation.context?.characters?.[character];
+    if (observed === undefined || observed.status !== "alive") return false;
+    const limit = characterDataOf(character).paranoiaLimit;
+    if (
+      (observation.incident === "serialMurder" ||
+        observation.incident === "suicide") &&
+      roleEvaluation.remaining.some(({ mainPlot }) =>
+        mainPlot === "dropStrychnine"
+      ) &&
+      (publicCharacterCounter(observed, "paranoia") ?? 0) +
+          (publicCharacterCounter(observed, "intrigue") ?? 0) >= limit
+    ) return true;
+    if (rolePossible(character, "obstinate")) return true;
+    if (observation.context?.specialGauge?.value !== 0) return false;
+
+    const locations = new Set(
+      observed.location === undefined ? [] : [observed.location],
+    );
+    if (
+      observed.location !== undefined &&
+      rolePossible(character, "twin")
+    ) {
+      locations.add(DIAGONAL[observed.location]);
+    }
+    return Object.entries(observation.context?.characters ?? {}).some(
+      ([candidate, investigator]) =>
+        investigator.status === "alive" &&
+        rolePossible(candidate, "privateInvestigator") &&
+        (investigator.abilityLocations ?? (
+          investigator.location === undefined ? [] : [investigator.location]
+        )).some((location) => locations.has(location)),
+    );
+  };
+  const virtualLocationCouldExplain = (
+    character: CharacterId,
+    traceLocation: Location,
+    observation: Extract<ProtagonistObservation, { kind: "incidentOccurred" }>,
+  ): boolean => {
+    const physical = observation.context?.characters?.[character]?.location;
+    return physical !== undefined &&
+      rolePossible(character, "twin") &&
+      DIAGONAL[physical] === traceLocation;
+  };
+  return { forcedBelowParanoiaCouldExplain, virtualLocationCouldExplain };
+}
+
 export function evaluateStateIncidentHypothesisTables(state: GameState): {
   character: IncidentPossibilityTable;
   location: LocationIncidentPossibilityTable;
 } {
   const observations = collectProtagonistObservations(state);
+  const overrides = stateIncidentHypothesisOverrides(state);
   return {
     character: evaluateIncidentHypotheses(
       Object.keys(state.scenario.cast),
       state.scenario.incidents,
       observations,
+      overrides.forcedBelowParanoiaCouldExplain,
+      overrides.virtualLocationCouldExplain,
     ),
     location: evaluateLocationIncidentHypotheses(
       state.scenario.incidents,

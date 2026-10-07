@@ -31,6 +31,7 @@ import {
   tragedySetDefinition,
 } from "../tragedy-sets";
 import { publicObservationContext as snapshotPublicContext } from "./public-observation";
+import { IMMORTAL_ROLE_IDS, roleIsImmortal } from "./role-properties";
 
 export {
   publicBoardChanges,
@@ -1119,6 +1120,23 @@ function p5CauseClauses(
         });
       }
     }
+    if (
+      change.target.kind === "character" &&
+      roleAssignmentCompatible(
+        tragedySetRoles,
+        ranges,
+        "paranoiac",
+        change.target.id,
+        confirmedRoles,
+      )
+    ) {
+      alternatives.push({
+        requirements: [{
+          role: "paranoiac",
+          candidates: [change.target.id],
+        }],
+      });
+    }
     clauses.push({ observation, alternatives });
   }
   return clauses;
@@ -1381,22 +1399,23 @@ function roundEvidenceCauseClauses(
         ) {
           effectiveSerialExclusions.push({ character: actor, role: "person" });
         }
+        const immortalityAlternatives = IMMORTAL_ROLE_IDS.flatMap((role) => {
+          const candidates = compatibleRoleCandidates(
+            [target],
+            role,
+            tragedySetRoles,
+            ranges,
+            confirmedRoles,
+          );
+          return candidates.length === 0
+            ? []
+            : [{ requirements: [{ role, candidates }] }];
+        });
         clauses.push({
           observation,
           alternatives: [
             { requirements: [], exclusions: effectiveSerialExclusions },
-            {
-              requirements: [{
-                role: "timeTraveler",
-                candidates: compatibleRoleCandidates(
-                  [target],
-                  "timeTraveler",
-                  tragedySetRoles,
-                  ranges,
-                  confirmedRoles,
-                ),
-              }],
-            },
+            ...immortalityAlternatives,
           ],
         });
         continue;
@@ -2177,12 +2196,26 @@ function abilityObservationContradiction(
         "conspiracyTheorist",
         publicCast,
         observation.context,
+      ) || (
+        change.target.kind === "character" &&
+        roleCouldBelongToCharacter(
+          tragedySetRoles,
+          ranges,
+          "paranoiac",
+          change.target.id,
+        )
       );
     } else if (change.counter === "intrigue") {
       possible = change.target.kind === "location"
         ? combination.subPlots.includes("unsettlingRumor") ||
           roleCouldAppear(tragedySetRoles, ranges, "brain", publicCast)
-        : roleCouldAppear(tragedySetRoles, ranges, "brain", publicCast);
+        : roleCouldAppear(tragedySetRoles, ranges, "brain", publicCast) ||
+          roleCouldBelongToCharacter(
+            tragedySetRoles,
+            ranges,
+            "paranoiac",
+            change.target.id,
+          );
     }
     if (!possible) {
       return {
@@ -2896,12 +2929,78 @@ function maximumRoleCapacity(
 }
 
 interface AbilityLocationRoleConstraint {
-  role: "brain" | "conspiracyTheorist";
+  role: "brain" | "conspiracyTheorist" | "paranoiac";
   candidates: Set<CharacterId>;
   observations: Extract<
     ProtagonistObservation,
     { kind: "mastermindAbilityResult" }
   >[];
+}
+
+function paranoiacSelfCounterConstraint(
+  tragedySet: string,
+  combinations: readonly RuleCombination[],
+  publicCast: readonly CharacterId[],
+  observations: readonly ProtagonistObservation[],
+): AbilityLocationRoleConstraint | undefined {
+  if (combinations.length === 0 || publicCast.includes("copycat")) {
+    return undefined;
+  }
+
+  const tragedySetRoles = rolesForTragedySet(tragedySet);
+  let candidates: Set<CharacterId> | undefined;
+  const evidence: Extract<
+    ProtagonistObservation,
+    { kind: "mastermindAbilityResult" }
+  >[] = [];
+  for (const observation of observations) {
+    if (
+      observation.kind !== "mastermindAbilityResult" ||
+      observation.timing !== "P5_MASTERMIND_ABILITY" ||
+      observation.context?.characters === undefined
+    ) continue;
+
+    for (const change of observation.changes) {
+      if (
+        change.kind !== "counter" ||
+        change.delta <= 0 ||
+        change.target.kind !== "character" ||
+        (change.counter !== "paranoia" && change.counter !== "intrigue")
+      ) continue;
+      const target = change.target.id;
+      const onlyParanoiac = combinations.every((combination) => {
+        const ranges = roleRanges(combination);
+        if (!roleCouldBelongToCharacter(
+          tragedySetRoles,
+          ranges,
+          "paranoiac",
+          target,
+        )) return false;
+        const otherCause = change.counter === "paranoia"
+          ? roleAbilityCouldAppear(
+              tragedySetRoles,
+              ranges,
+              "conspiracyTheorist",
+              publicCast,
+              observation.context,
+            ) || (
+              (observation.context?.locationIntrigue.School ?? 0) >= 2 &&
+              roleCouldAppear(tragedySetRoles, ranges, "factor", publicCast)
+            )
+          : roleCouldAppear(tragedySetRoles, ranges, "brain", publicCast);
+        return !otherCause;
+      });
+      if (!onlyParanoiac) continue;
+      const current = new Set([target]);
+      candidates = candidates === undefined
+        ? current
+        : new Set([...candidates].filter((character) => current.has(character)));
+      if (!evidence.includes(observation)) evidence.push(observation);
+    }
+  }
+  return candidates === undefined
+    ? undefined
+    : { role: "paranoiac", candidates, observations: evidence };
 }
 
 function observationTargetLocation(
@@ -3021,6 +3120,7 @@ function conspiracyTheoristLocationConstraint(
         change.delta <= 0 ||
         change.target.kind !== "character"
       ) continue;
+      const targetCharacter = change.target.id;
       const location = observationTargetLocation(observation, change.target);
       if (location === undefined) continue;
 
@@ -3034,8 +3134,16 @@ function conspiracyTheoristLocationConstraint(
             publicCast,
           )
         );
+      const paranoiacCanExplain = combinations.some((combination) =>
+        roleCouldBelongToCharacter(
+          tragedySetRoles,
+          roleRanges(combination),
+          "paranoiac",
+          targetCharacter,
+        )
+      );
       // 변수가 같은 공개 결과를 낼 수 있으면 선동가의 위치를 단정하지 않는다.
-      if (factorCanExplain) continue;
+      if (factorCanExplain || paranoiacCanExplain) continue;
 
       const atLocation = livingActorsAtObservedLocation(
         publicCast,
@@ -3254,7 +3362,7 @@ function observedRoleExclusionReason(
       const died = deathBatches.some(({ characters }) =>
         characters.includes(character)
       );
-      if (died && role === "timeTraveler") {
+      if (died && roleIsImmortal(role)) {
         return { code: "diedDespiteImmortality", observation };
       }
       const roundCompleted = observation.record.roundEndPairs !== undefined ||
@@ -3423,6 +3531,12 @@ export function buildRolePossibilityTable(
     () => [
       brainLocationConstraint(combinations, publicCast, observations),
       conspiracyTheoristLocationConstraint(
+        tragedySet,
+        combinations,
+        publicCast,
+        observations,
+      ),
+      paranoiacSelfCounterConstraint(
         tragedySet,
         combinations,
         publicCast,

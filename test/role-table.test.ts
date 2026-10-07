@@ -29,6 +29,7 @@ function combination(id: string): RuleCombination {
   const found = [
     ...enumerateRuleCombinations("firstSteps"),
     ...enumerateRuleCombinations("basicTragedy"),
+    ...enumerateRuleCombinations("mysteryCircle"),
   ].find((candidate) => candidate.id === id);
   if (found === undefined) throw new Error(`missing combination ${id}`);
   return found;
@@ -706,6 +707,68 @@ describe("role possibility table", () => {
       [future],
       [first, second, third],
     ).cells.doctor.serialKiller.status).toBe("impossible");
+  });
+
+  it("keeps Private Investigator as the Mystery Circle immortality explanation", () => {
+    const observation = roundObservation(1, {
+      day: 1,
+      roundEndPairs: [{
+        location: "Hospital",
+        characters: ["doctor", "patient"],
+        paranoia: [0, 0],
+        intrigue: [0, 0],
+      }],
+    });
+    const table = buildRolePossibilityTable(
+      "mysteryCircle",
+      fullCast,
+      [combination("murderPlan+hiddenFreak+masterDetective")],
+      [roleRevealed("doctor", "serialKiller"), observation],
+    );
+
+    expect(table.cells.patient.privateInvestigator.status).toBe("confirmed");
+  });
+
+  it("attributes a Mystery Circle self-counter observation to Paranoiac", () => {
+    const observation: ProtagonistObservation = {
+      kind: "mastermindAbilityResult",
+      loop: 1,
+      day: 1,
+      timing: "P5_MASTERMIND_ABILITY",
+      changes: [{
+        kind: "counter",
+        target: { kind: "character", id: "doctor" },
+        counter: "paranoia",
+        delta: 1,
+      }],
+      context: {
+        locationIntrigue: {
+          Hospital: 0,
+          Shrine: 0,
+          City: 0,
+          School: 0,
+        },
+        characters: Object.fromEntries(fullCast.map((character) => [
+          character,
+          {
+            status: "alive",
+            location: "Hospital",
+            abilityLocations: ["Hospital"],
+            goodwill: 0,
+            paranoia: 0,
+            intrigue: 0,
+          },
+        ])),
+      },
+    };
+    const table = buildRolePossibilityTable(
+      "mysteryCircle",
+      fullCast,
+      [combination("murderPlan+hiddenFreak+trickyTwins")],
+      [observation],
+    );
+
+    expect(table.cells.doctor.paranoiac.status).toBe("confirmed");
   });
 
   it("propagates copycat's revealed same-role group as an equivalence", () => {

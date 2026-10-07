@@ -12,6 +12,7 @@ import {
   resolveHooks,
 } from "./phases";
 import { recordRoundDeathBatch } from "./round-evidence";
+import { roleIsImmortal } from "./role-properties";
 import { recordPhaseLog } from "./phase-log";
 import {
   publicBoardChanges,
@@ -130,7 +131,7 @@ function killAfterDefenses(
 
   // 형사 FAQ: 불사로 사망하지 않으면 보호 카운터를 제거하지 않는다.
   const role = effectiveRole(state, character);
-  if (role === "timeTraveler" || role === "immortalRole") {
+  if (roleIsImmortal(role)) {
     return false;
   }
   if (!isCharacterAlive(position)) {
