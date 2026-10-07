@@ -33,6 +33,10 @@ export interface IncidentDefinition {
   allowsRepeatedCulprit: boolean;
   culpritKind: "character" | "location";
   choiceSchema: readonly IncidentChoiceSchemaEntry[];
+  /** MC 기본 규칙의 사건 발생 시 게이지 +1 적용 여부. */
+  increasesSpecialGauge: boolean;
+  /** 사건 자체가 MC 기본 증가에 더하는 추가 증가량. */
+  additionalSpecialGaugeIncrease: number;
 }
 
 const DEFAULT_DEFINITION: IncidentDefinition = {
@@ -44,6 +48,8 @@ const DEFAULT_DEFINITION: IncidentDefinition = {
   allowsRepeatedCulprit: false,
   culpritKind: "character",
   choiceSchema: [],
+  increasesSpecialGauge: true,
+  additionalSpecialGaugeIncrease: 0,
 };
 
 const CHARACTER = (key: "target" | "otherTarget"): IncidentChoiceSchemaEntry => ({
@@ -85,6 +91,12 @@ const INCIDENT_DEFINITION_OVERRIDES: Readonly<
   murder: { choiceSchema: [CHARACTER("target")] },
   spreading: {
     choiceSchema: [CHARACTER("target"), CHARACTER("otherTarget")],
+  },
+  bestialMurder: {
+    additionalSpecialGaugeIncrease: 1,
+  },
+  silverBullet: {
+    increasesSpecialGauge: false,
   },
 };
 

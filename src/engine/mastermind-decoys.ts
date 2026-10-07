@@ -138,6 +138,15 @@ export interface ObservationProfile {
 export const PLOT_OBSERVATION_PROFILES: Readonly<
   Record<PlotId, readonly ObservationProfile[]>
 > = {
+  tightropePlan: [
+    { type: "tightropeGaugeCondition", label: "특수 게이지 1 이하의 루프 종료 조건" },
+  ],
+  quiltIncidents: [
+    { type: "quiltGaugeCondition", label: "특수 게이지 3 이상의 루프 종료 조건" },
+  ],
+  isolatedInstitutionPsycho: [
+    { type: "isolatedGaugeCondition", label: "직전 루프 게이지를 읽는 루프 시작 조건" },
+  ],
   murderPlan: [
     { type: "keyPersonDeath", label: "핵심 인물 사망으로 즉시 패배" },
     { type: "mastermindIntrigue", label: "각본가 능력으로 음모 증가" },

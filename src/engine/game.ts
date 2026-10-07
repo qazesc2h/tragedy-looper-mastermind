@@ -410,6 +410,7 @@ function advanceRoundOnce(
   state: GameState,
   incidentChoice?: IncidentChoiceInput | readonly IncidentChoiceInput[],
   deferSettlement = false,
+  mandatoryHookTargets: Readonly<Record<string, Target | undefined>> = {},
 ): ResolvedIncidentBatch | undefined {
   const phase = state.loop.phase;
   const loop = state.loop.loop;
@@ -419,7 +420,7 @@ function advanceRoundOnce(
     ? state.scenario.incidents.filter((incident) => incident.day === day)
     : [];
 
-  const result = advance(state, incidentChoice);
+  const result = advance(state, incidentChoice, mandatoryHookTargets);
 
   if (phase === "P1_ROUND_START") {
     if (!phaseAlreadyLogged(state, loop, day, phase)) {
@@ -576,13 +577,21 @@ export function advanceAutomaticRoundPhases(
 export function advanceGame(
   state: GameState,
   incidentChoice?: IncidentChoiceInput | readonly IncidentChoiceInput[],
-  options: { deferSettlement?: boolean } = {},
+  options: {
+    deferSettlement?: boolean;
+    mandatoryHookTargets?: Readonly<Record<string, Target | undefined>>;
+  } = {},
 ): ResolvedIncidentBatch | undefined {
   if (state.gamePhase !== "ROUND") {
     throw new Error(`round phase cannot advance during ${state.gamePhase}`);
   }
   const deferSettlement = options.deferSettlement ?? false;
-  const result = advanceRoundOnce(state, incidentChoice, deferSettlement);
+  const result = advanceRoundOnce(
+    state,
+    incidentChoice,
+    deferSettlement,
+    options.mandatoryHookTargets ?? {},
+  );
   advanceAutomaticRoundPhases(state, deferSettlement);
   return result;
 }

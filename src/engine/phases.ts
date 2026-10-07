@@ -129,6 +129,14 @@ export function collectHooks(s: GameState, at: HookPoint): {
   return out;
 }
 
+export function hookResolutionKey(
+  phase: HookPoint,
+  self: string,
+  index: number,
+): string {
+  return `${phase}:${self || "plot"}:${index}`;
+}
+
 function publicTrigger(
   context: HookContext | undefined,
 ): PublicAbilityTrigger | undefined {
@@ -197,16 +205,30 @@ export function resolveHooks(
   s: GameState,
   at: HookPoint,
   context?: HookContext,
+  selectedTargets: Readonly<Record<string, Target | undefined>> = {},
 ): void {
   const all = collectHooks(s, at);
 
   const mandatory = all.filter((x) => x.hook.kind !== "optional");
   const fired = mandatory
     .filter((x) => x.hook.when(s, x.self, context))
-    .map((x) => ({
-      ...x,
-      target: x.hook.effectTarget?.(s, x.self),
-    }));                                                        // ① 전원 판정
+    .map((x) => ({ ...x, index: all.indexOf(x) }))
+    .map((x) => {
+      const targets = x.hook.selectableTargets?.(s, x.self) ?? [];
+      const selected = selectedTargets[hookResolutionKey(at, x.self, x.index)];
+      if (selected !== undefined && !targets.some((target) =>
+        JSON.stringify(target) === JSON.stringify(selected)
+      )) {
+        throw new Error("mandatory hook target is not eligible");
+      }
+      if (targets.length > 1 && selected === undefined) {
+        throw new Error("mandatory hook target is required");
+      }
+      return {
+        ...x,
+        target: selected ?? x.hook.effectTarget?.(s, x.self) ?? targets[0],
+      };
+    });                                                         // ① 전원 판정
   withDeathBatch(s, () => {
     for (const x of fired) {
       applyHookEffect(s, at, x.hook, x.self, x.target, context);
@@ -220,6 +242,7 @@ export function resolveHooks(
 export function advance(
   s: GameState,
   incidentChoice?: IncidentChoiceInput | readonly IncidentChoiceInput[],
+  mandatoryHookTargets: Readonly<Record<string, Target | undefined>> = {},
 ): ResolvedIncidentBatch | undefined {
   if (s.gamePhase !== "ROUND") {
     throw new Error(`round phase cannot advance during ${s.gamePhase}`);
@@ -282,7 +305,7 @@ export function advance(
 
     case "P5_MASTERMIND_ABILITY":
       finalizeSacredTreeMastermindStep(s);
-      resolveHooks(s, "P5_MASTERMIND_ABILITY");
+      resolveHooks(s, "P5_MASTERMIND_ABILITY", undefined, mandatoryHookTargets);
       break;
 
     case "P6_GOODWILL":
@@ -301,7 +324,7 @@ export function advance(
     case "P9_ROUND_END":
       if (!s.loop.roundEndMandatoryResolved) {
         recordRoundEndPairs(s);
-        resolveHooks(s, "P9_ROUND_END");
+        resolveHooks(s, "P9_ROUND_END", undefined, mandatoryHookTargets);
         requestEndForActivatedLosses(s);
         if (s.pendingLoopEnd) return undefined;
 

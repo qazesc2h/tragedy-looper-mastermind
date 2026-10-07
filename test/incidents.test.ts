@@ -68,9 +68,10 @@ function createIncidentState(
   culprit: string,
   characters: readonly string[],
   mainPlot = "",
+  tragedySet = "basicTragedy",
 ): GameState {
   const scenario: Scenario = {
-    tragedySet: "basicTragedy",
+    tragedySet,
     mainPlot,
     subPlots: [],
     cast: Object.fromEntries(
@@ -735,5 +736,103 @@ describe("henchman rank 3 / suppress incidents by culprit", () => {
       id: "changeOfFuture",
       met: true,
     }));
+  });
+});
+
+describe("Mystery Circle Extra Gauge", () => {
+  it("increases when an incident fires even if blackCat prevents its effect", () => {
+    const state = createIncidentState(
+      "butterflyEffect",
+      "blackCat",
+      ["blackCat", "boyStudent"],
+      "",
+      "mysteryCircle",
+    );
+
+    const result = resolveIncident(state);
+
+    expect(result).toMatchObject({
+      occurrences: [{ fired: true, effectApplied: false }],
+    });
+    expect(state.loop.specialGauge?.value).toBe(1);
+    expect(result.occurrences[0]?.publicChanges).toContainEqual({
+      kind: "specialGauge",
+      beforeValue: 0,
+      afterValue: 1,
+      delta: 1,
+      incident: {
+        declaredIncident: "butterflyEffect",
+        occurrenceId: "1:butterflyEffect:0",
+        occurrenceIndex: 0,
+      },
+    });
+  });
+
+  it("does not increase when henchman prevents the incident from firing", () => {
+    const state = createIncidentState(
+      "butterflyEffect",
+      "henchman",
+      ["henchman", "boyStudent"],
+      "",
+      "mysteryCircle",
+    );
+    activateHenchmanSuppression(state);
+
+    expect(resolveIncident(state).occurrences[0]?.fired).toBe(false);
+    expect(state.loop.specialGauge?.value).toBe(0);
+  });
+
+  it("applies the incident-definition exception and additional increase", () => {
+    const silver = createIncidentState(
+      "silverBullet",
+      "blackCat",
+      ["blackCat"],
+      "",
+      "mysteryCircle",
+    );
+    const bestial = createIncidentState(
+      "bestialMurder",
+      "blackCat",
+      ["blackCat"],
+      "",
+      "mysteryCircle",
+    );
+
+    expect(resolveIncident(silver).occurrences[0]?.fired).toBe(true);
+    expect(silver.loop.specialGauge?.value).toBe(0);
+    expect(resolveIncident(bestial).occurrences[0]?.fired).toBe(true);
+    expect(bestial.loop.specialGauge?.value).toBe(2);
+    expect(incidentDefinition("silverBullet")).toMatchObject({
+      increasesSpecialGauge: false,
+      additionalSpecialGaugeIncrease: 0,
+    });
+    expect(incidentDefinition("bestialMurder")).toMatchObject({
+      increasesSpecialGauge: true,
+      additionalSpecialGaugeIncrease: 1,
+    });
+  });
+
+  it("records silverBullet's public zero-delta gauge result", () => {
+    const silver = createIncidentState(
+      "silverBullet",
+      "blackCat",
+      ["blackCat"],
+      "",
+      "mysteryCircle",
+    );
+
+    const occurrence = resolveIncident(silver).occurrences[0];
+
+    expect(occurrence?.publicChanges).toContainEqual({
+      kind: "specialGauge",
+      beforeValue: 0,
+      afterValue: 0,
+      delta: 0,
+      incident: {
+        declaredIncident: "silverBullet",
+        occurrenceId: "1:silverBullet:0",
+        occurrenceIndex: 0,
+      },
+    });
   });
 });

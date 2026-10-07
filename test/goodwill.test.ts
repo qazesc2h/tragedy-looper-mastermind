@@ -1331,6 +1331,29 @@ describe("ai rank 3 / resolve an incident effect as AI", () => {
     }));
   });
 
+  it("does not increase the MC gauge because it resolves only the effect", () => {
+    const state = createInformationState(
+      ["ai", "boyStudent", "girlStudent"],
+      [{ day: 2, incident: "murder", culprit: "boyStudent" }],
+    );
+    state.scenario.tragedySet = "mysteryCircle";
+    state.loop.specialGauge = { value: 0, increasedThisLoop: false };
+    state.loop.charCounters.ai.goodwill = 3;
+    setBoardLocation(state.loop, "ai", "City");
+    setBoardLocation(state.loop, "girlStudent", "City");
+
+    resolveGoodwillAbility(state, {
+      user: "ai",
+      rank: 3,
+      abilityIndex: 2,
+      incident: { day: 2, incident: "murder" },
+      incidentChoice: { target: "girlStudent" },
+    }, "resolve");
+
+    expect(state.loop.specialGauge.value).toBe(0);
+    expect(state.loop.incidentOccurrencesFiredThisLoop).toBeUndefined();
+  });
+
   it("uses the leader's incident choice for an effect that needs a location", () => {
     const state = createInformationState(
       ["ai", "officeWorker"],

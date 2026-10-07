@@ -755,6 +755,44 @@
         await pause();
       }
 
+      async function inspectSpecialGaugePanel() {
+        const absentInBasic = frameDocument().querySelector(
+          ".special-gauge-panel",
+        ) === null;
+        mutateActiveState((state) => {
+          state.loop.specialGauge = {
+            value: 3,
+            increasedThisLoop: true,
+          };
+        });
+        await reloadApp("special-gauge-panel");
+        const panel = await waitFor(
+          () => frameDocument().querySelector(".special-gauge-panel"),
+          "특수 게이지 패널",
+        );
+        const rect = panel.getBoundingClientRect();
+        const board = frameDocument().querySelector(".game-board");
+        const report = {
+          absentInBasic,
+          text: panel.textContent.replace(/\s+/g, " ").trim(),
+          firstBoardItem: board?.firstElementChild === panel,
+          rect: { left: rect.left, right: rect.right, width: rect.width },
+          horizontal: horizontalOverflow(),
+        };
+        reports.push({ label: "특수 게이지 게임판 표시", ...report });
+        if (
+          !report.absentInBasic || report.text !== "특수 게이지 3" ||
+          !report.firstBoardItem || rect.left < -0.5 || rect.right > WIDTH + 0.5 ||
+          report.horizontal.scrollWidth > WIDTH
+        ) {
+          failures.push(`특수 게이지 게임판 표시: ${JSON.stringify(report)}`);
+        }
+        mutateActiveState((state) => {
+          delete state.loop.specialGauge;
+        });
+        await reloadApp("special-gauge-panel-restored");
+      }
+
       async function inspectSpecialRuleCardLabel() {
         const fullRule = "각본가는 '우호 금지' 카드를 사용할 수 없다.";
         await selectScenario("community:naughty-cat");
@@ -3292,6 +3330,7 @@
       async function run() {
         await inspectStartingGuidance();
         await enterRound();
+        await inspectSpecialGaugePanel();
         await inspectSpecialRuleCardLabel();
         await inspectP4RecoveryControls();
         await inspectServantSplitMovementChoice();

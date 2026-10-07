@@ -263,6 +263,58 @@ function plotLossDistance(
   }
 
   switch (plot) {
+    case "tightropePlan": {
+      // SOURCE: src/impl/plots.ts tightropePlan 훅의 source 참조
+      const current = state.loop.specialGauge?.value ?? 0;
+      const met = current <= 1;
+      return distance({
+        id: plot,
+        key: plotKey(plot),
+        source: "plot",
+        category: "plot",
+        timing: "loopEnd",
+        activation: "mandatory",
+        when: "루프 종료",
+        plot,
+        ko: impl.ko,
+        conditionMet: met,
+        label: `특수 게이지 ${current}/1 이하`,
+        requirements: [requirement(
+          "specialGaugeAtMostOne",
+          "특수 게이지 1 이하",
+          met ? 1 : 0,
+          1,
+          `특수 게이지 ${current}/1 이하`,
+          met,
+          Math.max(0, current - 1),
+        )],
+      });
+    }
+
+    case "quiltIncidents": {
+      // SOURCE: src/impl/plots.ts quiltIncidents 훅의 source 참조
+      const current = state.loop.specialGauge?.value ?? 0;
+      return distance({
+        id: plot,
+        key: plotKey(plot),
+        source: "plot",
+        category: "plot",
+        timing: "loopEnd",
+        activation: "mandatory",
+        when: "루프 종료",
+        plot,
+        ko: impl.ko,
+        label: `특수 게이지 ${current}/3`,
+        requirements: [requirement(
+          "specialGaugeAtLeastThree",
+          "특수 게이지",
+          current,
+          3,
+          `특수 게이지 ${current}/3`,
+        )],
+      });
+    }
+
     case "lightAvenger": {
       // SOURCE: src/impl/plots.ts lightAvenger 훅의 source 참조
       const placeX = resolvePlaceX(state);
@@ -1123,6 +1175,32 @@ function roleLossDistance(
         ];
       }
       out.push(condition);
+      continue;
+    }
+
+    if (role === "poisoner" && hookIndex === 1) {
+      const current = state.loop.specialGauge?.value ?? 0;
+      out.push(distance({
+        id: role,
+        key: roleKey(role, character),
+        source: "role",
+        category: "protagonistDeath",
+        timing: "dayEnd",
+        activation: "mandatory",
+        when: "라운드 종료",
+        role,
+        character,
+        ko: impl.ko,
+        conditionMet: hook.when(state, character),
+        label: `${labelPrefix} · 특수 게이지 ${current}/4`,
+        requirements: [requirement(
+          "specialGauge",
+          "특수 게이지",
+          current,
+          4,
+          `특수 게이지 ${current}/4`,
+        )],
+      }));
       continue;
     }
 

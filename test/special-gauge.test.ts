@@ -19,7 +19,9 @@ function scenario(tragedySet: string): Scenario {
 
 describe("special gauge foundation", () => {
   it("creates gauges only for MC, CM, and HS", () => {
-    expect(initLoop(scenario("midnightZone")).specialGauge).toBeUndefined();
+    for (const tragedySet of ["basicTragedy", "midnightZone"]) {
+      expect(initLoop(scenario(tragedySet)).specialGauge).toBeUndefined();
+    }
     for (const tragedySet of [
       "mysteryCircle",
       "cosmicMythology",
@@ -58,11 +60,22 @@ describe("special gauge foundation", () => {
     expect(after.specialGauge.increasedThisLoop).toBe(true);
     expect(publicBoardChanges(before, after)).toContainEqual({
       kind: "specialGauge",
+      beforeValue: 0,
+      afterValue: 1,
       delta: 1,
     });
     expect(() => adjustSpecialGauge(
       { value: 0, increasedThisLoop: false },
       -1,
     )).toThrow("cannot be negative");
+  });
+
+  it("has no upper bound", () => {
+    const loop = initLoop(scenario("mysteryCircle"));
+    if (loop.specialGauge === undefined) throw new Error("missing gauge");
+    for (let value = 0; value < 12; value += 1) {
+      adjustSpecialGauge(loop.specialGauge, 1);
+    }
+    expect(loop.specialGauge.value).toBe(12);
   });
 });

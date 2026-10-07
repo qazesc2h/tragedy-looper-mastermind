@@ -10,6 +10,7 @@ import {
 } from "../types";
 import type { GameState, CharacterId, Hook, Target } from "../types";
 import { placeExtraCard } from "../engine/extra-cards";
+import { adjustSpecialGauge } from "../engine/special-gauge";
 
 const UNSETTLING_RUMOR_USE_KEY = "unsettlingRumor:plot:0";
 const UNSAFE_TRIGGER_USE_KEY = "unsafeTrigger:plot:0";
@@ -214,6 +215,60 @@ export const PLOT_IMPL: Record<string, {
         },
       },
     ],
+  },
+  // ── 외줄 위에서의 계획 (Tightrope Plan)
+  tightropePlan: {
+    ko: "외줄 위에서의 계획",
+    addsRoles: {"brain": 1, "killer": 1},
+    hooks: [{
+      phase: "LOOP_END",
+      kind: "lossTragedy",
+      source: {
+        timing: "Loop End",
+        prerequisite: `The Extra Gauge is 1 or lower.`,
+      },
+      // IMPLEMENTED_ELSEWHERE: src/engine/loss.ts evaluateLoss()
+      when: () => false,
+      effect: () => {},
+    }],
+  },
+  // ── 누벼 엮은 사건 퀼트 (A Quilt of Incidents)
+  quiltIncidents: {
+    ko: "누벼 엮은 사건 퀼트",
+    addsRoles: {"fool": 1, "conspiracyTheorist": 1},
+    hooks: [{
+      phase: "LOOP_END",
+      kind: "lossTragedy",
+      source: {
+        timing: "Loop End",
+        prerequisite: `The Extra Gauge is 3 or more.`,
+      },
+      // IMPLEMENTED_ELSEWHERE: src/engine/loss.ts evaluateLoss()
+      when: () => false,
+      effect: () => {},
+    }],
+  },
+  // ── 격리 병동 사이코 (Isolated Institution Psycho)
+  isolatedInstitutionPsycho: {
+    ko: "격리 병동 사이코",
+    addsRoles: {"conspiracyTheorist": 1, "therapist": 1, "paranoiac": 1},
+    hooks: [{
+      phase: "LOOP_START",
+      kind: "mandatory",
+      source: {
+        timing: "Loop Start",
+        prerequisite: `The Extra Gauge was 2 or less at the end of the previous loop`,
+        description: `Increase it by 1.`,
+      },
+      when: (s: GameState) =>
+        (s.history.at(-1)?.specialGauge?.value ?? Number.POSITIVE_INFINITY) <= 2,
+      effect: (s: GameState) => {
+        if (s.loop.specialGauge === undefined) {
+          throw new Error("isolatedInstitutionPsycho requires a special gauge");
+        }
+        adjustSpecialGauge(s.loop.specialGauge, 1);
+      },
+    }],
   },
   // ── 나와 계약하자! (Sign with me!)
   signWithMe: {

@@ -1500,6 +1500,14 @@ function renderPhases(state: GameState): string {
   </section>`;
 }
 
+function renderSpecialGauge(state: GameState): string {
+  if (state.loop.specialGauge === undefined) return "";
+  return `<section class="special-gauge-panel" aria-label="${escapeHtml(gameText("Extra Gauge"))}">
+    <span>${escapeHtml(gameText("Extra Gauge"))}</span>
+    <strong>${state.loop.specialGauge.value}</strong>
+  </section>`;
+}
+
 function phaseLogTargetList(targets: readonly Target[] | undefined): string {
   if ((targets?.length ?? 0) === 0) return "";
   return ` · 대상 ${targets?.map(targetLabel).join(" · ")}`;
@@ -1525,7 +1533,10 @@ function phaseLogTimelineLine(item: PhaseLogTimelineItem): string {
     }
     if (change.kind === "specialGauge") {
       const delta = change.delta > 0 ? `+${change.delta}` : String(change.delta);
-      return `특수 게이지 · ${delta}`;
+      const incident = change.incident === undefined
+        ? ""
+        : ` · ${incidentName(change.incident.declaredIncident)} #${change.incident.occurrenceIndex + 1}`;
+      return `특수 게이지 ${change.beforeValue} → ${change.afterValue} (${delta})${incident}`;
     }
     if (change.kind === "extraCard") {
       if (change.action === "moved") {
@@ -2495,7 +2506,7 @@ function renderHookList(
               <span>${escapeHtml(misc("Activate", "Activate"))}</span>
             </label>`
           : ""}
-        ${interactive && optional && targets.length > 0
+        ${interactive && targets.length > 0 && (optional || targets.length > 1)
           ? `<select data-action="optional-hook-target" data-hook-key="${escapeHtml(key)}">
               <option value="">${escapeHtml(misc("Select a target", "Select a target"))}</option>
               ${targets.map((target) => `<option value="${escapeHtml(encodeTarget(target))}"
@@ -4783,7 +4794,7 @@ function publicAbilityObservationLabel(
     }
     if (change.kind === "specialGauge") {
       const delta = change.delta > 0 ? `+${change.delta}` : String(change.delta);
-      return `특수 게이지 ${delta}`;
+      return `특수 게이지 ${change.beforeValue} → ${change.afterValue} (${delta})`;
     }
     if (change.kind === "extraCard") {
       const action = change.action === "placed"
@@ -6507,6 +6518,7 @@ function render(preserveInferenceCache = false): void {
         <div class="primary-column">
           <section class="game-board ${selectedHandCard ? "is-targeting" : ""}"
             aria-label="${escapeHtml(misc("Location", "Location"))}">
+            ${renderSpecialGauge(state)}
             ${LOCATIONS.map((location) => renderLocation(state, location)).join("")}
           </section>
           ${renderResolutionReceipt(state)}
@@ -6551,9 +6563,6 @@ function render(preserveInferenceCache = false): void {
               ? `<small>추가 루프 (하우스 룰)</small>`
               : ""}
             <strong>${escapeHtml(misc("Day"))} ${state.loop.day}/${state.scenario.daysPerLoop}</strong>
-            ${state.loop.specialGauge === undefined
-              ? ""
-              : `<small>특수 게이지 ${state.loop.specialGauge.value}</small>`}
             <small>${escapeHtml(misc("Snapshots", "Snapshots"))} ${observationCount()}</small>
           </div>
           <div class="session-actions">
@@ -6691,6 +6700,28 @@ function applySelectedOptionalHooks(state: GameState): void {
       );
     });
   }
+}
+
+function selectedMandatoryHookTargets(
+  state: GameState,
+): Readonly<Record<string, Target | undefined>> {
+  const phase = state.loop.phase;
+  if (phase !== "P5_MASTERMIND_ABILITY" && phase !== "P9_ROUND_END") {
+    return {};
+  }
+  const selected: Record<string, Target | undefined> = {};
+  for (const [index, { hook, self }] of collectHooks(state, phase).entries()) {
+    if (hook.kind === "optional" || !hook.when(state, self)) continue;
+    const targets = hookTargetOptions(state, self, hook);
+    if (targets.length <= 1) continue;
+    const key = hookKey(phase, self, index);
+    const target = decodeTarget(optionalHookSelections.get(key)?.target);
+    if (target === undefined) {
+      throw new Error(misc("Select a target", "Select a target"));
+    }
+    selected[key] = target;
+  }
+  return selected;
 }
 
 function placeSelectedCard(target: Target): void {
@@ -7004,7 +7035,10 @@ function advanceCurrentPhase(): void {
       advanceGame(
         state,
         incidentChoiceFromDraft(),
-        { deferSettlement: true },
+        {
+          deferSettlement: true,
+          mandatoryHookTargets: selectedMandatoryHookTargets(state),
+        },
       );
     }
     selectedHandCard = undefined;

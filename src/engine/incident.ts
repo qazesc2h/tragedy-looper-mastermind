@@ -1,7 +1,11 @@
 import { totalCharacterCounters } from "../counters";
 import { characterDataOf } from "../data";
 import { INCIDENT_IMPL } from "../impl/incidents";
-import { isCharacterAlive, isCharacterPresent } from "../types";
+import {
+  abilityLocationsOf,
+  isCharacterAlive,
+  isCharacterPresent,
+} from "../types";
 import { effectiveRole, characterLocation } from "../types";
 import { effectiveAbilityRoles } from "../impl/roles";
 import type {
@@ -20,6 +24,11 @@ import type {
 } from "../types";
 import { withDeathBatch } from "./death";
 import { incidentDefinition } from "./incident-definition";
+import {
+  adjustSpecialGauge,
+  incidentTriggeredGaugeDelta,
+  specialGaugeDefinition,
+} from "./special-gauge";
 import {
   characterCulprit,
   incidentChoiceTargets,
@@ -99,12 +108,17 @@ export function incidentFailureReasons(
   const reasons: IncidentFailureReason[] = [];
   const obstinate = isCharacterAlive(position) &&
     effectiveAbilityRoles(state, character).includes("obstinate");
+  const privateInvestigator = incidentForcedByPrivateInvestigator(
+    state,
+    character,
+  );
   if (policy.kind === "deadCharacter") {
     if (isCharacterAlive(position)) reasons.push("culpritAlive");
   } else {
     if (!isCharacterAlive(position)) reasons.push("culpritDead");
     if (
       !obstinate &&
+      !privateInvestigator &&
       policy.kind === "characterParanoia" &&
       incidentParanoia(state, character) <
         characterDataOf(character).paranoiaLimit +
@@ -168,6 +182,20 @@ function incidentSuppressedByProphet(
   return livingCharactersWithAbilityRole(state, "prophet").some(
     (prophet) =>
       characterLocation(state.loop.board[prophet], prophet) !== culpritLocation,
+  );
+}
+
+function incidentForcedByPrivateInvestigator(
+  state: GameState,
+  culprit: CharacterId,
+): boolean {
+  if (state.loop.specialGauge?.value !== 0) return false;
+  const culpritPosition = state.loop.board[culprit];
+  if (!isCharacterAlive(culpritPosition)) return false;
+  const culpritLocation = characterLocation(culpritPosition, culprit);
+  return livingCharactersWithAbilityRole(state, "privateInvestigator").some(
+    (investigator) =>
+      abilityLocationsOf(state, investigator).includes(culpritLocation),
   );
 }
 
@@ -267,7 +295,53 @@ function resolveScheduledIncident(
     );
     effectApplied = secondEffect.effectApplied || effectApplied;
   }
-  const changes = publicBoardChanges(beforeEffects, state.loop);
+  const definition = incidentDefinition(scheduled.actualIncident);
+  const gaugeDelta = incidentTriggeredGaugeDelta(
+    state.scenario.tragedySet,
+    definition.increasesSpecialGauge,
+    definition.additionalSpecialGaugeIncrease,
+  );
+  if (gaugeDelta > 0) {
+    const gauge = state.loop.specialGauge;
+    if (gauge === undefined) {
+      throw new Error("incident gauge increase requires a special gauge");
+    }
+    for (let step = 0; step < gaugeDelta; step += 1) {
+      adjustSpecialGauge(gauge, 1);
+    }
+  }
+  const gaugeTracksIncidents =
+    specialGaugeDefinition(state.scenario.tragedySet)?.incidentTriggeredDelta !==
+      undefined;
+  const observedChanges = publicBoardChanges(beforeEffects, state.loop);
+  if (
+    gaugeTracksIncidents &&
+    !observedChanges.some((change) => change.kind === "specialGauge")
+  ) {
+    const beforeValue = beforeEffects.specialGauge?.value;
+    const afterValue = state.loop.specialGauge?.value;
+    if (beforeValue === undefined || afterValue === undefined) {
+      throw new Error("incident gauge observation requires a special gauge");
+    }
+    observedChanges.push({
+      kind: "specialGauge",
+      beforeValue,
+      afterValue,
+      delta: afterValue - beforeValue,
+    });
+  }
+  const changes = observedChanges.map((change) =>
+    change.kind !== "specialGauge"
+      ? change
+      : {
+        ...change,
+        incident: {
+          declaredIncident: scheduled.declaredIncident,
+          occurrenceId,
+          occurrenceIndex: scheduled.occurrenceIndex,
+        },
+      }
+  );
   const deaths = [...livingBefore].filter(
     (character) => state.loop.board[character]?.status === "dead",
   );

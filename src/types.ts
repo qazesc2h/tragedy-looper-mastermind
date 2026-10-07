@@ -382,7 +382,15 @@ export type PublicBoardChange =
   }
   | {
     kind: "specialGauge";
+    beforeValue: number;
+    afterValue: number;
     delta: number;
+    /** 사건 발생으로 생긴 변화일 때의 공개 사건·회차 식별자. */
+    incident?: {
+      declaredIncident: IncidentId;
+      occurrenceId: string;
+      occurrenceIndex: number;
+    };
   }
   | {
     kind: "extraCard";

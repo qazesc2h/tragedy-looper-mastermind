@@ -28,6 +28,27 @@ import {
 import { publicObservationContext } from "../engine/public-observation";
 import { adjacentLocations } from "../engine/movement";
 
+const POISONER_USE_KEY = "poisoner:role:0";
+
+function specialGaugeValue(state: GameState): number | undefined {
+  return state.loop.specialGauge?.value;
+}
+
+function livingCharactersInThisLocation(
+  state: GameState,
+  self: CharacterId,
+  excludeSelf = false,
+): CharacterId[] {
+  const locations = abilityLocationsOf(state, self);
+  return Object.entries(state.loop.board)
+    .filter(([character, position]) =>
+      (!excludeSelf || character !== self) &&
+      isCharacterAlive(position) &&
+      locations.includes(characterLocation(position, character))
+    )
+    .map(([character]) => character);
+}
+
 const MAGICIAN_USE_KEY = "magician:role:0";
 
 function isLastDay(state: GameState): boolean {
@@ -231,6 +252,106 @@ export const ROLE_IMPL: Record<string, {
   person: {
     ko: "엑스트라",
     hooks: [], // 능력 없음
+  },
+  // ── 바리스타 (Poisoner)
+  poisoner: {
+    ko: "바리스타",
+    goodwillRefusal: "Optional",
+    hooks: [
+      {
+        phase: "P9_ROUND_END",
+        kind: "mandatory",
+        timesPerLoop: 1,
+        source: {
+          timing: "Day End",
+          prerequisite: `the Extra Gauge is on 2 or more`,
+          description: `One charcters in the same location dies.`,
+        },
+        when: (s: GameState, self: CharacterId) =>
+          (specialGaugeValue(s) ?? 0) >= 2 &&
+          !s.loop.abilitiesUsedThisLoop.includes(POISONER_USE_KEY) &&
+          livingCharactersInThisLocation(s, self).length > 0,
+        selectableTargets: (s: GameState, self: CharacterId) =>
+          livingCharactersInThisLocation(s, self).map((id) => ({
+            kind: "character" as const,
+            id,
+          })),
+        effect: (s: GameState, _self: CharacterId, target?: Target) => {
+          if (target?.kind !== "character") {
+            throw new Error("poisoner requires a character target");
+          }
+          killCharacter(s, target.id);
+          s.loop.abilitiesUsedThisLoop.push(POISONER_USE_KEY);
+        },
+      },
+      {
+        phase: "P9_ROUND_END",
+        kind: "lossDeath",
+        source: {
+          timing: "Day End",
+          prerequisite: `The Extra Gauge is on 4 or more.`,
+        },
+        when: (s: GameState) => (specialGaugeValue(s) ?? 0) >= 4,
+        effect: () => {},
+      },
+    ],
+  },
+  // ── 명탐정 (Private Investigator)
+  privateInvestigator: {
+    ko: "명탐정",
+    tags: ["immortal"],
+    hooks: [
+      {
+        phase: "ALWAYS",
+        kind: "mandatory",
+        source: {
+          timing: "Always",
+          description: `This character can never be a culprit.`,
+        },
+        when: () => false,
+        effect: () => {},
+      },
+      {
+        phase: "P7_INCIDENT",
+        kind: "mandatory",
+        source: {
+          timing: "Incident step",
+          prerequisite: `the Extra Gauge is 0, and the culprit is in this location`,
+          description: `The Incident triggers regardless of the number of :paranoia: counters on the culprit.`,
+        },
+        // IMPLEMENTED_ELSEWHERE: src/engine/incident.ts incidentFailureReasons()
+        when: () => false,
+        effect: () => {},
+      },
+    ],
+  },
+  // ── 심리 치료사 (Therapist)
+  therapist: {
+    ko: "심리 치료사",
+    hooks: [{
+      phase: "P5_MASTERMIND_ABILITY",
+      kind: "mandatory",
+      source: {
+        timing: "Mastermind Ability",
+        prerequisite: `The Extra Gauge is 1 or above`,
+        description: `Remove 1 :paranoia: counter from any other character in this location.`,
+      },
+      when: (s: GameState, self: CharacterId) =>
+        (specialGaugeValue(s) ?? 0) >= 1 &&
+        livingCharactersInThisLocation(s, self, true).length > 0,
+      selectableTargets: (s: GameState, self: CharacterId) =>
+        livingCharactersInThisLocation(s, self, true)
+          .map((id) => ({ kind: "character" as const, id })),
+      effect: (s: GameState, _self: CharacterId, target?: Target) => {
+        if (target?.kind !== "character") {
+          throw new Error("therapist requires a character target");
+        }
+        s.loop.charCounters[target.id].paranoia = Math.max(
+          0,
+          s.loop.charCounters[target.id].paranoia - 1,
+        );
+      },
+    }],
   },
   // ── 닌자 (Ninja) — 역할 공개 분기는 engine/role-reveal.ts가 담당한다.
   ninja: {

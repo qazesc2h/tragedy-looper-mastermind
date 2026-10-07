@@ -78,7 +78,14 @@ export function publicBoardChanges(
   const afterGauge = after.specialGauge;
   if (beforeGauge !== undefined && afterGauge !== undefined) {
     const delta = afterGauge.value - beforeGauge.value;
-    if (delta !== 0) changes.push({ kind: "specialGauge", delta });
+    if (delta !== 0) {
+      changes.push({
+        kind: "specialGauge",
+        beforeValue: beforeGauge.value,
+        afterValue: afterGauge.value,
+        delta,
+      });
+    }
   }
   const beforeExtraCards = new Map(
     before.extraCards.map((card) => [card.instanceId, card]),

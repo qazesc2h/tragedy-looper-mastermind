@@ -3,6 +3,8 @@ import type { SpecialGaugeState } from "../types";
 export interface SpecialGaugeDefinition {
   initialValue: number;
   lifetime: "loop" | "game";
+  /** 실제 사건 발생 1회가 게이지에 더하는 기본값. */
+  incidentTriggeredDelta?: 1;
 }
 
 /**
@@ -12,7 +14,11 @@ export interface SpecialGaugeDefinition {
 export const SPECIAL_GAUGE_DEFINITIONS: Readonly<
   Record<string, SpecialGaugeDefinition | undefined>
 > = {
-  mysteryCircle: { initialValue: 0, lifetime: "loop" },
+  mysteryCircle: {
+    initialValue: 0,
+    lifetime: "loop",
+    incidentTriggeredDelta: 1,
+  },
   cosmicMythology: { initialValue: 0, lifetime: "game" },
   hauntedStage: { initialValue: 0, lifetime: "game" },
 };
@@ -47,4 +53,14 @@ export function adjustSpecialGauge(
   }
   gauge.value = nextValue;
   if (delta > 0) gauge.increasedThisLoop = true;
+}
+
+export function incidentTriggeredGaugeDelta(
+  tragedySet: string,
+  increasesSpecialGauge: boolean,
+  additionalIncrease: number,
+): number {
+  const base = specialGaugeDefinition(tragedySet)?.incidentTriggeredDelta ?? 0;
+  if (base === 0) return 0;
+  return (increasesSpecialGauge ? base : 0) + additionalIncrease;
 }
