@@ -113,6 +113,8 @@ export type ProtagonistObservation = (
     /** ON_DEATH 반응 전 사건 효과 자체의 공개 변화. */
     changes?: PublicBoardChange[];
     deaths?: CharacterId[];
+    /** 클로즈드 서클처럼 범인 정체 없이 공개된 사건 처리상 장소. */
+    culpritLocationRevealed?: Location;
   }
   | {
     kind: "incidentCulpritRevealed";
@@ -4570,6 +4572,11 @@ export function collectProtagonistObservations(
             ? {}
             : { changes: structuredClone(entry.publicChanges) }),
           ...(entry.deaths === undefined ? {} : { deaths: [...entry.deaths] }),
+          ...(entry.culpritLocationRevealed === undefined
+            ? {}
+            : {
+              culpritLocationRevealed: entry.culpritLocationRevealed,
+            }),
           ...(entry.observedAt === undefined
             ? {}
             : { observedAt: entry.observedAt }),

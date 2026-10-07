@@ -6,7 +6,6 @@ import {
   characterLocation,
   isCharacterAlive,
   startLocationOf,
-  withCharacterLocation,
 } from "../types";
 import { isIncidentSelectableCounter } from "../counters";
 import {
@@ -36,6 +35,10 @@ import { placeExtraCard } from "../engine/extra-cards";
 import { recordPublicInformation } from "../engine/public-information";
 import { resolveRoleReveal } from "../engine/role-reveal";
 import { requestLoopEnd } from "../engine/flow";
+import {
+  addTimedMovementRestriction,
+  moveCharacterIfAllowed,
+} from "../engine/movement";
 
 function requiredCharacterCulprit(
   culprit: IncidentCulprit | CharacterId,
@@ -311,11 +314,7 @@ export const INCIDENT_IMPL: Record<string, {
             incidentLocationDecision(choice, "location"),
             "missingPerson",
           );
-          s.loop.board[character] = withCharacterLocation(
-            s.loop.board[character],
-            location,
-            character,
-          );
+          moveCharacterIfAllowed(s, character, location);
           s.loop.locIntrigue[location] += 1;
           return true;
         },
@@ -551,6 +550,78 @@ export const INCIDENT_IMPL: Record<string, {
             }
           }
           return applied;
+        },
+      },
+    ],
+  },
+  // ── 수상한 편지 (A Suspicious Letter)
+  suspiciousLetter: {
+    ko: "수상한 편지",
+    hooks: [
+      {
+        phase: "ALWAYS",
+        kind: "mandatory",
+        source: {
+          timing: "Always",
+          description: `Move any character in the culprit’s location to any location. If the character actually changed location, that character cannot be moved the next day.`,
+        },
+        when: () => true,
+        effect: (
+          s: GameState,
+          culprit: IncidentCulprit | CharacterId,
+          choice?: IncidentChoiceInput,
+        ) => {
+          const location = incidentEffectCulpritLocation(s, culprit);
+          const target = selectedCharacter(
+            livingCharacters(s).filter((candidate) =>
+              characterLocation(s.loop.board[candidate], candidate) === location
+            ),
+            incidentCharacterDecision(choice, "target"),
+            "suspiciousLetter",
+          );
+          if (target === undefined) return false;
+          const destination = selectedLocation(
+            incidentLocationDecision(choice, "destination"),
+            "suspiciousLetter",
+          );
+          const moved = moveCharacterIfAllowed(s, target, destination);
+          const nextDay = s.loop.day + 1;
+          if (moved && nextDay <= s.scenario.daysPerLoop) {
+            addTimedMovementRestriction(s, {
+              kind: "character",
+              character: target,
+              startDay: nextDay,
+              throughDay: nextDay,
+              source: "suspiciousLetter",
+            });
+          }
+          return moved;
+        },
+      },
+    ],
+  },
+  // ── 클로즈드 서클 (Closed Circle)
+  closedCircle: {
+    ko: "클로즈드 서클",
+    hooks: [
+      {
+        phase: "ALWAYS",
+        kind: "mandatory",
+        source: {
+          timing: "Always",
+          description: `Reveal the culprit's location. For 3 days, including the day the incident occurred, any movement to or from that location is nullified.`,
+        },
+        when: () => true,
+        effect: (s: GameState, culprit: IncidentCulprit | CharacterId) => {
+          const location = incidentEffectCulpritLocation(s, culprit);
+          addTimedMovementRestriction(s, {
+            kind: "locationBoundary",
+            location,
+            startDay: s.loop.day,
+            throughDay: Math.min(s.loop.day + 2, s.scenario.daysPerLoop),
+            source: "closedCircle",
+          });
+          return true;
         },
       },
     ],

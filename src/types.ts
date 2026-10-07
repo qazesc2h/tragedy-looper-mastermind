@@ -186,6 +186,23 @@ export interface ExtraCardInstance {
 /** 주인공에게 공개되는 부착 카드 정보. 숨은 효과 출처는 제외한다. */
 export type PublicExtraCard = Omit<ExtraCardInstance, "source">;
 
+/** 사건이 만든 날짜 범위 이동 제한. LoopState에만 있어 새 루프에는 이월되지 않는다. */
+export type TimedMovementRestriction =
+  | {
+    kind: "character";
+    character: CharacterId;
+    startDay: number;
+    throughDay: number;
+    source: "suspiciousLetter";
+  }
+  | {
+    kind: "locationBoundary";
+    location: Location;
+    startDay: number;
+    throughDay: number;
+    source: "closedCircle";
+  };
+
 // ─────────────────────────────────────────────────────────── 시나리오 (불변)
 export const SCENARIO_SPECIAL_RULE_IDS = [
   "mastermindCannotUseForbidGoodwill",
@@ -349,6 +366,7 @@ export interface LegacyIncidentChoice {
   target?: CharacterId;
   otherTarget?: CharacterId;
   location?: Location;
+  destination?: Location;
   counter?: IncidentCounter;
   incident?: IncidentId;
   roleClaim?: RoleId;
@@ -420,6 +438,8 @@ export type PublicBoardChange =
 export interface PublicObservationContext {
   locationIntrigue: Record<Location, number>;
   specialGauge?: SpecialGaugeState;
+  /** 관측 시점에 공개되어 있던 사건 이동 제한. */
+  movementRestrictions?: TimedMovementRestriction[];
   /** 보드에서 공개된 부착 카드. 비공개 효과 출처는 보존하지 않는다. */
   extraCards?: PublicExtraCard[];
   /** 관측 직전의 공개 캐릭터 위치·생사·카운터 복사본. */
@@ -603,6 +623,8 @@ export type PhaseLogEntry = (
     publicChanges?: PublicBoardChange[];
     /** 사건 해결 중 새로 사망한 캐릭터. 예전 저장 기록에는 없을 수 있다. */
     deaths?: CharacterId[];
+    /** 사건 효과로 공개된 범인의 유효 장소. 범인 정체는 포함하지 않는다. */
+    culpritLocationRevealed?: Location;
     /** 사건 해결 중 주인공 사망이 실제 요청되었는지 여부. */
     protagonistsDied?: boolean;
   }
@@ -835,6 +857,9 @@ export interface LoopState {
 
   /** 위장 자살이 정상 발생한 뒤 이 루프 동안 지속되는 행동 카드 제한. */
   fakedSuicideRestrictionActive?: boolean;
+
+  /** 수상한 편지·클로즈드 서클의 루프 내 날짜 범위 이동 제한. */
+  movementRestrictions?: TimedMovementRestriction[];
 
   /** 참극 세트가 정의한 전역 특수 게이지. */
   specialGauge?: SpecialGaugeState;

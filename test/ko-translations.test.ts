@@ -3,6 +3,7 @@ import { INCIDENT_IMPL } from "../src/impl/incidents";
 import { PLOT_IMPL } from "../src/impl/plots";
 import { ROLE_IMPL } from "../src/impl/roles";
 import type { Hook, IncidentHook } from "../src/types";
+import { translationSourceKey } from "../src/ui/terms";
 import { describe, expect, it } from "vitest";
 
 const translations = koTranslationsJson as unknown as Record<string, string>;
@@ -30,7 +31,10 @@ describe("root Korean translation dictionary", () => {
 
     expect(descriptions.length).toBeGreaterThan(0);
     for (const description of descriptions) {
-      expect(translations[description], description).toBeTruthy();
+      expect(
+        translations[translationSourceKey(description)],
+        description,
+      ).toBeTruthy();
     }
   });
 

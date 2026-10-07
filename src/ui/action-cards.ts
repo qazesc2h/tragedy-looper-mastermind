@@ -2,6 +2,7 @@ import { characterDataOf } from "../data";
 import {
   intrigueForbidActive,
   isMoveCard,
+  movementRestrictionFor,
   resolveMove,
   type MoveCard,
 } from "../engine/movement";
@@ -218,7 +219,10 @@ export type ResolutionChange =
 export interface ResolutionNoEffect {
   placement: PlacedCard;
   blockedBy?: ActionCard;
-  reason?: "forbiddenLocation" | "ineffectiveTarget";
+  reason?:
+    | "forbiddenLocation"
+    | "movementRestriction"
+    | "ineffectiveTarget";
 }
 
 export type ResolutionReportItem =
@@ -431,6 +435,18 @@ export function collectNoEffectCards(
     if (result.reason === "forbidden-location") {
       for (const placement of movements) {
         noEffects.push({ placement, reason: "forbiddenLocation" });
+      }
+    } else if (
+      result.moved &&
+      movementRestrictionFor(
+        before,
+        character,
+        characterLocation(position, character),
+        result.to,
+      ) !== undefined
+    ) {
+      for (const placement of movements) {
+        noEffects.push({ placement, reason: "movementRestriction" });
       }
     }
   }

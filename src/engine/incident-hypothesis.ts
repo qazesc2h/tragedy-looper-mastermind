@@ -54,6 +54,13 @@ export type IncidentPossibilityReason =
     >;
   }
   | {
+    code: "fakedSuicideCardIdentified";
+    observation: Extract<
+      ProtagonistObservation,
+      { kind: "incidentOccurred" }
+    >;
+  }
+  | {
     code: "incidentTraceLocationMismatch";
     observation: Extract<
       ProtagonistObservation,
@@ -207,6 +214,30 @@ function initialConfirmations(
           reason: { code: "missingPersonMovementIdentified", observation },
         });
       }
+    } else if (
+      observation.kind === "incidentOccurred" &&
+      observation.occurred &&
+      observation.incident === "fakedSuicide"
+    ) {
+      const placedOn = observation.changes?.flatMap((change) =>
+        change.kind === "extraCard" &&
+          change.action === "placed" &&
+          change.card.cardId === "fakedSuicide" &&
+          change.card.target.kind === "character"
+          ? [change.card.target.id]
+          : []
+      ) ?? [];
+      if (placedOn.length !== 1 || placedOn[0] === undefined) continue;
+      for (const column of matchingColumns(
+        columns,
+        observation.day,
+        observation.incident,
+      )) {
+        confirmations.set(column.id, {
+          character: placedOn[0],
+          reason: { code: "fakedSuicideCardIdentified", observation },
+        });
+      }
     }
   }
   return confirmations;
@@ -228,23 +259,33 @@ function traceExclusionReason(
       observation.day !== column.day ||
       observation.incident !== column.incident ||
       !observation.occurred ||
-      observation.context === undefined ||
-      observation.changes === undefined
+      observation.context === undefined
     ) continue;
 
     const observedCharacter = observation.context.characters?.[character];
     const locationOf = (target: CharacterId) =>
       observation.context?.characters?.[target]?.location;
     let traceLocations: Location[] = [];
+    const changes = observation.changes ?? [];
+
+    if (observation.culpritLocationRevealed !== undefined) {
+      const revealed = observation.culpritLocationRevealed;
+      if (
+        observedCharacter?.location !== revealed &&
+        !virtualLocationCouldExplain?.(character, revealed, observation)
+      ) {
+        return { code: "incidentTraceLocationMismatch", observation };
+      }
+    }
 
     if (column.incident === "missingPerson") {
-      const movements = observation.changes.filter((change) =>
+      const movements = changes.filter((change) =>
         change.kind === "movement"
       );
       // 이동 흔적이 있으면 이동한 캐릭터가 이미 직접 확정된다. 제자리 이동만
       // 장소 음모 흔적으로 후보 위치를 좁힌다.
       if (movements.length > 0) continue;
-      traceLocations = observation.changes.flatMap((change) =>
+      traceLocations = changes.flatMap((change) =>
         change.kind === "counter" &&
           change.target.kind === "location" &&
           change.counter === "intrigue" &&
@@ -253,9 +294,11 @@ function traceExclusionReason(
           : []
       );
     } else if (
-      column.incident === "murder" || column.incident === "serialMurder"
+      column.incident === "murder" ||
+      column.incident === "serialMurder" ||
+      column.incident === "bestialMurder"
     ) {
-      const victims = observation.changes.flatMap((change) =>
+      const victims = changes.flatMap((change) =>
         change.kind === "status" &&
           change.from === "alive" &&
           change.to === "dead"
@@ -272,10 +315,13 @@ function traceExclusionReason(
         const location = locationOf(victim);
         return location === undefined ? [] : [location];
       });
-    } else if (column.incident === "butterflyEffect") {
-      const affected = observation.changes.flatMap((change) =>
+    } else if (
+      column.incident === "butterflyEffect" || column.incident === "portent"
+    ) {
+      const affected = changes.flatMap((change) =>
         change.kind === "counter" &&
           change.target.kind === "character" &&
+          (column.incident !== "portent" || change.counter === "paranoia") &&
           change.delta > 0
           ? [change.target.id]
           : []
@@ -284,7 +330,11 @@ function traceExclusionReason(
         const location = locationOf(target);
         return location === undefined ? [] : [location];
       });
-    } else {
+    } else if (column.incident === "suspiciousLetter") {
+      traceLocations = changes.flatMap((change) =>
+        change.kind === "movement" ? [change.from] : []
+      );
+    } else if (observation.culpritLocationRevealed === undefined) {
       // 나머지 기본편 사건 효과는 범인의 위치와 관계없는 대상을 고른다.
       continue;
     }
@@ -329,7 +379,11 @@ function outcomeExclusionReason(
     }
     const state = observation.context?.characters?.[character];
     if (state === undefined) continue;
-    const limit = characterDataOf(character).paranoiaLimit;
+    const policy = incidentDefinition(column.incident).triggerPolicy;
+    const limit = characterDataOf(character).paranoiaLimit +
+      (policy.kind === "characterParanoia"
+        ? policy.paranoiaLimitAdjustment
+        : 0);
     if (observation.occurred) {
       if (state.status !== "alive") {
         return { code: "firedWhileUnavailable", observation };

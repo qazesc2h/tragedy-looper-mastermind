@@ -44,6 +44,7 @@ import {
   incidentFailureReasons,
   incidentFires,
 } from "../engine/incident";
+import { incidentDefinition } from "../engine/incident-definition";
 import {
   characterCulprit,
   incidentOccurrenceId,
@@ -296,6 +297,10 @@ type GoodwillDraftField =
   | "incident-target"
   | "incident-other-target"
   | "incident-location"
+  | "incident-destination"
+  | "incident-serial-target"
+  | "incident-unease-target"
+  | "incident-unease-other-target"
   | "incident-counter";
 
 const PHASE_TERM: Record<Phase, () => string> = {
@@ -337,6 +342,7 @@ const INCIDENT_CHOICE_FIELDS: Record<string, readonly string[]> = {
   serialMurder: ["target"],
   portent: ["target"],
   bestialMurder: ["bestialMurder"],
+  suspiciousLetter: ["target", "destination"],
   conspiracies: ["incident", "target", "location"],
   breakthrough: ["target", "location"],
   confession: ["roleClaim"],
@@ -1596,7 +1602,9 @@ function phaseLogTimelineLine(item: PhaseLogTimelineItem): string {
       : `${incidentName(entry.declaredIncident)} (실제 ${incidentName(entry.actualIncident)})`;
     return `${incident} · 범인 ${incidentCulpritName(entry.culprit)} · ${result}${
       phaseLogTargetList(entry.targets)
-    }`;
+    }${entry.culpritLocationRevealed === undefined
+      ? ""
+      : ` · 범인 장소 ${locationName(entry.culpritLocationRevealed)} 공개`}`;
   }
   if (item.kind === "roleReveal") {
     return `${characterName(item.character)} · 역할 공개 · ${roleName(item.role)}`;
@@ -2133,6 +2141,8 @@ function noEffectResolutionLine(item: Extract<
     ? actionCardName(blockedBy)
     : reason === "forbiddenLocation"
     ? "금지 장소"
+    : reason === "movementRestriction"
+    ? "사건 이동 제한"
     : reason === "ineffectiveTarget"
     ? "대상에 적용되지 않음"
     : misc("No effect", "No effect");
@@ -2742,12 +2752,31 @@ function renderAiIncidentChoiceFields(
   const selectedTarget = draftValue(
     goodwillDraftKey(view.key, "incident-target"),
   );
-  const eligibleCharacters = (field: "target" | "otherTarget") => {
+  const selectedUneaseTarget = draftValue(
+    goodwillDraftKey(view.key, "incident-unease-target"),
+  );
+  const eligibleCharacters = (
+    field:
+      | "target"
+      | "otherTarget"
+      | "serialMurderTarget"
+      | "increasingUneaseTarget"
+      | "increasingUneaseOtherTarget",
+  ) => {
     if (field === "otherTarget") {
       return livingCharacters.filter((character) => character !== selectedTarget);
     }
+    if (field === "increasingUneaseOtherTarget") {
+      return livingCharacters.filter(
+        (character) => character !== selectedUneaseTarget,
+      );
+    }
+    if (field === "increasingUneaseTarget") {
+      return livingCharacters;
+    }
     switch (incident) {
       case "murder":
+      case "bestialMurder":
         return livingCharacters.filter((character) =>
           character !== view.character &&
           characterLocation(state.loop.board[character], character) === aiLocation
@@ -2769,18 +2798,33 @@ function renderAiIncidentChoiceFields(
     }
   };
   const selectCharacter = (
-    field: "target" | "otherTarget",
+    field:
+      | "target"
+      | "otherTarget"
+      | "serialMurderTarget"
+      | "increasingUneaseTarget"
+      | "increasingUneaseOtherTarget",
     label: string,
   ) => {
-    const draftField = field === "target"
+    const draftField: GoodwillDraftField = field === "target"
       ? "incident-target"
-      : "incident-other-target";
+      : field === "otherTarget"
+      ? "incident-other-target"
+      : field === "serialMurderTarget"
+      ? "incident-serial-target"
+      : field === "increasingUneaseTarget"
+      ? "incident-unease-target"
+      : "incident-unease-other-target";
     const draftKey = goodwillDraftKey(view.key, draftField);
+    const selectorAttribute = field === "target"
+      ? `data-goodwill-incident-target="${escapeHtml(view.key)}" data-action="goodwill-incident-target"`
+      : field === "otherTarget"
+      ? `data-goodwill-incident-other-target="${escapeHtml(view.key)}"`
+      : `data-goodwill-incident-field="${field}"`;
     return `
     <label class="goodwill-choice-field">
       <span>${escapeHtml(label)}</span>
-      <select data-goodwill-incident-${field === "target" ? "target" : "other-target"}="${escapeHtml(view.key)}"
-        ${field === "target" ? `data-action="goodwill-incident-target"` : ""}
+      <select ${selectorAttribute}
         data-ui-draft-key="${escapeHtml(draftKey)}"
         ${disabled ? "disabled" : ""}>
         <option value="">${escapeHtml(misc("Select", "Select"))}</option>
@@ -2791,6 +2835,10 @@ function renderAiIncidentChoiceFields(
     </label>`;
   };
   const locationDraftKey = goodwillDraftKey(view.key, "incident-location");
+  const destinationDraftKey = goodwillDraftKey(
+    view.key,
+    "incident-destination",
+  );
   const counterDraftKey = goodwillDraftKey(view.key, "incident-counter");
   const locationField = `<label class="goodwill-choice-field">
       <span>${escapeHtml(misc("Location", "Location"))}</span>
@@ -2818,12 +2866,24 @@ function renderAiIncidentChoiceFields(
           ))}</option>`).join("")}
       </select>
     </label>`;
+  const destinationField = `<label class="goodwill-choice-field">
+      <span>목적지</span>
+      <select data-goodwill-incident-destination="${escapeHtml(view.key)}"
+        data-ui-draft-key="${escapeHtml(destinationDraftKey)}"
+        ${disabled ? "disabled" : ""}>
+        <option value="">${escapeHtml(misc("Select", "Select"))}</option>
+        ${LOCATIONS.map((location) => `
+          <option value="${location}" ${selectedDraftOption(destinationDraftKey, location)}>${escapeHtml(locationName(location))}</option>`).join("")}
+      </select>
+    </label>`;
   const fieldHtml = aiIncidentChoiceFields(incident).map((field) => {
     switch (field) {
       case "location":
         return locationField;
       case "counter":
         return counterField;
+      case "destination":
+        return destinationField;
       case "target":
         return selectCharacter(
           "target",
@@ -2840,6 +2900,12 @@ function renderAiIncidentChoiceFields(
           "otherTarget",
           incident === "spreading" ? "우호 추가 대상" : "음모 +1 대상",
         );
+      case "serialMurderTarget":
+        return selectCharacter(field, "연속 살인 사망 대상");
+      case "increasingUneaseTarget":
+        return selectCharacter(field, "불안 +2 대상");
+      case "increasingUneaseOtherTarget":
+        return selectCharacter(field, "음모 +1 대상");
     }
   });
   return fieldHtml.length === 0
@@ -3871,6 +3937,10 @@ function renderIncidentChoice(
       "location",
       resolution,
     );
+    const destinationDraftKey = incidentDraftKey(
+      "destination",
+      resolution,
+    );
     const counterDraftKey = incidentDraftKey(
       "counter",
       resolution,
@@ -3918,6 +3988,14 @@ function renderIncidentChoice(
               data-ui-draft-key="${escapeHtml(locationDraftKey)}">
               <option value="">${escapeHtml(misc("Select", "Select"))}</option>
               ${LOCATIONS.map((location) => `<option value="${location}" ${selectedDraftOption(locationDraftKey, location)}>${escapeHtml(locationName(location))}</option>`).join("")}
+            </select></label>`
+        : ""}
+      ${fields.includes("destination")
+        ? `<label><span>목적지</span>
+            <select data-incident-field="destination"
+              data-ui-draft-key="${escapeHtml(destinationDraftKey)}">
+              <option value="">${escapeHtml(misc("Select", "Select"))}</option>
+              ${LOCATIONS.map((location) => `<option value="${location}" ${selectedDraftOption(destinationDraftKey, location)}>${escapeHtml(locationName(location))}</option>`).join("")}
             </select></label>`
         : ""}
       ${fields.includes("counter")
@@ -3989,9 +4067,13 @@ function renderTodayIncidents(
     const paranoia = culpritCharacter === undefined
       ? 0
       : state.loop.charCounters[culpritCharacter].paranoia;
+    const triggerPolicy = incidentDefinition(actualIncident).triggerPolicy;
     const limit = culpritCharacter === undefined
       ? 0
-      : characterDataOf(culpritCharacter).paranoiaLimit;
+      : characterDataOf(culpritCharacter).paranoiaLimit +
+        (triggerPolicy.kind === "characterParanoia"
+          ? triggerPolicy.paranoiaLimitAdjustment
+          : 0);
     const culpritSuppressed = state.loop.incidentCulpritSuppressedFor
       ?.includes(culpritCharacter ?? "") === true;
     const effectSources = INCIDENT_IMPL[actualIncident]?.hooks
@@ -4035,6 +4117,13 @@ function renderTodayIncidents(
             `${incidentName(declaredIncident)}이 발생하여 주인공이 사망했습니다.`,
           )}</p>`
           : ""}
+        ${judgment?.culpritLocationRevealed === undefined
+          ? ""
+          : `<p class="incident-public-result">${escapeHtml(
+            `${incidentName(declaredIncident)}의 범인 장소: ${locationName(
+              judgment.culpritLocationRevealed,
+            )}`,
+          )}</p>`}
         ${culpritCharacter === undefined ? "" : `<div class="incident-conditions">
           <span>${mark(alive)} ${escapeHtml(misc("Alive", "생존"))}</span>
           <span>${mark(paranoia >= limit)} ${escapeHtml(misc("Paranoia"))} ${paranoia}/${limit}</span>
@@ -4558,13 +4647,18 @@ function renderOngoingGoodwillEffects(state: GameState): string {
       (character) =>
         `${characterName(character)}: 이번 루프 동안 주인공 사망 방지`,
     ),
+    ...(state.loop.movementRestrictions ?? [])
+      .filter(({ throughDay }) => throughDay >= state.loop.day)
+      .map((restriction) => restriction.kind === "character"
+        ? `${characterName(restriction.character)}: ${restriction.startDay}일 이동 불가`
+        : `${locationName(restriction.location)}: ${restriction.startDay}~${restriction.throughDay}일 출입 이동 무효`),
   ];
   if (items.length === 0) return "";
 
   return `<section>
     <div class="overlay-heading">
       <span class="eyebrow">P6</span>
-      <h2>지속 중인 우호 능력</h2>
+      <h2>지속 중인 효과</h2>
     </div>
     <ul class="ongoing-effect-list">
       ${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
@@ -5170,6 +5264,7 @@ function incidentCellReasonLabel(code: string): string {
     case "culpritRevealed": return "범인 공개";
     case "suicideDeathIdentified": return "자살 사망자 확인";
     case "missingPersonMovementIdentified": return "행방불명 이동 흔적";
+    case "fakedSuicideCardIdentified": return "위장 자살 특수 카드";
     case "incidentTraceLocationMismatch": return "사건 흔적 장소 불일치";
     case "murderVictimCannotBeCulprit": return "살인 사건 피해자";
     case "onlyRemainingCandidate": return "유일 후보";
@@ -6680,11 +6775,12 @@ function incidentChoiceFromDraft(): IncidentChoice | undefined {
     const target = field("target");
     const otherTarget = field("otherTarget");
     const location = field("location");
+    const destination = field("destination");
     const counter = field("counter");
     const incident = field("incident");
     const roleClaim = field("roleClaim");
     if (
-      !target && !otherTarget && !location && !counter &&
+      !target && !otherTarget && !location && !destination && !counter &&
       !incident && !roleClaim
     ) return undefined;
     const decisions: IncidentDecision[] = [];
@@ -6694,6 +6790,13 @@ function incidentChoiceFromDraft(): IncidentChoice | undefined {
     }
     if (location) {
       decisions.push({ kind: "location", key: "location", at: location as Location });
+    }
+    if (destination) {
+      decisions.push({
+        kind: "destination",
+        key: "destination",
+        at: destination as Location,
+      });
     }
     if (counter) {
       decisions.push({ kind: "counter", key: "counter", counter: counter as IncidentCounter });
@@ -7007,12 +7110,26 @@ function resolveGoodwillFromButton(button: HTMLButtonElement): void {
     const incidentTarget = goodwillInput("incident-target");
     const incidentOtherTarget = goodwillInput("incident-other-target");
     const incidentLocation = goodwillInput("incident-location");
+    const incidentDestination = goodwillInput("incident-destination");
+    const incidentSerialTarget = goodwillInput("incident-serial-target");
+    const incidentUneaseTarget = goodwillInput("incident-unease-target");
+    const incidentUneaseOtherTarget = goodwillInput(
+      "incident-unease-other-target",
+    );
     const incidentCounter = goodwillInput("incident-counter");
     if (
       incidentLocation !== undefined &&
       !LOCATIONS.includes(incidentLocation as Location)
     ) {
       throw new Error(`invalid goodwill incident location "${incidentLocation}"`);
+    }
+    if (
+      incidentDestination !== undefined &&
+      !LOCATIONS.includes(incidentDestination as Location)
+    ) {
+      throw new Error(
+        `invalid goodwill incident destination "${incidentDestination}"`,
+      );
     }
     if (
       incidentCounter !== undefined &&
@@ -7029,6 +7146,46 @@ function resolveGoodwillFromButton(button: HTMLButtonElement): void {
     }
     if (incidentLocation) {
       incidentDecisions.push({ kind: "location", key: "location", at: incidentLocation as Location });
+    }
+    if (incidentDestination) {
+      incidentDecisions.push({
+        kind: "destination",
+        key: "destination",
+        at: incidentDestination as Location,
+      });
+    }
+    if (incidentSerialTarget) {
+      incidentDecisions.push({
+        kind: "subIncident",
+        key: "serialMurder",
+        decisions: [{
+          kind: "character",
+          key: "target",
+          id: incidentSerialTarget,
+        }],
+      });
+    }
+    const uneaseDecisions: IncidentDecision[] = [];
+    if (incidentUneaseTarget) {
+      uneaseDecisions.push({
+        kind: "character",
+        key: "target",
+        id: incidentUneaseTarget,
+      });
+    }
+    if (incidentUneaseOtherTarget) {
+      uneaseDecisions.push({
+        kind: "character",
+        key: "otherTarget",
+        id: incidentUneaseOtherTarget,
+      });
+    }
+    if (uneaseDecisions.length > 0) {
+      incidentDecisions.push({
+        kind: "subIncident",
+        key: "increasingUnease",
+        decisions: uneaseDecisions,
+      });
     }
     if (incidentCounter) {
       incidentDecisions.push({ kind: "counter", key: "counter", counter: incidentCounter as IncidentCounter });

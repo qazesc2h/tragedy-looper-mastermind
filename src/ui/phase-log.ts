@@ -310,6 +310,9 @@ export function phaseLogTimeline(state: GameState): PhaseLogTimelineItem[] {
           ]),
           locations: unique([
             ...(culprit.kind === "location" ? [culprit.at] : []),
+            ...(entry.culpritLocationRevealed === undefined
+              ? []
+              : [entry.culpritLocationRevealed]),
             ...targetRefs.locations,
           ]),
           entry,

@@ -21,10 +21,10 @@ import type { PublicEvent } from "./public-events";
  * Phase 5 상태 키 계약의 버전이다. 이 값을 바꾸지 않고 필드를 더하거나 빼면
  * 서로 다른 계측 결과가 같은 캐시를 공유하게 되므로 반드시 명시적으로 올린다.
  */
-export const CANONICAL_ENGINE_STATE_VERSION = "phase5-engine-v5" as const;
+export const CANONICAL_ENGINE_STATE_VERSION = "phase5-engine-v6" as const;
 export const PROTAGONIST_POLICY_STATE_VERSION = "phase5-policy-v1" as const;
-export const CANONICAL_DECISION_STATE_VERSION = "phase5-decision-v5" as const;
-export const ENGINE_TRANSITION_VERSION = "headless-transition-v4" as const;
+export const CANONICAL_DECISION_STATE_VERSION = "phase5-decision-v6" as const;
+export const ENGINE_TRANSITION_VERSION = "headless-transition-v5" as const;
 
 export type ProtagonistPolicyModel =
   | "worst-legal-response"
@@ -79,6 +79,7 @@ export const CANONICAL_DECISION_STATE_PARTITIONS = {
     "loopStartTraitLocationChoices",
     "loopStartExtraCardChoices",
     "fakedSuicideRestrictionActive",
+    "movementRestrictions",
     "extraLoopsPlayed",
     "previousLoopAliveGoodwill",
     "revealedRoleEver",
@@ -303,6 +304,7 @@ export function projectCanonicalEngineState(state: GameState): unknown {
       loopStartExtraCardChoices: state.loop.loopStartExtraCardChoices,
       fakedSuicideRestrictionActive:
         state.loop.fakedSuicideRestrictionActive,
+      movementRestrictions: state.loop.movementRestrictions,
       extraLoopsPlayed: state.extraLoopsPlayed,
     },
     carryover: {

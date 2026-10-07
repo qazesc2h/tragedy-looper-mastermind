@@ -29,6 +29,16 @@ const incidentRules = (
   }
 ).incidents;
 
+/** 사용자 확정 원문이 upstream 오탈자 키를 바로잡은 경우의 번역 사전 별칭. */
+const TRANSLATION_SOURCE_ALIASES: Readonly<Record<string, string>> = {
+  "Reveal the culprit's location. For 3 days, including the day the incident occurred, any movement to or from that location is nullified.":
+    "Reveal the culprit’s locationto. For 3 days, including the day the incident occurred, any movement to or from that location is nullified.",
+};
+
+export function translationSourceKey(english: string): string {
+  return TRANSLATION_SOURCE_ALIASES[english] ?? english;
+}
+
 /** 생성 데이터에 없는 기본편 UI 문구. 정발 데이터가 추가되면 그쪽이 우선한다. */
 const MISC_KO_FALLBACKS: Readonly<Record<string, string>> = {
   "Leader": "리더",
@@ -75,7 +85,7 @@ export function translatedText(
   english: string,
   englishFallback = english,
 ): string {
-  const ko = koTranslations[english];
+  const ko = koTranslations[translationSourceKey(english)];
   return typeof ko === "string" && ko.length > 0 ? ko : englishFallback;
 }
 

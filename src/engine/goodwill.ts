@@ -24,13 +24,12 @@ import {
   type SacredTreeCounter,
   type ScheduledIncident,
   type Target,
-  withCharacterLocation,
 } from "../types";
 import { transferCharacterCounter } from "./counter-transfer";
 import { adjustSpecialGauge } from "./special-gauge";
 import { killCharacter, reviveCharacter, withDeathBatch } from "./death";
 import { resolveIncidentEffect } from "./incident";
-import { adjacentLocations } from "./movement";
+import { adjacentLocations, moveCharacterIfAllowed } from "./movement";
 import { recordPhaseLog } from "./phase-log";
 import {
   publicBoardChanges,
@@ -416,12 +415,7 @@ function applyIllusionMovement(
   ) {
     return false;
   }
-  state.loop.board[target] = withCharacterLocation(
-    position,
-    destination,
-    target,
-  );
-  return true;
+  return moveCharacterIfAllowed(state, target, destination);
 }
 
 function removeScientistCounters(
@@ -921,12 +915,7 @@ function applySimpleBaseAbility(
       ) {
         return false;
       }
-      state.loop.board[declaration.user] = withCharacterLocation(
-        position,
-        target.at,
-        declaration.user,
-      );
-      return true;
+      return moveCharacterIfAllowed(state, declaration.user, target.at);
     }
 
     case "sectFounder:1": {

@@ -486,6 +486,12 @@ function advanceRoundOnce(
           ...(occurrence.deaths === undefined
             ? {}
             : { deaths: occurrence.deaths }),
+          ...(occurrence.culpritLocationRevealed === undefined
+            ? {}
+            : {
+              culpritLocationRevealed:
+                occurrence.culpritLocationRevealed,
+            }),
           ...(occurrence.protagonistsDied ? { protagonistsDied: true } : {}),
         });
       }

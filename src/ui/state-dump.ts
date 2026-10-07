@@ -41,6 +41,7 @@ export interface CurrentStateDump {
   locationIntrigue: LoopState["locIntrigue"];
   specialGauge: LoopState["specialGauge"] | null;
   extraCards: LoopState["extraCards"];
+  movementRestrictions: LoopState["movementRestrictions"];
   pendingLoopEnd: LoopEndRequest | null;
   pendingImmediateLossKeys: string[];
   phaseProgression: PhaseProgressDiagnostic[];
@@ -159,6 +160,7 @@ export function currentStateDump(state: GameState): CurrentStateDump {
     locationIntrigue: state.loop.locIntrigue,
     specialGauge: state.loop.specialGauge ?? null,
     extraCards: state.loop.extraCards,
+    movementRestrictions: state.loop.movementRestrictions ?? [],
     pendingLoopEnd: state.pendingLoopEnd ?? null,
     pendingImmediateLossKeys: state.loop.pendingImmediateLossKeys ?? [],
     phaseProgression: phaseProgressionDiagnostics(state),

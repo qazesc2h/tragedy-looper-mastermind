@@ -115,6 +115,13 @@ function legacyDecisions(choice: Exclude<IncidentChoiceInput, IncidentChoice>): 
   if (choice.location !== undefined) {
     decisions.push({ kind: "location", key: "location", at: choice.location });
   }
+  if (choice.destination !== undefined) {
+    decisions.push({
+      kind: "destination",
+      key: "destination",
+      at: choice.destination,
+    });
+  }
   if (choice.counter !== undefined) {
     decisions.push({ kind: "counter", key: "counter", counter: choice.counter });
   }

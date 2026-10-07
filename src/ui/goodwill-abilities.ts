@@ -126,7 +126,11 @@ export type AiIncidentChoiceField =
   | "target"
   | "otherTarget"
   | "location"
-  | "counter";
+  | "destination"
+  | "counter"
+  | "serialMurderTarget"
+  | "increasingUneaseTarget"
+  | "increasingUneaseOtherTarget";
 
 /** AI [우호3]으로 사건 효과를 해결할 때 사건 원문이 요구하는 추가 선택. */
 export function aiIncidentChoiceFields(
@@ -135,6 +139,7 @@ export function aiIncidentChoiceFields(
   switch (incident) {
     case "murder":
     case "farawayMurder":
+    case "portent":
       return ["target"];
     case "missingPerson":
       return ["location"];
@@ -143,9 +148,21 @@ export function aiIncidentChoiceFields(
     case "spreading":
     case "increasingUnease":
       return ["target", "otherTarget"];
+    case "suspiciousLetter":
+      return ["target", "destination"];
+    case "bestialMurder":
+      return [
+        "serialMurderTarget",
+        "increasingUneaseTarget",
+        "increasingUneaseOtherTarget",
+      ];
     case "suicide":
     case "hospitalIncident":
     case "foulEvil":
+    case "terrorism":
+    case "fakedSuicide":
+    case "closedCircle":
+    case "silverBullet":
       return [];
     default:
       throw new Error(`unknown AI incident choice fields for "${incident}"`);

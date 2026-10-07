@@ -160,6 +160,11 @@ export function publicObservationContext(
     ...(loop.specialGauge === undefined
       ? {}
       : { specialGauge: structuredClone(loop.specialGauge) }),
+    ...(loop.movementRestrictions === undefined
+      ? {}
+      : {
+        movementRestrictions: structuredClone(loop.movementRestrictions),
+      }),
     extraCards: loop.extraCards.map(publicExtraCard),
     characters,
   };

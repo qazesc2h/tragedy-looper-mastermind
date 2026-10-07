@@ -202,6 +202,17 @@ describe("Phase 5 canonical state Section 1", () => {
     expect(engineStateKey(state)).not.toBe(
       engineStateKey(fakedSuicideVariant),
     );
+    const movementRestrictionVariant = structuredClone(state);
+    movementRestrictionVariant.loop.movementRestrictions = [{
+      kind: "locationBoundary",
+      location: "City",
+      startDay: 1,
+      throughDay: 3,
+      source: "closedCircle",
+    }];
+    expect(engineStateKey(state)).not.toBe(
+      engineStateKey(movementRestrictionVariant),
+    );
     expect(protagonistPolicyStateKey(
       "perfect-recall",
       state,

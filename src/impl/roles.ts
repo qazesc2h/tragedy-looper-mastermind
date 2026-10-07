@@ -8,7 +8,6 @@ import {
   effectiveRole,
   isCharacterAlive,
   isCharacterDead,
-  withCharacterLocation,
 } from "../types";
 import type {
   GameState,
@@ -26,7 +25,10 @@ import {
   resolveRoleReveal,
 } from "../engine/role-reveal";
 import { publicObservationContext } from "../engine/public-observation";
-import { adjacentLocations } from "../engine/movement";
+import {
+  adjacentLocations,
+  moveCharacterIfAllowed,
+} from "../engine/movement";
 
 const POISONER_USE_KEY = "poisoner:role:0";
 
@@ -536,11 +538,7 @@ export const ROLE_IMPL: Record<string, {
           ) {
             throw new Error("magician requires an adjacent destination");
           }
-          s.loop.board[target.id] = withCharacterLocation(
-            s.loop.board[target.id],
-            destination,
-            target.id,
-          );
+          moveCharacterIfAllowed(s, target.id, destination);
           s.loop.abilitiesUsedThisLoop.push(MAGICIAN_USE_KEY);
         },
       },

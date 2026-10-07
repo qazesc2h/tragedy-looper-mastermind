@@ -56,6 +56,7 @@ export interface ResolvedIncidentOccurrence extends IncidentResult {
   publicChanges?: PublicBoardChange[];
   deaths?: CharacterId[];
   protagonistsDied?: boolean;
+  culpritLocationRevealed?: import("../types").Location;
 }
 
 export interface ResolvedIncidentBatch extends IncidentResolutionResult {
@@ -305,6 +306,10 @@ function resolveScheduledIncident(
     state.loop.charCounters[culpritCharacter].paranoia = 0;
   }
   const definition = incidentDefinition(scheduled.actualIncident);
+  const culpritLocationRevealed =
+    definition.revealsCulpritLocation && effectApplied
+      ? incidentEffectCulpritLocation(state, scheduled.culprit)
+      : undefined;
   const gaugeDelta = incidentTriggeredGaugeDelta(
     state.scenario.tragedySet,
     definition.increasesSpecialGauge,
@@ -374,6 +379,9 @@ function resolveScheduledIncident(
     ...(targets.length === 0 ? {} : { targets }),
     ...(changes.length === 0 ? {} : { publicChanges: changes }),
     ...(deaths.length === 0 ? {} : { deaths }),
+    ...(culpritLocationRevealed === undefined
+      ? {}
+      : { culpritLocationRevealed }),
     ...(state.pendingLoopEnd?.reason === "protagonistDeath"
       ? { protagonistsDied: true }
       : {}),

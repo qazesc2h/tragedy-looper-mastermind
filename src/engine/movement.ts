@@ -7,6 +7,7 @@ import {
   withCharacterLocation,
   type ActionCard, type CharacterId, type GameState, type Location,
   type PlacedCard,
+  type TimedMovementRestriction,
   VERTICAL, HORIZONTAL, DIAGONAL,
 } from "../types";
 import { characterDataOf } from "../data";
@@ -69,7 +70,73 @@ export interface MoveResult {
   to: Location;
   moved: boolean;
   /** 왜 안 움직였는지 — 각본가 화면 디버깅용. 주인공에게 노출 금지. */
-  reason?: "no-card" | "forbid-card" | "forbidden-location";
+  reason?:
+    | "no-card"
+    | "forbid-card"
+    | "forbidden-location"
+    | "timed-restriction";
+}
+
+function restrictionActive(
+  state: GameState,
+  restriction: TimedMovementRestriction,
+): boolean {
+  return restriction.startDay <= state.loop.day &&
+    state.loop.day <= restriction.throughDay;
+}
+
+/** 현재 날짜에 캐릭터의 from→to 이동을 무효화하는 사건 제한. */
+export function movementRestrictionFor(
+  state: GameState,
+  character: CharacterId,
+  from: Location,
+  to: Location,
+): TimedMovementRestriction | undefined {
+  return state.loop.movementRestrictions?.find((restriction) =>
+    restrictionActive(state, restriction) && (
+      restriction.kind === "character"
+        ? restriction.character === character
+        : restriction.location === from || restriction.location === to
+    )
+  );
+}
+
+/** 사건 이동 제한을 지키며 직접 이동 효과를 적용한다. */
+export function moveCharacterIfAllowed(
+  state: GameState,
+  character: CharacterId,
+  to: Location,
+): boolean {
+  const position = state.loop.board[character];
+  if (position === undefined) {
+    throw new Error(`cannot move unknown character "${character}"`);
+  }
+  const from = characterLocation(position, character);
+  if (from === to || movementRestrictionFor(state, character, from, to)) {
+    return false;
+  }
+  state.loop.board[character] = withCharacterLocation(position, to, character);
+  return true;
+}
+
+/** 같은 사건 효과가 반복돼도 동일 제한은 한 번만 저장한다. */
+export function addTimedMovementRestriction(
+  state: GameState,
+  restriction: TimedMovementRestriction,
+): void {
+  const restrictions = state.loop.movementRestrictions ??= [];
+  const duplicate = restrictions.some((candidate) =>
+    candidate.kind === restriction.kind &&
+    candidate.source === restriction.source &&
+    candidate.startDay === restriction.startDay &&
+    candidate.throughDay === restriction.throughDay &&
+    (candidate.kind === "character"
+      ? restriction.kind === "character" &&
+        candidate.character === restriction.character
+      : restriction.kind === "locationBoundary" &&
+        candidate.location === restriction.location)
+  );
+  if (!duplicate) restrictions.push(structuredClone(restriction));
 }
 
 export interface ServantFollowOption {
@@ -143,7 +210,7 @@ function movementPlan(
         `cannot resolve movement for unknown character "${character}"`,
       );
     }
-    results.set(character, resolveMove({
+    const result = resolveMove({
       character,
       from: characterLocation(position, character),
       cards,
@@ -152,7 +219,22 @@ function movementPlan(
         state.loop.locationRestrictionsRemoved?.includes(character)
           ? []
           : [...characterDataOf(character).forbiddenLocation],
-    }));
+    });
+    results.set(
+      character,
+      result.moved && movementRestrictionFor(
+          state,
+          character,
+          characterLocation(position, character),
+          result.to,
+        ) !== undefined
+        ? {
+          to: characterLocation(position, character),
+          moved: false,
+          reason: "timed-restriction",
+        }
+        : result,
+    );
   }
 
   const servantPosition = state.loop.board.servant;
@@ -204,7 +286,13 @@ export function resolveMovementPlan(
   if (plan.servantFollowOptions.length === 1) {
     const [forced] = plan.servantFollowOptions;
     if (forced !== undefined) {
-      plan.results.set("servant", { to: forced.to, moved: true });
+      const from = characterLocation(state.loop.board.servant, "servant");
+      plan.results.set(
+        "servant",
+        movementRestrictionFor(state, "servant", from, forced.to) === undefined
+          ? { to: forced.to, moved: true }
+          : { to: from, moved: false, reason: "timed-restriction" },
+      );
     }
   } else if (plan.servantFollowOptions.length > 1) {
     const selected = plan.servantFollowOptions.find(
@@ -213,7 +301,13 @@ export function resolveMovementPlan(
     if (selected === undefined) {
       throw new Error(`invalid servant movement choice "${choice}"`);
     }
-    plan.results.set("servant", { to: selected.to, moved: true });
+    const from = characterLocation(state.loop.board.servant, "servant");
+    plan.results.set(
+      "servant",
+      movementRestrictionFor(state, "servant", from, selected.to) === undefined
+        ? { to: selected.to, moved: true }
+        : { to: from, moved: false, reason: "timed-restriction" },
+    );
   }
 
   for (const [character, result] of plan.results) {

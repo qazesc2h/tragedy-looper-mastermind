@@ -76,6 +76,20 @@ describe("AI incident choice fields", () => {
     ["suicide", []],
     ["hospitalIncident", []],
     ["foulEvil", []],
+    ["portent", ["target"]],
+    ["terrorism", []],
+    [
+      "bestialMurder",
+      [
+        "serialMurderTarget",
+        "increasingUneaseTarget",
+        "increasingUneaseOtherTarget",
+      ],
+    ],
+    ["suspiciousLetter", ["target", "destination"]],
+    ["fakedSuicide", []],
+    ["closedCircle", []],
+    ["silverBullet", []],
   ] as const)("maps %s to only its required selections", (incident, fields) => {
     expect(aiIncidentChoiceFields(incident)).toEqual(fields);
   });

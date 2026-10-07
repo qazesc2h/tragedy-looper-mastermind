@@ -37,6 +37,8 @@ export interface IncidentDefinition {
   increasesSpecialGauge: boolean;
   /** 사건 자체가 MC 기본 증가에 더하는 추가 증가량. */
   additionalSpecialGaugeIncrease: number;
+  /** 사건 효과가 범인의 유효 장소만 공개하는가. */
+  revealsCulpritLocation: boolean;
 }
 
 const DEFAULT_DEFINITION: IncidentDefinition = {
@@ -50,6 +52,7 @@ const DEFAULT_DEFINITION: IncidentDefinition = {
   choiceSchema: [],
   increasesSpecialGauge: true,
   additionalSpecialGaugeIncrease: 0,
+  revealsCulpritLocation: false,
 };
 
 const CHARACTER = (key: "target" | "otherTarget"): IncidentChoiceSchemaEntry => ({
@@ -120,6 +123,15 @@ const INCIDENT_DEFINITION_OVERRIDES: Readonly<
       },
     ],
     additionalSpecialGaugeIncrease: 1,
+  },
+  suspiciousLetter: {
+    choiceSchema: [
+      CHARACTER("target"),
+      { kind: "destination", key: "destination" },
+    ],
+  },
+  closedCircle: {
+    revealsCulpritLocation: true,
   },
   silverBullet: {
     increasesSpecialGauge: false,
