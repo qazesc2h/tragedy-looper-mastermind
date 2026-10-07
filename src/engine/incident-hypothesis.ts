@@ -129,11 +129,9 @@ function matchingColumns(
   columns: readonly IncidentHypothesisColumn[],
   day: number,
   incident: IncidentId,
-  occurrenceIndex?: number,
 ): IncidentHypothesisColumn[] {
   return columns.filter((column) =>
-    column.day === day && column.incident === incident &&
-    (occurrenceIndex === undefined || column.occurrenceIndex === occurrenceIndex)
+    column.day === day && column.incident === incident
   );
 }
 
@@ -155,7 +153,6 @@ function initialConfirmations(
         columns,
         observation.day,
         observation.incident,
-        observation.occurrenceIndex,
       )) {
         if (culprit.kind !== "character") continue;
         confirmations.set(column.id, {
@@ -183,7 +180,6 @@ function initialConfirmations(
         columns,
         observation.day,
         observation.incident,
-        observation.occurrenceIndex,
       )) {
         confirmations.set(column.id, {
           character: culprit,
@@ -204,7 +200,6 @@ function initialConfirmations(
         columns,
         observation.day,
         observation.incident,
-        observation.occurrenceIndex,
       )) {
         confirmations.set(column.id, {
           character: movement.character,
@@ -226,8 +221,6 @@ function traceExclusionReason(
       observation.kind !== "incidentOccurred" ||
       observation.day !== column.day ||
       observation.incident !== column.incident ||
-      observation.occurrenceIndex !== undefined &&
-        observation.occurrenceIndex !== column.occurrenceIndex ||
       !observation.occurred ||
       observation.context === undefined ||
       observation.changes === undefined
@@ -308,9 +301,7 @@ function outcomeExclusionReason(
     if (
       observation.kind !== "incidentOccurred" ||
       observation.day !== column.day ||
-      observation.incident !== column.incident ||
-      observation.occurrenceIndex !== undefined &&
-        observation.occurrenceIndex !== column.occurrenceIndex
+      observation.incident !== column.incident
     ) {
       continue;
     }
@@ -561,7 +552,6 @@ export function evaluateLocationIncidentHypotheses(
       columns,
       observation.day,
       observation.incident,
-      observation.occurrenceIndex,
     )) {
       revealed.set(column.id, culprit.at);
     }

@@ -52,6 +52,7 @@ export type ScenarioDiagnosticCode =
   | "INCIDENT_TYPE_MISSING"
   | "INCIDENT_CULPRIT_MISSING"
   | "INCIDENT_DAY_OUT_OF_RANGE"
+  | "INCIDENT_DAY_DUPLICATED"
   | "INCIDENT_CULPRIT_NOT_IN_CAST"
   | "INCIDENT_CULPRIT_KIND_MISMATCH"
   | "INCIDENT_NOT_IN_TRAGEDY_SET"
@@ -59,6 +60,7 @@ export type ScenarioDiagnosticCode =
   | "SIGN_WITH_ME_KEY_PERSON_NOT_GIRL"
   | "MALE_CONFRONTATION_NINJA_NOT_MAN"
   | "OBSTINATE_NOT_INCIDENT_CULPRIT"
+  | "TWIN_NOT_INCIDENT_CULPRIT"
   | "WORSHIPPERS_APOCALYPSE_SUICIDE_MISSING"
   | "AI_ROLE_IS_PERSON"
   | "LITTLE_SISTER_GOODWILL_REFUSAL_ROLE"
@@ -180,7 +182,7 @@ function validateMaleConfrontation(
     );
 }
 
-function validateObstinateCulprit(
+function validateRequiredIncidentCulprit(
   scenario: ScenarioValidationInput,
 ): ScenarioDiagnostic[] {
   const culprits = new Set((scenario.incidents ?? []).flatMap((scheduled) => {
@@ -189,13 +191,17 @@ function validateObstinateCulprit(
     return culprit.kind === "character" ? [culprit.id] : [];
   }));
   return Object.entries(scenario.cast ?? {})
-    .filter(([, role]) => role === "obstinate")
+    .filter(([, role]) => role === "obstinate" || role === "twin")
     .filter(([character]) => !culprits.has(character))
-    .map(([character]) => errorDiagnostic(
-      `cast.${character}`,
-      "OBSTINATE_NOT_INCIDENT_CULPRIT",
-      `절대자: ${characterLabel(character)}은(는) 사건의 범인이어야 합니다.`,
-    ));
+    .map(([character, role]) => {
+      const twin = role === "twin";
+      return errorDiagnostic(
+        `cast.${character}`,
+        twin ? "TWIN_NOT_INCIDENT_CULPRIT" : "OBSTINATE_NOT_INCIDENT_CULPRIT",
+        `${twin ? "쌍둥이" : "절대자"}: ${characterLabel(character)}은(는) ` +
+          "사건의 범인이어야 합니다.",
+      );
+    });
 }
 
 function validateWorshippersApocalypse(
@@ -423,6 +429,26 @@ function validateIncidentCulprits(
       )];
     }
     return [];
+  });
+}
+
+function validateOneIncidentPerDay(
+  scenario: ScenarioValidationInput,
+): ScenarioDiagnostic[] {
+  const firstIndexByDay = new Map<number, number>();
+  return (scenario.incidents ?? []).flatMap((scheduled, index) => {
+    if (scheduled.day === undefined) return [];
+    const firstIndex = firstIndexByDay.get(scheduled.day);
+    if (firstIndex === undefined) {
+      firstIndexByDay.set(scheduled.day, index);
+      return [];
+    }
+    return [errorDiagnostic(
+      `incidents[${index}].day`,
+      "INCIDENT_DAY_DUPLICATED",
+      `사건: ${scheduled.day}일에는 사건을 하나만 예정할 수 있습니다. ` +
+        `incidents[${firstIndex}]와 날짜가 중복됩니다.`,
+    )];
   });
 }
 
@@ -661,12 +687,13 @@ export function validateScenario(
       ]),
     ...validateSignWithMe(scenario),
     ...validateMaleConfrontation(scenario),
-    ...validateObstinateCulprit(scenario),
+    ...validateRequiredIncidentCulprit(scenario),
     ...validateWorshippersApocalypse(scenario),
     ...validateAiRole(scenario),
     ...validateLittleSisterRole(scenario),
     ...validateMysteryBoyRole(scenario, definition),
     ...validateCopycatRole(scenario),
+    ...validateOneIncidentPerDay(scenario),
     ...validateIncidentCulprits(scenario),
     ...validateHideousScript(scenario),
     ...validateBossTurf(scenario),

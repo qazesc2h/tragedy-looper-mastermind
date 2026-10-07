@@ -480,7 +480,6 @@ export function incidentScheduleRows(
         entry.kind === "incidentJudged" &&
         (entry.occurrenceId === incidentOccurrenceId(scheduled) ||
           entry.occurrenceId === undefined &&
-            scheduled.occurrenceIndex === 0 &&
             entry.day === scheduled.day &&
             entry.actualIncident === scheduled.actualIncident &&
             sameIncidentCulprit(entry.culprit, scheduled.culprit))

@@ -324,7 +324,6 @@ describe("UI localStorage snapshots", () => {
       declaredIncident: "foulEvil",
       actualIncident: "foulEvil",
       culprit: { kind: "character", id: "boyStudent" },
-      occurrenceIndex: 0,
     };
     expect(restored.scenario.incidents).toEqual([canonical]);
     expect(restored.loop.incidentOccurrencesFiredThisLoop).toEqual([canonical]);

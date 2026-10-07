@@ -131,12 +131,12 @@ describe("incident culprit possibility table", () => {
     const scheduled: ScheduledIncidentInput[] = [
       { day: 1, incident: "murder", culprit: "doctor" },
       {
-        day: 1,
+        day: 2,
         incident: "murder",
         culprit: { kind: "location", at: "Shrine" },
       },
       {
-        day: 2,
+        day: 3,
         incident: "suicide",
         culprit: { kind: "location", at: "Hospital" },
       },
@@ -147,15 +147,13 @@ describe("incident culprit possibility table", () => {
         loop: 1,
         day: 1,
         incident: "murder",
-        occurrenceIndex: 0,
         culprit: { kind: "character", id: "doctor" },
       },
       {
         kind: "incidentCulpritRevealed",
         loop: 1,
-        day: 1,
+        day: 2,
         incident: "murder",
-        occurrenceIndex: 1,
         culprit: { kind: "location", at: "Shrine" },
       },
     ];
@@ -170,14 +168,14 @@ describe("incident culprit possibility table", () => {
       observations,
     );
 
-    expect(character.columns.map(({ id }) => id)).toEqual(["1:murder:0"]);
+    expect(character.columns.map(({ id }) => id)).toEqual(["1:murder"]);
     expect(location.columns.map(({ id }) => id)).toEqual([
-      "1:murder:1",
-      "2:suicide:0",
+      "2:murder",
+      "3:suicide",
     ]);
-    expect(character.cells.doctor["1:murder:0"].status).toBe("confirmed");
-    expect(location.cells.Shrine["1:murder:1"].status).toBe("confirmed");
-    expect(location.cells.Shrine["2:suicide:0"].status).toBe("impossible");
+    expect(character.cells.doctor["1:murder"].status).toBe("confirmed");
+    expect(location.cells.Shrine["2:murder"].status).toBe("confirmed");
+    expect(location.cells.Shrine["3:suicide"].status).toBe("impossible");
   });
 
   it("excludes living characters below their limit when an incident fires", () => {

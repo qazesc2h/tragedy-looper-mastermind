@@ -63,12 +63,16 @@ function factorHasKeyPersonAbility(state: GameState): boolean {
   return state.loop.locIntrigue.City >= 2;
 }
 
-function characterWithRole(
+function livingCharactersWithRoleInAbilityLocations(
   state: GameState,
+  self: CharacterId,
   role: RoleId,
-): CharacterId | undefined {
-  return Object.keys(state.scenario.cast).find(
-    (character) => effectiveRole(state, character) === role,
+): CharacterId[] {
+  const locations = abilityLocationsOf(state, self);
+  return Object.keys(state.scenario.cast).filter((character) =>
+    effectiveRole(state, character) === role &&
+    isCharacterAlive(state.loop.board[character]) &&
+    locations.includes(characterLocation(state.loop.board[character], character))
   );
 }
 
@@ -353,6 +357,62 @@ export const ROLE_IMPL: Record<string, {
       },
     }],
   },
+  // ── 편집증 환자 (Paranoiac)
+  paranoiac: {
+    ko: "편집증 환자",
+    goodwillRefusal: "Mandatory",
+    hooks: [{
+      phase: "P5_MASTERMIND_ABILITY",
+      kind: "optional",
+      source: {
+        timing: "Mastermind Ability",
+        // USER_CONFIRMED: upstream의 장소/동소 대상 문구보다 실물 확정 문구를 우선한다.
+        description: `Place 1 :intrigue: or 1 :paranoia: on this Character.`,
+      },
+      when: () => true,
+      selectableCounters: () => ["intrigue", "paranoia"],
+      effect: (
+        s: GameState,
+        self: CharacterId,
+        _target?: Target,
+        _destination?: import("../types").Location,
+        counter?: import("../types").CharacterCounter,
+      ) => {
+        if (counter !== "intrigue" && counter !== "paranoia") {
+          throw new Error("paranoiac requires intrigue or paranoia");
+        }
+        s.loop.charCounters[self][counter] += 1;
+      },
+    }],
+  },
+  // ── 쌍둥이 (Twin)
+  twin: {
+    ko: "쌍둥이",
+    hooks: [
+      {
+        phase: "SCRIPT_BUILD",
+        kind: "scriptBuild",
+        source: {
+          timing: "Script creation",
+          description: `This character must be the culprit of an Incident.`,
+        },
+        // IMPLEMENTED_ELSEWHERE: src/engine/validate.ts validateRequiredIncidentCulprit()
+        when: () => false,
+        effect: () => {},
+      },
+      {
+        phase: "P7_INCIDENT",
+        kind: "mandatory",
+        source: {
+          timing: "Incident trigger",
+          description: `When this character triggers an Incident, it is considered as being on the diagonally opposit location.`,
+        },
+        // IMPLEMENTED_ELSEWHERE: incidentEffectCulpritLocation()을 사건 효과 전체가 사용한다.
+        when: () => false,
+        effect: () => {},
+      },
+    ],
+  },
   // ── 닌자 (Ninja) — 역할 공개 분기는 engine/role-reveal.ts가 담당한다.
   ninja: {
     ko: "닌자",
@@ -549,22 +609,28 @@ export const ROLE_IMPL: Record<string, {
           prerequisite: `The :keyPerson: has at least 2 :intrigue: and is in this character‘s location`,
           description: `Kill the :keyPerson:`,
         },
-        when: (s: GameState, self: CharacterId) => {
-          const keyPerson = characterWithRole(s, "keyPerson");
-          return (
-            keyPerson !== undefined &&
-            isCharacterAlive(s.loop.board[keyPerson]) &&
-            s.loop.charCounters[keyPerson].intrigue >= 2 &&
-            abilityLocationsOf(s, self).includes(
-              characterLocation(s.loop.board[keyPerson], keyPerson),
-            )
-          );
-        },
-        effect: (s: GameState, _self: CharacterId) => {
-          const keyPerson = characterWithRole(s, "keyPerson");
-          if (keyPerson !== undefined) {
-            killCharacter(s, keyPerson);
+        when: (s: GameState, self: CharacterId) =>
+          livingCharactersWithRoleInAbilityLocations(s, self, "keyPerson")
+            .some((character) => s.loop.charCounters[character].intrigue >= 2),
+        selectableTargets: (s: GameState, self: CharacterId) =>
+          livingCharactersWithRoleInAbilityLocations(s, self, "keyPerson")
+            .filter((character) => s.loop.charCounters[character].intrigue >= 2)
+            .map((id) => ({ kind: "character" as const, id })),
+        effect: (s: GameState, self: CharacterId, target?: Target) => {
+          const candidates = livingCharactersWithRoleInAbilityLocations(
+            s,
+            self,
+            "keyPerson",
+          ).filter((character) => s.loop.charCounters[character].intrigue >= 2);
+          const selected = target?.kind === "character"
+            ? target.id
+            : candidates.length === 1
+            ? candidates[0]
+            : undefined;
+          if (selected === undefined || !candidates.includes(selected)) {
+            throw new Error("killer requires a key-person target");
           }
+          killCharacter(s, selected);
         },
       },
       {

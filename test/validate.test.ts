@@ -556,6 +556,21 @@ describe("validateScenario", () => {
     );
   });
 
+  it("rejects scheduling more than one incident on the same day", () => {
+    const duplicate = structuredClone(scenarios[0]) as Scenario;
+    duplicate.incidents = [
+      { day: 2, incident: "murder", culprit: "boyStudent" },
+      { day: 2, incident: "suicide", culprit: "girlStudent" },
+    ];
+
+    expect(validateScenario(duplicate).diagnostics).toContainEqual(
+      expect.objectContaining({
+        path: "incidents[1].day",
+        code: "INCIDENT_DAY_DUPLICATED",
+      }),
+    );
+  });
+
   it("does not throw for empty or partially entered scenarios", () => {
     expect(validateScenario({})).toEqual({ ok: true, diagnostics: [] });
     expect(validateScenario({

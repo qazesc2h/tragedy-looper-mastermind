@@ -561,10 +561,8 @@ function requireScenarioIncident(
   if (selected === undefined) {
     throw new Error("goodwill ability requires an incident choice");
   }
-  const scheduled = normalizeIncidentSchedule(state.scenario.incidents).find(({ day, incident, occurrenceIndex }) =>
-    day === selected.day && incident === selected.incident &&
-    (selected.occurrenceIndex === undefined ||
-      selected.occurrenceIndex === occurrenceIndex)
+  const scheduled = normalizeIncidentSchedule(state.scenario.incidents).find(({ day, incident }) =>
+    day === selected.day && incident === selected.incident
   );
   if (scheduled === undefined) {
     throw new Error("chosen incident is not in the scenario");

@@ -146,9 +146,8 @@ function killAfterDefenses(
     : undefined;
   if (replacement !== undefined) {
     const beforeReplacement = structuredClone(state.loop);
-    // 원문은 메이드 자신이 불사일 때 원래 대상을 다시 죽이는지 설명하지
-    // 않는다. QUESTIONS.md 확인 전에는 대체 후 메이드에게 통상 사망 방어를
-    // 적용하되 원래 대상으로 되돌아가지 않는 보수적 처리를 사용한다.
+    // USER_CONFIRMED Q4 A: 대체 뒤 메이드에게 통상 사망 방어를 적용하며,
+    // 메이드가 불사여도 원래 대상으로 사망을 되돌리지 않는다.
     const died = killAfterDefenses(state, replacement, false);
     const publicChanges = publicBoardChanges(beforeReplacement, state.loop);
     if (publicChanges.length > 0) {

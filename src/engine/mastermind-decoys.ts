@@ -374,7 +374,6 @@ function projectedConditionIsExplainable(
               actualIncidentOf(scheduled) === "butterflyEffect"
             )?.culprit ?? castCharacters(projected)[0],
           ),
-          occurrenceIndex: 0,
         },
       ];
       break;

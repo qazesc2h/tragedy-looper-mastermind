@@ -104,7 +104,6 @@ export type ProtagonistObservation = (
     loop: number;
     day: number;
     incident: IncidentId;
-    occurrenceIndex?: number;
     occurrenceId?: string;
     occurred: boolean;
     context?: PublicObservationContext;
@@ -119,7 +118,6 @@ export type ProtagonistObservation = (
     loop: number;
     day: number;
     incident: IncidentId;
-    occurrenceIndex?: number;
     occurrenceId?: string;
     culprit: IncidentCulprit | CharacterId;
   }
@@ -4443,7 +4441,6 @@ export function collectProtagonistObservations(
           loop: entry.loop,
           day: entry.day,
           incident: entry.declaredIncident,
-          occurrenceIndex: entry.occurrenceIndex,
           occurrenceId: entry.occurrenceId,
           occurred: entry.fired,
           ...(incidentSequence !== undefined &&

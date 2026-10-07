@@ -44,8 +44,7 @@ function sacredTreeState(role: RoleId = "person"): GameState {
   for (const character of Object.keys(cast)) {
     setBoardLocation(loop, character, "Shrine");
   }
-  loop.phase = "P4_RESOLVE";
-  loop.actionResolutionComplete = true;
+  loop.phase = "P6_GOODWILL";
   loop.charCounters.sacredTree.goodwill = 1;
   return {
     scenario,
@@ -62,7 +61,7 @@ it("preserves the Sacred Tree trait source verbatim", () => {
   );
 });
 
-describe("sacred-tree Leader transfer after P4", () => {
+describe("sacred-tree Leader transfer at P6", () => {
   it("requires an optional Leader decision every eligible turn and allows decline", () => {
     const state = sacredTreeState();
 
@@ -79,12 +78,8 @@ describe("sacred-tree Leader transfer after P4", () => {
       ({ kind }) => kind === "sacredTreeMastermindTransferJudged",
     )).toBe(false);
 
-    advanceGame(state);
-    expect(state.loop.phase).toBe("P6_GOODWILL");
-
     state.loop.day = 2;
-    state.loop.phase = "P4_RESOLVE";
-    state.loop.actionResolutionComplete = true;
+    state.loop.phase = "P6_GOODWILL";
     expect(sacredTreeLeaderChoiceRequired(state)).toBe(true);
   });
 

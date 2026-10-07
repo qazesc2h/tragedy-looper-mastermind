@@ -264,7 +264,6 @@ function resolveScheduledIncident(
   );
   const base = {
     occurrenceId,
-    occurrenceIndex: scheduled.occurrenceIndex,
     declaredIncident: scheduled.declaredIncident,
     actualIncident: scheduled.actualIncident,
     culprit: scheduled.culprit,
@@ -338,7 +337,6 @@ function resolveScheduledIncident(
         incident: {
           declaredIncident: scheduled.declaredIncident,
           occurrenceId,
-          occurrenceIndex: scheduled.occurrenceIndex,
         },
       }
   );
@@ -372,23 +370,20 @@ function resolveScheduledIncident(
   };
 }
 
-/** 현재 날짜의 모든 사건을 각본 기재 순서대로 독립 해결한다. */
+/** 현재 날짜에 예정된 단일 사건을 해결한다. */
 export function resolveIncident(
   state: GameState,
-  choiceInput?: IncidentChoiceInput | readonly IncidentChoiceInput[],
+  choiceInput?: IncidentChoiceInput,
 ): ResolvedIncidentBatch {
-  const scheduled = normalizeIncidentSchedule(state.scenario.incidents).filter(
+  const scheduled = normalizeIncidentSchedule(state.scenario.incidents).find(
     ({ day }) => day === state.loop.day,
   );
-  const rawChoices = choiceInput === undefined
-    ? []
-    : Array.isArray(choiceInput)
-    ? choiceInput
-    : [choiceInput];
-  const choices = rawChoices.map((choice) => normalizeIncidentChoice(choice));
+  if (scheduled === undefined) return { occurrences: [] };
   return {
-    occurrences: scheduled.map((incident, index) =>
-      resolveScheduledIncident(state, incident, choices[index])
-    ),
+    occurrences: [resolveScheduledIncident(
+      state,
+      scheduled,
+      normalizeIncidentChoice(choiceInput),
+    )],
   };
 }

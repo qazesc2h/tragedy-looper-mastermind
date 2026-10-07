@@ -178,7 +178,7 @@ describe("basic tragedy regression", () => {
     }
   });
 
-  it("validates all 55 bundled difficulty variants with only Trouble in Paradise rejected", () => {
+  it("rejects known Trouble in Paradise and Romance Antithesis source defects", () => {
     const difficulties = loadScenarioCatalog()
       .filter(({ id }) => id !== "community:naughty-cat")
       .flatMap((entry) =>
@@ -213,6 +213,22 @@ describe("basic tragedy regression", () => {
         diagnostics: [{
           path: "cast.mysteryBoy",
           code: "MYSTERY_BOY_ROLE_IS_PERSON",
+        }],
+      },
+      {
+        title: "Romance Antithesis",
+        index: 0,
+        diagnostics: [{
+          path: "incidents[2].day",
+          code: "INCIDENT_DAY_DUPLICATED",
+        }],
+      },
+      {
+        title: "Romance Antithesis",
+        index: 1,
+        diagnostics: [{
+          path: "incidents[2].day",
+          code: "INCIDENT_DAY_DUPLICATED",
         }],
       },
     ]);

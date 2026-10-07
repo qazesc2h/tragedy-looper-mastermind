@@ -148,7 +148,10 @@ describe("killer / kill keyPerson", () => {
     state.loop.charCounters[KEY_PERSON].goodwill = 1;
 
     expect(targetHook.when(state, KILLER)).toBe(true);
-    applyIfEligible(targetHook, state, KILLER);
+    applyIfEligible(targetHook, state, KILLER, {
+      kind: "character",
+      id: KEY_PERSON,
+    });
 
     expect(boardIsAlive(state.loop, KEY_PERSON)).toBe(false);
     expect(state.loop.charCounters[KEY_PERSON]).toMatchObject({
@@ -185,6 +188,25 @@ describe("killer / kill keyPerson", () => {
 
     expect(targetHook.when(state, KILLER)).toBe(false);
   });
+
+  it("lets the Mastermind choose one eligible keyPerson", () => {
+    const state = createRoleState({
+      [KILLER]: "killer",
+      [KEY_PERSON]: "keyPerson",
+      [BRAIN]: "keyPerson",
+    });
+    state.loop.charCounters[KEY_PERSON].intrigue = 2;
+    state.loop.charCounters[BRAIN].intrigue = 2;
+
+    expect(targetHook.selectableTargets?.(state, KILLER)).toEqual([
+      { kind: "character", id: KEY_PERSON },
+      { kind: "character", id: BRAIN },
+    ]);
+    targetHook.effect(state, KILLER, { kind: "character", id: BRAIN });
+
+    expect(boardIsAlive(state.loop, KEY_PERSON)).toBe(true);
+    expect(boardIsAlive(state.loop, BRAIN)).toBe(false);
+  });
 });
 
 describe("killer / protagonists death", () => {
@@ -206,6 +228,38 @@ describe("killer / protagonists death", () => {
     state.loop.charCounters[KILLER].intrigue = 3;
 
     expect(targetHook.when(state, KILLER)).toBe(false);
+  });
+});
+
+describe("paranoiac / self counter", () => {
+  const targetHook = hook("paranoiac");
+
+  it("adds the Mastermind-selected intrigue or paranoia counter to itself", () => {
+    for (const counter of ["intrigue", "paranoia"] as const) {
+      const state = createRoleState({
+        shrineMaiden: "paranoiac",
+        girlStudent: "person",
+      });
+
+      targetHook.effect(
+        state,
+        "shrineMaiden",
+        undefined,
+        undefined,
+        counter,
+      );
+
+      expect(state.loop.charCounters.shrineMaiden[counter]).toBe(1);
+      expect(state.loop.charCounters.girlStudent[counter]).toBe(0);
+    }
+  });
+
+  it("requires one of the two confirmed counter types", () => {
+    const state = createRoleState({ shrineMaiden: "paranoiac" });
+
+    expect(() => targetHook.effect(state, "shrineMaiden")).toThrow(
+      "paranoiac requires intrigue or paranoia",
+    );
   });
 });
 
@@ -453,7 +507,7 @@ describe("cultist", () => {
 });
 
 describe("optional hook target contracts", () => {
-  it("declares targets only for the three optional hooks that select one", () => {
+  it("declares targets for every optional hook that selects one", () => {
     expect(ROLE_IMPL.brain.hooks[0].selectableTargets).toBeTypeOf("function");
     expect(ROLE_IMPL.conspiracyTheorist.hooks[0].selectableTargets)
       .toBeTypeOf("function");
@@ -461,7 +515,7 @@ describe("optional hook target contracts", () => {
       .toBeTypeOf("function");
 
     expect(ROLE_IMPL.cultist.hooks[0].selectableTargets).toBeUndefined();
-    expect(ROLE_IMPL.killer.hooks[0].selectableTargets).toBeUndefined();
+    expect(ROLE_IMPL.killer.hooks[0].selectableTargets).toBeTypeOf("function");
     expect(ROLE_IMPL.timeTraveler.hooks[1].selectableTargets).toBeUndefined();
   });
 });

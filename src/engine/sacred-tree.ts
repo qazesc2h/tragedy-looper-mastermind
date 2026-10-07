@@ -104,8 +104,7 @@ export function sacredTreeMastermindStepResolved(state: GameState): boolean {
 
 export function sacredTreeLeaderChoiceRequired(state: GameState): boolean {
   return state.gamePhase === "ROUND" &&
-    state.loop.phase === "P4_RESOLVE" &&
-    state.loop.actionResolutionComplete &&
+    state.loop.phase === "P6_GOODWILL" &&
     sacredTreeInScenario(state) &&
     sacredTreeTransferEligible(sacredTreeTransferCondition(state)) &&
     !sacredTreeLeaderStepResolved(state);
@@ -164,17 +163,16 @@ function recordMastermindTransfer(
   });
 }
 
-/** P4 행동 해결 뒤 리더의 선택(이전 또는 하지 않음)을 확정한다. */
+/** P6 주인공 능력 단계에서 리더의 선택(이전 또는 하지 않음)을 확정한다. */
 export function resolveSacredTreeLeaderTransfer(
   state: GameState,
   selection?: SacredTreeTransferSelection,
 ): void {
   if (
     state.gamePhase !== "ROUND" ||
-    state.loop.phase !== "P4_RESOLVE" ||
-    !state.loop.actionResolutionComplete
+    state.loop.phase !== "P6_GOODWILL"
   ) {
-    throw new Error("sacred-tree Leader choice is only available after P4 resolve");
+    throw new Error("sacred-tree Leader choice is only available at P6");
   }
   if (!sacredTreeInScenario(state)) {
     throw new Error("sacred-tree is not in this scenario");

@@ -280,6 +280,7 @@ interface OptionalHookSelection {
   selected: boolean;
   target?: string;
   destination?: Location;
+  counter?: CharacterCounter;
 }
 
 type GoodwillDraftField =
@@ -454,12 +455,10 @@ function goodwillDraftKey(key: string, field: GoodwillDraftField): string {
 function incidentDraftKey(
   field: string,
   resolution = 1,
-  occurrenceIndex = 0,
 ): string {
-  const prefix = occurrenceIndex === 0 ? "incident" : `incident:${occurrenceIndex}`;
   return resolution === 1
-    ? `${prefix}:${field}`
-    : `${prefix}:${resolution}:${field}`;
+    ? `incident:${field}`
+    : `incident:${resolution}:${field}`;
 }
 
 function draftValue(key: string): string {
@@ -1535,7 +1534,7 @@ function phaseLogTimelineLine(item: PhaseLogTimelineItem): string {
       const delta = change.delta > 0 ? `+${change.delta}` : String(change.delta);
       const incident = change.incident === undefined
         ? ""
-        : ` · ${incidentName(change.incident.declaredIncident)} #${change.incident.occurrenceIndex + 1}`;
+        : ` · ${incidentName(change.incident.declaredIncident)}`;
       return `특수 게이지 ${change.beforeValue} → ${change.afterValue} (${delta})${incident}`;
     }
     if (change.kind === "extraCard") {
@@ -2201,6 +2200,14 @@ function hookDestinationOptions(
   return hook.selectableDestinations?.(state, self, target) ?? [];
 }
 
+function hookCounterOptions(
+  state: GameState,
+  self: CharacterId,
+  hook: Hook,
+): CharacterCounter[] {
+  return hook.selectableCounters?.(state, self) ?? [];
+}
+
 function cultistIgnoreSummary(
   state: GameState,
   self: CharacterId,
@@ -2268,6 +2275,10 @@ function renderP5DisclosurePreview(
   if (destinations.length > 0 && selection?.destination === undefined) {
     return `${baseline}<p class="disclosure-pending">목적지 선택 후 노출 계산</p>`;
   }
+  const counters = hookCounterOptions(state, self, hook);
+  if (counters.length > 0 && selection?.counter === undefined) {
+    return `${baseline}<p class="disclosure-pending">카운터 선택 후 노출 계산</p>`;
+  }
 
   const preview = previewP5Disclosure(
     state,
@@ -2275,6 +2286,7 @@ function renderP5DisclosurePreview(
     self,
     selectedTarget,
     selection?.destination,
+    selection?.counter,
   );
   return `${baseline}${renderDisclosureResult(preview)}`;
 }
@@ -2380,7 +2392,8 @@ function renderP9HookDisclosurePreview(
   const baseline = `<div class="disclosure-baseline">
     <b>미발동</b><span>변화 없음 · 안전</span>
   </div>`;
-  const selectedTarget = decodeTarget(selection?.target);
+  const selectedTarget = decodeTarget(selection?.target) ??
+    (targets.length === 1 ? targets[0] : undefined);
   if (targets.length > 0 && selectedTarget === undefined) {
     return `${baseline}<p class="disclosure-pending">대상 선택 후 노출 계산</p>`;
   }
@@ -2477,6 +2490,7 @@ function renderHookList(
       hook,
       selectedTarget,
     );
+    const counters = hookCounterOptions(state, self, hook);
     const activationSummary = cultistIgnoreSummary(state, self, hook);
     const disclosurePreview = phase === "P5_MASTERMIND_ABILITY"
       ? renderP5DisclosurePreview(state, hook, self, selection, targets)
@@ -2520,6 +2534,14 @@ function renderHookList(
               ${destinations.map((destination) => `<option value="${destination}"
                 ${selection?.destination === destination ? "selected" : ""}>
                 ${escapeHtml(locationName(destination))}</option>`).join("")}
+            </select>`
+          : ""}
+        ${interactive && optional && counters.length > 0
+          ? `<select data-action="optional-hook-counter" data-hook-key="${escapeHtml(key)}">
+              <option value="">카운터 선택</option>
+              ${counters.map((counter) => `<option value="${counter}"
+                ${selection?.counter === counter ? "selected" : ""}>
+                ${escapeHtml(observedCounterLabel(counter))}</option>`).join("")}
             </select>`
           : ""}
         ${disclosurePreview}
@@ -2878,9 +2900,7 @@ function renderGoodwillChoice(
         : normalizeIncidentSchedule(state.scenario.incidents).find(
           (scheduled) =>
             scheduled.day === selectedIncident.day &&
-            scheduled.declaredIncident === selectedIncident.incident &&
-            (selectedIncident.occurrenceIndex === undefined ||
-              scheduled.occurrenceIndex === selectedIncident.occurrenceIndex),
+            scheduled.declaredIncident === selectedIncident.incident,
         )?.actualIncident;
       return `
         <select data-goodwill-choice="${escapeHtml(key)}"
@@ -3462,17 +3482,13 @@ function renderPhaseControls(state: GameState): string {
         <div class="resolve-control-copy operation-panel-scroll">
           ${heading(4, phaseName(state.loop.phase))}
           ${state.loop.actionResolutionComplete
-            ? `<p>카드 공개와 효과 해결이 완료되었습니다. 결과 요약을 확인한 뒤 진행하세요.</p>
-              ${renderSacredTreeTransferChoice(state, "leader")}`
+            ? `<p>카드 공개와 효과 해결이 완료되었습니다. 결과 요약을 확인한 뒤 진행하세요.</p>`
             : `${renderPlacementSummary(state)}${renderServantMovementChoice(state)}${renderHookList(state, state.loop.phase, true)}`}
         </div>
         <div class="operation-footer">
           <span>${state.loop.actionResolutionComplete ? "P4 해결 완료" : "6장 배치 확정"}</span>
           ${state.loop.actionResolutionComplete
-            ? renderAdvanceButton(
-              undefined,
-              sacredTreeLeaderChoiceRequired(state),
-            )
+            ? renderAdvanceButton()
             : renderAdvanceButton(
               "카드 공개·해결",
               state.loop.placed.length !== 6 || servantMovementChoiceMissing(state),
@@ -3499,10 +3515,11 @@ function renderPhaseControls(state: GameState): string {
           ${heading(6, phaseName(state.loop.phase))}
           ${loopEndPending
             ? "<p>우호 능력 결과를 확인한 뒤 승패 판정으로 진행하세요.</p>"
-            : renderGoodwillAbilities(state)}
+            : `${renderSacredTreeTransferChoice(state, "leader")}${renderGoodwillAbilities(state)}`}
         </div>
         <div class="operation-footer">${renderAdvanceButton(
           loopEndPending ? resultConfirmation : undefined,
+          !loopEndPending && sacredTreeLeaderChoiceRequired(state),
         )}</div>
       </section>`;
     case "P7_INCIDENT":
@@ -3680,7 +3697,7 @@ function dockPrimaryAction(state: GameState): DockPrimaryAction {
         ? {
           action: "advance",
           label: "다음 단계",
-          disabled: sacredTreeLeaderChoiceRequired(state),
+          disabled: false,
         }
         : {
           action: "reveal-cards",
@@ -3690,6 +3707,12 @@ function dockPrimaryAction(state: GameState): DockPrimaryAction {
         };
     case "P7_INCIDENT":
       return { action: "advance", label: "사건 판정", disabled: false };
+    case "P6_GOODWILL":
+      return {
+        action: "advance",
+        label: "다음 단계",
+        disabled: sacredTreeLeaderChoiceRequired(state),
+      };
     case "P5_MASTERMIND_ABILITY":
       return {
         action: "advance",
@@ -3739,9 +3762,10 @@ function dockProgress(state: GameState): string {
       if (servantMovementChoiceMissing(state)) {
         return "메이드 이동 방향 선택 필요";
       }
-    } else if (sacredTreeLeaderChoiceRequired(state)) {
-      return "신수 카운터 이전 선택 필요";
     }
+  }
+  if (state.loop.phase === "P6_GOODWILL" && sacredTreeLeaderChoiceRequired(state)) {
+    return "신수 카운터 이전 선택 필요";
   }
   return "조작 열기";
 }
@@ -3792,7 +3816,6 @@ function renderIncidentChoice(
   incident: string,
   culprit: IncidentCulprit,
   fires: boolean,
-  occurrenceIndex = 0,
 ): string {
   const fields = INCIDENT_CHOICE_FIELDS[incident] ?? [];
   if (state.loop.phase !== "P7_INCIDENT" || !fires || fields.length === 0) {
@@ -3807,7 +3830,7 @@ function renderIncidentChoice(
     label: string,
     resolution: number,
   ) => {
-    const draftKey = incidentDraftKey(field, resolution, occurrenceIndex);
+    const draftKey = incidentDraftKey(field, resolution);
     return `
     <label>
       <span>${escapeHtml(label)}</span>
@@ -3824,22 +3847,18 @@ function renderIncidentChoice(
     const locationDraftKey = incidentDraftKey(
       "location",
       resolution,
-      occurrenceIndex,
     );
     const counterDraftKey = incidentDraftKey(
       "counter",
       resolution,
-      occurrenceIndex,
     );
     const incidentDraft = incidentDraftKey(
       "incident",
       resolution,
-      occurrenceIndex,
     );
     const roleClaimDraftKey = incidentDraftKey(
       "roleClaim",
       resolution,
-      occurrenceIndex,
     );
     const selectedSubIncident = draftValue(incidentDraft);
     const showCharacterTarget = fields.includes("target") &&
@@ -3912,19 +3931,18 @@ function renderTodayIncidents(
   state: GameState,
   interactive = false,
 ): string {
-  const scheduled = normalizeIncidentSchedule(state.scenario.incidents).filter(
+  const scheduled = normalizeIncidentSchedule(state.scenario.incidents).find(
     ({ day }) => day === state.loop.day,
   );
-  if (scheduled.length === 0) {
+  if (scheduled === undefined) {
     return `<p class="empty-overlay">${escapeHtml(misc("No incident"))}</p>`;
   }
 
-  return scheduled.map((scheduledIncident) => {
+  const scheduledIncident = scheduled;
     const {
       declaredIncident,
       actualIncident,
       culprit,
-      occurrenceIndex,
     } = scheduledIncident;
     const culpritCharacter = characterCulprit(culprit);
     const judgment = [...(state.loop.phaseLog ?? [])].reverse().find(
@@ -4005,11 +4023,9 @@ function renderTodayIncidents(
             actualIncident,
             culprit,
             fires && !effectSuppressed,
-            occurrenceIndex,
           )
           : ""}
       </article>`;
-  }).join("");
 }
 
 function renderLossRoutes(routes: readonly LossRoute[]): string {
@@ -6591,13 +6607,12 @@ function render(preserveInferenceCache = false): void {
   scheduleNoticeDismiss();
 }
 
-function incidentChoiceFromDraft(): IncidentChoice[] | undefined {
+function incidentChoiceFromDraft(): IncidentChoice | undefined {
   const resolutionChoice = (
     resolution: number,
-    occurrenceIndex: number,
   ): IncidentChoice | undefined => {
     const field = (name: string): string | undefined =>
-      draftValue(incidentDraftKey(name, resolution, occurrenceIndex)) ||
+      draftValue(incidentDraftKey(name, resolution)) ||
       undefined;
     const target = field("target");
     const otherTarget = field("otherTarget");
@@ -6630,26 +6645,22 @@ function incidentChoiceFromDraft(): IncidentChoice[] | undefined {
   };
   const scheduled = normalizeIncidentSchedule(
     currentState().scenario.incidents,
-  ).filter(
+  ).find(
     ({ day }) => day === currentState().loop.day,
   );
-  const choices = scheduled.map(({ culprit, occurrenceIndex }) => {
-    const first = resolutionChoice(1, occurrenceIndex) ?? { decisions: [] };
-    const second = characterCulprit(culprit) === "sectFounder"
-      ? resolutionChoice(2, occurrenceIndex)
-      : undefined;
-    if (second !== undefined) {
-      first.decisions.push({
-        kind: "subIncident",
-        key: "secondResolution",
-        decisions: second.decisions,
-      });
-    }
-    return first;
-  });
-  return choices.some(({ decisions }) => decisions.length > 0)
-    ? choices
+  if (scheduled === undefined) return undefined;
+  const first = resolutionChoice(1) ?? { decisions: [] };
+  const second = characterCulprit(scheduled.culprit) === "sectFounder"
+    ? resolutionChoice(2)
     : undefined;
+  if (second !== undefined) {
+    first.decisions.push({
+      kind: "subIncident",
+      key: "secondResolution",
+      decisions: second.decisions,
+    });
+  }
+  return first.decisions.length > 0 ? first : undefined;
 }
 
 function decodeTarget(value: string | undefined): Target | undefined {
@@ -6676,14 +6687,22 @@ function applySelectedOptionalHooks(state: GameState): void {
     if (!hook.when(state, self)) continue;
 
     const targetOptions = hookTargetOptions(state, self, hook);
-    const target = decodeTarget(selection.target);
+    const target = decodeTarget(selection.target) ??
+      (phase === "P9_ROUND_END" && targetOptions.length === 1
+        ? targetOptions[0]
+        : undefined);
     const destinations = hookDestinationOptions(state, self, hook, target);
     const destination = selection.destination;
+    const counters = hookCounterOptions(state, self, hook);
+    const counter = selection.counter;
     if (targetOptions.length > 0 && target === undefined) {
       throw new Error(misc("Select a target", "Select a target"));
     }
     if (destinations.length > 0 && destination === undefined) {
       throw new Error("목적지를 선택하세요");
+    }
+    if (counters.length > 0 && (counter === undefined || !counters.includes(counter))) {
+      throw new Error("카운터 종류를 선택하세요");
     }
     // 선택 훅은 선택한 하나마다 사망 배치를 닫는다. 종료 판정은 단계 결과를
     // 한 번 렌더한 뒤 다음 사용자 입력에서 확정한다.
@@ -6697,6 +6716,7 @@ function applySelectedOptionalHooks(state: GameState): void {
         undefined,
         phase === "P5_MASTERMIND_ABILITY",
         destination,
+        counter,
       );
     });
   }
@@ -7998,6 +8018,21 @@ root.addEventListener("change", (event) => {
     const current = optionalHookSelections.get(key) ?? { selected: false };
     current.destination = isLocationValue(control.value)
       ? control.value
+      : undefined;
+    optionalHookSelections.set(key, current);
+    notice = "";
+    render();
+    return;
+  }
+
+  if (action === "optional-hook-counter") {
+    const key = control.dataset.hookKey;
+    if (!key) return;
+    const current = optionalHookSelections.get(key) ?? { selected: false };
+    const value = control.value;
+    current.counter = value === "intrigue" || value === "paranoia" ||
+        value === "goodwill" || value === "protection"
+      ? value
       : undefined;
     optionalHookSelections.set(key, current);
     notice = "";

@@ -215,7 +215,7 @@ export interface Scenario {
   scriptSpecified?: Record<string, unknown>;
 }
 
-/** 엔진 안에서는 범인과 발생 번호가 정규화된 시나리오만 보유한다. */
+/** 엔진 안에서는 범인이 정규화된 시나리오만 보유한다. */
 export interface ResolvedScenario extends Omit<Scenario, "incidents"> {
   incidents: ScheduledIncident[];
 }
@@ -238,8 +238,6 @@ export interface IncidentSelection {
   day: number;
   /** UI 선택과 공개 정보에서 사용하는 선언 사건. */
   incident: IncidentId;
-  /** 구 선택 데이터에는 없을 수 있으며 그 경우 첫 발생 건을 뜻한다. */
-  occurrenceIndex?: number;
 }
 
 export type IncidentCulprit =
@@ -253,8 +251,6 @@ export interface ScheduledIncident {
   declaredIncident: IncidentId;
   actualIncident: IncidentId;
   culprit: IncidentCulprit;
-  /** 같은 날짜·같은 사건을 각본 기재 순서대로 구분하는 0 기반 번호. */
-  occurrenceIndex: number;
 }
 
 /** JSON·구 저장·외부 각본 입력 경계에서만 허용하는 사건 형식. */
@@ -265,7 +261,6 @@ export interface ScheduledIncidentInput {
   declaredIncident?: IncidentId;
   actualIncident?: IncidentId;
   culprit: IncidentCulprit | CharacterId;
-  occurrenceIndex?: number;
 }
 
 export type BoardCharacterState =
@@ -360,7 +355,6 @@ export type IncidentChoiceInput = IncidentChoice | LegacyIncidentChoice;
 
 export interface IncidentResult {
   occurrenceId: string;
-  occurrenceIndex: number;
   declaredIncident: IncidentId;
   actualIncident: IncidentId;
   culprit: IncidentCulprit;
@@ -389,7 +383,6 @@ export type PublicBoardChange =
     incident?: {
       declaredIncident: IncidentId;
       occurrenceId: string;
-      occurrenceIndex: number;
     };
   }
   | {
@@ -590,8 +583,6 @@ export type PhaseLogEntry = (
     kind: "incidentJudged";
     /** 구 저장 기록에는 없을 수 있다. */
     occurrenceId?: string;
-    /** 구 저장 기록에는 없을 수 있다. */
-    occurrenceIndex?: number;
     /** 주인공에게 보인 사건. */
     declaredIncident: IncidentId;
     /** 실제 판정·효과를 수행한 사건. 각본가 전용 진행 기록에만 둔다. */
@@ -775,7 +766,7 @@ export interface LoopState {
   /** P4 안에서 카드 공개·효과 해결을 마치고 결과 확인을 기다리는 상태 */
   actionResolutionComplete: boolean;
 
-  /** 현재 날짜의 P4 후 신수 리더 선택을 처리한 시점. */
+  /** 현재 날짜의 P6 신수 리더 선택을 처리한 시점. */
   sacredTreeLeaderResolvedAt?: { loop: number; day: number };
 
   /** 현재 날짜의 P5 신수 강제 발동 여부 판정을 처리한 시점. */
@@ -912,6 +903,11 @@ export interface Hook {
     self: CharacterId,
     target?: Target,
   ) => Location[];
+  /** 선택형 훅이 사용자에게 요구하는 카운터 종류. */
+  selectableCounters?: (
+    s: GameState,
+    self: CharacterId,
+  ) => CharacterCounter[];
   /** 동시 해결 전에 확정해야 하는 효과 대상 */
   effectTarget?: (s: GameState, self: CharacterId) => Target | undefined;
   effect: (
@@ -919,6 +915,7 @@ export interface Hook {
     self: CharacterId,
     target?: Target,
     destination?: Location,
+    counter?: CharacterCounter,
   ) => void | RoleId;
 }
 

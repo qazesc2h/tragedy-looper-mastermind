@@ -198,6 +198,7 @@ export function previewP5Disclosure(
   self: CharacterId,
   target?: Target,
   destination?: import("../types").Location,
+  counter?: import("../types").CharacterCounter,
 ): P5DisclosurePreview {
   if (hook.phase !== "P5_MASTERMIND_ABILITY") {
     throw new Error("P5 disclosure preview requires a P5 hook");
@@ -228,6 +229,13 @@ export function previewP5Disclosure(
   ) {
     throw new Error("P5 disclosure preview requires a selectable destination");
   }
+  const counters = hook.selectableCounters?.(assumedState, self) ?? [];
+  if (
+    counters.length > 0 &&
+    (counter === undefined || !counters.includes(counter))
+  ) {
+    throw new Error("P5 disclosure preview requires a selectable counter");
+  }
 
   const beforeEvaluation = evaluateStateRoleTableHypotheses(baselineState);
   withDeathBatch(assumedState, () => {
@@ -240,6 +248,7 @@ export function previewP5Disclosure(
       undefined,
       true,
       destination,
+      counter,
     );
   });
   const afterEvaluation = evaluateStateRoleTableHypotheses(assumedState);
@@ -326,10 +335,11 @@ export function previewP9HookDisclosure(
     throw new Error("P9 disclosure preview requires an available hook");
   }
   const targets = hook.selectableTargets?.(assumedState, self) ?? [];
+  const resolvedTarget = target ?? (targets.length === 1 ? targets[0] : undefined);
   if (
     targets.length > 0 &&
-    (target === undefined || !targets.some((candidate) =>
-      sameTarget(candidate, target)
+    (resolvedTarget === undefined || !targets.some((candidate) =>
+      sameTarget(candidate, resolvedTarget)
     ))
   ) {
     throw new Error("P9 disclosure preview requires a selectable target");
@@ -340,7 +350,7 @@ export function previewP9HookDisclosure(
       "P9_ROUND_END",
       hook,
       self,
-      target,
+      resolvedTarget,
       undefined,
       true,
     );

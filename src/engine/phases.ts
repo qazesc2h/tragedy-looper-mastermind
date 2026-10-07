@@ -160,9 +160,10 @@ export function applyHookEffect(
   context?: HookContext,
   recordWhenUnchanged = false,
   destination?: import("../types").Location,
+  counter?: import("../types").CharacterCounter,
 ): void {
   const before = structuredClone(s.loop);
-  hook.effect(s, self, target, destination);
+  hook.effect(s, self, target, destination, counter);
   const publicChanges = publicBoardChanges(before, s.loop);
   if (publicChanges.length === 0 && !recordWhenUnchanged) return;
   const trigger = publicTrigger(context);
@@ -241,7 +242,7 @@ export function resolveHooks(
 
 export function advance(
   s: GameState,
-  incidentChoice?: IncidentChoiceInput | readonly IncidentChoiceInput[],
+  incidentChoice?: IncidentChoiceInput,
   mandatoryHookTargets: Readonly<Record<string, Target | undefined>> = {},
 ): ResolvedIncidentBatch | undefined {
   if (s.gamePhase !== "ROUND") {
@@ -290,9 +291,6 @@ export function advance(
 
     case "P4_RESOLVE":
       if (s.loop.actionResolutionComplete) {
-        if (sacredTreeLeaderChoiceRequired(s)) {
-          throw new Error("sacred-tree Leader choice is required");
-        }
         s.loop.actionResolutionComplete = false;
         break;
       }
@@ -311,6 +309,9 @@ export function advance(
     case "P6_GOODWILL":
       // 상호작용 단계이므로 이 phase를 유지한 채 goodwill.ts로 선언을 하나씩
       // 해결한다. 여기까지 advance하면 더 선언하지 않고 P7로 넘어간다.
+      if (sacredTreeLeaderChoiceRequired(s)) {
+        throw new Error("sacred-tree Leader choice is required");
+      }
       break;
 
     case "P7_INCIDENT":

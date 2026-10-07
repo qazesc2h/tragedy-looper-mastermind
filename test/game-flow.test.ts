@@ -671,34 +671,6 @@ describe("automatic empty round phases", () => {
     }));
   });
 
-  it("records same-day incidents as ordered independent occurrences", () => {
-    const state = createGameState(scenario({
-      cast: { boyStudent: "person", girlStudent: "person" },
-      incidents: [
-        { day: 1, incident: "foulEvil", culprit: "boyStudent" },
-        { day: 1, incident: "foulEvil", culprit: "girlStudent" },
-      ],
-    }));
-    state.gamePhase = "ROUND";
-    state.loop.phase = "P7_INCIDENT";
-    state.loop.charCounters.boyStudent.paranoia = 10;
-    state.loop.charCounters.girlStudent.paranoia = 10;
-
-    expect(advanceGame(state, undefined, { deferSettlement: true }))
-      .toMatchObject({
-        occurrences: [
-          { occurrenceId: "1:foulEvil:0", fired: true },
-          { occurrenceId: "1:foulEvil:1", fired: true },
-        ],
-      });
-    expect(state.loop.locIntrigue.Shrine).toBe(4);
-    expect(state.loop.phaseLog?.filter(({ kind }) => kind === "incidentJudged"))
-      .toMatchObject([
-        { occurrenceId: "1:foulEvil:0", occurrenceIndex: 0 },
-        { occurrenceId: "1:foulEvil:1", occurrenceIndex: 1 },
-      ]);
-  });
-
   it("records an absent culprit as the reason an incident did not fire", () => {
     const state = createGameState(scenario({
       cast: { transferStudent: "person" },

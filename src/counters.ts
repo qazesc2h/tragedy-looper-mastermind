@@ -17,6 +17,7 @@ export const CHARACTER_COUNTER_DEFINITIONS = {
   },
   protection: {
     incidentSelectable: false,
+    // USER_CONFIRMED Q6 A: 신수의 "1 counter"에는 보호도 포함한다.
     transferable: true,
     summary: "whenPositive",
   },

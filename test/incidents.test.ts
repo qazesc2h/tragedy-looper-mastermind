@@ -119,53 +119,6 @@ function incidentHook(incident: string, index = 0): IncidentHook {
 }
 
 describe("incident resolution", () => {
-  it("resolves every same-day occurrence in authored order with independent choices", () => {
-    const scenario: Scenario = {
-      tragedySet: "basicTragedy",
-      mainPlot: "",
-      subPlots: [],
-      cast: { boyStudent: "person", girlStudent: "person" },
-      incidents: [
-        { day: 1, incident: "missingPerson", culprit: "boyStudent" },
-        { day: 1, incident: "missingPerson", culprit: "girlStudent" },
-      ],
-      loops: 1,
-      daysPerLoop: 1,
-    };
-    const state: GameState = {
-      scenario,
-      gamePhase: "ROUND",
-      loop: initLoop(scenario),
-      history: [],
-      loopOutcomes: [],
-    };
-    state.loop.phase = "P7_INCIDENT";
-    state.loop.charCounters.boyStudent.paranoia = 10;
-    state.loop.charCounters.girlStudent.paranoia = 10;
-
-    const result = resolveIncident(state, [
-      { location: "Hospital" },
-      { location: "School" },
-    ]);
-
-    expect(result.occurrences.map(({ occurrenceId }) => occurrenceId)).toEqual([
-      "1:missingPerson:0",
-      "1:missingPerson:1",
-    ]);
-    expect(boardLocation(state.loop, "boyStudent")).toBe("Hospital");
-    expect(boardLocation(state.loop, "girlStudent")).toBe("School");
-    expect(state.loop.incidentOccurrencesFiredThisLoop).toEqual([
-      expect.objectContaining({
-        culprit: { kind: "character", id: "boyStudent" },
-        occurrenceIndex: 0,
-      }),
-      expect.objectContaining({
-        culprit: { kind: "character", id: "girlStudent" },
-        occurrenceIndex: 1,
-      }),
-    ]);
-  });
-
   it("keeps current incidents on the default character policy", () => {
     expect(incidentDefinition("murder")).toMatchObject({
       triggerPolicy: {
@@ -200,7 +153,6 @@ describe("incident resolution", () => {
       declaredIncident: "suicide",
       actualIncident: "suicide",
       culprit: { kind: "character", id: CULPRIT },
-      occurrenceIndex: 0,
     }]);
   });
 
@@ -260,7 +212,6 @@ describe("sectFounder incident trait", () => {
       declaredIncident: "foulEvil",
       actualIncident: "foulEvil",
       culprit: { kind: "character", id: "sectFounder" },
-      occurrenceIndex: 0,
     }]);
   });
 
@@ -314,6 +265,41 @@ describe("sectFounder incident trait", () => {
 
     expect(state.loop.locIntrigue.Shrine).toBe(2);
     expect(state.loop.incidentOccurrencesFiredThisLoop).toBeUndefined();
+  });
+});
+
+describe("twin incident location", () => {
+  it("uses the diagonally opposite location throughout Serial Murder effect resolution", () => {
+    const state = createIncidentState(
+      "serialMurder",
+      "boyStudent",
+      ["boyStudent", "girlStudent", "officeWorker"],
+    );
+    state.scenario.cast.boyStudent = "twin";
+    setBoardLocation(state.loop, "boyStudent", "City");
+    setBoardLocation(state.loop, "girlStudent", "Shrine");
+    setBoardLocation(state.loop, "officeWorker", "City");
+
+    resolveIncident(state, { target: "girlStudent" });
+
+    expect(boardIsAlive(state.loop, "girlStudent")).toBe(false);
+    expect(boardIsAlive(state.loop, "officeWorker")).toBe(true);
+  });
+
+  it("does not use the twin's physical location for a location-based effect", () => {
+    const state = createIncidentState(
+      "serialMurder",
+      "boyStudent",
+      ["boyStudent", "girlStudent"],
+    );
+    state.scenario.cast.boyStudent = "twin";
+    setBoardLocation(state.loop, "boyStudent", "City");
+    setBoardLocation(state.loop, "girlStudent", "City");
+
+    expect(resolveIncident(state, { target: "girlStudent" })).toMatchObject({
+      occurrences: [{ fired: true, effectApplied: false }],
+    });
+    expect(boardIsAlive(state.loop, "girlStudent")).toBe(true);
   });
 });
 
@@ -762,8 +748,7 @@ describe("Mystery Circle Extra Gauge", () => {
       delta: 1,
       incident: {
         declaredIncident: "butterflyEffect",
-        occurrenceId: "1:butterflyEffect:0",
-        occurrenceIndex: 0,
+        occurrenceId: "1:butterflyEffect",
       },
     });
   });
@@ -830,8 +815,7 @@ describe("Mystery Circle Extra Gauge", () => {
       delta: 0,
       incident: {
         declaredIncident: "silverBullet",
-        occurrenceId: "1:silverBullet:0",
-        occurrenceIndex: 0,
+        occurrenceId: "1:silverBullet",
       },
     });
   });

@@ -1,6 +1,12 @@
-import { LOCATIONS } from "../types";
+import {
+  characterLocation,
+  DIAGONAL,
+  effectiveRole,
+  LOCATIONS,
+} from "../types";
 import type {
   CharacterId,
+  GameState,
   IncidentChoice,
   IncidentChoiceInput,
   IncidentCounter,
@@ -11,6 +17,22 @@ import type {
   ScheduledIncidentInput,
   Target,
 } from "../types";
+
+/** 사건 효과 해결 중 쌍둥이 범인을 대각선 반대 장소에 있는 것으로 취급한다. */
+export function incidentEffectCulpritLocation(
+  state: GameState,
+  culprit: IncidentCulprit | CharacterId,
+): Location {
+  const normalized = normalizeIncidentCulprit(culprit);
+  if (normalized.kind === "location") return normalized.at;
+  const actual = characterLocation(
+    state.loop.board[normalized.id],
+    normalized.id,
+  );
+  return effectiveRole(state, normalized.id) === "twin"
+    ? DIAGONAL[actual]
+    : actual;
+}
 
 export function normalizeIncidentCulprit(
   culprit: IncidentCulprit | CharacterId,
@@ -35,20 +57,15 @@ export function actualIncidentOf(
 export function normalizeIncidentSchedule(
   incidents: readonly ScheduledIncidentInput[],
 ): ScheduledIncident[] {
-  const occurrenceCounts = new Map<string, number>();
   return incidents.map((incident) => {
     const declaredIncident = declaredIncidentOf(incident);
     const actualIncident = actualIncidentOf(incident);
-    const key = `${incident.day}:${declaredIncident}`;
-    const occurrenceIndex = incident.occurrenceIndex ?? occurrenceCounts.get(key) ?? 0;
-    occurrenceCounts.set(key, occurrenceIndex + 1);
     return {
       day: incident.day,
       incident: declaredIncident,
       declaredIncident,
       actualIncident,
       culprit: normalizeIncidentCulprit(incident.culprit),
-      occurrenceIndex,
     };
   });
 }
@@ -56,11 +73,11 @@ export function normalizeIncidentSchedule(
 export function incidentOccurrenceId(
   incident: Pick<
     ScheduledIncidentInput,
-    "day" | "incident" | "declaredIncident" | "occurrenceIndex"
+    "day" | "incident" | "declaredIncident"
   >,
 ): string {
   const declaredIncident = incident.declaredIncident ?? incident.incident;
-  return `${incident.day}:${declaredIncident}:${incident.occurrenceIndex ?? 0}`;
+  return `${incident.day}:${declaredIncident}`;
 }
 
 export function characterCulprit(

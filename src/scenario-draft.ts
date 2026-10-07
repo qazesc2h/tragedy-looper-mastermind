@@ -51,7 +51,6 @@ export interface ScenarioDraftIncidentRow {
   incident?: IncidentId;
   declaredIncident?: IncidentId;
   actualIncident?: IncidentId;
-  occurrenceIndex?: number;
   culprit?: IncidentCulprit;
 }
 
@@ -729,14 +728,12 @@ function finalizedScenario(draft: ScenarioDraft): Scenario {
       incident,
       declaredIncident,
       actualIncident,
-      occurrenceIndex,
       culprit,
     }) => ({
       day: day!,
       incident: incident!,
       ...(declaredIncident === undefined ? {} : { declaredIncident }),
       ...(actualIncident === undefined ? {} : { actualIncident }),
-      ...(occurrenceIndex === undefined ? {} : { occurrenceIndex }),
       culprit: culprit!,
     }))),
     loops: (draft.difficultySets?.[0]?.numberOfLoops ?? draft.loops)!,

@@ -73,9 +73,7 @@ function currentPhaseBlockers(state: GameState): string[] {
     }
     case "P4_RESOLVE": {
       if (state.loop.actionResolutionComplete) {
-        return sacredTreeLeaderChoiceRequired(state)
-          ? ["신수 리더 카운터 이전 선택 필요"]
-          : [];
+        return [];
       }
       const reasons: string[] = [];
       if (state.loop.placed.length !== 6) {
@@ -89,6 +87,10 @@ function currentPhaseBlockers(state: GameState): string[] {
     case "P5_MASTERMIND_ABILITY":
       return sacredTreeMastermindChoiceRequired(state)
         ? ["신수 각본가 카운터 이전 선택 필요"]
+        : [];
+    case "P6_GOODWILL":
+      return sacredTreeLeaderChoiceRequired(state)
+        ? ["신수 리더 카운터 이전 선택 필요"]
         : [];
     default:
       return [];

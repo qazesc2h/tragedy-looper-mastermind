@@ -408,7 +408,7 @@ function roundEndNeedsAttention(state: GameState): boolean {
 
 function advanceRoundOnce(
   state: GameState,
-  incidentChoice?: IncidentChoiceInput | readonly IncidentChoiceInput[],
+  incidentChoice?: IncidentChoiceInput,
   deferSettlement = false,
   mandatoryHookTargets: Readonly<Record<string, Target | undefined>> = {},
 ): ResolvedIncidentBatch | undefined {
@@ -417,8 +417,8 @@ function advanceRoundOnce(
   const day = state.loop.day;
   const leader = state.loop.leader;
   const scheduled = phase === "P7_INCIDENT"
-    ? state.scenario.incidents.filter((incident) => incident.day === day)
-    : [];
+    ? state.scenario.incidents.find((incident) => incident.day === day)
+    : undefined;
 
   const result = advance(state, incidentChoice, mandatoryHookTargets);
 
@@ -455,7 +455,7 @@ function advanceRoundOnce(
       recordPhaseLog(state, { loop, day, phase, kind: "goodwillSkipped" });
     }
   } else if (phase === "P7_INCIDENT") {
-    if (scheduled.length === 0) {
+    if (scheduled === undefined) {
       recordPhaseLog(state, {
         loop,
         day,
@@ -470,7 +470,6 @@ function advanceRoundOnce(
           phase,
           kind: "incidentJudged",
           occurrenceId: occurrence.occurrenceId,
-          occurrenceIndex: occurrence.occurrenceIndex,
           declaredIncident: occurrence.declaredIncident,
           actualIncident: occurrence.actualIncident,
           culprit: occurrence.culprit,
@@ -576,7 +575,7 @@ export function advanceAutomaticRoundPhases(
 /** 기존 9단계 advance 뒤 자동 통과 가능한 후속 단계를 함께 실행한다. */
 export function advanceGame(
   state: GameState,
-  incidentChoice?: IncidentChoiceInput | readonly IncidentChoiceInput[],
+  incidentChoice?: IncidentChoiceInput,
   options: {
     deferSettlement?: boolean;
     mandatoryHookTargets?: Readonly<Record<string, Target | undefined>>;

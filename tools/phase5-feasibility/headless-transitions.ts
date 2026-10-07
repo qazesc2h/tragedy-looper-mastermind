@@ -488,8 +488,7 @@ function* goodwillChoiceDeclarations(
         }
         const scheduled = state.scenario.incidents.find((candidate) =>
           candidate.day === incident.day &&
-          candidate.incident === incident.incident &&
-          (candidate.occurrenceIndex ?? 0) === (incident.occurrenceIndex ?? 0)
+          candidate.incident === incident.incident
         );
         const fields = aiIncidentChoiceFields(
           scheduled === undefined

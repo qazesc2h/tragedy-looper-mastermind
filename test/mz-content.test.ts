@@ -77,14 +77,25 @@ function stateFor(value: Scenario): GameState {
 }
 
 describe("Midnight Zone official scripts", () => {
-  it("validates all four scripts and all eight difficulty variants", () => {
+  it("preserves all four scripts but rejects the conflicting Romance Antithesis schedule", () => {
     const entries = loadScenarioCatalog().filter(({ id }) =>
       id.startsWith("midnightZone:")
     );
     expect(entries).toHaveLength(4);
     expect(entries.flatMap(({ difficulties }) => difficulties)).toHaveLength(8);
-    expect(() => assertOfficialScenariosValid(entries)).not.toThrow();
-    for (const entry of entries) {
+    const romance = entries.find(({ id }) => id === "midnightZone:4");
+    if (romance === undefined) throw new Error("missing Romance Antithesis");
+    expect(romance.difficulties.every(({ validation }) =>
+      validation.diagnostics.some(({ code }) =>
+        code === "INCIDENT_DAY_DUPLICATED"
+      )
+    )).toBe(true);
+
+    const unambiguousEntries = entries.filter(({ id }) =>
+      id !== "midnightZone:4"
+    );
+    expect(() => assertOfficialScenariosValid(unambiguousEntries)).not.toThrow();
+    for (const entry of unambiguousEntries) {
       for (const difficulty of entry.difficulties) {
         const game = createGameState(difficulty.scenario);
         chooseInitialLeader(game, 0);
@@ -97,39 +108,29 @@ describe("Midnight Zone official scripts", () => {
     }
   });
 
-  it("keeps Romance Antithesis day 4 occurrences in authored order", () => {
+  it("does not guess which conflicting day-4 Romance Antithesis row is wrong", () => {
     const entry = loadScenarioCatalog().find(({ id }) =>
       id === "midnightZone:4"
     );
     if (entry === undefined) throw new Error("missing Romance Antithesis");
-    const game = createGameState(entry.scenario);
-    game.gamePhase = "ROUND";
-    game.loop.day = 4;
-    game.loop.phase = "P7_INCIDENT";
-    game.loop.charCounters.officeWorker.paranoia = 3;
-    game.loop.charCounters.girlStudent.paranoia = 2;
-
-    const result = advanceGame(game, [
-      { roleClaim: "ninja" },
-      { target: "boyStudent", otherTarget: "richStudent" },
-    ]);
-
-    expect(result?.occurrences.map(({ actualIncident }) => actualIncident))
-      .toEqual(["confession", "increasingUnease"]);
-    expect(game.loop.publicInformationThisLoop).toContainEqual(
-      expect.objectContaining({
-        kind: "roleClaim",
-        character: "officeWorker",
-        claimedRole: "ninja",
-      }),
-    );
-    expect(game.loop.charCounters.boyStudent.paranoia).toBe(2);
-    expect(game.loop.charCounters.richStudent.intrigue).toBe(1);
+    expect(entry.scenario.incidents.filter(({ day }) => day === 4))
+      .toMatchObject([
+        {
+          incident: "confession",
+          culprit: { kind: "character", id: "officeWorker" },
+        },
+        {
+          incident: "increasingUnease",
+          culprit: { kind: "character", id: "girlStudent" },
+        },
+      ]);
   });
 
   it("generates guidance A through E for every MZ difficulty", () => {
     const difficulties = loadScenarioCatalog()
-      .filter(({ id }) => id.startsWith("midnightZone:"))
+      .filter(({ id }) =>
+        id.startsWith("midnightZone:") && id !== "midnightZone:4"
+      )
       .flatMap(({ difficulties }) => difficulties);
     for (const { scenario: officialScenario } of difficulties) {
       const game = createGameState(officialScenario);
@@ -452,7 +453,6 @@ describe("MZ incidents", () => {
         loop: 1,
         day: incident.day,
         incident: incident.incident,
-        occurrenceIndex: 0,
         culprit: { kind: "character" as const, id: "boyStudent" },
       })),
     );

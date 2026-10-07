@@ -12,6 +12,7 @@ import { isIncidentSelectableCounter } from "../counters";
 import {
   incidentCharacterDecision,
   incidentCounterDecision,
+  incidentEffectCulpritLocation,
   incidentLocationDecision,
   incidentRoleDecision,
   incidentTypeDecision,
@@ -145,8 +146,7 @@ export const INCIDENT_IMPL: Record<string, {
           culprit: IncidentCulprit | CharacterId,
           choice?: IncidentChoiceInput,
         ) => {
-          const character = requiredCharacterCulprit(culprit);
-          const location = characterLocation(s.loop.board[character], character);
+          const location = incidentEffectCulpritLocation(s, culprit);
           const target = selectedCharacter(
             livingCharacters(s).filter(
               (character) =>
@@ -338,7 +338,7 @@ export const INCIDENT_IMPL: Record<string, {
           choice?: IncidentChoiceInput,
         ) => {
           const character = requiredCharacterCulprit(culprit);
-          const location = characterLocation(s.loop.board[character], character);
+          const location = incidentEffectCulpritLocation(s, culprit);
           const target = selectedCharacter(
             livingCharacters(s).filter(
               (character) =>
@@ -429,7 +429,7 @@ export const INCIDENT_IMPL: Record<string, {
           choice?: IncidentChoiceInput,
         ) => {
           const character = requiredCharacterCulprit(culprit);
-          const location = characterLocation(s.loop.board[character], character);
+          const location = incidentEffectCulpritLocation(s, culprit);
           const target = selectedCharacter(
             livingCharacters(s).filter((candidate) =>
               candidate !== character &&
