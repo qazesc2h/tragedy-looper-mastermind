@@ -110,6 +110,43 @@ const MIDNIGHT_ZONE: TragedySetDefinition = {
   hasFinalGuess: true,
 };
 
+const MYSTERY_CIRCLE: TragedySetDefinition = {
+  id: "mysteryCircle",
+  name: "Mystery Circle",
+  numberOfMainPlots: 1,
+  numberOfSubPlots: 2,
+  mainPlots: [
+    "murderPlan",
+    "tightropePlan",
+    "dropStrychnine",
+    "quiltIncidents",
+    "blackSchool",
+  ],
+  subPlots: [
+    "hiddenFreak",
+    "danceFools",
+    "isolatedInstitutionPsycho",
+    "anAbsoluteWill",
+    "trickyTwins",
+    "smellGunpowder",
+    "masterDetective",
+  ],
+  incidents: [
+    "serialMurder",
+    "hospitalIncident",
+    "portent",
+    "increasingUnease",
+    "terrorism",
+    "bestialMurder",
+    "suicide",
+    "suspiciousLetter",
+    "fakedSuicide",
+    "closedCircle",
+    "silverBullet",
+  ],
+  hasFinalGuess: true,
+};
+
 export const TRAGEDY_SETS: Readonly<Record<string, TragedySetDefinition>> = {
   ...Object.fromEntries(
     Object.entries(tragedySetsJson as Record<string, unknown>).map(
@@ -117,6 +154,7 @@ export const TRAGEDY_SETS: Readonly<Record<string, TragedySetDefinition>> = {
     ),
   ),
   midnightZone: MIDNIGHT_ZONE,
+  mysteryCircle: MYSTERY_CIRCLE,
 };
 
 export function tragedySetDefinition(id: string): TragedySetDefinition {

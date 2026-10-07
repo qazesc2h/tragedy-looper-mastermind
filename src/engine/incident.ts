@@ -65,13 +65,16 @@ export interface ResolvedIncidentBatch extends IncidentResolutionResult {
 export function incidentParanoia(
   state: GameState,
   culprit: CharacterId,
+  incident = "",
 ): number {
   const counters = state.loop.charCounters[culprit];
   if (!counters) {
     throw new Error(`incident culprit "${culprit}" has no counters`);
   }
-  if (culprit !== "ai") return counters.paranoia;
-  return totalCharacterCounters(counters);
+  if (culprit === "ai") return totalCharacterCounters(counters);
+  const strychnineApplies = state.scenario.mainPlot === "dropStrychnine" &&
+    (incident === "serialMurder" || incident === "suicide");
+  return counters.paranoia + (strychnineApplies ? counters.intrigue : 0);
 }
 
 /** 예정 사건이 발생하지 않는 이유를 각본가 화면에 표시한다. */
@@ -120,7 +123,7 @@ export function incidentFailureReasons(
       !obstinate &&
       !privateInvestigator &&
       policy.kind === "characterParanoia" &&
-      incidentParanoia(state, character) <
+      incidentParanoia(state, character, incident) <
         characterDataOf(character).paranoiaLimit +
           policy.paranoiaLimitAdjustment +
           worshippersParanoiaAdjustment(state, character)

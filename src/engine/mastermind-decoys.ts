@@ -147,6 +147,31 @@ export const PLOT_OBSERVATION_PROFILES: Readonly<
   isolatedInstitutionPsycho: [
     { type: "isolatedGaugeCondition", label: "직전 루프 게이지를 읽는 루프 시작 조건" },
   ],
+  dropStrychnine: [
+    { type: "incidentThresholdByIntrigue", label: "연쇄 살인·자살 판정 때 음모를 불안으로 합산" },
+  ],
+  blackSchool: [
+    { type: "loopScaledLocationIntrigueLoss", label: "루프 수에 따라 변하는 학교 음모 패배 조건" },
+  ],
+  danceFools: [
+    { type: "incidentParanoiaReset", label: "사건 발생 뒤 범인의 불안을 전부 제거" },
+    { type: "friendDeath", label: "사망 뒤 루프 종료 때 역할 공개·패배" },
+  ],
+  anAbsoluteWill: [
+    { type: "forcedIncident", label: "불안과 관계없이 사건 강제 발생" },
+  ],
+  trickyTwins: [
+    { type: "virtualIncidentLocation", label: "사건 효과 처리 중 대각선 장소로 위치 판정" },
+    { type: "mastermindSelfCounter", label: "각본가 능력으로 자신에게 음모·불안 증가" },
+  ],
+  smellGunpowder: [
+    { type: "totalLivingParanoiaLoss", label: "생존 캐릭터 불안 합계로 루프 종료 패배" },
+  ],
+  masterDetective: [
+    { type: "zeroGaugeIncident", label: "특수 게이지 0에서 같은 장소 사건 강제 발생" },
+    { type: "deathPrevention", label: "명탐정의 사망 무효" },
+    { type: "goodwillRefusal", label: "우호 능력 거부" },
+  ],
   murderPlan: [
     { type: "keyPersonDeath", label: "핵심 인물 사망으로 즉시 패배" },
     { type: "mastermindIntrigue", label: "각본가 능력으로 음모 증가" },

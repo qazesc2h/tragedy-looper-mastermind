@@ -315,6 +315,62 @@ function plotLossDistance(
       });
     }
 
+    case "blackSchool": {
+      // SOURCE: src/impl/plots.ts blackSchool 훅의 source 참조
+      const current = state.loop.locIntrigue.School;
+      // X는 현재 루프 수보다 1 작고 조건은 X보다 많음이므로 필요한 수는 현재 루프 수다.
+      const needed = state.loop.loop;
+      return distance({
+        id: plot,
+        key: plotKey(plot),
+        source: "plot",
+        category: "plot",
+        timing: "loopEnd",
+        activation: "mandatory",
+        when: "루프 종료",
+        plot,
+        ko: impl.ko,
+        label: `학교 음모 ${current}/${needed}`,
+        requirements: [requirement(
+          "schoolIntrigueByLoop",
+          "학교 음모",
+          current,
+          needed,
+          `학교 음모 ${current}/${needed}`,
+        )],
+      });
+    }
+
+    case "smellGunpowder": {
+      // SOURCE: src/impl/plots.ts smellGunpowder 훅의 source 참조
+      const current = Object.entries(state.loop.board).reduce(
+        (sum, [character, position]) =>
+          sum + (isCharacterAlive(position)
+            ? state.loop.charCounters[character].paranoia
+            : 0),
+        0,
+      );
+      return distance({
+        id: plot,
+        key: plotKey(plot),
+        source: "plot",
+        category: "plot",
+        timing: "loopEnd",
+        activation: "mandatory",
+        when: "루프 종료",
+        plot,
+        ko: impl.ko,
+        label: `생존 캐릭터 불안 합계 ${current}/12`,
+        requirements: [requirement(
+          "remainingCharacterParanoia",
+          "생존 캐릭터 불안 합계",
+          current,
+          12,
+          `생존 캐릭터 불안 합계 ${current}/12`,
+        )],
+      });
+    }
+
     case "lightAvenger": {
       // SOURCE: src/impl/plots.ts lightAvenger 훅의 source 참조
       const placeX = resolvePlaceX(state);
@@ -792,7 +848,11 @@ function incidentCommonRequirements(
   const culprit = characterCulprit(scheduled.culprit);
   if (culprit === undefined) return [];
   const culpritPosition = state.loop.board[culprit];
-  const paranoia = incidentParanoia(state, culprit);
+  const paranoia = incidentParanoia(
+    state,
+    culprit,
+    actualIncidentOf(scheduled),
+  );
   const paranoiaNeeded = characterDataOf(culprit).paranoiaLimit;
   const suppressed = state.loop.incidentCulpritSuppressedFor?.includes(
     culprit,
@@ -1295,7 +1355,11 @@ function incidentLossDistance(
   const culpritPosition = state.loop.board[culprit];
   const paranoiaNeeded = characterDataOf(culprit).paranoiaLimit;
   const alive = isCharacterAlive(culpritPosition) ? 1 : 0;
-  const paranoia = incidentParanoia(state, culprit);
+  const paranoia = incidentParanoia(
+    state,
+    culprit,
+    actualIncident,
+  );
   const paranoiaLabel = culprit === "ai"
     ? "범인 판정 불안"
     : "범인 불안";

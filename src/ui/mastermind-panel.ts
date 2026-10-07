@@ -458,7 +458,7 @@ export function incidentScheduleRows(
       const culprit = characterCulprit(scheduled.culprit);
       const paranoia = culprit === undefined
         ? 0
-        : incidentParanoia(state, culprit);
+        : incidentParanoia(state, culprit, scheduled.actualIncident);
       const paranoiaLimit = culprit === undefined
         ? 0
         : characterDataOf(culprit).paranoiaLimit;

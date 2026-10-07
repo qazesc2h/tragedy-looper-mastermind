@@ -232,6 +232,22 @@ export const PLOT_IMPL: Record<string, {
       effect: () => {},
     }],
   },
+  // ── 스트리크닌 한 방울 (A Drop of Strychnine)
+  dropStrychnine: {
+    ko: "스트리크닌 한 방울",
+    addsRoles: {"keyPerson": 1, "poisoner": 1, "fool": 1},
+    hooks: [{
+      phase: "P7_INCIDENT",
+      kind: "mandatory",
+      source: {
+        timing: "Incident step",
+        description: `When determining whether ":serialMurde:," or ":suicide:" triggers, count :intrigue: counters also as :paranoia: counters.`,
+      },
+      // IMPLEMENTED_ELSEWHERE: src/engine/incident.ts incidentParanoia()
+      when: () => false,
+      effect: () => {},
+    }],
+  },
   // ── 누벼 엮은 사건 퀼트 (A Quilt of Incidents)
   quiltIncidents: {
     ko: "누벼 엮은 사건 퀼트",
@@ -247,6 +263,28 @@ export const PLOT_IMPL: Record<string, {
       when: () => false,
       effect: () => {},
     }],
+  },
+  // ── 검은 학교 (The Black School)
+  blackSchool: {
+    ko: "검은 학교",
+    addsRoles: {"brain": 1},
+    hooks: [{
+      phase: "LOOP_END",
+      kind: "lossTragedy",
+      source: {
+        timing: "Loop End",
+        prerequisite: `There are more than X :intrigue: counters on the School, X is 1 less than the current loop number.`,
+      },
+      // IMPLEMENTED_ELSEWHERE: src/engine/loss.ts evaluateLoss()
+      when: () => false,
+      effect: () => {},
+    }],
+  },
+  // ── 어리석은 자의 춤 (Dance of Fools)
+  danceFools: {
+    ko: "어리석은 자의 춤",
+    addsRoles: {"friend": 1, "fool": 1},
+    hooks: [],
   },
   // ── 격리 병동 사이코 (Isolated Institution Psycho)
   isolatedInstitutionPsycho: {
@@ -269,6 +307,40 @@ export const PLOT_IMPL: Record<string, {
         adjustSpecialGauge(s.loop.specialGauge, 1);
       },
     }],
+  },
+  // ── 절대적인 의지 (An Absolute Will)
+  anAbsoluteWill: {
+    ko: "절대적인 의지",
+    addsRoles: {"obstinate": 1},
+    hooks: [],
+  },
+  // ── 쌍둥이 트릭 (Tricky Twins)
+  trickyTwins: {
+    ko: "쌍둥이 트릭",
+    addsRoles: {"twin": 1, "paranoiac": 1},
+    hooks: [],
+  },
+  // ── 화약의 향기 (Smell of Gunpowder)
+  smellGunpowder: {
+    ko: "화약의 향기",
+    addsRoles: {"serialKiller": 1},
+    hooks: [{
+      phase: "LOOP_END",
+      kind: "lossTragedy",
+      source: {
+        timing: "Loop End",
+        prerequisite: `There are a total of 12 or more :paranoia: counters on the remaining charactrs.`,
+      },
+      // IMPLEMENTED_ELSEWHERE: src/engine/loss.ts evaluateLoss()
+      when: () => false,
+      effect: () => {},
+    }],
+  },
+  // ── 나는 명탐정 (I am a Master Detective)
+  masterDetective: {
+    ko: "나는 명탐정",
+    addsRoles: {"conspiracyTheorist": 1, "friend": 1, "privateInvestigator": 1},
+    hooks: [],
   },
   // ── 나와 계약하자! (Sign with me!)
   signWithMe: {
