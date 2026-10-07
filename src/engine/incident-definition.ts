@@ -87,12 +87,26 @@ const INCIDENT_DEFINITION_OVERRIDES: Readonly<
   increasingUnease: {
     choiceSchema: [CHARACTER("target"), CHARACTER("otherTarget")],
   },
+  portent: {
+    triggerPolicy: {
+      kind: "characterParanoia",
+      requiresAlive: true,
+      paranoiaLimitAdjustment: -1,
+    },
+    choiceSchema: [CHARACTER("target")],
+  },
+  terrorism: {},
   missingPerson: { choiceSchema: [{ kind: "location", key: "location" }] },
   murder: { choiceSchema: [CHARACTER("target")] },
   spreading: {
     choiceSchema: [CHARACTER("target"), CHARACTER("otherTarget")],
   },
   bestialMurder: {
+    triggerPolicy: {
+      kind: "characterParanoia",
+      requiresAlive: true,
+      paranoiaLimitAdjustment: 1,
+    },
     additionalSpecialGaugeIncrease: 1,
   },
   silverBullet: {

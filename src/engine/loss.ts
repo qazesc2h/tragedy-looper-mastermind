@@ -28,6 +28,7 @@ import {
 import { servantDeathReplacement } from "./servant";
 import { requestLoopEnd } from "./flow";
 import { incidentFires, incidentParanoia } from "./incident";
+import { incidentDefinition } from "./incident-definition";
 import { claimedRoleWasRevealed } from "./role-reveal";
 import {
   actualIncidentOf,
@@ -853,7 +854,12 @@ function incidentCommonRequirements(
     culprit,
     actualIncidentOf(scheduled),
   );
-  const paranoiaNeeded = characterDataOf(culprit).paranoiaLimit;
+  const triggerPolicy = incidentDefinition(actualIncidentOf(scheduled))
+    .triggerPolicy;
+  const paranoiaNeeded = characterDataOf(culprit).paranoiaLimit +
+    (triggerPolicy.kind === "characterParanoia"
+      ? triggerPolicy.paranoiaLimitAdjustment
+      : 0);
   const suppressed = state.loop.incidentCulpritSuppressedFor?.includes(
     culprit,
   ) ?? false;
@@ -996,6 +1002,37 @@ function incidentDeathRoutes(
               atHospital,
               "대상이 병원에 있음",
               "대상이 병원 밖에 있음",
+            ),
+            ...targetCanDieRequirements(state, target),
+          ],
+          base.daysUntil,
+        )];
+      }
+      case "terrorism": {
+        const atCity = targetAlive &&
+          characterLocation(targetPosition, target) === "City";
+        const cityIntrigue = state.loop.locIntrigue.City;
+        return [route(
+          `death:incident:terrorism:${scheduled.day}:${target}`,
+          `${incidentLabel} · 도심 전원 사망`,
+          "automatic",
+          base.when,
+          base.available,
+          [
+            ...common,
+            requirement(
+              "cityIntrigueForDeath",
+              "도심 음모",
+              cityIntrigue,
+              1,
+              `도심 음모 ${cityIntrigue}/1`,
+            ),
+            booleanRequirement(
+              "targetAtCity",
+              "대상이 도심에 있음",
+              atCity,
+              "대상이 도심에 있음",
+              "대상이 도심 밖에 있음",
             ),
             ...targetCanDieRequirements(state, target),
           ],
@@ -1344,7 +1381,11 @@ function incidentLossDistance(
   if (!lossHook) {
     return [];
   }
-  if (actualIncident !== "hospitalIncident" && actualIncident !== "fakeIncident") {
+  if (
+    actualIncident !== "hospitalIncident" &&
+    actualIncident !== "terrorism" &&
+    actualIncident !== "fakeIncident"
+  ) {
     throw new Error(
       `loss distance is not implemented for incident "${actualIncident}"`,
     );
@@ -1353,7 +1394,11 @@ function incidentLossDistance(
   const culprit = characterCulprit(scheduled.culprit);
   if (culprit === undefined) return [];
   const culpritPosition = state.loop.board[culprit];
-  const paranoiaNeeded = characterDataOf(culprit).paranoiaLimit;
+  const triggerPolicy = incidentDefinition(actualIncident).triggerPolicy;
+  const paranoiaNeeded = characterDataOf(culprit).paranoiaLimit +
+    (triggerPolicy.kind === "characterParanoia"
+      ? triggerPolicy.paranoiaLimitAdjustment
+      : 0);
   const alive = isCharacterAlive(culpritPosition) ? 1 : 0;
   const paranoia = incidentParanoia(
     state,
@@ -1372,6 +1417,8 @@ function incidentLossDistance(
     : startLocationOf(culprit, state.scenario);
   const targetLocations: readonly Location[] = actualIncident === "fakeIncident"
     ? configuredStart === undefined ? LOCATIONS : [configuredStart]
+    : actualIncident === "terrorism"
+    ? ["City"]
     : ["Hospital"];
   const startLocationKnown = actualIncident !== "fakeIncident" ||
     configuredStart !== undefined;
@@ -1409,6 +1456,8 @@ function incidentLossDistance(
         requirement(
           actualIncident === "fakeIncident"
             ? "culpritStartIntrigue"
+            : actualIncident === "terrorism"
+            ? "cityIntrigue"
             : "hospitalIntrigue",
           `${locationLabel} 음모`,
           targetIntrigue,

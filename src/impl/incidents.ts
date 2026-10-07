@@ -34,6 +34,7 @@ import type {
 import { placeExtraCard } from "../engine/extra-cards";
 import { recordPublicInformation } from "../engine/public-information";
 import { resolveRoleReveal } from "../engine/role-reveal";
+import { requestLoopEnd } from "../engine/flow";
 
 function requiredCharacterCulprit(
   culprit: IncidentCulprit | CharacterId,
@@ -443,6 +444,75 @@ export const INCIDENT_IMPL: Record<string, {
       },
     ],
   },
+  // ── 전조 (Portent)
+  portent: {
+    ko: "전조",
+    hooks: [
+      {
+        phase: "ALWAYS",
+        kind: "mandatory",
+        source: {
+          timing: "Always",
+          description: `[When determning wether this Incident triggers or not, treat the culprit’s :paranoia: limit ats 1 less then its printed limit] Put 1 :paranoia: counter on any character in the culprit’s location.`,
+        },
+        when: () => true,
+        effect: (
+          s: GameState,
+          culprit: IncidentCulprit | CharacterId,
+          choice?: IncidentChoiceInput,
+        ) => {
+          const location = incidentEffectCulpritLocation(s, culprit);
+          const target = selectedCharacter(
+            livingCharacters(s).filter((candidate) =>
+              characterLocation(s.loop.board[candidate], candidate) === location
+            ),
+            incidentCharacterDecision(choice, "target"),
+            "portent",
+          );
+          if (target === undefined) return false;
+          s.loop.charCounters[target].paranoia += 1;
+          return true;
+        },
+      },
+    ],
+  },
+  // ── 테러리즘 (Terrorism)
+  terrorism: {
+    ko: "테러리즘",
+    hooks: [
+      {
+        phase: "ALWAYS",
+        kind: "mandatory",
+        source: {
+          timing: "Always",
+          prerequisite: `1 :intrigue: on the City`,
+          description: `Everyone in the City dies.`,
+        },
+        when: (s: GameState) => s.loop.locIntrigue.City >= 1,
+        effect: (s: GameState) => {
+          let applied = false;
+          for (const character of livingCharacters(s)) {
+            if (
+              characterLocation(s.loop.board[character], character) === "City"
+            ) {
+              applied = killEffectApplied(s, character) || applied;
+            }
+          }
+          return applied;
+        },
+      },
+      {
+        phase: "ALWAYS",
+        kind: "lossDeath",
+        source: {
+          timing: "Always",
+          prerequisite: `2 :intrigue: on the City`,
+        },
+        when: (s: GameState) => s.loop.locIntrigue.City >= 2,
+        effect: (s: GameState) => attemptProtagonistDeath(s).died,
+      },
+    ],
+  },
   // ── 음모 공작 (Conspiracies)
   conspiracies: {
     ko: "음모 공작",
@@ -635,6 +705,25 @@ export const INCIDENT_IMPL: Record<string, {
             claimedRole,
             "P7_INCIDENT",
           );
+        },
+      },
+    ],
+  },
+  // ── 은 총탄 (The Silver Bullet)
+  silverBullet: {
+    ko: "은 총탄",
+    hooks: [
+      {
+        phase: "ALWAYS",
+        kind: "mandatory",
+        source: {
+          timing: "Always",
+          description: `The loop ends after this Incident step (resulting in a Protagonist victory unless any loss condition is fullifilled). This Incident dose not increase the Extra Gauge.`,
+        },
+        when: () => true,
+        effect: (s: GameState) => {
+          requestLoopEnd(s, "effect");
+          return true;
         },
       },
     ],

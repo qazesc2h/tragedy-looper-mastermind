@@ -335,6 +335,7 @@ const INCIDENT_CHOICE_FIELDS: Record<string, readonly string[]> = {
   missingPerson: ["location"],
   murder: ["target"],
   serialMurder: ["target"],
+  portent: ["target"],
   conspiracies: ["incident", "target", "location"],
   breakthrough: ["target", "location"],
   confession: ["roleClaim"],
