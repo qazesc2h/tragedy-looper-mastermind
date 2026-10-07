@@ -24,7 +24,7 @@ export type IncidentChoiceSchemaEntry =
   | { kind: "role"; key: "roleClaim" }
   | {
     kind: "subIncident";
-    key: "secondResolution";
+    key: "secondResolution" | "serialMurder" | "increasingUnease";
     schema: readonly IncidentChoiceSchemaEntry[];
   };
 
@@ -107,6 +107,18 @@ const INCIDENT_DEFINITION_OVERRIDES: Readonly<
       requiresAlive: true,
       paranoiaLimitAdjustment: 1,
     },
+    choiceSchema: [
+      {
+        kind: "subIncident",
+        key: "serialMurder",
+        schema: [CHARACTER("target")],
+      },
+      {
+        kind: "subIncident",
+        key: "increasingUnease",
+        schema: [CHARACTER("target"), CHARACTER("otherTarget")],
+      },
+    ],
     additionalSpecialGaugeIncrease: 1,
   },
   silverBullet: {

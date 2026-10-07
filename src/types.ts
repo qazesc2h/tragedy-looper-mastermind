@@ -333,7 +333,11 @@ export type IncidentDecision =
   | { kind: "counter"; key: "counter"; counter: IncidentCounter }
   | { kind: "incident"; key: "incident"; incident: IncidentId }
   | { kind: "role"; key: "roleClaim"; role: RoleId }
-  | { kind: "subIncident"; key: "secondResolution"; decisions: IncidentDecision[] };
+  | {
+    kind: "subIncident";
+    key: "secondResolution" | "serialMurder" | "increasingUnease";
+    decisions: IncidentDecision[];
+  };
 
 /** 사건 효과 하나에 필요한 결정을 순서와 종류를 보존해 전달한다. */
 export interface IncidentChoice {

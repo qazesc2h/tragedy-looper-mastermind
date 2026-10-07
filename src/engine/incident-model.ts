@@ -198,11 +198,13 @@ export function incidentCounterDecision(
 
 export function incidentSubIncidentDecision(
   choiceInput: IncidentChoiceInput | undefined,
+  key: Extract<IncidentDecision, { kind: "subIncident" }>["key"] =
+    "secondResolution",
 ): IncidentChoice | undefined {
   const choice = normalizeIncidentChoice(choiceInput);
   const nested = choice?.decisions.find(
     (decision): decision is Extract<IncidentDecision, { kind: "subIncident" }> =>
-      decision.kind === "subIncident" && decision.key === "secondResolution",
+      decision.kind === "subIncident" && decision.key === key,
   );
   return nested === undefined ? undefined : { decisions: nested.decisions };
 }

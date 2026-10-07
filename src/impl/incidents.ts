@@ -15,6 +15,7 @@ import {
   incidentEffectCulpritLocation,
   incidentLocationDecision,
   incidentRoleDecision,
+  incidentSubIncidentDecision,
   incidentTypeDecision,
 } from "../engine/incident-model";
 import {
@@ -510,6 +511,47 @@ export const INCIDENT_IMPL: Record<string, {
         },
         when: (s: GameState) => s.loop.locIntrigue.City >= 2,
         effect: (s: GameState) => attemptProtagonistDeath(s).died,
+      },
+    ],
+  },
+  // ── 엽기 살인 (Bestial Murder)
+  bestialMurder: {
+    ko: "엽기 살인",
+    hooks: [
+      {
+        phase: "ALWAYS",
+        kind: "mandatory",
+        source: {
+          timing: "Always",
+          description: `[When determinig wether this Incident triggers or not, treat the culprit’s :paranoia: limit as 1 more than its printed limit.] Resolve ":sserialMurder:" and ":increasingUnease:" in that order. Then increase the Extra Gauge by 1 more step.`,
+        },
+        when: () => true,
+        effect: (
+          s: GameState,
+          culprit: IncidentCulprit | CharacterId,
+          choice?: IncidentChoiceInput,
+        ) => {
+          const serialChoice = incidentSubIncidentDecision(
+            choice,
+            "serialMurder",
+          );
+          const uneaseChoice = incidentSubIncidentDecision(
+            choice,
+            "increasingUnease",
+          );
+          let applied = false;
+          for (const hook of INCIDENT_IMPL.serialMurder.hooks) {
+            if (hook.when(s, culprit)) {
+              applied = hook.effect(s, culprit, serialChoice) || applied;
+            }
+          }
+          for (const hook of INCIDENT_IMPL.increasingUnease.hooks) {
+            if (hook.when(s, culprit)) {
+              applied = hook.effect(s, culprit, uneaseChoice) || applied;
+            }
+          }
+          return applied;
+        },
       },
     ],
   },

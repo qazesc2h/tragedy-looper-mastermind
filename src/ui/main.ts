@@ -336,6 +336,7 @@ const INCIDENT_CHOICE_FIELDS: Record<string, readonly string[]> = {
   murder: ["target"],
   serialMurder: ["target"],
   portent: ["target"],
+  bestialMurder: ["bestialMurder"],
   conspiracies: ["incident", "target", "location"],
   breakthrough: ["target", "location"],
   confession: ["roleClaim"],
@@ -3844,7 +3845,28 @@ function renderIncidentChoice(
       </select>
     </label>`;
   };
+  const bestialResolutionFields = (resolution: number) => `
+    <strong>${escapeHtml(incidentName("serialMurder"))}</strong>
+    ${characterSelect(
+      "serialMurderTarget",
+      misc("Target", "Target"),
+      resolution,
+    )}
+    <strong>${escapeHtml(incidentName("increasingUnease"))}</strong>
+    ${characterSelect(
+      "increasingUneaseTarget",
+      misc("Target", "Target"),
+      resolution,
+    )}
+    ${characterSelect(
+      "increasingUneaseOtherTarget",
+      misc("Other target", "Other target"),
+      resolution,
+    )}`;
   const resolutionFields = (resolution: number) => {
+    if (incident === "bestialMurder") {
+      return bestialResolutionFields(resolution);
+    }
     const locationDraftKey = incidentDraftKey(
       "location",
       resolution,
@@ -6611,10 +6633,50 @@ function render(preserveInferenceCache = false): void {
 function incidentChoiceFromDraft(): IncidentChoice | undefined {
   const resolutionChoice = (
     resolution: number,
+    actualIncident: string,
   ): IncidentChoice | undefined => {
     const field = (name: string): string | undefined =>
       draftValue(incidentDraftKey(name, resolution)) ||
       undefined;
+    if (actualIncident === "bestialMurder") {
+      const serialTarget = field("serialMurderTarget");
+      const uneaseTarget = field("increasingUneaseTarget");
+      const uneaseOtherTarget = field("increasingUneaseOtherTarget");
+      if (!serialTarget && !uneaseTarget && !uneaseOtherTarget) {
+        return undefined;
+      }
+      const decisions: IncidentDecision[] = [];
+      if (serialTarget) {
+        decisions.push({
+          kind: "subIncident",
+          key: "serialMurder",
+          decisions: [{ kind: "character", key: "target", id: serialTarget }],
+        });
+      }
+      const uneaseDecisions: IncidentDecision[] = [];
+      if (uneaseTarget) {
+        uneaseDecisions.push({
+          kind: "character",
+          key: "target",
+          id: uneaseTarget,
+        });
+      }
+      if (uneaseOtherTarget) {
+        uneaseDecisions.push({
+          kind: "character",
+          key: "otherTarget",
+          id: uneaseOtherTarget,
+        });
+      }
+      if (uneaseDecisions.length > 0) {
+        decisions.push({
+          kind: "subIncident",
+          key: "increasingUnease",
+          decisions: uneaseDecisions,
+        });
+      }
+      return { decisions };
+    }
     const target = field("target");
     const otherTarget = field("otherTarget");
     const location = field("location");
@@ -6650,9 +6712,11 @@ function incidentChoiceFromDraft(): IncidentChoice | undefined {
     ({ day }) => day === currentState().loop.day,
   );
   if (scheduled === undefined) return undefined;
-  const first = resolutionChoice(1) ?? { decisions: [] };
+  const first = resolutionChoice(1, scheduled.actualIncident) ?? {
+    decisions: [],
+  };
   const second = characterCulprit(scheduled.culprit) === "sectFounder"
-    ? resolutionChoice(2)
+    ? resolutionChoice(2, scheduled.actualIncident)
     : undefined;
   if (second !== undefined) {
     first.decisions.push({

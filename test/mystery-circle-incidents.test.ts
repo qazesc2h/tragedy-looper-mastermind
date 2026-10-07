@@ -111,4 +111,68 @@ describe("Mystery Circle incidents without persistent movement effects", () => {
     });
     expect(state.pendingLoopEnd?.reason).toBe("effect");
   });
+
+  it("resolves Bestial Murder as one occurrence with two ordered effects and gauge +2", () => {
+    const state = stateFor("bestialMurder");
+    state.loop.charCounters.boyStudent.paranoia = 3;
+    setBoardLocation(state.loop, "boyStudent", "City");
+    setBoardLocation(state.loop, "girlStudent", "City");
+    setBoardLocation(state.loop, "officeWorker", "School");
+
+    expect(incidentFires(state, "boyStudent", "bestialMurder")).toBe(true);
+    state.loop.charCounters.boyStudent.paranoia = 2;
+    expect(incidentFires(state, "boyStudent", "bestialMurder")).toBe(false);
+    state.loop.charCounters.boyStudent.paranoia = 3;
+
+    const result = resolveIncident(state, {
+      decisions: [
+        {
+          kind: "subIncident",
+          key: "serialMurder",
+          decisions: [{
+            kind: "character",
+            key: "target",
+            id: "girlStudent",
+          }],
+        },
+        {
+          kind: "subIncident",
+          key: "increasingUnease",
+          decisions: [
+            { kind: "character", key: "target", id: "officeWorker" },
+            {
+              kind: "character",
+              key: "otherTarget",
+              id: "boyStudent",
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(result.occurrences).toHaveLength(1);
+    expect(result.occurrences[0]).toMatchObject({
+      occurrenceId: "1:bestialMurder",
+      declaredIncident: "bestialMurder",
+      fired: true,
+      effectApplied: true,
+      deaths: ["girlStudent"],
+    });
+    expect(state.loop.board.girlStudent.status).toBe("dead");
+    expect(state.loop.charCounters.officeWorker.paranoia).toBe(2);
+    expect(state.loop.charCounters.boyStudent.intrigue).toBe(1);
+    expect(state.loop.specialGauge?.value).toBe(2);
+    expect(state.loop.incidentsFiredThisLoop).toEqual(["bestialMurder"]);
+    expect(state.loop.incidentOccurrencesFiredThisLoop).toHaveLength(1);
+    expect(result.occurrences[0]?.publicChanges).toContainEqual({
+      kind: "specialGauge",
+      beforeValue: 0,
+      afterValue: 2,
+      delta: 2,
+      incident: {
+        declaredIncident: "bestialMurder",
+        occurrenceId: "1:bestialMurder",
+      },
+    });
+  });
 });
