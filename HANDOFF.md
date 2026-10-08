@@ -1826,9 +1826,9 @@ CM은 1A, PE는 1B·1C를 각각 사용하므로 합치지 않는다. Q14 전에
 
 | 단계 | 범위 | 핵심 산출물 |
 |---|---|---|
-| PE-1 | 시체 수·좀비 | 실제+익명 시체 합산, 이세계인 제거, `OnesFromGrave` 파생 좀비, 실제 시체 이동과 장소 음모 -1/+1, 기존 P9 다단계 선택 UI 재사용 |
+| PE-1 | 익명 시체·저주 기반 | 실제+익명 시체 합산, 이세계인 제거, 장소 시체 수 사건 판정, 1B 저주 상태, P9 진입 스냅샷·최우선 동시 사망·생존 대상 선택 UI |
 | PE-2 | 군중 사건 | 장소 범인 4종과 시체 수 발생 판정, 공식 각본 편집·장소 범인표·로그·가설 회귀 |
-| PE-3 | 저주·나머지 콘텐츠 | 1B의 캐릭터/장소 상태 전환, P9 최우선 처리, 생존 캐릭터 선택, `cursedLand` 선택 패배, 나머지 룰·역할·사건 |
+| PE-3 | 좀비·나머지 콘텐츠 | `OnesFromGrave` 파생 좀비, 실제·익명 좀비 이동 UI, `cursedLand` 선택 패배, 나머지 룰·역할·사건 |
 | PE-4 | 공식 각본·UI | 4편·8변형, 저장 migration, 패배 거리·정보 누출, 번역 폴백, 전체 UI·390×844 QA |
 | CM-1 | 게이지·주문 | 우호 거부와 역할/사건 증가, 학자 감소, 1~4 주문, 게임 지속/루프 증가 이력, 최후의 싸움 전환 |
 | CM-2 | 룰·역할 | 룰 Y/X 12종, `twistedTruth` 추가 룰 Y와 역할 정원, 얼굴 없는 자 능력 전환, 불사·패배 조건 |
@@ -3006,3 +3006,66 @@ UI 번역 데이터에 반영해야 한다.
 - 3·4·5루프에서 기준 구현과 역할표·룰 후보·사건 범인표를 대조했다. 실제 역할의
   과잉 배제는 0건이고 실제 룰 조합도 모두 유지됐다. 과거의 축별 관련성 판정은 전략
   탐색용 P4 응답 분류라 이 역할 원인 계약에는 재사용하지 않았다.
+
+## PE-1 — 익명 시체와 저주 기반
+
+### 원문과 구현 대응
+
+고정 upstream `a66d413`의 `data/cosmic-evil/tragedys.jsonc`에 있는 Prime Evil
+`Victims` 원문은 다음 두 문장이다.
+
+> `Every :inrigue: on locations counts as a corpse with the role :person:.`
+
+> `If such a corpse is revived by the power of the :alien:, it is simply removed from the board.`
+
+따라서 실제 캐릭터 시체는 기존 `LoopState.board`의 사망 카드로 세고, 그 수에 PE에서만
+장소 음모 수를 더한다. 예를 들어 한 장소에 죽은 캐릭터 1명과 음모 2개가 있으면 시체는
+**3구**다. `src/engine/corpses.ts`의 `corpseCountAt()`이 이 합을 계산하며,
+`locationCorpseCount` 사건 판정과 이세계인[우호5]의 장소 대상 해결이 같은 함수를
+기준으로 쓴다. 익명 시체 부활은 해당 장소의 음모를 1개 줄인다. 개별 시체 ID나
+`CorpseRef`는 만들지 않았다.
+
+같은 upstream의 `Curse cards` 원문 중 처리 시점과 동시성은 다음과 같다.
+
+> `At the end of Day, before everything else, each curse is handeld.`
+
+> `Characters with curses are killed (at the same time so a character that got a curse this step is not killed.) and the curse moves to the location.`
+
+Q15에서 사용자가 제공한 한국어 공식 원문에 따라 세부 순서는 **P9 진입 상태 고정 →
+기존 빙의 대상 동시 사망·장소 분리 → 진입 때 장소 상태였던 저주의 생존 캐릭터 빙의 →
+기존 P9 강제·선택 효과**다. upstream 영문에 있는 시체 부착 표현은 한국어판 판정과
+충돌하므로 채택하지 않았다. 대상은 기존 `AttachmentTarget`의 캐릭터/장소만 쓰며,
+장소 저주의 후보에는 살아 있는 캐릭터만 들어간다. 후보가 없으면 카드는 장소에 남는다.
+
+| 원문 조건 | 구현 경계 |
+|---|---|
+| `before everything else` | P8→P9 전환 때 `roundEndCurseResolution`을 고정하고 `recordRoundEndPairs()`·일반 P9 훅 전에 해결 |
+| `at the same time` | 진입 때 살아 있던 모든 빙의 대상을 먼저 모은 뒤 하나의 `withDeathBatch()`로 처리 |
+| 새로 빙의한 대상은 그 단계에 죽지 않음 | 스냅샷에서 처음부터 장소 상태였던 저주만 빙의 후보 처리 |
+| 캐릭터 생사와 무관하게 분리 | 이미 죽은 대상도 카드의 현재 장소로 저주를 이동 |
+| 장소의 생존 캐릭터를 각본가가 선택 | 저주 인스턴스별 선택 UI. 후보 1명은 자동, 2명 이상은 명시 선택, 0명은 유지 |
+| 루프 종료 시 제거 | 기존 1B `expiresAt: "loopEnd"` 경로 재사용 |
+
+저주의 이전은 기존 공개 `extraCard` 변화로 기록한다. `publicContext.extraCards`에는 처리
+직전 대상과 상태가 남고, `publicChanges`에는 캐릭터↔장소 이동과 사망이 남는다. 저주
+처리 자체는 PE 공통 규칙이므로 `systemEffect: "primeEvilCurse"`로 표시해 숨은 역할의
+`mastermindAbilityResult` 원인 추론에서는 제외한다. 이후 저주를 **놓는** 역할·룰·사건
+훅은 각 콘텐츠 효과의 공개 변화로 기록하고, 해당 콘텐츠를 등록할 때 PE 조합의 가능한
+출처 대조도 함께 추가한다. 익명 시체는 장소 음모의 파생값이므로 별도 관측을 만들지
+않는다.
+
+### PE-1 경계와 후속 단계
+
+- 군중 사건 네 종류의 `culpritKind: "location"`과 0/1/2/2구 발생 기준은 1C 판정이
+  실제 합산 함수를 통과하도록 정의만 연결했다. 사건 효과와 공식 각본은 PE-2 범위다.
+- 좀비 이동은 PE-1에서 별도 범용 이동 API나 UI를 미리 만들지 않았다. 원문상
+  `OnesFromGrave`와 `zombie` 역할이 있어야만 후보가 생기고, 하루 전체 1회 제한도 그
+  역할 훅의 속성이다. PE-3에서 실제 시체 후보와 장소 단위 익명 시체 후보를 같은 선택
+  훅에 연결한다. 기존 P9 훅 UI가 발동 여부→대상→인접 목적지의 다단계 입력을 이미
+  제공하므로 그 경로를 재사용한다. 익명 후보 효과만 출발 음모 -1·도착 음모 +1로 둔다.
+- `cursedLand`의 후보 없는 장소 저주에 대한 선택 패배도 룰 콘텐츠가 등록되는 PE-3에
+  넣는다. 현재 기반은 후보가 없을 때 장소에 남기는 데까지만 담당한다.
+
+검증 기준은 `npx tsc --noEmit --strict`, PE-1 집중 테스트, 전체 Vitest, 빌드와 기존 실제
+브라우저 흐름이다. PE-1 추가 뒤 Vitest는 64파일 **1037개 통과·1개 todo**이며,
+수동 생사 교정·캐릭터 특성·390px 레이아웃·390px 편집기 실제 경로도 통과했다.

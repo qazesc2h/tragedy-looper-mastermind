@@ -26,6 +26,7 @@ import {
   type Target,
 } from "../types";
 import { transferCharacterCounter } from "./counter-transfer";
+import { removeAnonymousCorpseAt } from "./corpses";
 import { adjustSpecialGauge } from "./special-gauge";
 import { killCharacter, reviveCharacter, withDeathBatch } from "./death";
 import { resolveIncidentEffect } from "./incident";
@@ -784,20 +785,39 @@ function applySimpleBaseAbility(
     }
 
     case "alien:1": {
-      const target = requireCharacterTarget(state, declaration);
       const userPosition = state.loop.board[declaration.user];
-      const targetPosition = state.loop.board[target];
+      const target = normalizeTarget(declaration.target);
+      if (!isCharacterAlive(userPosition)) {
+        throw new Error(
+          "alien rank 5 goodwill ability requires a living alien",
+        );
+      }
+      const userLocation = characterLocation(
+        userPosition,
+        declaration.user,
+      );
+      if (target?.kind === "location") {
+        if (
+          target.at !== userLocation ||
+          !removeAnonymousCorpseAt(state, target.at)
+        ) {
+          throw new Error(
+            "alien rank 5 goodwill ability requires a corpse in the same location",
+          );
+        }
+        return true;
+      }
+      const character = requireCharacterTarget(state, declaration);
+      const targetPosition = state.loop.board[character];
       if (
         !isCharacterDead(targetPosition) ||
-        !isCharacterAlive(userPosition) ||
-        characterLocation(targetPosition, target) !==
-          characterLocation(userPosition, declaration.user)
+        characterLocation(targetPosition, character) !== userLocation
       ) {
         throw new Error(
           "alien rank 5 goodwill ability requires a corpse in the same location",
         );
       }
-      return reviveCharacter(state, target);
+      return reviveCharacter(state, character);
     }
 
     case "godlyBeing:1":

@@ -10,6 +10,7 @@ import {
   goodwillResponseAvailability,
 } from "../engine/goodwill";
 import { TRANSFERABLE_CHARACTER_COUNTERS } from "../engine/counter-transfer";
+import { anonymousCorpseCountAt } from "../engine/corpses";
 import { adjacentLocations } from "../engine/movement";
 import { tragedySetDefinition } from "../tragedy-sets";
 import {
@@ -172,6 +173,19 @@ export function aiIncidentChoiceFields(
 const GENERATED_GOODWILL_ABILITIES = goodwillAbilitiesJson as unknown as Readonly<
   Record<CharacterId, readonly StructuredGoodwillAbility[]>
 >;
+
+const ALIEN_GOODWILL_ABILITIES: readonly StructuredGoodwillAbility[] =
+  (GENERATED_GOODWILL_ABILITIES.alien ?? []).map((ability) =>
+    ability.abilityIndex === 1
+      ? {
+        ...ability,
+        target: {
+          ...ability.target,
+          kinds: ["character", "location"],
+        },
+      }
+      : ability
+  );
 
 /** 생성물을 다시 만들지 않고 추가 지원하는 확장 캐릭터 능력. */
 const SERVANT_GOODWILL_ABILITIES: readonly StructuredGoodwillAbility[] = [{
@@ -344,6 +358,7 @@ const ILLUSION_CHARACTER_MOVEMENT: StructuredGoodwillAbility = {
 function goodwillAbilitiesFor(
   character: CharacterId,
 ): readonly StructuredGoodwillAbility[] {
+  if (character === "alien") return ALIEN_GOODWILL_ABILITIES;
   if (character === "servant") return SERVANT_GOODWILL_ABILITIES;
   if (character === "copycat") return COPYCAT_GOODWILL_ABILITIES;
   if (character === "youngGirl") return YOUNG_GIRL_GOODWILL_ABILITIES;
@@ -470,7 +485,14 @@ function locationTargets(
     : ability.target.scope === "adjacentLocation"
     ? adjacentLocations(userLocation)
     : LOCATIONS;
-  return locations.map((at) => ({ kind: "location" as const, at }));
+  return locations.flatMap((at) => {
+    if (
+      user === "alien" &&
+      ability.abilityIndex === 1 &&
+      anonymousCorpseCountAt(state, at) < 1
+    ) return [];
+    return [{ kind: "location" as const, at }];
+  });
 }
 
 function targetsFor(

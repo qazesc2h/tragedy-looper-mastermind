@@ -4654,6 +4654,7 @@ export function collectProtagonistObservations(
         }
       } else if (
         entry.kind === "abilityActivated" &&
+        entry.systemEffect !== "primeEvilCurse" &&
         entry.publicChanges !== undefined &&
         entry.publicChanges.length > 0
       ) {

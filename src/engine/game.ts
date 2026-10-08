@@ -30,6 +30,7 @@ import {
 import { finalizeRoundEvidence } from "./round-evidence";
 import { initLoop } from "./setup";
 import { sacredTreeMastermindChoiceRequired } from "./sacred-tree";
+import { roundEndCurseNeedsAttention } from "./curses";
 
 const TIME_GAP_SECONDS = 10 * 60;
 
@@ -335,9 +336,13 @@ export function finishLoop(state: GameState): LoopOutcome {
   const completedLoop = structuredClone(state.loop);
   delete completedLoop.optionalLossActivations;
   delete completedLoop.roundEndMandatoryResolved;
+  delete completedLoop.roundEndCurseResolution;
+  delete completedLoop.roundEndCurseResolvedAt;
 
   delete state.loop.optionalLossActivations;
   delete state.loop.roundEndMandatoryResolved;
+  delete state.loop.roundEndCurseResolution;
+  delete state.loop.roundEndCurseResolvedAt;
   delete state.loop.pendingImmediateLossKeys;
   delete state.pendingLoopEnd;
   delete state.timeGapTimer;
@@ -400,6 +405,7 @@ function phaseAlreadyLogged(
 
 function roundEndNeedsAttention(state: GameState): boolean {
   if (state.loop.day === state.scenario.daysPerLoop) return true;
+  if (roundEndCurseNeedsAttention(state)) return true;
   if (activeHookExists(state, "P9_ROUND_END")) return true;
   return evaluateLoss(state).some(
     (condition) => condition.met && condition.blockedBy === undefined,
@@ -411,6 +417,9 @@ function advanceRoundOnce(
   incidentChoice?: IncidentChoiceInput,
   deferSettlement = false,
   mandatoryHookTargets: Readonly<Record<string, Target | undefined>> = {},
+  roundEndCurseTargets: Readonly<
+    Record<string, CharacterId | undefined>
+  > = {},
 ): ResolvedIncidentBatch | undefined {
   const phase = state.loop.phase;
   const loop = state.loop.loop;
@@ -420,7 +429,12 @@ function advanceRoundOnce(
     ? state.scenario.incidents.find((incident) => incident.day === day)
     : undefined;
 
-  const result = advance(state, incidentChoice, mandatoryHookTargets);
+  const result = advance(
+    state,
+    incidentChoice,
+    mandatoryHookTargets,
+    roundEndCurseTargets,
+  );
 
   if (phase === "P1_ROUND_START") {
     if (!phaseAlreadyLogged(state, loop, day, phase)) {
@@ -585,6 +599,9 @@ export function advanceGame(
   options: {
     deferSettlement?: boolean;
     mandatoryHookTargets?: Readonly<Record<string, Target | undefined>>;
+    roundEndCurseTargets?: Readonly<
+      Record<string, CharacterId | undefined>
+    >;
   } = {},
 ): ResolvedIncidentBatch | undefined {
   if (state.gamePhase !== "ROUND") {
@@ -596,6 +613,7 @@ export function advanceGame(
     incidentChoice,
     deferSettlement,
     options.mandatoryHookTargets ?? {},
+    options.roundEndCurseTargets ?? {},
   );
   advanceAutomaticRoundPhases(state, deferSettlement);
   return result;

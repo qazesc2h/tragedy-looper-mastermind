@@ -183,6 +183,17 @@ export interface ExtraCardInstance {
   expiresAt: "loopStart" | "loopEnd" | "manual";
 }
 
+/** P9 진입 때 고정한 Prime Evil 저주 상태. 그날 새로 붙은 저주는 포함하지 않는다. */
+export interface RoundEndCurseResolution {
+  loop: number;
+  day: number;
+  curses: Array<{
+    instanceId: string;
+    target: AttachmentTarget;
+  }>;
+  characterCursesResolved: boolean;
+}
+
 /** 주인공에게 공개되는 부착 카드 정보. 숨은 효과 출처는 제외한다. */
 export type PublicExtraCard = Omit<ExtraCardInstance, "source">;
 
@@ -547,6 +558,8 @@ export type PhaseLogEntry = (
     publicTrigger?: PublicAbilityTrigger;
     /** 캐릭터 역할 능력일 때만 존재한다. 룰 능력은 추가 규칙으로 표시한다. */
     character?: CharacterId;
+    /** 숨은 역할 원인이 아닌 공개 세트 공통 처리. 역할 원인 추론에서 제외한다. */
+    systemEffect?: "primeEvilCurse";
     /** 선택형 능력의 명시적 대상. 표시는 ID에서 렌더할 때 만든다. */
     targets?: Target[];
     description: string;
@@ -836,6 +849,12 @@ export interface LoopState {
 
   /** P9의 동시 [강제] 효과를 판정·적용한 뒤 [선택] 입력을 기다리는 상태 */
   roundEndMandatoryResolved?: boolean;
+
+  /** Prime Evil P9 최우선 저주 처리의 진입 시점 스냅샷. */
+  roundEndCurseResolution?: RoundEndCurseResolution;
+
+  /** 그날의 저주 최우선 처리를 끝냈다. 이후 P9에 생긴 저주는 다음 날 처리한다. */
+  roundEndCurseResolvedAt?: { loop: number; day: number };
 
   /** 현재 정규 효과 묶음에서 새로 성립한 즉시 종료 조건 */
   pendingImmediateLossKeys?: string[];

@@ -5,7 +5,7 @@ import {
   isCharacterAlive,
   isCharacterDead,
   isCharacterPresent,
-  type GameState, type Hook, type HookPoint, type IncidentChoiceInput,
+  type CharacterId, type GameState, type Hook, type HookPoint, type IncidentChoiceInput,
   type HookContext, type Phase,
   type PublicAbilityTrigger, type Target, PHASE_ORDER,
 } from "../types";
@@ -30,6 +30,10 @@ import {
   finalizeSacredTreeMastermindStep,
   sacredTreeLeaderChoiceRequired,
 } from "./sacred-tree";
+import {
+  resolveRoundEndCurses,
+  snapshotRoundEndCurses,
+} from "./curses";
 
 function requestEndForActivatedLosses(s: GameState): void {
   // LOOP_END 조건은 라운드 종료 훅과 LAST_DAY 처리를 마친 뒤 finishLoop()에서
@@ -244,6 +248,9 @@ export function advance(
   s: GameState,
   incidentChoice?: IncidentChoiceInput,
   mandatoryHookTargets: Readonly<Record<string, Target | undefined>> = {},
+  roundEndCurseTargets: Readonly<
+    Record<string, CharacterId | undefined>
+  > = {},
 ): ResolvedIncidentBatch | undefined {
   if (s.gamePhase !== "ROUND") {
     throw new Error(`round phase cannot advance during ${s.gamePhase}`);
@@ -323,6 +330,9 @@ export function advance(
       break;
 
     case "P9_ROUND_END":
+      if (resolveRoundEndCurses(s, roundEndCurseTargets) !== "complete") {
+        return undefined;
+      }
       if (!s.loop.roundEndMandatoryResolved) {
         recordRoundEndPairs(s);
         resolveHooks(s, "P9_ROUND_END", undefined, mandatoryHookTargets);
@@ -354,6 +364,7 @@ export function advance(
       }
       finalizeRoundEvidence(s, "P9_ROUND_END");
       delete s.loop.optionalLossActivations;
+      delete s.loop.roundEndCurseResolvedAt;
       s.loop.abilitiesUsedThisRound = [];
       s.loop.day += 1;
       s.loop.phase = "P1_ROUND_START";
@@ -366,5 +377,6 @@ export function advance(
 
   const i = PHASE_ORDER.indexOf(s.loop.phase as Phase);
   s.loop.phase = PHASE_ORDER[i + 1];
+  if (s.loop.phase === "P9_ROUND_END") snapshotRoundEndCurses(s);
   return incidentResult;
 }

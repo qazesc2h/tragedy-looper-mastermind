@@ -43,6 +43,7 @@ import {
   publicBoardChanges,
   publicObservationContext,
 } from "./public-observation";
+import { corpseCountAt } from "./corpses";
 
 type IncidentEffectResult = {
   effectApplied: boolean;
@@ -94,10 +95,9 @@ export function incidentFailureReasons(
         : ["insufficientLocationIntrigue"];
     }
     if (policy.kind === "locationCorpseCount") {
-      const corpses = Object.values(state.loop.board).filter(
-        (position) => position.status === "dead" && position.at === culprit.at,
-      ).length;
-      return corpses >= policy.required ? [] : ["insufficientCorpses"];
+      return corpseCountAt(state, culprit.at) >= policy.required
+        ? []
+        : ["insufficientCorpses"];
     }
     throw new Error(`incident "${incident}" requires a character culprit`);
   }

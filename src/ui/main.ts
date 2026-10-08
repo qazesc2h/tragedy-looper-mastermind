@@ -99,6 +99,10 @@ import {
 import { applyHookEffect, collectHooks } from "../engine/phases";
 import { recordPhaseLog } from "../engine/phase-log";
 import { extraCardsAt } from "../engine/extra-cards";
+import {
+  locationCurseChoices,
+  roundEndCurseStage,
+} from "../engine/curses";
 import { roleClaimOptions } from "../engine/role-reveal";
 import { IMMORTAL_ROLE_IDS } from "../engine/role-properties";
 import { scenarioValidationErrorMessages, validateScenario } from "../engine/validate";
@@ -2562,6 +2566,66 @@ function renderHookList(
   }).join("")}</div>`;
 }
 
+function curseTargetDraftKey(instanceId: string): string {
+  return `curse-target:${instanceId}`;
+}
+
+function selectedRoundEndCurseTargets(
+  state: GameState,
+): Readonly<Record<string, CharacterId | undefined>> {
+  return Object.fromEntries(locationCurseChoices(state).flatMap((choice) => {
+    const selected = draftValue(curseTargetDraftKey(choice.instanceId));
+    return selected === "" ? [] : [[choice.instanceId, selected]];
+  }));
+}
+
+function roundEndCurseSelectionMissing(state: GameState): boolean {
+  return locationCurseChoices(state).some(({ instanceId, candidates }) =>
+    candidates.length > 1 &&
+    !candidates.includes(draftValue(curseTargetDraftKey(instanceId)))
+  );
+}
+
+function renderRoundEndCurses(state: GameState): string {
+  const stage = roundEndCurseStage(state);
+  if (stage === "complete") return "";
+  if (stage === "character") {
+    return `<section class="round-end-curse-list">
+      <article class="hook-card">
+        <div>
+          <span>Prime Evil · 저주 카드</span>
+          <strong>빙의 중인 저주의 사망과 장소 분리를 먼저 동시에 해결합니다.</strong>
+        </div>
+        <small>라운드 종료 최우선</small>
+      </article>
+    </section>`;
+  }
+
+  const choices = locationCurseChoices(state);
+  return `<section class="round-end-curse-list">
+    ${choices.map(({ instanceId, at, candidates }) => {
+      const key = curseTargetDraftKey(instanceId);
+      return `<article class="hook-card">
+        <div>
+          <span>Prime Evil · ${escapeHtml(locationName(at))}</span>
+          <strong>장소 상태의 저주를 생존 캐릭터에게 빙의시킵니다.</strong>
+        </div>
+        <small>${escapeHtml(instanceId)}</small>
+        ${candidates.length === 0
+          ? "<p>생존 캐릭터가 없어 이 장소에 남습니다.</p>"
+          : candidates.length === 1
+          ? `<p>${escapeHtml(characterName(candidates[0]))}에게 빙의합니다.</p>`
+          : `<select data-ui-draft-key="${escapeHtml(key)}">
+              <option value="">빙의 대상 선택</option>
+              ${candidates.map((character) => `<option value="${escapeHtml(character)}"
+                ${draftValue(key) === character ? "selected" : ""}>
+                ${escapeHtml(characterName(character))}</option>`).join("")}
+            </select>`}
+      </article>`;
+    }).join("")}
+  </section>`;
+}
+
 function goodwillDisabledMessage(
   view: GoodwillAbilityView,
   reason: GoodwillDisabledReason,
@@ -3608,6 +3672,20 @@ function renderPhaseControls(state: GameState): string {
         ${renderAdvanceButton()}
       </section>`;
     case "P9_ROUND_END":
+      if (roundEndCurseStage(state) !== "complete") {
+        return `<section class="operation-panel has-fixed-footer">
+          <div class="operation-panel-scroll">
+            ${heading(9, phaseName(state.loop.phase))}
+            ${renderRoundEndCurses(state)}
+          </div>
+          <div class="operation-footer">${renderAdvanceButton(
+            roundEndCurseStage(state) === "character"
+              ? "저주 사망·분리 해결"
+              : "저주 빙의 해결",
+            roundEndCurseSelectionMissing(state),
+          )}</div>
+        </section>`;
+      }
       return `<section class="operation-panel has-fixed-footer">
         <div class="operation-panel-scroll">
           ${heading(9, phaseName(state.loop.phase))}
@@ -7294,6 +7372,7 @@ function advanceCurrentPhase(): void {
         {
           deferSettlement: true,
           mandatoryHookTargets: selectedMandatoryHookTargets(state),
+          roundEndCurseTargets: selectedRoundEndCurseTargets(state),
         },
       );
     }

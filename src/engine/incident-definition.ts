@@ -136,6 +136,22 @@ const INCIDENT_DEFINITION_OVERRIDES: Readonly<
   silverBullet: {
     increasesSpecialGauge: false,
   },
+  nightMadness: {
+    culpritKind: "location",
+    triggerPolicy: { kind: "locationCorpseCount", required: 0 },
+  },
+  awakenedCurse: {
+    culpritKind: "location",
+    triggerPolicy: { kind: "locationCorpseCount", required: 1 },
+  },
+  fountainFilth: {
+    culpritKind: "location",
+    triggerPolicy: { kind: "locationCorpseCount", required: 2 },
+  },
+  evangeliumDead: {
+    culpritKind: "location",
+    triggerPolicy: { kind: "locationCorpseCount", required: 2 },
+  },
 };
 
 /**
