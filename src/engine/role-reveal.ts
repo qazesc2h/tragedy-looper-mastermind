@@ -15,7 +15,7 @@ export interface RoleClaimOption {
 
 /**
  * 공개 시점 실제 역할과 각본의 기본 배정 역할만으로 선언 후보를 만든다.
- * Q10 확정 전에는 동적으로 얻은 역할을 거짓 선언 후보에 넣지 않는다.
+ * Q10 사용자 확정: 동적으로 얻은 역할은 거짓 선언 후보에 넣지 않는다.
  */
 export function roleClaimOptions(
   state: GameState,

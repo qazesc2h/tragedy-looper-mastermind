@@ -2,56 +2,50 @@
 
 ## 미해결
 
-### Q15. 시체에 붙은 저주의 처리와 다중성
-- source: "Curse cards can be in one of two states: Placed on a board or attached to a character or a corpse."
-- source: "At the same time, any characters (who are alive) with an attached Curse are killed. Then, the Mastermind moves the Curses from all corpses to their current location."
-- 원문 확정: 라운드 종료 저주 선행 단계에서 모든 시체에 붙은 저주를 그 시체의 현재
-  장소로 옮긴다. 캐릭터에는 여러 저주를 붙일 수 있다.
-- 남은 쟁점: 이세계인이 익명 시체를 P9 전에 제거하면 그 시체의 저주는 어디로 가는가.
-  장소나 시체에도 여러 저주를 겹쳐 놓을 수 있는가.
-- 실물 확인 요청: 익명 시체 제거/부활 예시와 장소·시체 복수 부착 제한 문구가 있는지
-  확인한다.
-- 현재 처리 방침: 확정된 시체→장소 이동만 설계 근거로 삼고, 남은 두 경우는 구현하지
-  않는다.
+현재 미해결 규칙 질문은 없다. 모음집 구판 각본의 식별은 규칙 해석이 아니라 실물
+콘텐츠 대조이므로 `HANDOFF.md`의 사용자 실물 확인 목록에서 관리한다.
+
+## 해결됨
+
+### Q15. 저주 카드의 대상과 라운드 종료 처리
+- 한국어 원문: 저주 카드는 장소 또는 캐릭터 빙의 두 상태만 가진다. 라운드 종료 단계의
+  다른 처리보다 먼저, 빙의 상태면 살아 있는 해당 캐릭터를 죽인 뒤 생사와 무관하게
+  떼어 장소 상태로 만들고, 장소 상태면 각본가가 고른 그 장소의 캐릭터 1명에게 빙의한다.
+- 근거: **사용자 확정.** 주인공 설명서 16쪽 기준으로 시체는 캐릭터로 취급하지 않으며,
+  새 빙의 후보는 그 장소의 살아 있는 캐릭터뿐이다.
+- 판정: 저주는 캐릭터와 장소만 대상으로 삼고 시체에는 붙지 않는다. 빙의된 캐릭터가
+  이미 죽어 있어도 저주는 그 캐릭터 카드에서 떨어져 현재 장소로 간다. 장소에 생존
+  캐릭터가 없으면 장소에 남는다. 새 단계가 아니라 P9 안의 최우선 처리다.
+- `cursedLand` 원문은 `[Optional Loss condition: Protagonists Death] [Day End]`이고 조건은
+  `One or more Location Curses can’t be attached to characters`다. 따라서 저주받은 땅이
+  활성일 때만, 출처와 무관한 장소 저주 하나 이상을 붙일 수 없으면 각본가가 주인공을
+  죽일 수 있다. 강제가 아니다.
 
 ### Q14. 익명 시체의 식별자와 장소 음모 감소
 - source: "Every :inrigue: on locations counts as a corpse with the role :person:."
 - source: "If such a corpse is revived by the power of the :alien:, it is simply removed from the board."
-- 쟁점: 장소 음모 3개를 시체 3구로 세는 것은 분명하지만, 개별 시체에 저주를 붙이거나
-  좀비 시체 하나를 이동한 뒤 음모가 감소할 때 어느 시체가 제거되는지는 명시하지 않는다.
-- 해석 A: 익명 시체에 안정적인 개별 ID를 부여하고 제거 대상을 선택한다.
-- 해석 B: 장소별 수량만 유지하고 부착·이동 때 임시 대상을 만든다.
-- 실물 확인 요청: 같은 장소의 음모 3개가 개별 시체로 구분되는 표식·순서를 갖는지,
-  저주 부착 뒤 이동·부활·음모 감소 때 어느 1구를 선택하는지 확인한다.
-- 현재 처리 방침: 구현하지 않는다. 임의의 ID·제거 순서를 정하지 않고 공식 판정이나
-  실제 구성물의 식별 방식을 확인한다.
+- 근거: **사용자 확정.** 어떤 음모 카운터가 어느 시체인지 구별할 필요가 없다.
+- 판정: 익명 시체는 장소별 `locIntrigue` 개수로만 표현한다. 같은 장소의 음모 3개는
+  익명 시체 3구지만 안정적인 개별 ID가 없으며, 이세계인이 부활시키면 그 장소의 음모
+  1개를 제거한다. 저주는 시체를 대상으로 하지 않으므로 부착 동일성도 필요 없다.
 
-### Q13. 익명 좀비 시체도 선택 이동 대상인가?
-- source: "All corpses that had the role :person:, :coward: or :showOff: change into having the role of :zombie:"
-- source: "You may move one :zombie: corpse to a neighboring location."
+### Q13. 익명 좀비 시체의 이동
+- source: "All corpses that had the role :person:, :coward: or :showOff: change into having the role :zombie:."
 - source: "[Optional] [Day end] You may move one zombie corpse to a neighboring location (only once per day, for all zombies)."
-- 원문 확정: 각본가가 Day End에 모든 좀비를 통틀어 하루 1회 선택하며, 인접 장소로
-  좀비 시체 1구를 옮긴다. 첫 문장으로 익명 엑스트라 시체도 좀비가 되고, 이동 문장은
-  실제·익명 시체 어느 쪽도 제외하지 않는다.
-- 남은 쟁점: 익명 좀비를 옮길 때 그 시체를 나타내는 장소 음모 카운터 1개도 실제로
-  인접 장소로 옮기는가. 실제 캐릭터 시체도 동일한 선택 후보라는 실물 예시가 있는가.
-- 실물 확인 요청: 좀비 이동의 구성물 예시 또는 “음모 카운터를 옮긴다”는 보충 문구를
-  확인한다.
-- 현재 처리 방침: 원문상 실제·익명 좀비 모두 후보가 가장 직접적이지만, 익명 시체의
-  물리 이동이 장소 음모 이전인지 확인되기 전에는 구현하지 않는다.
+- 근거: **사용자 확정.** 장소 음모로 센 익명 좀비 시체도 이동할 수 있고, 그 이동은
+  음모 카운터의 이동으로 처리한다.
+- 판정: 각본가가 P9 선택 효과로 모든 좀비를 통틀어 하루 1회 사용한다. 익명 시체를
+  고르면 출발 장소 음모 -1, 인접한 도착 장소 음모 +1이다. 실제 캐릭터 시체를 고르면
+  해당 사망 캐릭터의 장소를 옮긴다.
 
-### Q10. 닌자의 거짓 선언 대상에 동적으로 얻은 핵심 인물이 포함되는가?
+### Q10. 닌자의 거짓 선언 대상에 동적으로 얻은 역할이 포함되는가?
 - source: "When this role would be revealed, you may declare any other non-Person Role in the Script instead."
-- 쟁점: “시나리오에 포함된 다른 비-엑스트라 역할”이 각본에 기본 배정된 역할만
-  뜻하는지, 인과의 인연으로 특수 카드가 붙어 공개 시점에 핵심 인물이 된 캐릭터의
-  동적 역할까지 포함하는지 원문만으로 확정되지 않는다.
-- 해석 A: 각본의 기본 배정 역할 중 다른 비-엑스트라 역할만 선언할 수 있다.
-- 해석 B: 공개 시점의 동적 역할까지 시나리오에 포함된 역할로 보고 선언할 수 있다.
-- 현재 처리 방침: 해석 A. 확정 전까지 기본 배정 역할만 후보로 두어 동적 역할을
-  근거 없이 거짓 선언 후보에 추가하지 않는다. MZ-3에서 이 보수적 후보 계약을
-  구현하고, 공식 판정이 확인되면 갱신한다.
-
-## 해결됨
+- 근거: **사용자 확정 — 기본 배정 역할만.** “이번 시나리오에 할당된”은 비공개
+  정보표의 캐스트에 실제 배정된 역할을 뜻한다.
+- 판정: 인과의 인연으로 동적으로 얻은 핵심 인물, 망상 확대 바이러스로 변이한 연쇄
+  살인마, 룰이 추가했지만 그 각본의 캐스트에 배정되지 않은 역할은 선언할 수 없다.
+  실제 게임은 `scenario.cast` 값만 사용하고, 주인공 가설은 각 룰 조합에서 기본 배정될
+  수 있는 역할만 거짓 선언 후보로 유지한다.
 
 ### Q12. 쌍둥이의 “대각선 반대 장소” 취급 범위
 - source: "When this character triggers an Incident, it is considered as being on the diagonally opposite location."

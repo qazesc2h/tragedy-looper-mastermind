@@ -711,7 +711,7 @@ function ninjaLieCouldExplainRoleClaim(
       observation.character,
       publicCast,
     ) &&
-    // Q10 보수 판정: 동적 역할이 아니라 이 룰 조합의 기본 배정 역할만 허용한다.
+    // Q10 사용자 확정: 동적 역할이 아니라 이 룰 조합의 기본 배정 역할만 허용한다.
     roleCouldAppear(
       tragedySetRoles,
       ranges,
