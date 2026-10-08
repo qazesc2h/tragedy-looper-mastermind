@@ -1629,13 +1629,16 @@ CM 고유 룰·역할·사건에는 감소가 없다. 공통 캐릭터 학자 [�
 
 ##### Prime Evil — 저주 카드와 1B 판정
 
-세트 원문은 다음 순서를 명시한다.
+upstream 요약과 [공식 Cosmic Evil 규칙서 공개본](https://tesera.ru/images/items/1238712/zm7472_tragedy_looper_cosmic_evil_rules.pdf)을
+대조했다. 공식 규칙서는 다음 순서를 명시한다.
 
-> `Extra cards are treated as Curse cards. They can be placed on a location or be attached to characters and corpses.`
+> `Curse cards can be in one of two states: Placed on a board or attached to a character or a corpse.`
 
-> `At the end of Day, before everything else, each curse is handeld.`
+> `At the end of each day, before everything else, even before Mandatory effects, each Curse card will apply its effect:`
 
-> `Characters with curses are killed (at the same time so a character that got a curse this step is not killed.) and the curse moves to the location.`
+> `If a Curse is on a location, the Mastermind attaches that Curse to any character in that location (if applicable). A character may have more than 1 Curse attached.`
+
+> `At the same time, any characters (who are alive) with an attached Curse are killed. Then, the Mastermind moves the Curses from all corpses to their current location.`
 
 > `At the end of each loop, all Curses are removed.`
 
@@ -1651,19 +1654,21 @@ CM 고유 룰·역할·사건에는 감소가 없다. 공통 캐릭터 학자 [�
 장소 저주는 라운드 종료의 다른 처리보다 먼저 각본가가 그 장소의 캐릭터에 붙인다.
 그 단계에 새로 받은 캐릭터는 같은 단계에 죽지 않고 다음 날까지 산다. 단계 시작부터
 캐릭터에 붙어 있던 저주는 모두 동시에 그 캐릭터를 죽이고, 저주는 캐릭터가 있던 장소로
-이동한다. 캐릭터는 여러 저주를 가질 수 있다. 저주받은 땅은 하나 이상의 장소 저주를
-캐릭터에게 붙일 수 없으면 선택형 주인공 사망 조건을 제공한다.
+이동한다. 이어서 실제·익명 여부와 관계없이 **모든 시체에 붙은 저주를 그 시체의 현재
+장소로 옮긴다.** 캐릭터는 여러 저주를 가질 수 있다. 저주받은 땅은 하나 이상의 장소
+저주를 캐릭터에게 붙일 수 없으면 선택형 주인공 사망 조건을 제공한다.
 
 1B는 **부분 재사용 가능**하다. `ExtraCardInstance`의 인스턴스 ID, 같은 대상 다중 카드,
 공개 변화, 저장, `expiresAt: "loopEnd"`는 그대로 맞는다. 부족한 부분은 다음이다.
 
 - `AttachmentTarget`은 캐릭터/장소뿐이라 실제·익명 시체 참조가 없다.
-- P9의 일반 강제 훅보다 앞선 저주 전용 동시 판정 단계가 없다.
+- P9 진입 직후 일반 강제 훅보다 먼저 실행하는 저주 전용 동시 판정 하위 단계가 없다.
 - 캐릭터 사망 뒤 저주를 장소로 옮기는 배치 처리와 “이번 단계 신규 부착은 생존” 스냅샷이 없다.
 - 원문은 **캐릭터**의 복수 저주만 명시한다. 장소·시체에 여러 장이 가능한지는 금지 문장도
   허용 문장도 없어 구현 승인 전 보수 정책을 정해야 한다.
-- 시체에 붙은 저주의 당일 효과, 시체가 부활했을 때의 수명은 원문에 없다. 캐릭터만
-  죽이고 이동시킨다는 문장을 시체까지 확대하지 않는다.
+- 시체에 붙은 저주는 라운드 종료에 현재 장소로 옮긴다고 공식 규칙서가 확정한다. 다만
+  이세계인으로 익명 시체를 그보다 먼저 제거했을 때 부착 저주를 어디에 두는지와 익명
+  시체를 어떻게 식별하는지는 여전히 원문에 없다.
 
 ##### Prime Evil — 익명 시체와 시체 역할
 
@@ -1809,9 +1814,95 @@ CM은 1A, PE는 1B·1C를 각각 사용하므로 **합치지 않고 CM을 먼저
 | PE-3 | 저주·나머지 콘텐츠 | 시체 target을 포함한 1B 확장, P9 선행 동시 처리, 룰·역할·사건 전체와 선택 UI |
 | PE-4 | 공식 각본·UI | 4편·8변형, 저장 migration, 패배 거리·정보 누출, 번역 폴백, 전체 UI·390×844 QA |
 
-착수 전 확정이 필요한 것은 익명 시체 ID/감소 정책, 익명 좀비의 선택 이동, 시체에 붙은
-저주의 처리, 모음집 1 구판 각본 원문 네 가지다. 승인 전에는 어느 것도 추측해 구현하지
-않는다.
+착수 전 확정이 필요한 것은 익명 시체 ID/감소 정책, 익명 좀비 이동 시 장소 음모 처리,
+익명 시체가 P9 전에 제거됐을 때의 부착 저주와 장소·시체 복수 부착, 모음집 1 구판 각본
+원문 네 가지다. 승인 전에는 어느 것도 추측해 구현하지 않는다.
+
+#### 위어드 미솔로지 후속 조사 — 좀비·저주 처리
+
+##### 좀비 시체 이동의 주체·시점·대상
+
+[공식 Prime Evil 참조표 공개본](https://tesera.ru/images/items/1238711/en-tragedy-looper-ce-summary-sheet-v3.pdf)의
+좀비 원문은 다음과 같다.
+
+> `[Optional] [Day end] You may move one zombie corpse to a neighboring location (only once per day, for all zombies).`
+
+공식 규칙서의 같은 시점 선택 효과 규칙은 다음과 같다.
+
+> `If several Optional abilities that should happen at the same time conflict, the Mastermind chooses freely in which order to apply them.`
+
+따라서 선택자는 리더가 아니라 **각본가**이고, 시점은 Day End인 `P9_ROUND_END`다.
+하루에 모든 좀비를 통틀어 1회만 쓸 수 있다. P9 안의 순서는 저주 선행 처리 → 모든
+강제 Day End 효과 → 각본가가 원하는 순서의 선택 Day End 효과이므로, 좀비의 강제 살해를
+먼저 동시 해결한 뒤 시체 이동 여부·대상·목적지를 고른다.
+
+대상 범위는 원문 두 문장을 합쳐 판정해야 한다.
+
+> `Every Intrigue on locations counts as a corpse with the role Person.`
+
+> `All corpses that had the role Person, Coward or Show-Off change into having the role of Zombie.`
+
+따라서 `OnesFromGrave`가 활성화되면 실제 캐릭터 시체 중 원래 역할이 엑스트라·겁쟁이·
+허당인 것과, 장소 음모에서 유도된 익명 엑스트라 시체가 모두 좀비 시체다. 이동 원문은
+둘 중 하나를 제외하지 않으므로 **둘 다 선택 후보**로 보는 것이 가장 직접적이다.
+
+- 실제 캐릭터 시체를 고르면 해당 사망 캐릭터의 보드 장소만 인접 장소로 바뀐다.
+- 익명 시체를 고르면 물리 구성상 그 시체를 나타내는 장소 음모 1개를 출발 장소에서
+  빼고 인접 장소에 1개 더하는 결과가 된다. 그러나 원문은 “Move one zombie corpse”라고만
+  하고 “Move one Intrigue”라고 쓰지 않았으므로, 실물에서 음모 카운터 자체를 옮기는지
+  별도 시체 표식을 사용하는지는 Q13·Q14의 실물 확인이 필요하다.
+
+신수·감식관의 `transferCharacterCounter()`는 두 `CharacterId` 사이의 캐릭터 카운터
+이전만 처리한다. 장소 음모와 실제 시체 위치를 함께 다루지 못하므로 그대로 재사용할 수
+없다. 공통 카운터 계산을 복제하는 대신 `moveCorpse(source, destination)` 같은 시체
+도메인 연산이 실제 시체와 익명 시체를 분기해야 한다. 익명 분기는 장소 음모 -1/+1과
+공개 변화 두 건을 원자적으로 기록한다.
+
+UI는 새로 처음부터 만들 필요는 없다. 현재 P9 선택 훅 UI가 이미 발동 여부 → 대상 →
+목적지의 다단계 입력과 저장 전 롤백을 지원한다. 다만 현재 `Target`과
+`OptionalHookSelection`은 캐릭터/장소만 인코딩하므로 `CorpseRef` 선택·표시·직렬화를
+추가해야 한다. 익명 시체가 개별 ID를 갖는지가 확정돼야 이 재사용 범위를 고정할 수 있다.
+
+##### 저주 처리는 P9의 선행 하위 단계
+
+공식 원문은 `At the end of each day, before everything else, even before Mandatory effects`다.
+따라서 라운드의 새 P10을 만들거나 P9 바깥에서 처리하는 것이 아니다. 기존 Day End인
+`P9_ROUND_END`에 들어온 직후, 현재 `recordRoundEndPairs()`와 `resolveHooks()`보다 먼저
+다음 하위 단계를 한 번 수행해야 한다.
+
+1. P9 진입 시점에 캐릭터·시체·장소별 저주를 스냅샷한다.
+2. 각 장소 저주마다 각본가가 같은 장소의 캐릭터를 선택해 부착한다. 같은 캐릭터에 여러
+   장을 붙일 수 있다. 적용 가능한 캐릭터가 없으면 그 저주는 장소에 남는다.
+3. 단계 시작부터 저주가 붙어 있던 살아 있는 캐릭터를 모두 동시에 죽인다. 이번 단계에
+   장소에서 새로 받은 저주만 가진 캐릭터는 같은 단계에 죽지 않는다.
+4. 모든 시체에 붙은 저주를 그 시체의 현재 장소로 이동한다.
+5. 그 뒤 기존 P9 강제 훅을 동시에 판정·적용하고, 마지막으로 선택 훅을 처리한다.
+
+따라서 필요한 것은 `roundEndCurseResolved` 같은 P9 선행 단계 상태, 장소 저주별 부착
+대상을 받는 각본가 UI, 단계 시작 스냅샷, 동시 사망 배치, 시체→장소 카드 이동, 공개
+로그·저장 복원이다. 저주받은 땅의 “붙일 수 없는 장소 저주” 선택 패배도 이 단계 결과를
+기준으로 기존 선택 패배 UI에 노출해야 한다.
+
+`AttachmentTarget`에 단순히 `corpse` 한 항목만 더하는 것으로는 충분하지 않다.
+권장 경계는 `{ kind: "corpse", corpse: CorpseRef }`이며, `CorpseRef`는 실제 캐릭터
+시체와 익명 시체를 구별해야 한다. 이와 함께 대상 동일성, 표시명, 공개 관측, 상태 덤프,
+저장 migration, 시체 이동·부활·제거 때 부착 카드 정합성을 모두 갱신해야 한다. 특히
+익명 시체의 안정적인 ID가 없다면 저주가 붙은 1구를 나머지 장소 음모와 구별할 수 없어
+Q14가 먼저 해결돼야 한다.
+
+##### Q13~Q15와 모음집 실물 확인 요청
+
+| 질문 | 원문으로 확정된 것 | 실물에서 확인할 것 |
+|---|---|---|
+| Q13 좀비 시체 이동 | 각본가가 P9 선택 효과로 하루 1회, 인접 장소로 좀비 시체 1구를 옮긴다. 실제 시체와 익명 시체를 제외하는 문장은 없다. | 익명 시체를 옮길 때 실제로 장소 음모 카운터 1개를 인접 장소로 옮기는가. 실제 캐릭터 시체도 같은 선택 후보인가. |
+| Q14 익명 시체 식별 | 장소 음모 1개마다 엑스트라 시체 1구이고 이세계인 부활 시 그 시체를 보드에서 제거한다. | 장소 음모 3개를 개별 시체로 구별하는 표식·순서가 있는가. 저주가 붙은 시체를 어떻게 표시하며, 이동·부활·음모 감소 때 어느 1구를 고르는가. |
+| Q15 시체 저주 | 라운드 종료 저주 선행 단계에서 모든 시체의 저주를 현재 장소로 옮긴다. 캐릭터에는 복수 저주가 가능하다. | 익명 시체가 P9 전에 제거되면 그 저주는 어디로 가는가. 장소·시체에도 여러 저주를 겹쳐 놓을 수 있는가. |
+
+모음집 구판 각본은 사용자 확인 대기로 유지한다. 확인에 필요한 정보는 한국어 모음집의
+각본 제목, 공개 시트의 참극 세트 표기, 룰 Y·룰 X, 역할표, 사건 목록이다. 이 중 참극
+세트가 `Haunted Stage`이고 구판 룰·역할·사건을 쓰는 1편을 확인하면, upstream의
+`Haunted Stage 1~8` 제목과 대조해 동일 각본인지 판정한다. 제목만 비슷하다는 이유로
+자동 매칭하거나 Prime Evil ID로 치환하지 않는다.
 
 #### MTS Q&A 정오표 확인 결과
 
