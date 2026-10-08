@@ -2,6 +2,39 @@
 
 ## 미해결
 
+### Q15. 시체에 붙은 저주의 처리와 다중성
+- source: "Extra cards are treated as Curse cards. They can be placed on a location or be attached to characters and corpses."
+- source: "Characters with curses are killed (at the same time so a character that got a curse this step is not killed.) and the curse moves to the location."
+- 쟁점: 원문은 시체에도 저주를 붙일 수 있다고 하지만 라운드 종료 효과는 저주가 붙은
+  “캐릭터”의 사망과 장소 이동만 설명한다. 시체에 붙은 저주가 라운드 종료에 이동하는지,
+  시체가 부활·제거되면 어디로 가는지, 한 시체나 장소에 여러 장을 붙일 수 있는지는
+  명시하지 않는다.
+- 해석 A: 명시된 캐릭터 처리만 적용하고 시체 저주는 부착 상태로 유지한다.
+- 해석 B: 시체도 같은 단계에 현재 장소로 저주를 이동시킨다.
+- 현재 처리 방침: 구현하지 않는다. 시체 대상과 복수 부착을 원문 밖으로 확대하지 않고
+  공식 판정 또는 실물 규칙의 추가 문장을 확인한다.
+
+### Q14. 익명 시체의 식별자와 장소 음모 감소
+- source: "Every :inrigue: on locations counts as a corpse with the role :person:."
+- source: "If such a corpse is revived by the power of the :alien:, it is simply removed from the board."
+- 쟁점: 장소 음모 3개를 시체 3구로 세는 것은 분명하지만, 개별 시체에 저주를 붙이거나
+  좀비 시체 하나를 이동한 뒤 음모가 감소할 때 어느 시체가 제거되는지는 명시하지 않는다.
+- 해석 A: 익명 시체에 안정적인 개별 ID를 부여하고 제거 대상을 선택한다.
+- 해석 B: 장소별 수량만 유지하고 부착·이동 때 임시 대상을 만든다.
+- 현재 처리 방침: 구현하지 않는다. 임의의 ID·제거 순서를 정하지 않고 공식 판정이나
+  실제 구성물의 식별 방식을 확인한다.
+
+### Q13. 익명 좀비 시체도 선택 이동 대상인가?
+- source: "All corpses that had the role :person:, :coward: or :showOff: change into having the role of :zombie:"
+- source: "You may move one :zombie: corpse to a neighboring location."
+- 쟁점: 첫 문장은 장소 음모에서 생긴 엑스트라 시체도 좀비로 바꾸고, 둘째 문장은
+  좀비 시체 하나를 제한 없이 지칭한다. 사용자가 제시한 좁은 구현 범위인 “익명 시체는
+  역할 효과의 강제 행동만 수행”과 선택 이동 문장이 충돌한다.
+- 해석 A: 익명 좀비도 선택 이동 대상이다.
+- 해석 B: 실제 캐릭터 좀비 시체만 선택 이동 대상이다.
+- 현재 처리 방침: 구현하지 않는다. 원문상 제외 근거가 없어 A가 더 직접적이지만,
+  익명 시체의 이동 표현과 음모 카운터 처리까지 공식 판정을 확인한다.
+
 ### Q10. 닌자의 거짓 선언 대상에 동적으로 얻은 핵심 인물이 포함되는가?
 - source: "When this role would be revealed, you may declare any other non-Person Role in the Script instead."
 - 쟁점: “시나리오에 포함된 다른 비-엑스트라 역할”이 각본에 기본 배정된 역할만
