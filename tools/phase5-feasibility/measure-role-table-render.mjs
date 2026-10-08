@@ -6,6 +6,7 @@ import { join } from "node:path";
 
 const port = 4175;
 const origin = `http://127.0.0.1:${port}`;
+const scenarioId = process.argv[2] ?? "community:naughty-cat";
 const chrome = [
   process.env.CHROME_BIN,
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -95,7 +96,7 @@ try {
     "--window-size=390,844",
     "--virtual-time-budget=30000",
     "--dump-dom",
-    `${origin}/tools/phase5-feasibility/role-table-render.html`,
+    `${origin}/tools/phase5-feasibility/role-table-render.html?scenario=${encodeURIComponent(scenarioId)}`,
   ], { stdio: ["ignore", "pipe", "pipe"] });
   browser.stdout.resume();
   browser.stderr.resume();
@@ -116,6 +117,7 @@ try {
   browser.unref();
   if (failure !== null) throw new Error(`브라우저 측정 실패: ${failure}`);
   const report = {
+    scenarioId,
     rows: [3, 4, 5].map((loopCount) => ({
       loopCount,
       samples: [0, 1, 2].map((sample) => {
@@ -127,6 +129,7 @@ try {
       }),
     })),
   };
+  process.stdout.write(`시나리오 ${scenarioId}\n`);
   for (const row of report.rows) {
     for (const sample of row.samples) {
       const start = marks.get(`${sample.timingKey}-render-start`);

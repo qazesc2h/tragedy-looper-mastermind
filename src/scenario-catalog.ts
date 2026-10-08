@@ -3,6 +3,7 @@ import firstStepsScriptsJson from "../data/first-steps-scripts.json";
 import scenarioSourceJson from "../data/scenario-source.json";
 import communityScriptsJson from "../scenarios/community-scripts.json";
 import midnightZoneScriptsJson from "../scenarios/midnight-zone-scripts.json";
+import mysteryCircleScriptsJson from "../scenarios/mystery-circle-scripts.json";
 import communityScenarioSourceJson from "../scenarios/scenario-source.json";
 import {
   adaptTragedyScript,
@@ -59,6 +60,10 @@ const BUNDLED_SCRIPT_GROUPS: readonly BundledScriptGroup[] = [
   },
   {
     scripts: midnightZoneScriptsJson,
+    idOf: (raw, index) => rawScriptId(raw, index),
+  },
+  {
+    scripts: mysteryCircleScriptsJson,
     idOf: (raw, index) => rawScriptId(raw, index),
   },
   {

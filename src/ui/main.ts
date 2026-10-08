@@ -100,6 +100,7 @@ import { applyHookEffect, collectHooks } from "../engine/phases";
 import { recordPhaseLog } from "../engine/phase-log";
 import { extraCardsAt } from "../engine/extra-cards";
 import { roleClaimOptions } from "../engine/role-reveal";
+import { IMMORTAL_ROLE_IDS } from "../engine/role-properties";
 import { scenarioValidationErrorMessages, validateScenario } from "../engine/validate";
 import {
   publicBoardChanges,
@@ -5452,17 +5453,20 @@ function roleInferenceGroups(
     }
 
     for (const character of deaths) {
-      if (
-        summary.roleTable.cells[character]?.timeTraveler?.status ===
-          "impossible"
-      ) {
+      for (const immortalRole of IMMORTAL_ROLE_IDS.filter((role) =>
+        summary.roleTable.roles.includes(role)
+      )) {
+        if (
+          summary.roleTable.cells[character]?.[immortalRole]?.status !==
+            "impossible"
+        ) continue;
         addTrace(
           [character],
-          `${characterName(character)} = ${roleName("timeTraveler")} 아님`,
+          `${characterName(character)} = ${roleName(immortalRole)} 아님`,
           "실제 사망",
           `${observation.loop}루프 ${observation.record.day}일`,
           "실제 사망",
-          "시간 여행자는 사망하지 않으므로 이후 단둘 비발동 제약의 예외가 될 수 없습니다.",
+          `${roleName(immortalRole)}는 사망하지 않으므로 이후 단둘 비발동 제약의 예외가 될 수 없습니다.`,
         );
       }
     }
@@ -5517,10 +5521,18 @@ function roleInferenceGroups(
           noDeathPartners.set(actor, partners);
           const serialStatus = summary.roleTable.cells[actor]?.serialKiller
             ?.status;
-          const immortalStatus = summary.roleTable.cells[target]?.timeTraveler
-            ?.status;
-          const immortalPossible = immortalStatus === "possible" ||
-            immortalStatus === "confirmed";
+          const immortalStatuses = IMMORTAL_ROLE_IDS.filter((role) =>
+            summary.roleTable.roles.includes(role)
+          ).map((role) => ({
+            role,
+            status: summary.roleTable.cells[target]?.[role]?.status,
+          }));
+          const immortalPossible = immortalStatuses.some(({ status }) =>
+            status === "possible" || status === "confirmed"
+          );
+          const immortalSummary = immortalStatuses.map(({ role, status }) =>
+            `${roleName(role)} ${possibilityStatusLabel(status)}`
+          ).join(" · ") || "불사 역할 현재 룰 후보에 없음";
           const mutation = virusPossible && (pair.paranoia[actorIndex] ?? 0) >= 3
             ? ` · ${actorName} 불안 3+: 엑스트라+망상 확대 바이러스 변이도 같은 조건`
             : "";
@@ -5530,7 +5542,7 @@ function roleInferenceGroups(
             "단둘 비사망",
             `${observation.loop}루프 ${observation.record.day}일`,
             `${locationName(pair.location)}에서 ${targetName}와 단둘 · 사망 없음${mutation}`,
-            `현재: ${actorName} 연쇄 살인마 ${possibilityStatusLabel(serialStatus)} · ${targetName} 시간 여행자 ${possibilityStatusLabel(immortalStatus)}`,
+            `현재: ${actorName} 연쇄 살인마 ${possibilityStatusLabel(serialStatus)} · ${targetName} ${immortalSummary}`,
             immortalPossible ? `${targetName}가 불사가 아닐 때` : undefined,
           );
           continue;
@@ -6576,7 +6588,9 @@ function completeEditor(): void {
   if (session === undefined) return;
   const completed = finalizeScenarioDraft(session.draft);
   if (!completed.ok || !session.draft.title?.trim() ||
-    !["firstSteps", "basicTragedy"].includes(session.draft.tragedySet ?? "")) {
+    !["firstSteps", "basicTragedy", "midnightZone", "mysteryCircle"].includes(
+      session.draft.tragedySet ?? "",
+    )) {
     session.saveWarning = "완성 검증을 통과해야 저장할 수 있습니다.";
     render();
     return;

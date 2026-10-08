@@ -15,6 +15,7 @@ import {
 } from "../scenario-draft";
 import { TRAGEDY_SETS } from "../tragedy-sets";
 import { incidentDefinition } from "../engine/incident-definition";
+import { specialGaugeDefinition } from "../engine/special-gauge";
 import { LOCATIONS, SCENARIO_SPECIAL_RULE_IDS, type Location, type ScenarioSpecialRuleId } from "../types";
 import { term } from "./terms";
 
@@ -47,7 +48,12 @@ export function furthestPopulatedEditorStep(draft: ScenarioDraft): number {
   return 0;
 }
 
-const SUPPORTED_SETS = ["firstSteps", "basicTragedy"] as const;
+const SUPPORTED_SETS = [
+  "firstSteps",
+  "basicTragedy",
+  "midnightZone",
+  "mysteryCircle",
+] as const;
 
 function escape(value: unknown): string {
   return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;")
@@ -137,6 +143,9 @@ function renderMetadata(draft: ScenarioDraft, row: ScenarioDraftCastRow): string
 }
 
 function renderSetStep(draft: ScenarioDraft): string {
+  const gauge = draft.tragedySet === undefined
+    ? undefined
+    : specialGaugeDefinition(draft.tragedySet);
   return `<label>시나리오 제목<input data-editor-field="title" value="${escape(draft.title ?? "")}" placeholder="제목을 입력하세요" /></label>
     <label>제작자<input data-editor-field="creator" value="${escape(draft.creator ?? "")}" /></label>
     <label>참극 세트<select data-editor-field="tragedySet">
@@ -144,7 +153,8 @@ function renderSetStep(draft: ScenarioDraft): string {
       ${SUPPORTED_SETS.map((id) => option(id, term("tragedySets", id, TRAGEDY_SETS[id].name), draft.tragedySet)).join("")}
       ${draft.tragedySet && !SUPPORTED_SETS.includes(draft.tragedySet as typeof SUPPORTED_SETS[number])
         ? option(draft.tragedySet, `${draft.tragedySet} · 편집 범위 밖`, draft.tragedySet, true) : ""}
-    </select></label>${fieldDiagnostics(draft, "tragedySet")}`;
+    </select></label>${fieldDiagnostics(draft, "tragedySet")}
+    ${gauge === undefined ? "" : `<p class="editor-set-capability" data-editor-special-gauge>이 참극 세트는 공개 특수 게이지를 사용합니다. 초기값 ${gauge.initialValue} · 루프마다 초기화</p>`}`;
 }
 
 function renderTimingStep(draft: ScenarioDraft): string {

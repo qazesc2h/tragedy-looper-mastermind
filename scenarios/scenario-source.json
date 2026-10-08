@@ -1,15 +1,21 @@
 {
   "_basis": {
-    "community": "사용자가 제공한 제작자와 사용자 제작 시나리오 분류"
+    "community": "Midnight Circle 제품 번호와 set 메타데이터가 있는 8~12번은 공식, 둘 다 없는 Bag of Risks는 별도 기여 각본으로 분류"
   },
   "official": [
     "midnightZone:4",
     "midnightZone:5",
     "midnightZone:6",
-    "midnightZone:7"
+    "midnightZone:7",
+    "mysteryCircle:8",
+    "mysteryCircle:9",
+    "mysteryCircle:10",
+    "mysteryCircle:11",
+    "mysteryCircle:12"
   ],
   "community": [
-    "community:naughty-cat"
+    "community:naughty-cat",
+    "community:bag-of-risks"
   ],
   "unknown": []
 }

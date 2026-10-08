@@ -157,7 +157,7 @@ describe("ScenarioDraft validation and finalization", () => {
       }))
     );
     const valid = difficulties.filter(({ validation }) => validation.ok);
-    expect(valid).toHaveLength(52);
+    expect(valid).toHaveLength(61);
 
     for (const { id, index, scenario } of valid) {
       const result = finalizeScenarioDraft(scenarioToDraft(scenario));

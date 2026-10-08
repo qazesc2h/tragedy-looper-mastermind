@@ -139,12 +139,15 @@ export const PLOT_OBSERVATION_PROFILES: Readonly<
   Record<PlotId, readonly ObservationProfile[]>
 > = {
   tightropePlan: [
+    { type: "specialGaugeLoss", label: "특수 게이지를 쓰는 루프 종료 조건" },
     { type: "tightropeGaugeCondition", label: "특수 게이지 1 이하의 루프 종료 조건" },
   ],
   quiltIncidents: [
+    { type: "specialGaugeLoss", label: "특수 게이지를 쓰는 루프 종료 조건" },
     { type: "quiltGaugeCondition", label: "특수 게이지 3 이상의 루프 종료 조건" },
   ],
   isolatedInstitutionPsycho: [
+    { type: "specialGaugeLoss", label: "특수 게이지를 쓰는 직전 루프 조건" },
     { type: "isolatedGaugeCondition", label: "직전 루프 게이지를 읽는 루프 시작 조건" },
   ],
   dropStrychnine: [

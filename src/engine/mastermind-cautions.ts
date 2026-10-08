@@ -54,6 +54,8 @@ const DEATH_INCIDENTS = new Set([
   "uproar",
   "fakeIncident",
   "conspiracies",
+  "terrorism",
+  "bestialMurder",
 ]);
 
 const INCIDENT_EFFECTS: Readonly<Record<string, string>> = {
@@ -73,6 +75,12 @@ const INCIDENT_EFFECTS: Readonly<Record<string, string>> = {
   breakthrough: "주인공 리더가 캐릭터 또는 장소의 음모를 2개 제거합니다.",
   fakedSuicide: "범인에게 특수 카드를 붙이고, 남은 루프 동안 특수 카드 보유자에게 주인공 행동 카드 배치를 금지합니다.",
   confession: "범인과 범인의 역할 선언을 공개합니다. 닌자는 거짓 선언을 선택할 수 있습니다.",
+  portent: "범인의 불안 한계를 1 낮춰 발생을 판정하고, 같은 장소의 캐릭터 1명에게 불안 1개를 놓습니다.",
+  terrorism: "도심 음모 1개 이상이면 도심의 전원이 사망하고, 2개 이상이면 주인공 사망도 판정합니다.",
+  bestialMurder: "연속 살인과 불안 확대를 차례로 해결하고 특수 게이지를 추가로 1 올립니다.",
+  suspiciousLetter: "범인과 같은 장소의 캐릭터 1명을 옮기고, 실제 이동했다면 다음 날 그 캐릭터의 이동을 막습니다.",
+  closedCircle: "범인의 장소를 공개하고 발생일 포함 3일 동안 그 장소를 드나드는 모든 이동을 막습니다.",
+  silverBullet: "특수 게이지를 올리지 않고 사건 단계 뒤 루프를 끝냅니다.",
 };
 
 function roleName(role: RoleId): string {

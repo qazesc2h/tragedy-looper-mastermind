@@ -759,11 +759,14 @@
         const absentInBasic = frameDocument().querySelector(
           ".special-gauge-panel",
         ) === null;
+        await selectScenario("mysteryCircle:8");
+        const initialPanel = await waitFor(
+          () => frameDocument().querySelector(".special-gauge-panel"),
+          "MC 특수 게이지 초기 패널",
+        );
+        const initialText = initialPanel.textContent.replace(/\s+/g, " ").trim();
         mutateActiveState((state) => {
-          state.loop.specialGauge = {
-            value: 3,
-            increasedThisLoop: true,
-          };
+          state.loop.specialGauge.value = 3;
         });
         await reloadApp("special-gauge-panel");
         const panel = await waitFor(
@@ -774,6 +777,7 @@
         const board = frameDocument().querySelector(".game-board");
         const report = {
           absentInBasic,
+          initialText,
           text: panel.textContent.replace(/\s+/g, " ").trim(),
           firstBoardItem: board?.firstElementChild === panel,
           rect: { left: rect.left, right: rect.right, width: rect.width },
@@ -781,16 +785,17 @@
         };
         reports.push({ label: "특수 게이지 게임판 표시", ...report });
         if (
-          !report.absentInBasic || report.text !== "특수 게이지 3" ||
+          !report.absentInBasic || report.initialText !== "특수 게이지 0" ||
+          report.text !== "특수 게이지 3" ||
           !report.firstBoardItem || rect.left < -0.5 || rect.right > WIDTH + 0.5 ||
           report.horizontal.scrollWidth > WIDTH
         ) {
           failures.push(`특수 게이지 게임판 표시: ${JSON.stringify(report)}`);
         }
-        mutateActiveState((state) => {
-          delete state.loop.specialGauge;
-        });
-        await reloadApp("special-gauge-panel-restored");
+        await selectScenario("basicTragedy:1");
+        if (frameDocument().querySelector(".special-gauge-panel") !== null) {
+          failures.push("기본편 복귀 뒤 특수 게이지가 남았습니다.");
+        }
       }
 
       async function inspectSpecialRuleCardLabel() {
@@ -3266,7 +3271,7 @@
       }
 
       async function inspectEditorSteps() {
-        const source = loadScenarioCatalog().find(({ id }) => id === "basicTragedy:20");
+        const source = loadScenarioCatalog().find(({ id }) => id === "mysteryCircle:12");
         if (!source) throw new Error("편집기 레이아웃용 시나리오가 없습니다.");
         const draft = { ...scenarioToDraft(source.scenario), title: source.rawTitle,
           difficultySets: [
@@ -3316,11 +3321,13 @@
           }
           const report = { step: step + 1, width: Math.max(document.body.scrollWidth,
             document.documentElement.scrollWidth), outside, clipped, overlaps,
+            specialGaugeNotice: Boolean(document.querySelector("[data-editor-special-gauge]")),
             incidentRows: document.querySelectorAll(".editor-incident-row").length,
             variantRows: document.querySelectorAll(".editor-difficulty-row").length };
           reports.push({ label: `편집기 ${step + 1}단계`, ...report });
           if (report.width > WIDTH || outside.length > 0 || clipped.length > 0 || overlaps.length > 0 ||
             (step === 1 && report.variantRows !== 3) ||
+            (step === 0 && !report.specialGaugeNotice) ||
             (step === 6 && report.incidentRows !== source.scenario.daysPerLoop)) {
             failures.push(`편집기 ${step + 1}단계: ${JSON.stringify(report)}`);
           }
