@@ -3444,3 +3444,60 @@ CM 룰·역할에는 직전 루프 스냅샷을 직접 읽는 조건이 없다. 
 
 CM-3에는 사건 8종과 사건별 게이지 증가가 남았다. CM-4에는 공식 각본 5편·7변형,
 편집기·가설 공간·지침 A~E·실제 브라우저 성능·번역 상태 종단 검증이 남았다.
+
+## CM-3 — Cosmic Mythology 사건과 사건 가설
+
+### 원문 대조와 구현 범위
+
+Cosmic Mythology에서 새로 지원해야 하는 사건 8종을 공식 Cosmic Evil 요약표와 upstream
+사건 표로 다시 대조했다. `evilContamination`, `uproar`, `executioner`는 이미 다른 세트가
+쓰던 공용 구현을 그대로 재사용하고, 다음 5종의 새 동작을 추가했다.
+
+| 사건 | 원문 핵심 | 구현 |
+|---|---|---|
+| 광기의 살인 | `Kill any one character (including culprit) in the same location as the culprit.` | 범인과 같은 장소의 생존 캐릭터를 리더가 선택한다. 범인 자신도 대상이다. |
+| 집단 자살 | prerequisite `1 :intrigue: on the culprit.` / `All characters in the culprit’s location are killed.` | 불안이 아니라 범인 음모 1개로 발생하며, 범인 장소의 생존 캐릭터를 한 사망 묶음으로 처리한다. |
+| 멸망의 불 | `The first time this incident happens this game session` / `All characters and the Protagonists are killed.` | `history`와 현재 루프의 실제 발생 이력을 합쳐 게임 최초 발생만 전멸과 주인공 사망을 만든다. 이후 발생은 사건 이력만 남기고 효과가 없다. |
+| 사냥개의 후각 | `When determinig whether this incident occours or not, count :intrigue: instead of :paranoia:. For the rest of the loop, if another Incident occours, the Protagonists are killed after the Incident step.` | 범인의 기재 불안 한계만큼 음모가 있어야 발생한다. 같은 루프에서 다음 사건의 효과와 공개 변화가 끝난 뒤 주인공 사망을 요청한다. |
+| 발견 | `Increase the Extra Gauge 1 step.` | CM 게이지를 직접 +1하고 `increasedThisLoop`를 참으로 만든다. |
+
+수행자는 공식 발생 조건대로 범인의 기재 불안 한계를 1 낮춰 판정한다. 사악한 기운의
+오염, 소동, 수행자의 효과 본문과 기존 선택 스키마는 바꾸지 않았다.
+
+### 게이지·주문·시체 경계
+
+CM 사건 중 게이지를 올리는 것은 **발견 하나뿐**이다. Mystery Circle의 “사건 발생마다
++1” 공통 처리는 `mysteryCircle`에만 남아 있으므로 광기의 살인 등 다른 CM 사건은
+게이지를 올리지 않는다. 발견으로 현재값이 3에서 4가 되면 같은 날 P9의 광기 주문이
+현재값 4를 읽어 최후의 싸움 종료 경로로 들어간다. 반면 이미 지난 P1 주문은 소급하지
+않는다.
+
+익명 시체는 계속 Prime Evil 전용이다. `corpseCountAt()`은 CM에서 장소 음모를 시체로
+환산하지 않으며, 이번 사건 8종에는 장소 범인·시체 수 판정·부착 카드가 없다. 따라서
+1C 장소 범인, PE-1 익명 시체, 1B 부착 카드에 새 분기를 만들지 않았다.
+
+### 공개 흔적과 추론
+
+- 사건 해결 선언의 공개 `targets`를 `incidentOccurred` 관측에도 보존한다.
+- 광기의 살인은 선택된 대상의 사건 직전 장소로 범인의 장소를 좁힌다. 원문상 범인
+  자신도 죽일 수 있으므로 피해자를 범인 후보에서 제외하거나 범인을 직접 확정하지 않는다.
+- 집단 자살은 실제로 사망 상태가 된 캐릭터들의 사건 직전 장소로 후보 위치를 좁힌다.
+  범인도 함께 죽으므로 사망자를 후보에서 제외하지 않으며, 같은 장소 후보가 여럿이면
+  확정하지 않는다.
+- 사냥개의 후각 발생/미발생 후보 판정은 공개 불안이 아니라 공개 음모와 기재 불안
+  한계를 비교한다. 완고함은 낮은 음모에서 강제 발생을 설명할 수 있지만, 사립 탐정의
+  게이지 0 강제 발생은 불안 판정에만 적용되므로 이 사건을 설명하지 않는다.
+- 멸망의 불과 사냥개의 후각에 의한 주인공 사망을 공개 패배 원인 후보에 추가했다.
+- 사건 사망은 기존 `withDeathBatch()`와 `ON_DEATH` 경로를 그대로 지나므로 심해인 등
+  CM-2 강제 사망 능력이 발동한다. 사건 자체가 그 강제 미발동 규칙을 우회하지 않는다.
+
+### 검증과 다음 단계
+
+- CM 사건 집중 테스트 13개, 사건 가설 회귀 22개 통과
+- 전체 Vitest 71파일 **1130개 통과·1개 todo**
+- 수동 생사 교정, 캐릭터 특성, 390×844 게임 화면, 390×844 편집기 실제 브라우저 경로 통과
+- 저장소 AGENTS.md 지침의 `npx tsc --noEmit --strict`, `git diff --check` 통과
+- 구현은 사건·발생/패배 거리와 공개 추론의 두 커밋으로 분리했다.
+
+CM-4에는 공식 각본 5편·7변형, 편집기·가설 공간·지침 A~E·성능·번역 폴백의 종단
+검증이 남았다.

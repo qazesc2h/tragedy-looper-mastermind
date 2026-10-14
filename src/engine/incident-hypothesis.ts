@@ -364,6 +364,26 @@ function traceExclusionReason(
             : []
         );
       }
+    } else if (column.incident === "insaneMurder") {
+      const targets = observation.targets?.flatMap((target) =>
+        target.kind === "character" ? [target.id] : []
+      ) ?? [];
+      traceLocations = targets.flatMap((target) => {
+        const location = locationOf(target);
+        return location === undefined ? [] : [location];
+      });
+    } else if (column.incident === "massSuicide") {
+      const victims = changes.flatMap((change) =>
+        change.kind === "status" &&
+          change.from === "alive" &&
+          change.to === "dead"
+          ? [change.character]
+          : []
+      );
+      traceLocations = victims.flatMap((victim) => {
+        const location = locationOf(victim);
+        return location === undefined ? [] : [location];
+      });
     } else if (column.incident === "barricade") {
       const movements = changes.filter((change) => change.kind === "movement");
       if (movements.some((change) =>
@@ -439,26 +459,41 @@ function outcomeExclusionReason(
     const state = observation.context?.characters?.[character];
     if (state === undefined) continue;
     const policy = incidentDefinition(column.incident).triggerPolicy;
-    const limit = characterDataOf(character).paranoiaLimit +
-      (policy.kind === "characterParanoia"
-        ? policy.paranoiaLimitAdjustment
-        : 0);
+    const limit = policy.kind === "characterParanoia"
+      ? characterDataOf(character).paranoiaLimit +
+        policy.paranoiaLimitAdjustment
+      : policy.kind === "characterIntrigue"
+      ? policy.required === "paranoiaLimit"
+        ? characterDataOf(character).paranoiaLimit
+        : policy.required
+      : 0;
+    const counter = policy.kind === "characterIntrigue"
+      ? "intrigue"
+      : "paranoia";
     if (observation.occurred) {
-      if (state.status !== "alive") {
+      if (
+        (policy.kind === "deadCharacter" && state.status !== "dead") ||
+        (policy.kind !== "deadCharacter" && state.status !== "alive")
+      ) {
         return { code: "firedWhileUnavailable", observation };
       }
-      // AI는 사건 판정에서 모든 카운터를 불안으로 취급하므로 불안만 보고 배제하지 않는다.
+      // AI의 모든 카운터 합산은 불안 판정에만 적용된다.
       if (
-        character !== "ai" &&
-        (publicCharacterCounter(state, "paranoia") ?? 0) < limit &&
+        policy.kind !== "deadCharacter" &&
+        !(policy.kind === "characterParanoia" && character === "ai") &&
+        (publicCharacterCounter(state, counter) ?? 0) < limit &&
         !forcedBelowParanoiaCouldExplain?.(character, observation)
       ) {
         return { code: "firedBelowParanoia", observation };
       }
     } else if (
       character !== "henchman" &&
-      state.status === "alive" &&
-      (publicCharacterCounter(state, "paranoia") ?? 0) >= limit
+      (
+        (policy.kind === "deadCharacter" && state.status === "dead") ||
+        (policy.kind !== "deadCharacter" &&
+          state.status === "alive" &&
+          (publicCharacterCounter(state, counter) ?? 0) >= limit)
+      )
     ) {
       return { code: "didNotFireDespiteConditions", observation };
     }
@@ -824,6 +859,10 @@ function stateIncidentHypothesisOverrides(
           (publicCharacterCounter(observed, "intrigue") ?? 0) >= limit
     ) return true;
     if (rolePossible(character, "obstinate")) return true;
+    if (
+      incidentDefinition(observation.incident).triggerPolicy.kind !==
+        "characterParanoia"
+    ) return false;
     if (observation.context?.specialGauge?.value !== 0) return false;
 
     const locations = new Set(

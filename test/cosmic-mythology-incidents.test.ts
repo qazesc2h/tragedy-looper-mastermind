@@ -8,10 +8,12 @@ import {
   resolveIncidentEffect,
 } from "../src/engine/incident";
 import { incidentDefinition } from "../src/engine/incident-definition";
+import { evaluateIncidentHypotheses } from "../src/engine/incident-hypothesis";
 import { madnessSpellActive } from "../src/engine/cosmic-spells";
 import { initLoop } from "../src/engine/setup";
 import { INCIDENT_IMPL } from "../src/impl/incidents";
 import type { GameState, IncidentId, Scenario } from "../src/types";
+import type { ProtagonistObservation } from "../src/engine/hypothesis";
 import { setBoardLocation } from "./helpers";
 
 function cosmicScenario(incident: IncidentId): Scenario {
@@ -205,6 +207,24 @@ describe("Cosmic Mythology gauge incidents", () => {
     expect(ordinary.loop.specialGauge?.value).toBe(0);
   });
 
+  it("runs CM mandatory death abilities caused by an incident", () => {
+    const state = cosmicState("insaneMurder");
+    state.scenario.cast.boyStudent = "deepOne";
+    state.loop.charCounters.boyStudent.paranoia = 10;
+    resolveIncident(state, { target: "boyStudent" });
+    expect(state.loop.specialGauge).toEqual({
+      value: 1,
+      increasedThisLoop: true,
+    });
+    expect(state.loop.publicInformationThisLoop).toContainEqual(
+      expect.objectContaining({
+        kind: "roleClaim",
+        character: "boyStudent",
+        claimedRole: "deepOne",
+      }),
+    );
+  });
+
   it("uses the printed limit minus one for Executioner", () => {
     const state = cosmicState("executioner");
     const limit = characterDataOf("boyStudent").paranoiaLimit;
@@ -225,5 +245,99 @@ describe("Cosmic Mythology gauge incidents", () => {
     const state = cosmicState("discovery");
     state.loop.locIntrigue.City = 3;
     expect(corpseCountAt(state, "City")).toBe(0);
+  });
+});
+
+describe("Cosmic Mythology incident hypotheses", () => {
+  it("uses Insane Murder's public target location without excluding the victim", () => {
+    const state = cosmicState("insaneMurder");
+    setBoardLocation(state.loop, "officeWorker", "School");
+    for (const character of Object.keys(state.scenario.cast)) {
+      state.loop.charCounters[character].paranoia = 10;
+    }
+    const result = resolveIncident(state, { target: "girlStudent" })
+      .occurrences[0]!;
+    const observation: ProtagonistObservation = {
+      kind: "incidentOccurred",
+      loop: 1,
+      day: 1,
+      incident: "insaneMurder",
+      occurred: true,
+      context: result.publicContext,
+      targets: result.targets,
+      changes: result.publicChanges,
+    };
+    const table = evaluateIncidentHypotheses(
+      ["boyStudent", "girlStudent", "officeWorker"],
+      state.scenario.incidents,
+      [observation],
+    );
+    const column = table.columns[0]!.id;
+    expect(table.cells.girlStudent[column].status).toBe("possible");
+    expect(table.cells.officeWorker[column]).toMatchObject({
+      status: "impossible",
+      reasons: [{ code: "incidentTraceLocationMismatch" }],
+    });
+  });
+
+  it("uses Mass Suicide deaths as a location trace without confirming a culprit", () => {
+    const state = cosmicState("massSuicide");
+    setBoardLocation(state.loop, "officeWorker", "School");
+    for (const character of Object.keys(state.scenario.cast)) {
+      state.loop.charCounters[character].intrigue = 1;
+    }
+    const result = resolveIncident(state).occurrences[0]!;
+    const observation: ProtagonistObservation = {
+      kind: "incidentOccurred",
+      loop: 1,
+      day: 1,
+      incident: "massSuicide",
+      occurred: true,
+      context: result.publicContext,
+      changes: result.publicChanges,
+      deaths: result.deaths,
+    };
+    const table = evaluateIncidentHypotheses(
+      ["boyStudent", "girlStudent", "officeWorker"],
+      state.scenario.incidents,
+      [observation],
+    );
+    const column = table.columns[0]!.id;
+    expect(table.cells.boyStudent[column].status).toBe("possible");
+    expect(table.cells.girlStudent[column].status).toBe("possible");
+    expect(table.cells.officeWorker[column]).toMatchObject({
+      status: "impossible",
+      reasons: [{ code: "incidentTraceLocationMismatch" }],
+    });
+  });
+
+  it("evaluates Hound Dog Scent candidates from public intrigue", () => {
+    const state = cosmicState("houndDogScent");
+    state.loop.charCounters.boyStudent.intrigue = 3;
+    state.loop.charCounters.boyStudent.paranoia = 0;
+    state.loop.charCounters.girlStudent.intrigue = 0;
+    state.loop.charCounters.girlStudent.paranoia = 10;
+    const result = resolveIncident(state).occurrences[0]!;
+    const observation: ProtagonistObservation = {
+      kind: "incidentOccurred",
+      loop: 1,
+      day: 1,
+      incident: "houndDogScent",
+      occurred: true,
+      context: result.publicContext,
+    };
+    const table = evaluateIncidentHypotheses(
+      ["boyStudent", "girlStudent"],
+      state.scenario.incidents,
+      [observation],
+    );
+    const column = table.columns[0]!.id;
+    expect(table.cells.boyStudent[column].status).toBe("confirmed");
+    expect(table.cells.girlStudent[column]).toMatchObject({
+      status: "impossible",
+      reasons: expect.arrayContaining([
+        expect.objectContaining({ code: "firedBelowParanoia" }),
+      ]),
+    });
   });
 });

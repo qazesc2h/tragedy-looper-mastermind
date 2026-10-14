@@ -115,6 +115,8 @@ export type ProtagonistObservation = (
     servantSubstitutionObserved?: boolean;
     /** ON_DEATH 반응 전 사건 효과 자체의 공개 변화. */
     changes?: PublicBoardChange[];
+    /** 사건 해결 선언으로 공개된 선택 대상. */
+    targets?: Target[];
     deaths?: CharacterId[];
     /** 클로즈드 서클처럼 범인 정체 없이 공개된 사건 처리상 장소. */
     culpritLocationRevealed?: Location;
@@ -4520,6 +4522,33 @@ export function explainableLossConditions(
           incident: "fakeIncident",
         });
       }
+      if (
+        path === "protagonistIncident" &&
+        tragedySet === "cosmicMythology" &&
+        context.firedIncidents.some(({ day, incident }) =>
+          day === observation.day && incident === "fireDemise"
+        )
+      ) {
+        add({
+          key: "incident:fireDemise",
+          kind: "incident",
+          incident: "fireDemise",
+        });
+      }
+      if (
+        path === "protagonistIncident" &&
+        tragedySet === "cosmicMythology" &&
+        context.firedIncidents.some(({ day, incident }) =>
+          incident === "houndDogScent" && day < observation.day
+        ) &&
+        context.firedIncidents.some(({ day }) => day === observation.day)
+      ) {
+        add({
+          key: "incident:houndDogScent",
+          kind: "incident",
+          incident: "houndDogScent",
+        });
+      }
       if (path !== "protagonistRoundEnd") continue;
       for (const role of ["killer", "lovedOne", "ninja"] as const) {
         const met = lossRoleCandidates(
@@ -4898,6 +4927,9 @@ export function collectProtagonistObservations(
           ...(entry.publicChanges === undefined
             ? {}
             : { changes: structuredClone(entry.publicChanges) }),
+          ...(entry.targets === undefined
+            ? {}
+            : { targets: structuredClone(entry.targets) }),
           ...(entry.deaths === undefined ? {} : { deaths: [...entry.deaths] }),
           ...(entry.culpritLocationRevealed === undefined
             ? {}

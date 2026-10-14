@@ -963,7 +963,6 @@ export const INCIDENT_IMPL: Record<string, {
   // ── 멸망의 불 (Fire of Demise)
   fireDemise: {
     ko: "멸망의 불",
-    max: 1,
     hooks: [
       {
         phase: "ALWAYS",
