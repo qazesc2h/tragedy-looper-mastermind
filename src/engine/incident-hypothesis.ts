@@ -670,6 +670,7 @@ function repeatedCulpritAllowed(
 function buildLocationCells(
   columns: readonly IncidentHypothesisColumn[],
   confirmations: ReadonlyMap<string, Location>,
+  observations: readonly ProtagonistObservation[],
 ): LocationIncidentPossibilityTable["cells"] {
   return Object.fromEntries(LOCATIONS.map((location) => [
     location,
@@ -684,9 +685,55 @@ function buildLocationCells(
           return other !== undefined && !repeatedCulpritAllowed(other, column);
         },
       );
+      const contradictedByObservation = observations.some((observation) => {
+        if (
+          observation.kind !== "incidentOccurred" ||
+          observation.day !== column.day ||
+          observation.incident !== column.incident ||
+          observation.context === undefined
+        ) return false;
+        const policy = incidentDefinition(column.incident).triggerPolicy;
+        if (policy.kind === "locationCorpseCount") {
+          const actualCorpses = Object.values(observation.context.characters ?? {})
+            .filter((character) =>
+              character.status === "dead" && character.location === location
+            ).length;
+          const corpses = actualCorpses +
+            observation.context.locationIntrigue[location];
+          if (observation.occurred !== (corpses >= policy.required)) {
+            return true;
+          }
+        }
+        if (!observation.occurred) return false;
+        const tracedLocations = observation.incident === "awakenedCurse"
+          ? observation.changes?.flatMap((change) =>
+            change.kind === "extraCard" &&
+              change.action === "placed" &&
+              change.card.cardId === "curse" &&
+              change.card.target.kind === "location"
+              ? [change.card.target.at]
+              : []
+          ) ?? []
+          : observation.incident === "evangeliumDead"
+          ? observation.changes?.flatMap((change) =>
+            change.kind === "status" &&
+              change.from === "alive" &&
+              change.to === "dead"
+              ? change.at === undefined
+                ? observation.context?.characters?.[change.character]?.location ===
+                    undefined
+                  ? []
+                  : [observation.context.characters[change.character]!.location!]
+                : [change.at]
+              : []
+          ) ?? []
+          : [];
+        const unique = [...new Set(tracedLocations)];
+        return unique.length === 1 && unique[0] !== location;
+      });
       const status: IncidentPossibilityStatus = confirmed === location
         ? "confirmed"
-        : confirmed !== undefined || assignedElsewhere
+        : confirmed !== undefined || assignedElsewhere || contradictedByObservation
         ? "impossible"
         : "possible";
       return [column.id, { location, column: column.id, status }];
@@ -722,11 +769,11 @@ export function evaluateLocationIncidentHypotheses(
       revealed.set(column.id, culprit.at);
     }
   }
-  let cells = buildLocationCells(columns, revealed);
+  let cells = buildLocationCells(columns, revealed, observations);
   let propagationPasses = 0;
   while (true) {
     propagationPasses += 1;
-    cells = buildLocationCells(columns, revealed);
+    cells = buildLocationCells(columns, revealed, observations);
     let changed = false;
     for (const column of columns) {
       if (revealed.has(column.id)) continue;

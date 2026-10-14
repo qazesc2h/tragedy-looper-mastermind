@@ -40,6 +40,10 @@ import {
   addTimedMovementRestriction,
   moveCharacterIfAllowed,
 } from "../engine/movement";
+import { corpseCountAt } from "../engine/corpses";
+import { totalZombieCount } from "./roles";
+
+export const NIGHT_MADNESS_LOSS_USE_KEY = "nightMadness:incident:delayedLoss";
 
 function requiredCharacterCulprit(
   culprit: IncidentCulprit | CharacterId,
@@ -979,6 +983,125 @@ export const INCIDENT_IMPL: Record<string, {
           }
           return applied;
         },
+      },
+    ],
+  },
+  // ── 광기의 밤 (Night of Madness)
+  nightMadness: {
+    ko: "광기의 밤",
+    hooks: [
+      {
+        phase: "ALWAYS",
+        kind: "lossDeath",
+        source: {
+          timing: "Always",
+          prerequisite: `6 or more zombies when this incident occurs.`,
+          description: `The Protagonists will die after the day has ended.`,
+        },
+        when: (s) => totalZombieCount(s) >= 6,
+        effect: (s) => {
+          if (!s.loop.abilitiesUsedThisRound.includes(NIGHT_MADNESS_LOSS_USE_KEY)) {
+            s.loop.abilitiesUsedThisRound.push(NIGHT_MADNESS_LOSS_USE_KEY);
+          }
+          return true;
+        },
+      },
+    ],
+  },
+  // ── 저주의 각성 (Awakened Curse)
+  awakenedCurse: {
+    ko: "저주의 각성",
+    hooks: [
+      {
+        phase: "ALWAYS",
+        kind: "mandatory",
+        source: {
+          timing: "Always",
+          description: `Place a curse on the culprit’s location.`,
+        },
+        when: () => true,
+        effect: (s, culprit) => {
+          const location = incidentEffectCulpritLocation(s, culprit);
+          placeExtraCard(s.loop, {
+            instanceId: `awakenedCurse:${s.loop.loop}:${s.loop.day}:${s.loop.extraCards.length}`,
+            cardId: "curse",
+            controller: "mastermind",
+            source: { kind: "incident", id: "awakenedCurse" },
+            target: { kind: "location", at: location },
+            expiresAt: "loopEnd",
+          });
+          return true;
+        },
+      },
+    ],
+  },
+  // ── 추악함의 분출 (Fountain of Filth)
+  fountainFilth: {
+    ko: "추악함의 분출",
+    hooks: [
+      {
+        phase: "ALWAYS",
+        kind: "mandatory",
+        source: {
+          timing: "Always",
+          description: `Place 2 :paranoia: on any one character, and an :intrigue: on any location.`,
+        },
+        when: () => true,
+        effect: (s, _culprit, choice) => {
+          const target = selectedCharacter(
+            livingCharacters(s),
+            incidentCharacterDecision(choice, "target"),
+            "fountainFilth",
+          );
+          if (target === undefined) return false;
+          const location = selectedLocation(
+            incidentLocationDecision(choice, "location"),
+            "fountainFilth",
+          );
+          s.loop.charCounters[target].paranoia += 2;
+          s.loop.locIntrigue[location] += 1;
+          return true;
+        },
+      },
+    ],
+  },
+  // ── 사자의 묵시록 (Evangelium of the Dead)
+  evangeliumDead: {
+    ko: "사자의 묵시록",
+    hooks: [
+      {
+        phase: "ALWAYS",
+        kind: "mandatory",
+        source: {
+          timing: "Always",
+          description: `Kill all characters in the culprits location.`,
+        },
+        when: () => true,
+        effect: (s, culprit) => {
+          const location = incidentEffectCulpritLocation(s, culprit);
+          let applied = false;
+          for (const character of livingCharacters(s)) {
+            if (
+              characterLocation(s.loop.board[character], character) === location
+            ) {
+              applied = killEffectApplied(s, character) || applied;
+            }
+          }
+          return applied;
+        },
+      },
+      {
+        phase: "ALWAYS",
+        kind: "lossDeath",
+        source: {
+          timing: "Always",
+          prerequisite: `After that, if that location has 5 or more corpses`,
+        },
+        when: () => true,
+        effect: (s, culprit) =>
+          corpseCountAt(s, incidentEffectCulpritLocation(s, culprit)) >= 5
+            ? attemptProtagonistDeath(s).died
+            : false,
       },
     ],
   },

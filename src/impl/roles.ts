@@ -58,12 +58,19 @@ function actualZombiesAt(
   );
 }
 
-function zombieCountAt(
+export function zombieCountAt(
   state: GameState,
   location: import("../types").Location,
 ): number {
   return actualZombiesAt(state, location).length +
     (onesFromGraveActive(state) ? anonymousCorpseCountAt(state, location) : 0);
+}
+
+export function totalZombieCount(state: GameState): number {
+  return LOCATIONS.reduce(
+    (total, location) => total + zombieCountAt(state, location),
+    0,
+  );
 }
 
 function nonZombieCharactersAt(

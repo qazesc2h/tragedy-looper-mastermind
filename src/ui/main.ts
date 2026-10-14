@@ -359,6 +359,7 @@ const INCIDENT_CHOICE_FIELDS: Record<string, readonly string[]> = {
   sacrilegiousMurder: ["target"],
   executioner: ["target"],
   barricade: ["movements"],
+  fountainFilth: ["target", "location"],
 };
 
 const MYSTERY_BOY_PLOT_LESS_ROLE_TEXT =

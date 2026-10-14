@@ -1,16 +1,23 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  incidentFailureReasons,
   resolveIncident,
   resolveIncidentEffect,
 } from "../src/engine/incident";
 import { incidentDefinition } from "../src/engine/incident-definition";
-import { evaluateIncidentHypotheses } from "../src/engine/incident-hypothesis";
+import {
+  evaluateIncidentHypotheses,
+  evaluateLocationIncidentHypotheses,
+} from "../src/engine/incident-hypothesis";
+import { advance } from "../src/engine/phases";
 import { initLoop } from "../src/engine/setup";
 import { INCIDENT_IMPL } from "../src/impl/incidents";
+import { NIGHT_MADNESS_LOSS_USE_KEY } from "../src/impl/incidents";
 import type {
   GameState,
   IncidentChoice,
+  Location,
   Scenario,
 } from "../src/types";
 import { setBoardLife, setBoardLocation } from "./helpers";
@@ -45,6 +52,27 @@ function primeState(incident: string): GameState {
     setBoardLocation(state.loop, character, "City");
   }
   state.loop.charCounters.boyStudent.paranoia = 10;
+  state.loop.phase = "P7_INCIDENT";
+  return state;
+}
+
+function mobState(incident: string, at: Location = "City"): GameState {
+  const scenario = primeScenario(incident);
+  scenario.incidents = [{
+    day: 1,
+    incident,
+    culprit: { kind: "location", at },
+  }];
+  const state: GameState = {
+    scenario,
+    gamePhase: "ROUND",
+    loop: initLoop(scenario),
+    history: [],
+    loopOutcomes: [],
+  };
+  for (const character of Object.keys(state.loop.board)) {
+    setBoardLocation(state.loop, character, "City");
+  }
   state.loop.phase = "P7_INCIDENT";
   return state;
 }
@@ -216,5 +244,159 @@ describe("Prime Evil character incidents", () => {
         at: "School",
       }] },
     )).toThrow("one other-location destination per character");
+  });
+});
+
+describe("Prime Evil mob incidents", () => {
+  it("keeps the four upstream effects and corpse-count trigger thresholds", () => {
+    expect([
+      "nightMadness",
+      "awakenedCurse",
+      "fountainFilth",
+      "evangeliumDead",
+    ].map((incident) => INCIDENT_IMPL[incident].hooks.map(({ source }) => source)))
+      .toEqual([
+        [{
+          timing: "Always",
+          prerequisite: "6 or more zombies when this incident occurs.",
+          description: "The Protagonists will die after the day has ended.",
+        }],
+        [{
+          timing: "Always",
+          description: "Place a curse on the culprit’s location.",
+        }],
+        [{
+          timing: "Always",
+          description: "Place 2 :paranoia: on any one character, and an :intrigue: on any location.",
+        }],
+        [
+          {
+            timing: "Always",
+            description: "Kill all characters in the culprits location.",
+          },
+          {
+            timing: "Always",
+            prerequisite: "After that, if that location has 5 or more corpses",
+          },
+        ],
+      ]);
+    expect([
+      "nightMadness",
+      "awakenedCurse",
+      "fountainFilth",
+      "evangeliumDead",
+    ].map((incident) => incidentDefinition(incident).triggerPolicy))
+      .toEqual([0, 1, 2, 2].map((required) => ({
+        kind: "locationCorpseCount",
+        required,
+      })));
+  });
+
+  it("marks Night of Madness only with six zombies at occurrence and kills the Protagonists at P9", () => {
+    const six = mobState("nightMadness", "Hospital");
+    six.loop.locIntrigue.Hospital = 6;
+    expect(resolveIncident(six).occurrences[0]).toMatchObject({
+      fired: true,
+      effectApplied: true,
+    });
+    expect(six.loop.abilitiesUsedThisRound).toContain(
+      NIGHT_MADNESS_LOSS_USE_KEY,
+    );
+    six.loop.phase = "P9_ROUND_END";
+    advance(six);
+    expect(six.pendingLoopEnd?.reason).toBe("protagonistDeath");
+
+    const five = mobState("nightMadness", "Hospital");
+    five.loop.locIntrigue.Hospital = 5;
+    expect(resolveIncident(five).occurrences[0]).toMatchObject({
+      fired: true,
+      effectApplied: false,
+    });
+    expect(five.loop.abilitiesUsedThisRound).not.toContain(
+      NIGHT_MADNESS_LOSS_USE_KEY,
+    );
+  });
+
+  it("places Awakened Curse on its culprit location and requires one corpse", () => {
+    const state = mobState("awakenedCurse");
+    expect(incidentFailureReasons(
+      state,
+      { kind: "location", at: "City" },
+      "awakenedCurse",
+    )).toEqual(["insufficientCorpses"]);
+    state.loop.locIntrigue.City = 1;
+    const occurrence = resolveIncident(state).occurrences[0]!;
+    expect(state.loop.extraCards).toContainEqual(expect.objectContaining({
+      cardId: "curse",
+      source: { kind: "incident", id: "awakenedCurse" },
+      target: { kind: "location", at: "City" },
+    }));
+
+    const table = evaluateLocationIncidentHypotheses(
+      state.scenario.incidents,
+      [observationOf(state, occurrence)],
+    );
+    const column = table.columns[0]!.id;
+    expect(table.cells.City[column]?.status).toBe("confirmed");
+    expect(table.cells.School[column]?.status).toBe("impossible");
+  });
+
+  it("applies Fountain of Filth choices without treating their locations as culprit traces", () => {
+    const state = mobState("fountainFilth");
+    state.loop.locIntrigue.City = 2;
+    const occurrence = resolveIncident(state, {
+      target: "girlStudent",
+      location: "School",
+    }).occurrences[0]!;
+    expect(state.loop.charCounters.girlStudent.paranoia).toBe(2);
+    expect(state.loop.locIntrigue.School).toBe(1);
+
+    const table = evaluateLocationIncidentHypotheses(
+      state.scenario.incidents,
+      [observationOf(state, occurrence)],
+    );
+    const column = table.columns[0]!.id;
+    expect(table.cells.City[column]?.status).toBe("confirmed");
+    expect(table.cells.School[column]?.status).toBe("impossible");
+
+    const invalid = mobState("fountainFilth");
+    invalid.loop.locIntrigue.City = 2;
+    setBoardLife(invalid.loop, "girlStudent", false);
+    expect(() => resolveIncidentEffect(
+      invalid,
+      "fountainFilth",
+      { kind: "location", at: "City" },
+      { target: "girlStudent", location: "School" },
+    )).toThrow("target is not eligible");
+  });
+
+  it("kills every character at the Evangelium location, then checks the combined corpse count", () => {
+    const loss = mobState("evangeliumDead");
+    setBoardLocation(loss.loop, "girlStudent", "School");
+    setBoardLocation(loss.loop, "officeWorker", "School");
+    setBoardLocation(loss.loop, "policeOfficer", "Hospital");
+    loss.loop.locIntrigue.City = 4;
+    const occurrence = resolveIncident(loss).occurrences[0]!;
+    expect(loss.loop.board.boyStudent.status).toBe("dead");
+    expect(loss.loop.board.girlStudent.status).toBe("alive");
+    expect(loss.pendingLoopEnd?.reason).toBe("protagonistDeath");
+
+    const table = evaluateLocationIncidentHypotheses(
+      loss.scenario.incidents,
+      [observationOf(loss, occurrence)],
+    );
+    const column = table.columns[0]!.id;
+    expect(table.cells.City[column]?.status).toBe("confirmed");
+
+    const below = mobState("evangeliumDead");
+    setBoardLocation(below.loop, "girlStudent", "School");
+    setBoardLocation(below.loop, "officeWorker", "School");
+    setBoardLocation(below.loop, "policeOfficer", "Hospital");
+    below.loop.locIntrigue.City = 2;
+    const belowOccurrence = resolveIncident(below).occurrences[0]!;
+    expect(belowOccurrence.fired).toBe(true);
+    expect(belowOccurrence.protagonistsDied).toBeUndefined();
+    expect(below.loop.board.boyStudent.status).toBe("dead");
+    expect(below.pendingLoopEnd).toBeUndefined();
   });
 });

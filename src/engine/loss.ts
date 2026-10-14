@@ -1,5 +1,8 @@
 import { characterDataOf } from "../data";
-import { INCIDENT_IMPL } from "../impl/incidents";
+import {
+  INCIDENT_IMPL,
+  NIGHT_MADNESS_LOSS_USE_KEY,
+} from "../impl/incidents";
 import { PLOT_IMPL } from "../impl/plots";
 import { effectiveAbilityRoles, ROLE_IMPL } from "../impl/roles";
 import {
@@ -35,6 +38,7 @@ import {
   actualIncidentOf,
   characterCulprit,
   incidentOccurrenceId,
+  normalizeIncidentCulprit,
 } from "./incident-model";
 
 export type LossCategory =
@@ -237,7 +241,7 @@ function roleKey(role: RoleId, character: CharacterId): string {
 function incidentKey(
   incident: IncidentId,
   day: number,
-  culprit: CharacterId,
+  culprit: string,
 ): string {
   return `incident:${incident}:${day}:${culprit}`;
 }
@@ -1504,6 +1508,90 @@ function incidentLossDistance(
   const lossHook = impl?.hooks.find((hook) => hook.kind === "lossDeath");
   if (!lossHook) {
     return [];
+  }
+  if (actualIncident === "nightMadness") {
+    const culprit = normalizeIncidentCulprit(scheduled.culprit);
+    if (culprit.kind !== "location") return [];
+    const marked = state.loop.abilitiesUsedThisRound.includes(
+      NIGHT_MADNESS_LOSS_USE_KEY,
+    );
+    const key = incidentKey(
+      actualIncident,
+      scheduled.day,
+      `location:${culprit.at}`,
+    );
+    const condition = distance({
+      id: actualIncident,
+      key,
+      source: "incident",
+      category: "protagonistDeath",
+      timing: "dayEnd",
+      activation: "mandatory",
+      when: "라운드 종료",
+      incident: actualIncident,
+      day: scheduled.day,
+      ko: impl.ko,
+      conditionMet: marked,
+      label: `발생 당시 좀비 6 이상 ${marked ? 1 : 0}/1`,
+      requirements: [requirement(
+        "sixZombiesAtOccurrence",
+        "발생 당시 좀비 6 이상",
+        marked ? 1 : 0,
+        1,
+        `발생 당시 좀비 6 이상 ${marked ? 1 : 0}/1`,
+      )],
+    });
+    condition.routes = [route(
+      `${key}:protagonistDeath`,
+      `${scheduled.day}일 ${impl.ko} · 라운드 종료 후 주인공 사망`,
+      "automatic",
+      "라운드 종료",
+      marked,
+      condition.requirements,
+    )];
+    return [condition];
+  }
+  if (actualIncident === "evangeliumDead") {
+    const culprit = normalizeIncidentCulprit(scheduled.culprit);
+    if (culprit.kind !== "location") return [];
+    const current = corpseCountAt(state, culprit.at);
+    const key = incidentKey(
+      actualIncident,
+      scheduled.day,
+      `location:${culprit.at}`,
+    );
+    const condition = distance({
+      id: actualIncident,
+      key,
+      source: "incident",
+      category: "protagonistDeath",
+      timing: "incident",
+      activation: "mandatory",
+      when: "사건 단계",
+      incident: actualIncident,
+      day: scheduled.day,
+      ko: impl.ko,
+      conditionMet:
+        incidentFires(state, scheduled.culprit, actualIncident) && current >= 5,
+      label: `${LOCATION_KO[culprit.at]} 시체 ${current}/5`,
+      requirements: [requirement(
+        "corpsesAfterIncident",
+        `${LOCATION_KO[culprit.at]} 시체`,
+        current,
+        5,
+        `${LOCATION_KO[culprit.at]} 시체 ${current}/5`,
+      )],
+    });
+    condition.routes = [route(
+      `${key}:protagonistDeath`,
+      `${scheduled.day}일 ${impl.ko} · 주인공 사망`,
+      "automatic",
+      incidentWhen(state, scheduled),
+      incidentRouteAvailable(state, scheduled),
+      condition.requirements,
+      Math.max(0, scheduled.day - state.loop.day),
+    )];
+    return [condition];
   }
   if (
     actualIncident !== "hospitalIncident" &&
