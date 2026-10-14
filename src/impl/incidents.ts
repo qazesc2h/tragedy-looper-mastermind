@@ -42,6 +42,7 @@ import {
 } from "../engine/movement";
 import { corpseCountAt } from "../engine/corpses";
 import { totalZombieCount } from "./roles";
+import { adjustSpecialGauge } from "../engine/special-gauge";
 
 export const NIGHT_MADNESS_LOSS_USE_KEY = "nightMadness:incident:delayedLoss";
 
@@ -126,6 +127,14 @@ function killEffectApplied(
   killCharacter(state, character);
   return isCharacterAlive(state.loop.board[character]) !== before.alive ||
     state.loop.charCounters[character].protection !== before.protection;
+}
+
+function fireOfDemiseAlreadyOccurred(state: GameState): boolean {
+  return [...state.history, state.loop].some((loop) =>
+    loop.incidentOccurrencesFiredThisLoop?.some(
+      ({ actualIncident }) => actualIncident === "fireDemise",
+    )
+  );
 }
 
 // IMPLEMENTED_ELSEWHERE: src/engine/incident.ts resolveIncidentEffect()
@@ -892,6 +901,124 @@ export const INCIDENT_IMPL: Record<string, {
         when: () => true,
         effect: (s) => {
           s.loop.locIntrigue.Shrine += 2;
+          return true;
+        },
+      },
+    ],
+  },
+  // ── 광기의 살인 (Insane Murder)
+  insaneMurder: {
+    ko: "광기의 살인",
+    hooks: [
+      {
+        phase: "ALWAYS",
+        kind: "mandatory",
+        source: {
+          timing: "Always",
+          description: `Kill any one character (including culprit) in the same location as the culprit.`,
+        },
+        when: () => true,
+        effect: (s, culprit, choice) => {
+          const location = incidentEffectCulpritLocation(s, culprit);
+          const target = selectedCharacter(
+            livingCharacters(s).filter((character) =>
+              characterLocation(s.loop.board[character], character) === location
+            ),
+            incidentCharacterDecision(choice, "target"),
+            "insaneMurder",
+          );
+          return target === undefined ? false : killEffectApplied(s, target);
+        },
+      },
+    ],
+  },
+  // ── 집단 자살 (Mass Suicide)
+  massSuicide: {
+    ko: "집단 자살",
+    hooks: [
+      {
+        phase: "ALWAYS",
+        kind: "mandatory",
+        source: {
+          timing: "Always",
+          prerequisite: `1 :intrigue: on the culprit.`,
+          description: `All characters in the culprit’s location are killed.`,
+        },
+        when: () => true,
+        effect: (s, culprit) => {
+          const location = incidentEffectCulpritLocation(s, culprit);
+          let applied = false;
+          for (const character of livingCharacters(s)) {
+            if (
+              characterLocation(s.loop.board[character], character) === location
+            ) {
+              applied = killEffectApplied(s, character) || applied;
+            }
+          }
+          return applied;
+        },
+      },
+    ],
+  },
+  // ── 멸망의 불 (Fire of Demise)
+  fireDemise: {
+    ko: "멸망의 불",
+    max: 1,
+    hooks: [
+      {
+        phase: "ALWAYS",
+        kind: "lossDeath",
+        source: {
+          timing: "Always",
+          prerequisite: `The first time this incident happens this game session`,
+          description: `All characters and the Protagonists are killed.`,
+        },
+        when: (s) => !fireOfDemiseAlreadyOccurred(s),
+        effect: (s) => {
+          let applied = false;
+          for (const character of livingCharacters(s)) {
+            applied = killEffectApplied(s, character) || applied;
+          }
+          return attemptProtagonistDeath(s).died || applied;
+        },
+      },
+    ],
+  },
+  // ── 사냥개의 후각 (The Hound Dog's Scent)
+  houndDogScent: {
+    ko: "사냥개의 후각",
+    hooks: [
+      {
+        phase: "ALWAYS",
+        kind: "lossDeath",
+        source: {
+          timing: "Always",
+          description: `When determinig whether this incident occours or not, count :intrigue: instead of :paranoia:. For the rest of the loop, if another Incident occours, the Protagonists are killed after the Incident step.`,
+        },
+        // 지연 패배는 사건 발생 이력을 이용해 resolveScheduledIncident에서 처리한다.
+        when: () => true,
+        effect: () => true,
+      },
+    ],
+  },
+  // ── 발견 (Discovery)
+  discovery: {
+    ko: "발견",
+    hooks: [
+      {
+        phase: "ALWAYS",
+        kind: "mandatory",
+        source: {
+          timing: "Always",
+          description: `Increase the Extra Gauge 1 step.`,
+        },
+        when: () => true,
+        effect: (s) => {
+          const gauge = s.loop.specialGauge;
+          if (gauge === undefined) {
+            throw new Error("Discovery requires the Cosmic Mythology gauge");
+          }
+          adjustSpecialGauge(gauge, 1);
           return true;
         },
       },

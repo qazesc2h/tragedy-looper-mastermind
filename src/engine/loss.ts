@@ -1627,6 +1627,85 @@ function incidentLossDistance(
   if (!lossHook) {
     return [];
   }
+  if (actualIncident === "fireDemise") {
+    const occurredBefore = [...state.history, state.loop].some((loop) =>
+      loop.incidentOccurrencesFiredThisLoop?.some(
+        (occurrence) => occurrence.actualIncident === "fireDemise",
+      )
+    );
+    const available = !occurredBefore &&
+      incidentFires(state, scheduled.culprit, actualIncident);
+    const key = incidentKey(actualIncident, scheduled.day, "first");
+    const condition = distance({
+      id: actualIncident,
+      key,
+      source: "incident",
+      category: "protagonistDeath",
+      timing: "incident",
+      activation: "mandatory",
+      when: "사건 단계",
+      incident: actualIncident,
+      day: scheduled.day,
+      ko: impl.ko,
+      conditionMet: available,
+      label: `게임 중 첫 발생 ${available ? 1 : 0}/1`,
+      requirements: [requirement(
+        "firstOccurrence",
+        "게임 중 첫 발생",
+        available ? 1 : 0,
+        1,
+        `게임 중 첫 발생 ${available ? 1 : 0}/1`,
+      )],
+    });
+    condition.routes = [route(
+      `${key}:protagonistDeath`,
+      `${scheduled.day}일 ${impl.ko} · 주인공 사망`,
+      "automatic",
+      incidentWhen(state, scheduled),
+      incidentRouteAvailable(state, scheduled),
+      condition.requirements,
+      Math.max(0, scheduled.day - state.loop.day),
+    )];
+    return [condition];
+  }
+  if (actualIncident === "houndDogScent") {
+    const fired = state.loop.incidentOccurrencesFiredThisLoop ?? [];
+    const houndIndex = fired.findIndex(
+      (occurrence) => occurrence.actualIncident === "houndDogScent",
+    );
+    const followedByIncident = houndIndex >= 0 && houndIndex < fired.length - 1;
+    const key = incidentKey(actualIncident, scheduled.day, "laterIncident");
+    const condition = distance({
+      id: actualIncident,
+      key,
+      source: "incident",
+      category: "protagonistDeath",
+      timing: "incident",
+      activation: "mandatory",
+      when: "사건 단계",
+      incident: actualIncident,
+      day: scheduled.day,
+      ko: impl.ko,
+      conditionMet: followedByIncident,
+      label: `이후 사건 발생 ${followedByIncident ? 1 : 0}/1`,
+      requirements: [requirement(
+        "laterIncident",
+        "사냥개의 후각 이후 사건",
+        followedByIncident ? 1 : 0,
+        1,
+        `이후 사건 발생 ${followedByIncident ? 1 : 0}/1`,
+      )],
+    });
+    condition.routes = [route(
+      `${key}:protagonistDeath`,
+      `${impl.ko} 이후 다른 사건 · 주인공 사망`,
+      "automatic",
+      "사건 단계",
+      followedByIncident,
+      condition.requirements,
+    )];
+    return [condition];
+  }
   if (actualIncident === "nightMadness") {
     const culprit = normalizeIncidentCulprit(scheduled.culprit);
     if (culprit.kind !== "location") return [];

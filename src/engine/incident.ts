@@ -23,6 +23,7 @@ import type {
   Target,
 } from "../types";
 import { withDeathBatch } from "./death";
+import { attemptProtagonistDeath } from "./death";
 import { incidentDefinition } from "./incident-definition";
 import {
   adjustSpecialGauge,
@@ -282,6 +283,11 @@ function resolveScheduledIncident(
     return { ...base, fired: false, effectApplied: false };
   }
 
+  const houndDogScentAlreadyOccurred =
+    state.loop.incidentOccurrencesFiredThisLoop?.some(
+      ({ actualIncident }) => actualIncident === "houndDogScent",
+    ) === true;
+
   const beforeEffects = structuredClone(state.loop);
   const culpritCharacter = characterCulprit(scheduled.culprit);
   const firstEffect = culpritCharacter === "blackCat"
@@ -372,6 +378,12 @@ function resolveScheduledIncident(
     incidentOccurrenceId(occurrence) === occurrenceId
   )) {
     firedOccurrences.push(structuredClone(scheduled));
+  }
+
+  // SOURCE: "For the rest of the loop, if another Incident occurs, the
+  // Protagonists are killed after the Incident step."
+  if (houndDogScentAlreadyOccurred) {
+    attemptProtagonistDeath(state);
   }
 
   return {

@@ -51,6 +51,8 @@ describe("root Korean translation dictionary", () => {
       "This character is dead",
       "The Extra Gauge is 1 or less",
       "the Extra Gauge is 2 or more",
+      "1 :intrigue: on the culprit.",
+      "The first time this incident happens this game session",
       "If the Brain, Factor, or Magician were revealed during this loop, the Protagonists lose.",
     ]);
   });

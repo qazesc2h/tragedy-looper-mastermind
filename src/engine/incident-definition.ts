@@ -140,7 +140,29 @@ const INCIDENT_DEFINITION_OVERRIDES: Readonly<
   sacrilegiousMurder: {
     choiceSchema: [CHARACTER("target")],
   },
+  insaneMurder: {
+    choiceSchema: [CHARACTER("target")],
+  },
+  massSuicide: {
+    triggerPolicy: {
+      kind: "characterIntrigue",
+      requiresAlive: true,
+      required: 1,
+    },
+  },
+  houndDogScent: {
+    triggerPolicy: {
+      kind: "characterIntrigue",
+      requiresAlive: true,
+      required: "paranoiaLimit",
+    },
+  },
   executioner: {
+    triggerPolicy: {
+      kind: "characterParanoia",
+      requiresAlive: true,
+      paranoiaLimitAdjustment: -1,
+    },
     choiceSchema: [CHARACTER("target")],
   },
   barricade: {
