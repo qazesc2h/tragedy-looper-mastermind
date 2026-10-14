@@ -160,7 +160,7 @@ import {
   setServantMovementChoice,
 } from "../engine/resolve";
 import { INCIDENT_IMPL } from "../impl/incidents";
-import { ROLE_IMPL } from "../impl/roles";
+import { effectiveAbilityRoles, ROLE_IMPL } from "../impl/roles";
 import { COPYCAT_TRAIT_KO } from "../impl/traits";
 import {
   abilityLocationsOf,
@@ -307,6 +307,7 @@ type GoodwillDraftField =
   | "choice"
   | "reveal"
   | "role-claim"
+  | "wizard-gauge"
   | "incident-target"
   | "incident-other-target"
   | "incident-location"
@@ -3144,6 +3145,24 @@ function renderGoodwillChoice(
   }
 }
 
+function renderWizardGaugeChoice(
+  state: GameState,
+  view: GoodwillAbilityView,
+  disabled: boolean,
+): string {
+  if (!effectiveAbilityRoles(state, view.character).includes("wizard")) {
+    return "";
+  }
+  const draftKey = goodwillDraftKey(view.key, "wizard-gauge");
+  return `<label class="goodwill-choice-field">
+    <span>마법사 공개 후 게이지 증가</span>
+    <select data-ui-draft-key="${escapeHtml(draftKey)}" ${disabled ? "disabled" : ""}>
+      <option value="no" ${selectedDraftOption(draftKey, "no")}>올리지 않음</option>
+      <option value="yes" ${selectedDraftOption(draftKey, "yes")}>+1</option>
+    </select>
+  </label>`;
+}
+
 function syncGoodwillSubplotRevealOptions(
   declarationControl: HTMLSelectElement,
 ): void {
@@ -3598,6 +3617,7 @@ function renderGoodwillAbilities(state: GameState): string {
       <div class="goodwill-inputs">
         ${renderGoodwillTarget(view, disabled)}
         ${renderGoodwillChoice(state, view, disabled)}
+        ${renderWizardGaugeChoice(state, view, disabled)}
         ${renderNinjaRoleClaimChoice(state, view, selectedTarget, disabled)}
         ${targetWarningText
           ? `<p class="goodwill-target-warning" role="alert">${escapeHtml(targetWarningText)}</p>`
@@ -7437,6 +7457,7 @@ function resolveGoodwillFromButton(button: HTMLButtonElement): void {
         declaredSubplot,
         revealedSubplot,
         roleClaim,
+        wizardGaugeIncrease: goodwillInput("wizard-gauge") === "yes",
       },
       response,
     );

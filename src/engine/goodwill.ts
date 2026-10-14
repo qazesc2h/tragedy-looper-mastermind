@@ -1,6 +1,10 @@
 import { characterDataOf, type GoodwillAbilityData } from "../data";
 import { CHARACTER_COUNTERS } from "../counters";
-import { effectiveGoodwillRefusal, ROLE_IMPL } from "../impl/roles";
+import {
+  effectiveAbilityRoles,
+  effectiveGoodwillRefusal,
+  ROLE_IMPL,
+} from "../impl/roles";
 import {
   incidentChoiceTargets,
   incidentOccurrenceId,
@@ -74,6 +78,8 @@ export interface GoodwillDeclaration {
   revealedSubplot?: PlotId;
   /** 닌자 역할 공개 시 각본가가 고른 공개 선언. */
   roleClaim?: RoleId;
+  /** 마법사 능력 공개 뒤 리더가 특수 게이지를 올릴지 여부. */
+  wizardGaugeIncrease?: boolean;
 }
 
 export interface GoodwillUse extends GoodwillDeclaration {
@@ -1217,6 +1223,15 @@ export function resolveGoodwillAbility(
       `goodwill effect is not implemented for "${abilityOwner}" ` +
       `ability index ${selected.index}`,
     );
+  }
+  if (effectiveAbilityRoles(state, abilityOwner).includes("wizard")) {
+    resolveRoleReveal(state, abilityOwner, effectiveRole(state, abilityOwner), "P6_GOODWILL");
+    if (declaration.wizardGaugeIncrease === true) {
+      if (state.loop.specialGauge === undefined) {
+        throw new Error("wizard goodwill ability requires a special gauge");
+      }
+      adjustSpecialGauge(state.loop.specialGauge, 1);
+    }
   }
   recordAbilityUse(state, ownerDeclaration, selected);
   recordPhaseLog(state, {

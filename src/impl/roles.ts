@@ -37,6 +37,8 @@ import {
   corpseCountAt,
   moveAnonymousCorpse,
 } from "../engine/corpses";
+import { adjustSpecialGauge } from "../engine/special-gauge";
+import { activeRulePlots } from "../engine/active-plots";
 
 const POISONER_USE_KEY = "poisoner:role:0";
 const ZOMBIE_KILL_USE_KEY = "zombie:role:0";
@@ -1369,6 +1371,193 @@ export const ROLE_IMPL: Record<string, {
       },
     ],
   },
+  // ── 인간 제물 (Sacrifice)
+  sacrifice: {
+    ko: "인간 제물",
+    tags: ["immortal"],
+    hooks: [
+      {
+        phase: "P9_ROUND_END",
+        kind: "lossDeath",
+        source: {
+          timing: "Day End",
+          prerequisite: `This character has at least 2 :intrigue: and at least 2 :paranoia:`,
+          description: `You may kill all characters and the Protagonists.`,
+        },
+        when: (s: GameState, self: CharacterId) =>
+          s.loop.charCounters[self].intrigue >= 2 &&
+          s.loop.charCounters[self].paranoia >= 2,
+        effect: () => {},
+      },
+      {
+        phase: "P7_INCIDENT",
+        kind: "mandatory",
+        source: {
+          timing: "Incident step",
+          description: `When determining whether an Incident, for which this character is the culprit, will occour or not, also treat :intrigue: as :paranoia:.`,
+        },
+        // IMPLEMENTED_ELSEWHERE: src/engine/incident.ts incidentParanoia()
+        when: () => false,
+        effect: () => {},
+      },
+      {
+        phase: "SCRIPT_BUILD",
+        kind: "scriptBuild",
+        source: {
+          timing: "Script creation",
+          description: `This character must be the culprit of an incident.`,
+        },
+        // IMPLEMENTED_ELSEWHERE: src/engine/validate.ts validateRequiredIncidentCulprit()
+        when: () => false,
+        effect: () => {},
+      },
+    ],
+  },
+  // ── 심해인 (Deep One)
+  deepOne: {
+    ko: "심해인",
+    max: 1,
+    goodwillRefusal: "Optional",
+    hooks: [
+      {
+        phase: "P5_MASTERMIND_ABILITY",
+        kind: "optional",
+        source: {
+          timing: "Mastermind Ability",
+          description: `You may place 1 Intruge on this location or on any character in this location.`,
+        },
+        when: () => true,
+        selectableTargets: (s: GameState, self: CharacterId) => [
+          ...abilityLocationsOf(s, self).map((at) => ({
+            kind: "location" as const,
+            at,
+          })),
+          ...livingCharactersInThisLocation(s, self).map((id) => ({
+            kind: "character" as const,
+            id,
+          })),
+        ],
+        effect: (s: GameState, _self: CharacterId, target?: Target) => {
+          const eligible = ROLE_IMPL.deepOne.hooks[0].selectableTargets?.(
+            s,
+            _self,
+          ) ?? [];
+          if (!eligible.some((candidate) =>
+            JSON.stringify(candidate) === JSON.stringify(target)
+          )) {
+            throw new Error("deepOne requires this location or a character in it");
+          }
+          if (target?.kind === "location") {
+            s.loop.locIntrigue[target.at] += 1;
+          } else if (target?.kind === "character") {
+            s.loop.charCounters[target.id].intrigue += 1;
+          } else {
+            throw new Error("deepOne requires this location or a character in it");
+          }
+        },
+      },
+      {
+        phase: "ON_DEATH",
+        kind: "mandatory",
+        source: {
+          timing: "Always",
+          description: `When this charcter dies, reveal the role and increast the Extra Gauge 1 step.`,
+        },
+        when: (s: GameState, self: CharacterId, context?: HookContext) =>
+          context?.kind === "death" && context.deadCharacters.includes(self),
+        effect: (s: GameState, self: CharacterId) => {
+          resolveRoleReveal(s, self, effectiveRole(s, self), "ON_DEATH");
+          if (s.loop.specialGauge === undefined) {
+            throw new Error("deepOne death requires a special gauge");
+          }
+          adjustSpecialGauge(s.loop.specialGauge, 1);
+        },
+      },
+    ],
+  },
+  // ── 마법사 (Wizard)
+  wizard: {
+    ko: "마법사",
+    max: 1,
+    hooks: [
+      {
+        phase: "LOOP_END",
+        kind: "lossTragedy",
+        source: {
+          timing: "Loop End",
+          prerequisite: `This character is dead`,
+        },
+        when: (s: GameState, self: CharacterId) =>
+          isCharacterDead(s.loop.board[self]),
+        effect: () => {},
+      },
+      {
+        phase: "P6_GOODWILL",
+        kind: "mandatory",
+        source: {
+          timing: "Goodwill ablility step",
+          description: `When this character’s :goodwill: ability is used, reveal this role after resolution. Then, the leader may increase the Extra Gauge one step.`,
+        },
+        // IMPLEMENTED_ELSEWHERE: src/engine/goodwill.ts resolveGoodwillAbility()
+        when: () => false,
+        effect: () => {},
+      },
+    ],
+  },
+  // ── 목격자 (Witness)
+  witness: {
+    ko: "목격자",
+    hooks: [{
+      phase: "P9_ROUND_END",
+      kind: "mandatory",
+      source: {
+        timing: "Day End",
+        prerequisite: `This character has 4 or more :paranoia:`,
+        description: `This charcter dies, and the Extra Gauge increases with 1 step.`,
+      },
+      when: (s: GameState, self: CharacterId) =>
+        s.loop.charCounters[self].paranoia >= 4,
+      effect: (s: GameState, self: CharacterId) => {
+        killCharacter(s, self);
+        if (s.loop.specialGauge === undefined) {
+          throw new Error("witness death requires a special gauge");
+        }
+        adjustSpecialGauge(s.loop.specialGauge, 1);
+      },
+    }],
+  },
+  // ── 얼굴 없는 자 (Faceless)
+  faceless: {
+    ko: "얼굴 없는 자",
+    goodwillRefusal: "Optional",
+    tags: ["immortal"],
+    hooks: [
+      {
+        phase: "ALWAYS",
+        kind: "mandatory",
+        source: {
+          timing: "Always",
+          prerequisite: `The Extra Gauge is 1 or less`,
+          description: `This character gains the abilities of a :conspiracyTheorist:.`,
+        },
+        // IMPLEMENTED_ELSEWHERE: effectiveAbilityRoles()
+        when: (s: GameState) => (specialGaugeValue(s) ?? 0) <= 1,
+        effect: () => "conspiracyTheorist" as RoleId,
+      },
+      {
+        phase: "ALWAYS",
+        kind: "mandatory",
+        source: {
+          timing: "Always",
+          prerequisite: `the Extra Gauge is 2 or more`,
+          description: `This character gains the abilities of a :deepOne:.`,
+        },
+        // IMPLEMENTED_ELSEWHERE: effectiveAbilityRoles()
+        when: (s: GameState) => (specialGaugeValue(s) ?? 0) >= 2,
+        effect: () => "deepOne" as RoleId,
+      },
+    ],
+  },
 };
 
 /** 역할 정체성은 유지하면서 현재 획득한 역할 능력만 함께 반환한다. */
@@ -1378,18 +1567,21 @@ export function effectiveAbilityRoles(
 ): RoleId[] {
   const role = effectiveRole(state, character);
   const abilityRoles = [role];
-  if (role !== "factor") {
-    return abilityRoles;
+  if (role === "factor" || role === "faceless") {
+    for (const grantHook of ROLE_IMPL[role].hooks) {
+      if (!grantHook.when(state, character)) continue;
+      const grantedRole = grantHook.effect(state, character);
+      if (grantedRole && !abilityRoles.includes(grantedRole)) {
+        abilityRoles.push(grantedRole);
+      }
+    }
   }
-
-  for (const grantHook of ROLE_IMPL.factor.hooks) {
-    if (!grantHook.when(state, character)) {
-      continue;
-    }
-    const grantedRole = grantHook.effect(state, character);
-    if (grantedRole && !abilityRoles.includes(grantedRole)) {
-      abilityRoles.push(grantedRole);
-    }
+  if (
+    role === "paranoiac" &&
+    activeRulePlots(state).includes("whispersFromDeep") &&
+    !abilityRoles.includes("keyPerson")
+  ) {
+    abilityRoles.push("keyPerson");
   }
   return abilityRoles;
 }
@@ -1404,5 +1596,9 @@ export function effectiveGoodwillRefusal(
   if (role === "showOff" && state.loop.charCounters[character].paranoia > 2) {
     return "Mandatory";
   }
-  return ROLE_IMPL[role]?.goodwillRefusal;
+  const refusals = effectiveAbilityRoles(state, character).map(
+    (abilityRole) => ROLE_IMPL[abilityRole]?.goodwillRefusal,
+  );
+  if (refusals.includes("Mandatory")) return "Mandatory";
+  return refusals.includes("Optional") ? "Optional" : undefined;
 }

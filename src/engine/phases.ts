@@ -126,7 +126,7 @@ export function collectHooks(s: GameState, at: HookPoint): {
                 h.kind === "lossTragedy" &&
                 isCharacterDead(position)) ||
               (at === "ON_DEATH" &&
-                abilityRole === "magician" &&
+                (abilityRole === "magician" || abilityRole === "deepOne") &&
                 isCharacterDead(position)) ||
               (at === "P5_MASTERMIND_ABILITY" &&
                 abilityRole === "ghost" &&

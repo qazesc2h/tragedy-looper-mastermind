@@ -64,6 +64,7 @@ export type ScenarioDiagnosticCode =
   | "OBSTINATE_NOT_INCIDENT_CULPRIT"
   | "FOOL_NOT_INCIDENT_CULPRIT"
   | "TWIN_NOT_INCIDENT_CULPRIT"
+  | "SACRIFICE_NOT_INCIDENT_CULPRIT"
   | "PRIVATE_INVESTIGATOR_IS_INCIDENT_CULPRIT"
   | "WORSHIPPERS_APOCALYPSE_SUICIDE_MISSING"
   | "AI_ROLE_IS_PERSON"
@@ -290,11 +291,14 @@ function validateRequiredIncidentCulprit(
   }));
   return Object.entries(scenario.cast ?? {})
     .filter(([, role]) =>
-      role === "obstinate" || role === "fool" || role === "twin"
+      role === "obstinate" || role === "fool" || role === "twin" ||
+      role === "sacrifice"
     )
     .filter(([character]) => !culprits.has(character))
     .map(([character, role]) => {
-      const [code, label] = role === "twin"
+      const [code, label] = role === "sacrifice"
+        ? ["SACRIFICE_NOT_INCIDENT_CULPRIT", "인간 제물"] as const
+        : role === "twin"
         ? ["TWIN_NOT_INCIDENT_CULPRIT", "쌍둥이"] as const
         : role === "fool"
         ? ["FOOL_NOT_INCIDENT_CULPRIT", "어리석은 자"] as const

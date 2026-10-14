@@ -48,6 +48,9 @@ describe("root Korean translation dictionary", () => {
       "The Extra Gauge is 1 or above",
       "This role has been revealed",
       "This card is a corpse",
+      "This character is dead",
+      "The Extra Gauge is 1 or less",
+      "the Extra Gauge is 2 or more",
       "If the Brain, Factor, or Magician were revealed during this loop, the Protagonists lose.",
     ]);
   });

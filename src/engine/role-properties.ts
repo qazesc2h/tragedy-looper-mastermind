@@ -8,6 +8,8 @@ export const IMMORTAL_ROLE_IDS = [
   "vampire",
   "nightmare",
   "showOff",
+  "sacrifice",
+  "faceless",
 ] as const satisfies readonly RoleId[];
 
 /** 현재 공개 불안까지 반영한 불사 여부. 허당은 불안 3개 이상이면 불사를 잃는다. */

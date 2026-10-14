@@ -75,6 +75,9 @@ export function incidentParanoia(
     throw new Error(`incident culprit "${culprit}" has no counters`);
   }
   if (culprit === "ai") return totalCharacterCounters(counters);
+  if (effectiveAbilityRoles(state, culprit).includes("sacrifice")) {
+    return counters.paranoia + counters.intrigue;
+  }
   const strychnineApplies = state.scenario.mainPlot === "dropStrychnine" &&
     (incident === "serialMurder" || incident === "suicide");
   return counters.paranoia + (strychnineApplies ? counters.intrigue : 0);

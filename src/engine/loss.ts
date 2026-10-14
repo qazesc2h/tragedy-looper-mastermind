@@ -25,8 +25,10 @@ import {
 } from "../types";
 import {
   attemptProtagonistDeath,
+  killCharacter,
   protagonistDeathBlocker,
   type ProtagonistDeathResult,
+  withDeathBatch,
 } from "./death";
 import { servantDeathReplacement } from "./servant";
 import { requestLoopEnd } from "./flow";
@@ -1380,6 +1382,56 @@ function roleLossDistance(
       continue;
     }
 
+    if (role === "sacrifice" && hookIndex === 0) {
+      const paranoia = state.loop.charCounters[character].paranoia;
+      const intrigue = state.loop.charCounters[character].intrigue;
+      out.push(distance({
+        id: role,
+        key: roleKey(role, character),
+        source: "role",
+        category: "protagonistDeath",
+        timing: "dayEnd",
+        activation: "optional",
+        when: "라운드 종료",
+        role,
+        character,
+        ko: impl.ko,
+        conditionMet: hook.when(state, character),
+        label: `${labelPrefix} 불안 ${paranoia}/2 · 음모 ${intrigue}/2`,
+        requirements: [
+          requirement("paranoia", "불안", paranoia, 2, `불안 ${paranoia}/2`),
+          requirement("intrigue", "음모", intrigue, 2, `음모 ${intrigue}/2`),
+        ],
+      }));
+      continue;
+    }
+
+    if (role === "wizard" && hookIndex === 0) {
+      const dead = isCharacterDead(state.loop.board[character]);
+      out.push(distance({
+        id: role,
+        key: roleKey(role, character),
+        source: "role",
+        category: "plot",
+        timing: "loopEnd",
+        activation: "mandatory",
+        when: "루프 종료",
+        role,
+        character,
+        ko: impl.ko,
+        conditionMet: hook.when(state, character),
+        label: `${labelPrefix} 사망 ${dead ? 1 : 0}/1`,
+        requirements: [booleanRequirement(
+          "dead",
+          "사망",
+          dead,
+          "사망",
+          "생존",
+        )],
+      }));
+      continue;
+    }
+
     if (role === "poisoner" && hookIndex === 1) {
       const current = state.loop.specialGauge?.value ?? 0;
       out.push(distance({
@@ -1850,6 +1902,15 @@ export function setOptionalLossActivation(
     if (condition.category === "protagonistDeath") {
       const death = attemptProtagonistDeath(state);
       if (!death.died) return death;
+    }
+    if (condition.role === "sacrifice") {
+      withDeathBatch(state, () => {
+        for (const character of Object.keys(state.scenario.cast)) {
+          if (isCharacterAlive(state.loop.board[character])) {
+            killCharacter(state, character);
+          }
+        }
+      });
     }
     const activations = state.loop.optionalLossActivations ??= {};
     activations[key] = true;
