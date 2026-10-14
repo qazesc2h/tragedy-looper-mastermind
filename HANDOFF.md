@@ -1830,8 +1830,8 @@ CM은 1A, PE는 1B·1C를 각각 사용하므로 합치지 않는다. Q14 전에
 | PE-2 | 군중 사건 | 장소 범인 4종과 시체 수 발생 판정, 공식 각본 편집·장소 범인표·로그·가설 회귀 |
 | PE-3 | 좀비·나머지 콘텐츠 | `OnesFromGrave` 파생 좀비, 실제·익명 좀비 이동 UI, `cursedLand` 선택 패배, 나머지 룰·역할·사건 |
 | PE-4 | 공식 각본·UI | 4편·8변형, 저장 migration, 패배 거리·정보 누출, 번역 폴백, 전체 UI·390×844 QA |
-| CM-1 | 게이지·주문 | 우호 거부와 역할/사건 증가, 학자 감소, 1~4 주문, 게임 지속/루프 증가 이력, 최후의 싸움 전환 |
-| CM-2 | 룰·역할 | 룰 Y/X 12종, `twistedTruth` 추가 룰 Y와 역할 정원, 얼굴 없는 자 능력 전환, 불사·패배 조건 |
+| CM-1 | 특수 게이지 기반 | **완료.** 게임 시작 0, 루프 간 값 유지·루프별 증가 이력 초기화, 우호 거부 즉시 +1, 학자 증감, 공개 로그·저장 복원·UI 수명 표기 |
+| CM-2 | 룰·역할·주문 | 룰 Y/X 12종, 1~4단계 주문과 최후의 싸움 전환, `twistedTruth` 추가 룰 Y와 역할 정원, 역할별 게이지 증가, 얼굴 없는 자 능력 전환, 불사·패배 조건 |
 | CM-3 | 사건·추론 | 신규 사건 8종, 음모로 사건 판정하는 인간 제물, 사냥개의 후각 지연 패배, 공개 기록·보수 가설 |
 | CM-4 | 공식 각본·UI | 5편·7변형, 편집기 capability, 저장/상태 키, 번역 폴백, 전체 UI·390×844 QA |
 
@@ -3280,3 +3280,95 @@ opening book과 전체 상태 공간 사전 열거가 불가능하고 상태 기
 20.52초이며 그중 전수 계측이 19.74초다. GitHub Pages CI의 `npx vitest run`은 기본
 설정을 읽으므로 느린 계측을 실행하지 않고, 필요할 때만 전용 명령으로 원 판정을
 재현한다.
+
+## CM-1 — Cosmic Mythology 특수 게이지 기반
+
+### 원문 대조와 증가 조건
+
+upstream `data/cosmic-evil/tragedys.jsonc`의 세트 규칙은 다음과 같다.
+
+> `The Extra gauge starts on zero and dose not reset between loops.`
+
+> `Every time :goodwill: ability is refused, immediately increase the Extra Gauge.`
+
+`Every time`에는 선택 거부와 강제 거부의 구분이 없다. 따라서 실제 결과가
+`response: "refuse"`로 확정되는 공통 경로에서 CM만 게이지를 1 올린다. 마녀처럼
+강제 거부인 역할은 사용자가 해결을 요청해도 실제 거부가 되므로 증가하고, 살인마처럼
+선택 거부인 역할은 각본가가 거부했을 때 증가한다.
+
+아웃사이더 [우호3]은 원본 데이터의 `immuneToGoodwillRefusel: true`, 간호사 [우호2]는
+같은 플래그와 다음 원문을 가진다.
+
+> `This ability cannot be refused by :goodwill: Refusel.`
+
+두 능력은 거부 시도 자체가 기존 검증에서 거절되어 실제 `goodwillRefusal`이 생기지
+않는다. 그러므로 게이지도 증가하지 않는다. 역할이 우호를 거부할 수 없어서 선언이
+거절되는 경우도 마찬가지다. 이 구분은 원문의 “거부될 때마다”를 “거부를 시도할
+때마다”로 넓히지 않는다.
+
+구현 대응은 다음과 같다.
+
+| source 조각 | 구현 위치 | 대응 |
+|---|---|---|
+| `starts on zero` | `initialSpecialGauge()` | CM 정의의 `initialValue: 0` |
+| `does not reset between loops` | `initialSpecialGauge()`·`prepareNextLoop()`·`continueFromTimeGap()` | 다음 `initLoop(..., previousLoop)`에 이전 값을 전달하고 게임 수명 게이지만 값을 인계 |
+| `Every time ... is refused` | `resolveGoodwillAbility()`의 단일 실제 거부 분기 | 선택·강제 거부 공통으로 +1 |
+| `immediately increase` | 같은 분기, 거부 공개 기록과 같은 P6 해결 | `adjustSpecialGauge(gauge, 1)` 뒤 같은 `goodwillUsed` 로그에 공개 변화 기록 |
+
+역방향 검사 결과, CM 외 세트 조건, 역할 종류, 능력 랭크, 생존·장소, 루프당 횟수 같은
+원문에 없는 증가 조건은 넣지 않았다. `effectiveRole()`로 계산된 기존 거부 가능성만
+그대로 사용하며 `scenario.cast`를 새로 직접 읽지 않는다.
+
+### 게임 수명, 증가 이력, 감소
+
+실제 진행 종단 테스트에서 첫 루프 게이지 2를 만든 뒤 핵심 인물 사망으로 루프를 닫고
+`continueAfterLoopJudgment()`와 `continueFromTimeGap()`을 모두 통과시켰다. 완료된
+1루프 스냅샷은 `{ value: 2, increasedThisLoop: true }`, 준비된 2루프와 시간의 틈 뒤
+상태는 모두 `{ value: 2, increasedThisLoop: false }`다. 즉 값은 게임 전체에 걸쳐
+유지되고, “이번 루프 증가” 사실만 루프 시작에 초기화된다.
+
+황색의 왕의 조건 원문은 다음과 같다.
+
+> `The Extra Gauge has increased at all this loop.`
+
+한국어 번역은 “이번 루프 동안 특수 게이지가 1회 이상 증가한 경우.”다. 실제 +1이
+일어나면 `increasedThisLoop`가 참이 되고, 이후 학자가 -1을 해도 참으로 남는 회귀를
+추가했다. 황색의 왕 패배 훅 자체는 룰 콘텐츠인 CM-2에서 연결한다.
+
+CM 고유 규칙·역할·사건에는 감소 경로가 없다. 공통 학자 [우호3] 원문만 다음 선택을
+제공한다.
+
+> `Remove all counters from this character. Then, if you use the Extra gauge, increase or decrease this gauge.`
+
+기존 학자 구현의 `specialGaugeDelta: -1 | 1`을 그대로 재사용했고, CM 상태에서 -1 및
+증가 이력 보존을 확인했다. 공식 CM 각본 5편에는 학자가 없으므로 감소는 사용자 각본에서만
+나타난다.
+
+### 공개 기록, 추론, UI, 저장
+
+거부 직전 공개 문맥을 스냅샷으로 남기고, 같은 P6 `goodwillUsed` 기록의
+`publicChanges`에 `specialGauge 0 → 1`을 넣는다. 게이지는 공개 보드 상태이므로 저장과
+화면에도 현재 값이 그대로 보인다. 로컬 저장 종단 테스트는 실제 `cosmicMythology`
+기본 상태에서 `{ value: 3, increasedThisLoop: true }`를 저장·복원한다.
+
+추론에는 별도 게이지 관측을 추가하지 않았다. 게이지 증가의 원인이 된 각본가 선택은
+이미 `goodwillRefusal` 공개 정보로 기록되고 `goodwillRefused` 관측 하나로 변환된다.
+같은 사실을 게이지 변화에서 다시 만들면 중복 증거가 된다. 테스트에서도 선택 거부 뒤
+관측 목록은 기존 `goodwillRefused` 한 건뿐이다.
+
+게임판의 현재값 패널은 MC와 동일하게 재사용한다. 수명 차이는 현재값 표현이 아니라
+초기화 계약이므로 게임판에 별도 라벨을 반복하지 않는다. 반면 시나리오 편집기의 기존
+문구는 모든 게이지를 “루프마다 초기화”라고 표시했으므로, 정의의 `lifetime`을 읽어
+MC는 `초기값 0 · 루프마다 초기화`, CM은 `초기값 0 · 루프 간 유지`로 구분했다.
+기본편·MZ에는 게이지가 생성되지 않고 우호 거부도 게이지를 만들지 않는다.
+
+### 검증
+
+- 집중 회귀: 특수 게이지·저장·우호 3파일 116개 통과
+- 전체 Vitest: 68파일 **1102개 통과·1개 todo**
+- `npx tsc --noEmit --strict`, `npm run build`, `git diff --check` 통과
+- 수동 생사 교정, 캐릭터 특성, 390×844 게임 화면, 390×844 편집기 실제 브라우저 경로 통과
+
+CM-1은 특수 게이지 기반만 완료했다. 1~4단계 주문, 황색의 왕을 포함한 게이지 참조
+패배, 심해인·마법사·목격자·얼굴 없는 자의 증가 경로는 CM-2 룰·역할 콘텐츠에서
+원문 훅 단위로 연결한다.

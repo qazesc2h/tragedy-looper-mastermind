@@ -102,6 +102,31 @@ function storedGameDefaults(scenarioId: string): StoredGame | undefined {
   };
 }
 
+function cosmicStoredGameDefaults(scenarioId: string): StoredGame | undefined {
+  if (scenarioId !== "cosmicMythology:test") return undefined;
+  const scenario: Scenario = {
+    tragedySet: "cosmicMythology",
+    mainPlot: "",
+    subPlots: [],
+    cast: { scientist: "person" },
+    incidents: [],
+    loops: 3,
+    daysPerLoop: 3,
+  };
+  return {
+    state: {
+      scenario,
+      gamePhase: "ROUND",
+      loop: initLoop(scenario),
+      history: [],
+      loopOutcomes: [],
+      extraLoopsPlayed: 0,
+    },
+    observationsByLoop: {},
+    updatedAt: new Date(0).toISOString(),
+  };
+}
+
 function antibodiesDefaults(scenarioId: string): StoredGame | undefined {
   if (scenarioId !== "basicTragedy:12") return undefined;
   const entry = loadBasicTragedyScenarioCatalog().find(
@@ -262,8 +287,12 @@ describe("UI localStorage snapshots", () => {
   it("round-trips structured expansion state", () => {
     const storage = new MemoryStorage();
     const tracker = emptyTrackerStore();
-    const game = state();
-    game.loop.specialGauge = { value: 3, increasedThisLoop: true };
+    const defaults = cosmicStoredGameDefaults("cosmicMythology:test");
+    if (defaults === undefined) throw new Error("missing Cosmic Mythology defaults");
+    const game = structuredClone(defaults.state);
+    if (game.loop.specialGauge === undefined) throw new Error("missing gauge");
+    game.loop.specialGauge.value = 3;
+    game.loop.specialGauge.increasedThisLoop = true;
     placeExtraCard(game.loop, {
       instanceId: "storage-card",
       cardId: "test-storage-card",
@@ -276,17 +305,17 @@ describe("UI localStorage snapshots", () => {
     persistGameState(
       storage,
       tracker,
-      "basicTragedy:1",
+      "cosmicMythology:test",
       game,
       "special-gauge",
     );
 
-    const restored = loadTrackerStore(storage, storedGameDefaults);
-    expect(restored.games["basicTragedy:1"].state.loop.specialGauge).toEqual({
+    const restored = loadTrackerStore(storage, cosmicStoredGameDefaults);
+    expect(restored.games["cosmicMythology:test"].state.loop.specialGauge).toEqual({
       value: 3,
       increasedThisLoop: true,
     });
-    expect(restored.games["basicTragedy:1"].state.loop.extraCards).toEqual([
+    expect(restored.games["cosmicMythology:test"].state.loop.extraCards).toEqual([
       expect.objectContaining({
         instanceId: "storage-card",
         target: { kind: "location", at: "School" },

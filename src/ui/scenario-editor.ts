@@ -155,7 +155,7 @@ function renderSetStep(draft: ScenarioDraft): string {
       ${draft.tragedySet && !SUPPORTED_SETS.includes(draft.tragedySet as typeof SUPPORTED_SETS[number])
         ? option(draft.tragedySet, `${draft.tragedySet} · 편집 범위 밖`, draft.tragedySet, true) : ""}
     </select></label>${fieldDiagnostics(draft, "tragedySet")}
-    ${gauge === undefined ? "" : `<p class="editor-set-capability" data-editor-special-gauge>이 참극 세트는 공개 특수 게이지를 사용합니다. 초기값 ${gauge.initialValue} · 루프마다 초기화</p>`}`;
+    ${gauge === undefined ? "" : `<p class="editor-set-capability" data-editor-special-gauge>이 참극 세트는 공개 특수 게이지를 사용합니다. 초기값 ${gauge.initialValue} · ${gauge.lifetime === "loop" ? "루프마다 초기화" : "루프 간 유지"}</p>`}`;
 }
 
 function renderTimingStep(draft: ScenarioDraft): string {

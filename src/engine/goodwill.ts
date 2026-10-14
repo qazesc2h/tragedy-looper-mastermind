@@ -1152,6 +1152,18 @@ export function resolveGoodwillAbility(
   }
 
   if (!availability.resolveAllowed || mastermindResponse === "refuse") {
+    const refusalGauge = state.scenario.tragedySet === "cosmicMythology"
+      ? state.loop.specialGauge
+      : undefined;
+    if (
+      state.scenario.tragedySet === "cosmicMythology" &&
+      refusalGauge === undefined
+    ) {
+      throw new Error(
+        "Cosmic Mythology goodwill refusal requires a special gauge",
+      );
+    }
+    const beforeRefusal = structuredClone(state.loop);
     recordAbilityUse(state, ownerDeclaration, selected);
     recordPublicInformation(state, {
       kind: "goodwillRefusal",
@@ -1160,8 +1172,10 @@ export function resolveGoodwillAbility(
       abilityIndex: selected.index,
       loop: state.loop.loop,
       day: state.loop.day,
-      context: publicObservationContext(state.loop),
+      context: publicObservationContext(beforeRefusal),
     });
+    if (refusalGauge !== undefined) adjustSpecialGauge(refusalGauge, 1);
+    const publicChanges = publicBoardChanges(beforeRefusal, state.loop);
     recordPhaseLog(state, {
       loop: state.loop.loop,
       day: state.loop.day,
@@ -1174,7 +1188,8 @@ export function resolveGoodwillAbility(
       response: "refuse",
       effectApplied: false,
       ...(targets.length === 0 ? {} : { targets }),
-      publicContext: publicObservationContext(state.loop),
+      ...(publicChanges.length === 0 ? {} : { publicChanges }),
+      publicContext: publicObservationContext(beforeRefusal),
     });
     return {
       user: activator,
