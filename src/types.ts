@@ -688,6 +688,8 @@ export interface RoundDeathBatch {
   characters: CharacterId[];
   /** 이 사망 묶음이 닫힌 시점의 도심 음모. 변수 능력 판정에만 쓴다. */
   cityIntrigue?: number;
+  /** ON_DEATH 반응 직전의 공개 특수 게이지 값. */
+  specialGaugeValue?: number;
   /** 사망 직후 생존해 있어 ON_DEATH 강제 반응의 주체가 될 수 있던 캐릭터. */
   aliveAfterDeaths?: CharacterId[];
 }
@@ -702,6 +704,12 @@ export interface RoundEndPairEvidence {
   intrigue?: [number, number];
 }
 
+/** P9 강제 효과 판정 직전의 생존 캐릭터와 공개 불안 수치. */
+export interface RoundEndCharacterEvidence {
+  character: CharacterId;
+  paranoia: number;
+}
+
 /** 한 날짜의 제약 생성에 필요한 최소 사실. 전체 보드 상태는 저장하지 않는다. */
 export interface RoundEvidence {
   day: number;
@@ -711,6 +719,8 @@ export interface RoundEvidence {
   deathBatches?: RoundDeathBatch[];
   /** 필드가 존재하면 P9 단둘 검사를 마쳤다. 빈 배열도 관측값이다. */
   roundEndPairs?: RoundEndPairEvidence[];
+  /** 필드가 존재하면 P9 강제 효과 판정 직전 생존자 기록을 마쳤다. */
+  roundEndCharacters?: RoundEndCharacterEvidence[];
   /** lastDay 자연 종료가 아닌 즉시 종료 요청. */
   immediateLoopEnd?: {
     phase: Phase;

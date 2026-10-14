@@ -198,7 +198,14 @@ export type ProtagonistObservation = (
     kind: "mandatoryEffectMissing";
     loop: number;
     day: number;
-    effect: "threadsFate" | "ghost" | "coward";
+    effect:
+      | "threadsFate"
+      | "ghost"
+      | "coward"
+      | "deepOne"
+      | "faceless"
+      | "wizard"
+      | "witness";
     character: CharacterId;
   }
 ) & {
@@ -4807,6 +4814,7 @@ export function collectProtagonistObservations(
             : { observedAt: entry.observedAt }),
         });
       } else if (entry.kind === "goodwillUsed" && entry.response === "resolve") {
+        const abilityOwner = entry.abilityOwner ?? entry.character;
         const ability = characterDataOf(entry.abilityOwner ?? entry.character)
           .goodwillAbilities[entry.abilityIndex];
         const entryAt = entry.observedAt;
@@ -4815,12 +4823,36 @@ export function collectProtagonistObservations(
             const observationAt = observation.observedAt;
             return observation.kind === "roleRevealed" &&
               observation.confirmed !== false &&
-              observation.character === entry.character &&
+              observation.character === abilityOwner &&
               observationAt !== undefined &&
               observationAt.loop === entryAt.loop &&
               observationAt.day === entryAt.day &&
               observationAt.sequence === entryAt.sequence - 1;
           });
+        const roleWasAlreadyKnown = observations.some((observation) => {
+          if (
+            observation.kind !== "roleRevealed" ||
+            observation.confirmed === false ||
+            observation.character !== abilityOwner
+          ) return false;
+          if (observation.loop < entry.loop) return true;
+          if (observation.loop !== entry.loop) return false;
+          const observationAt = observation.observedAt;
+          return entryAt === undefined || observationAt === undefined ||
+            observationAt.sequence < entryAt.sequence;
+        });
+        if (!roleWasAlreadyKnown) {
+          observations.push({
+            kind: "mandatoryEffectMissing",
+            loop: entry.loop,
+            day: entry.day,
+            effect: "wizard",
+            character: abilityOwner,
+            ...(entry.observedAt === undefined
+              ? {}
+              : { observedAt: entry.observedAt }),
+          });
+        }
         // 거부 불가 능력은 절대 우호 무시 역할도 해결할 수 있으므로 근거가 아니다.
         // 자기 역할을 방금 공개한 능력은 역할 자체가 더 강한 확정 정보이므로
         // 그 뒤의 해결 응답을 별도 역할 관측으로 중복 기록하지 않는다.
@@ -5084,6 +5116,90 @@ export function collectProtagonistObservations(
     }
 
     for (const record of loop.roundEvidence ?? []) {
+      const roleWasKnownBefore = (character: CharacterId): boolean =>
+        observations.some((observation) => {
+          if (
+            observation.kind !== "roleRevealed" ||
+            observation.confirmed === false ||
+            observation.character !== character
+          ) return false;
+          if (observation.loop < loop.loop) return true;
+          if (observation.loop !== loop.loop) return false;
+          return observation.observedAt === undefined ||
+            observation.observedAt.day < record.day;
+        });
+      const roleClaimedOnDay = (character: CharacterId): boolean =>
+        (loop.publicInformationThisLoop ?? []).some((information) =>
+          information.kind === "roleClaim" &&
+          information.character === character &&
+          information.day === record.day
+        );
+      const gaugeIncreaseBy = (
+        timing: HookPoint,
+        character: CharacterId,
+      ): boolean => (loop.phaseLog ?? []).some((entry) =>
+        entry.loop === loop.loop &&
+        entry.day === record.day &&
+        entry.kind === "abilityActivated" &&
+        entry.timing === timing &&
+        entry.character === character &&
+        (entry.publicChanges ?? []).some((change) =>
+          change.kind === "specialGauge" && change.delta > 0
+        )
+      );
+
+      if (state.scenario.tragedySet === "cosmicMythology") {
+        for (const batch of record.deathBatches ?? []) {
+          for (const character of batch.characters) {
+            if (
+              roleWasKnownBefore(character) ||
+              roleClaimedOnDay(character) ||
+              gaugeIncreaseBy("ON_DEATH", character)
+            ) continue;
+            observations.push({
+              kind: "mandatoryEffectMissing",
+              loop: loop.loop,
+              day: record.day,
+              effect: "deepOne",
+              character,
+              ...(record.observedAt === undefined
+                ? {}
+                : { observedAt: record.observedAt }),
+            });
+            if ((batch.specialGaugeValue ?? 0) >= 2) {
+              observations.push({
+                kind: "mandatoryEffectMissing",
+                loop: loop.loop,
+                day: record.day,
+                effect: "faceless",
+                character,
+                ...(record.observedAt === undefined
+                  ? {}
+                  : { observedAt: record.observedAt }),
+              });
+            }
+          }
+        }
+        for (const { character, paranoia } of record.roundEndCharacters ?? []) {
+          if (
+            paranoia < 4 ||
+            roleWasKnownBefore(character) ||
+            roleClaimedOnDay(character) ||
+            gaugeIncreaseBy("P9_ROUND_END", character)
+          ) continue;
+          observations.push({
+            kind: "mandatoryEffectMissing",
+            loop: loop.loop,
+            day: record.day,
+            effect: "witness",
+            character,
+            ...(record.observedAt === undefined
+              ? {}
+              : { observedAt: record.observedAt }),
+          });
+        }
+      }
+
       const protectedAtRoundEnd = (loop.phaseLog ?? []).flatMap((entry) =>
         entry.loop === loop.loop &&
           entry.day === record.day &&

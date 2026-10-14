@@ -6,6 +6,7 @@ import {
   type HookPoint,
   type LoopEndRequest,
   type RoundEvidence,
+  type RoundEndCharacterEvidence,
   type RoundEndPairEvidence,
 } from "../types";
 import { nextPublicObservationAt } from "./public-information";
@@ -31,15 +32,28 @@ export function recordRoundDeathBatch(
     phase: state.loop.phase,
     characters: [...characters],
     cityIntrigue: state.loop.locIntrigue.City,
+    ...(state.loop.specialGauge === undefined
+      ? {}
+      : { specialGaugeValue: state.loop.specialGauge.value }),
     aliveAfterDeaths: Object.entries(state.loop.board).flatMap(
       ([character, position]) => isCharacterAlive(position) ? [character] : [],
     ),
   });
 }
 
-/** P9 강제 효과 판정 직전의 단둘 장소와 두 캐릭터의 불안만 저장한다. */
+/** P9 강제 효과 판정 직전의 생존자와 단둘 장소 공개 상태를 저장한다. */
 export function recordRoundEndPairs(state: GameState): void {
   const pairs: RoundEndPairEvidence[] = [];
+  const roundEndCharacters: RoundEndCharacterEvidence[] = [];
+  if (state.scenario.tragedySet === "cosmicMythology") {
+    for (const [character, position] of Object.entries(state.loop.board)) {
+      if (!isCharacterAlive(position)) continue;
+      roundEndCharacters.push({
+        character,
+        paranoia: state.loop.charCounters[character].paranoia,
+      });
+    }
+  }
   for (const location of LOCATIONS) {
     const characters = Object.entries(state.loop.board)
       .filter(([, position]) =>
@@ -68,6 +82,9 @@ export function recordRoundEndPairs(state: GameState): void {
   const record = currentRoundEvidence(state);
   // P9 재진입은 같은 판정 경계를 다시 기록하지 않는다.
   record.roundEndPairs ??= pairs;
+  if (state.scenario.tragedySet === "cosmicMythology") {
+    record.roundEndCharacters ??= roundEndCharacters;
+  }
 }
 
 /** 자연 종료를 제외한 최초 종료 요청 시점만 보존한다. */

@@ -2,10 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import { killCharacter } from "../src/engine/death";
 import { resolveGoodwillAbility } from "../src/engine/goodwill";
+import {
+  collectProtagonistObservations,
+  evaluateStateRoleTableHypotheses,
+} from "../src/engine/hypothesis";
 import { incidentParanoia } from "../src/engine/incident";
 import { distanceToLoss, setOptionalLossActivation } from "../src/engine/loss";
 import { applyHookEffect, collectHooks, resolveHooks } from "../src/engine/phases";
 import { roleIsImmortal } from "../src/engine/role-properties";
+import { recordRoundEndPairs } from "../src/engine/round-evidence";
 import { initLoop } from "../src/engine/setup";
 import { validateScenario } from "../src/engine/validate";
 import {
@@ -124,6 +129,13 @@ describe("Cosmic Mythology role effects", () => {
         claimedRole: "deepOne",
       }),
     );
+    expect(collectProtagonistObservations(state)).not.toContainEqual(
+      expect.objectContaining({
+        kind: "mandatoryEffectMissing",
+        effect: "deepOne",
+        character: "boyStudent",
+      }),
+    );
   });
 
   it("reveals Wizard after its goodwill ability and lets the leader increase the gauge", () => {
@@ -146,6 +158,13 @@ describe("Cosmic Mythology role effects", () => {
         claimedRole: "wizard",
       }),
     );
+    expect(collectProtagonistObservations(state)).not.toContainEqual(
+      expect.objectContaining({
+        kind: "mandatoryEffectMissing",
+        effect: "wizard",
+        character: "boyStudent",
+      }),
+    );
 
     expect(distanceToLoss(state).find(({ role }) => role === "wizard")?.met)
       .toBe(false);
@@ -163,9 +182,75 @@ describe("Cosmic Mythology role effects", () => {
     expect(boardIsAlive(state.loop, "boyStudent")).toBe(true);
     expect(state.loop.specialGauge?.value).toBe(0);
     state.loop.charCounters.boyStudent.paranoia = 4;
+    recordRoundEndPairs(state);
     resolveHooks(state, "P9_ROUND_END");
     expect(boardIsAlive(state.loop, "boyStudent")).toBe(false);
     expect(state.loop.specialGauge?.value).toBe(1);
+    expect(collectProtagonistObservations(state)).not.toContainEqual(
+      expect.objectContaining({
+        kind: "mandatoryEffectMissing",
+        effect: "witness",
+        character: "boyStudent",
+      }),
+    );
+  });
+
+  it("uses absent mandatory CM effects as public role exclusions", () => {
+    const state = cosmicState({
+      boyStudent: "person",
+      girlStudent: "person",
+      officeWorker: "person",
+    }, ["whispersFromDeep", "facelessGod"]);
+    state.loop.roundEvidence = [{
+      day: 1,
+      deathBatches: [{
+        phase: "P7_INCIDENT",
+        characters: ["girlStudent"],
+        specialGaugeValue: 2,
+      }],
+      roundEndCharacters: [{ character: "boyStudent", paranoia: 4 }],
+    }];
+    state.loop.phaseLog = [{
+      loop: 1,
+      day: 1,
+      phase: "P6_GOODWILL",
+      kind: "goodwillUsed",
+      character: "officeWorker",
+      rank: 3,
+      abilityIndex: 0,
+      response: "resolve",
+      effectApplied: true,
+    }];
+
+    const observations = collectProtagonistObservations(state);
+    expect(observations).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        kind: "mandatoryEffectMissing",
+        effect: "deepOne",
+        character: "girlStudent",
+      }),
+      expect.objectContaining({
+        kind: "mandatoryEffectMissing",
+        effect: "faceless",
+        character: "girlStudent",
+      }),
+      expect.objectContaining({
+        kind: "mandatoryEffectMissing",
+        effect: "wizard",
+        character: "officeWorker",
+      }),
+      expect.objectContaining({
+        kind: "mandatoryEffectMissing",
+        effect: "witness",
+        character: "boyStudent",
+      }),
+    ]));
+
+    const evaluation = evaluateStateRoleTableHypotheses(state);
+    expect(evaluation.table.cells.girlStudent.deepOne.status).toBe("impossible");
+    expect(evaluation.table.cells.girlStudent.faceless.status).toBe("impossible");
+    expect(evaluation.table.cells.officeWorker.wizard.status).toBe("impossible");
+    expect(evaluation.table.cells.boyStudent.witness.status).toBe("impossible");
   });
 
   it("switches Faceless abilities at current gauge two and grants Key Person to Paranoiac", () => {
