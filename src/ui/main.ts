@@ -95,6 +95,10 @@ import {
 } from "../engine/mastermind-opening";
 import { intrigueForbidActive } from "../engine/movement";
 import {
+  ancientSealActive,
+  sympathySpellDecisionRequired,
+} from "../engine/cosmic-spells";
+import {
   evaluateStateRoleTableHypotheses,
   type ProtagonistObservation,
   type RoleTableHypothesisEvaluation,
@@ -2076,7 +2080,7 @@ function renderPlacementSummary(state: GameState): string {
     ({ card }) => card === "forbidIntrigue",
   );
   const intrigueForbidCancelled = intrigueForbids.length >= 2 &&
-    !intrigueForbidActive(intrigueForbids);
+    !intrigueForbidActive(intrigueForbids, ancientSealActive(state));
 
   return `
     <section class="resolution-preview">
@@ -3615,10 +3619,28 @@ function renderPhaseControls(state: GameState): string {
 
   switch (state.loop.phase) {
     case "P1_ROUND_START":
+      {
+        const sympathyRequired = sympathySpellDecisionRequired(state);
+        const sympathyTarget = draftValue("sympathy-spell-target");
       return `<section class="operation-panel compact-operation">
         ${heading(1, phaseName(state.loop.phase))}
-        ${renderAdvanceButton()}
+        ${sympathyRequired
+          ? `<label class="goodwill-choice-field">
+              <span>공감의 주문 (1) · 리더 선택</span>
+              <select data-ui-draft-key="sympathy-spell-target">
+                <option value="">대상 선택</option>
+                <option value="decline" ${sympathyTarget === "decline" ? "selected" : ""}>사용하지 않음</option>
+                ${Object.entries(state.loop.board).flatMap(([character, position]) =>
+                  isCharacterAlive(position)
+                    ? [`<option value="${escapeHtml(character)}" ${sympathyTarget === character ? "selected" : ""}>${escapeHtml(characterName(character))}</option>`]
+                    : []
+                ).join("")}
+              </select>
+            </label>`
+          : ""}
+        ${renderAdvanceButton(undefined, sympathyRequired && !sympathyTarget)}
       </section>`;
+      }
     case "P2_MASTERMIND_ACTION":
       return renderMastermindAction(state);
     case "P3_PROTAGONIST_ACTION":
@@ -7473,6 +7495,7 @@ function advanceCurrentPhase(): void {
     }
     applySelectedOptionalHooks(state);
     if (state.gamePhase === "ROUND") {
+      const sympathyValue = draftValue("sympathy-spell-target");
       advanceGame(
         state,
         incidentChoiceFromDraft(),
@@ -7480,6 +7503,11 @@ function advanceCurrentPhase(): void {
           deferSettlement: true,
           mandatoryHookTargets: selectedMandatoryHookTargets(state),
           roundEndCurseTargets: selectedRoundEndCurseTargets(state),
+          sympathySpellTarget: sympathySpellDecisionRequired(state)
+            ? sympathyValue === "decline"
+              ? null
+              : sympathyValue || undefined
+            : undefined,
         },
       );
     }
@@ -7491,6 +7519,9 @@ function advanceCurrentPhase(): void {
       resolutionReceipt = undefined;
     }
     optionalHookSelections.clear();
+    if (phaseBefore === "P1_ROUND_START") {
+      uiInputDrafts.delete("sympathy-spell-target");
+    }
     notice = "";
     saveState(entry.id, state, "phase-advance");
     render();

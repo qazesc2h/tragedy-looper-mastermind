@@ -40,6 +40,11 @@ import {
   resolveRoundEndCurses,
   snapshotRoundEndCurses,
 } from "./curses";
+import {
+  madnessSpellActive,
+  resolveSympathySpell,
+  sympathySpellDecisionRequired,
+} from "./cosmic-spells";
 
 function isCurrentRoundEndStamp(
   s: GameState,
@@ -275,6 +280,7 @@ export function advance(
   roundEndCurseTargets: Readonly<
     Record<string, CharacterId | undefined>
   > = {},
+  sympathySpellTarget?: CharacterId | null,
 ): ResolvedIncidentBatch | undefined {
   if (s.gamePhase !== "ROUND") {
     throw new Error(`round phase cannot advance during ${s.gamePhase}`);
@@ -286,6 +292,29 @@ export function advance(
   let incidentResult: ResolvedIncidentBatch | undefined;
   switch (s.loop.phase) {
     case "P1_ROUND_START":
+      if (sympathySpellDecisionRequired(s)) {
+        if (sympathySpellTarget === undefined) {
+          throw new Error("Spell of Sympathy choice is required");
+        }
+        const before = structuredClone(s.loop);
+        resolveSympathySpell(s, sympathySpellTarget);
+        const publicChanges = publicBoardChanges(before, s.loop);
+        if (publicChanges.length > 0) {
+          recordPhaseLog(s, {
+            loop: s.loop.loop,
+            day: s.loop.day,
+            phase: "P1_ROUND_START",
+            kind: "abilityActivated",
+            timing: "P1_ROUND_START",
+            ...(sympathySpellTarget === null
+              ? {}
+              : { targets: [{ kind: "character", id: sympathySpellTarget }] }),
+            description: "Spell of Sympathy (1)",
+            publicChanges,
+            publicContext: publicObservationContext(before),
+          });
+        }
+      }
       resolveHooks(s, "P1_CHARACTER_ENTRY");
       resolveHooks(s, "P1_ROUND_START");
       break;
@@ -403,6 +432,10 @@ export function advance(
         }
       }
       delete s.loop.roundEndMandatoryResolved;
+      if (madnessSpellActive(s)) {
+        requestLoopEnd(s, "madnessSpell", ["spell:madness"]);
+        return undefined;
+      }
       if (s.loop.day === s.scenario.daysPerLoop) {
         resolveHooks(s, "LAST_DAY");
         requestEndForActivatedLosses(s);

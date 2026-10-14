@@ -14,6 +14,7 @@ import {
   servantFollowOptions,
   type ServantFollowOption,
 } from "./movement";
+import { ancientSealActive } from "./cosmic-spells";
 
 export const PROTAGONIST_ONCE_PER_LOOP: ReadonlySet<ActionCard> = new Set([
   "goodwillPlus2",
@@ -255,7 +256,10 @@ function resolveCounters(
   const intrigueForbids = placed.filter(
     (placedCard) => placedCard.card === "forbidIntrigue",
   );
-  const intrigueForbidIsActive = intrigueForbidActive(playedIntrigueForbids);
+  const intrigueForbidIsActive = intrigueForbidActive(
+    playedIntrigueForbids,
+    ancientSealActive(state),
+  );
   const intrigueForbidden = new Set<string>();
   if (intrigueForbidIsActive) {
     const ignoredTargets = cultistIgnoredIntrigueTargets(state);

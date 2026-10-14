@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import { activeRulePlots } from "../src/engine/active-plots";
 import { createGameState } from "../src/engine/game";
+import { advanceGame } from "../src/engine/game";
 import { distanceToLoss } from "../src/engine/loss";
+import { resolveActions } from "../src/engine/resolve";
 import { validateScenario } from "../src/engine/validate";
 import { TRAGEDY_SETS } from "../src/tragedy-sets";
 import type { GameState, PlotId, Scenario } from "../src/types";
@@ -111,5 +113,61 @@ describe("Cosmic Mythology rules", () => {
     });
     expect(validateScenario(valid).diagnostics.map(({ code }) => code))
       .not.toContain("TWISTED_TRUTH_EXTRA_PLOT_INVALID");
+  });
+
+  it("unlocks cumulative spells from the current gauge without adding a phase", () => {
+    const sympathy = createGameState(scenario());
+    sympathy.gamePhase = "ROUND";
+    sympathy.loop.specialGauge!.value = 1;
+    advanceGame(sympathy, undefined, { sympathySpellTarget: "girlStudent" });
+    expect(sympathy.loop.charCounters.girlStudent.goodwill).toBe(2);
+    expect(sympathy.loop.phase).toBe("P2_MASTERMIND_ACTION");
+
+    const reminiscence = createGameState(scenario());
+    reminiscence.gamePhase = "ROUND";
+    reminiscence.loop.specialGauge!.value = 2;
+    reminiscence.loop.day = reminiscence.scenario.daysPerLoop;
+    reminiscence.loop.phase = "P9_ROUND_END";
+    advanceGame(reminiscence);
+    advanceGame(reminiscence);
+    expect(reminiscence.history[0].publicInformationThisLoop).toContainEqual(
+      expect.objectContaining({
+        kind: "subplot",
+        source: "reminiscenceForefathers",
+        revealedSubplot: "peopleWhoSaw",
+      }),
+    );
+
+    const madness = createGameState(scenario());
+    madness.gamePhase = "ROUND";
+    madness.loop.specialGauge!.value = 4;
+    madness.loop.phase = "P9_ROUND_END";
+    advanceGame(madness);
+    if (madness.gamePhase === "ROUND") advanceGame(madness);
+    expect(madness.gamePhase).toBe("FINAL_GUESS");
+    expect(madness.finalGuess?.reason).toBe("madnessSpell");
+    expect(madness.loopOutcomes[0].losses).toContainEqual(
+      expect.objectContaining({ key: "spell:madness" }),
+    );
+  });
+
+  it("keeps multiple Protagonist intrigue forbids active only at spell level three", () => {
+    const placed = [
+      { owner: 0 as const, card: "forbidIntrigue" as const, target: { kind: "character" as const, id: "boyStudent" } },
+      { owner: 1 as const, card: "forbidIntrigue" as const, target: { kind: "character" as const, id: "boyStudent" } },
+      { owner: "mastermind" as const, card: "intriguePlus1" as const, target: { kind: "character" as const, id: "boyStudent" } },
+    ];
+
+    const below = createGameState(scenario());
+    below.loop.specialGauge!.value = 2;
+    below.loop.placed = placed;
+    resolveActions(below);
+    expect(below.loop.charCounters.boyStudent.intrigue).toBe(1);
+
+    const unlocked = createGameState(scenario());
+    unlocked.loop.specialGauge!.value = 3;
+    unlocked.loop.placed = placed;
+    resolveActions(unlocked);
+    expect(unlocked.loop.charCounters.boyStudent.intrigue).toBe(0);
   });
 });

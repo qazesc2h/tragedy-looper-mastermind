@@ -331,7 +331,10 @@ export function resolveMovementPlan(
  */
 export function intrigueForbidActive(
   forbidCardsThisRound: { owner: "mastermind" | 0 | 1 | 2 }[],
+  multipleCardsRemainActive = false,
 ): boolean {
   const byProtagonists = forbidCardsThisRound.filter((c) => c.owner !== "mastermind");
-  return byProtagonists.length === 1;
+  return multipleCardsRemainActive
+    ? byProtagonists.length >= 1
+    : byProtagonists.length === 1;
 }

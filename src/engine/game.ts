@@ -31,6 +31,10 @@ import { finalizeRoundEvidence } from "./round-evidence";
 import { initLoop } from "./setup";
 import { sacredTreeMastermindChoiceRequired } from "./sacred-tree";
 import { roundEndCurseNeedsAttention } from "./curses";
+import {
+  revealFirstSubplotBySpell,
+  sympathySpellDecisionRequired,
+} from "./cosmic-spells";
 
 const TIME_GAP_SECONDS = 10 * 60;
 
@@ -362,6 +366,7 @@ export function finishLoop(state: GameState): LoopOutcome {
 
   // FAQ Q20: 즉시 종료가 걸려도 LOOP_END 훅(친구 역할 공개 등)은 해결한다.
   resolveHooks(state, "LOOP_END");
+  revealFirstSubplotBySpell(state);
   const atLoopEnd = evaluateLoss(state);
   const losses = uniqueActivatedLosses([...atTrigger, ...atLoopEnd]);
   expireAndRecordExtraCards(state, "loopEnd");
@@ -395,15 +400,29 @@ export function finishLoop(state: GameState): LoopOutcome {
     state.history.push(completedLoop);
   }
 
+  const recordedLosses = losses.map(recordedLoss);
+  if (request.reason === "madnessSpell") {
+    recordedLosses.push({
+      key: "spell:madness",
+      id: "madnessSpell",
+      ko: "광기",
+      label: "특수 게이지 4단계 · 최후의 싸움",
+    });
+  }
   const outcome: LoopOutcome = {
     loop: state.loop.loop,
     day: request.day,
     reason: request.reason,
-    result: losses.length > 0 ? "protagonistsLost" : "protagonistsWon",
-    losses: losses.map(recordedLoss),
+    result: recordedLosses.length > 0 ? "protagonistsLost" : "protagonistsWon",
+    losses: recordedLosses,
     observedAt: outcomeObservedAt,
   };
   state.loopOutcomes.push(outcome);
+
+  if (request.reason === "madnessSpell") {
+    prepareFinalGuess(state, "madnessSpell");
+    return outcome;
+  }
 
   if (outcome.result === "protagonistsWon") {
     state.result = { winner: "protagonists", reason: "loopVictory" };
@@ -447,6 +466,8 @@ function phaseAlreadyLogged(
 
 function roundEndNeedsAttention(state: GameState): boolean {
   if (state.loop.day === state.scenario.daysPerLoop) return true;
+  if (state.scenario.tragedySet === "cosmicMythology" &&
+    (state.loop.specialGauge?.value ?? 0) >= 4) return true;
   if (roundEndCurseNeedsAttention(state)) return true;
   if (activeHookExists(state, "P9_ROUND_END")) return true;
   return evaluateLoss(state).some(
@@ -462,6 +483,7 @@ function advanceRoundOnce(
   roundEndCurseTargets: Readonly<
     Record<string, CharacterId | undefined>
   > = {},
+  sympathySpellTarget?: CharacterId | null,
 ): ResolvedIncidentBatch | undefined {
   const phase = state.loop.phase;
   const loop = state.loop.loop;
@@ -479,6 +501,7 @@ function advanceRoundOnce(
     incidentChoice,
     mandatoryHookTargets,
     roundEndCurseTargets,
+    sympathySpellTarget,
   );
 
   if (phase === "P1_ROUND_START") {
@@ -604,7 +627,8 @@ export function advanceAutomaticRoundPhases(
       phase === "P1_ROUND_START" || phase === "P5_MASTERMIND_ABILITY"
     ) && !activeHookExists(state, phase) &&
       !(phase === "P5_MASTERMIND_ABILITY" &&
-        sacredTreeMastermindChoiceRequired(state));
+        sacredTreeMastermindChoiceRequired(state)) &&
+      !(phase === "P1_ROUND_START" && sympathySpellDecisionRequired(state));
 
     if (noActiveHook) {
       recordPhaseLog(state, {
@@ -655,6 +679,7 @@ export function advanceGame(
     roundEndCurseTargets?: Readonly<
       Record<string, CharacterId | undefined>
     >;
+    sympathySpellTarget?: CharacterId | null;
   } = {},
 ): ResolvedIncidentBatch | undefined {
   if (state.gamePhase !== "ROUND") {
@@ -667,6 +692,7 @@ export function advanceGame(
     deferSettlement,
     options.mandatoryHookTargets ?? {},
     options.roundEndCurseTargets ?? {},
+    options.sympathySpellTarget,
   );
   advanceAutomaticRoundPhases(state, deferSettlement);
   return result;
@@ -733,7 +759,7 @@ export function startHouseRuleExtraLoop(state: GameState): void {
 /** 최후의 싸움 판정 전에 보드·카운터를 반드시 초기 상태로 되돌린다. */
 export function prepareFinalGuess(
   state: GameState,
-  reason: "timeGap" | "finalLoopLoss",
+  reason: "timeGap" | "finalLoopLoss" | "madnessSpell",
 ): void {
   if (!tragedySetDefinition(state.scenario.tragedySet).hasFinalGuess) {
     throw new Error(
@@ -742,7 +768,8 @@ export function prepareFinalGuess(
   }
   if (
     reason === "timeGap" && state.gamePhase !== "LOOP_TIME_GAP" ||
-    reason === "finalLoopLoss" && state.gamePhase !== "LOOP_JUDGMENT"
+    (reason === "finalLoopLoss" || reason === "madnessSpell") &&
+      state.gamePhase !== "LOOP_JUDGMENT"
   ) {
     throw new Error(`final guess cannot start during ${state.gamePhase}`);
   }

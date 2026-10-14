@@ -83,7 +83,11 @@ export type GamePhase =
   | "FINAL_GUESS"
   | "GAME_OVER";
 
-export type LoopEndReason = "lastDay" | "effect" | "protagonistDeath";
+export type LoopEndReason =
+  | "lastDay"
+  | "effect"
+  | "protagonistDeath"
+  | "madnessSpell";
 
 export interface LoopEndRequest {
   reason: LoopEndReason;
@@ -117,7 +121,7 @@ export interface FinalGuessAttempt {
 }
 
 export interface FinalGuessState {
-  reason: "timeGap" | "finalLoopLoss";
+  reason: "timeGap" | "finalLoopLoss" | "madnessSpell";
   attempts: FinalGuessAttempt[];
 }
 
@@ -755,7 +759,7 @@ export type PublicInformation = (
   }
   | {
     kind: "subplot";
-    source: "informer";
+    source: "informer" | "reminiscenceForefathers";
     declaredSubplot: PlotId;
     revealedSubplot: PlotId;
   }
@@ -906,6 +910,9 @@ export interface LoopState {
 
   /** 참극 세트가 정의한 전역 특수 게이지. */
   specialGauge?: SpecialGaugeState;
+
+  /** Cosmic Mythology 주문 1단계의 이번 루프 첫날 리더 선택 완료 여부. */
+  sympathySpellResolved?: boolean;
 }
 
 export interface SpecialGaugeState {

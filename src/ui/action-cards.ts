@@ -7,6 +7,7 @@ import {
   type MoveCard,
 } from "../engine/movement";
 import { locationCardAppliesToIllusion } from "../engine/resolve";
+import { ancientSealActive } from "../engine/cosmic-spells";
 import {
   abilityLocationsOf,
   characterLocation,
@@ -368,6 +369,7 @@ function blockedBy(
     (placement.card === "intriguePlus1" || placement.card === "intriguePlus2") &&
     intrigueForbidActive(
       placed.filter(({ card }) => card === "forbidIntrigue"),
+      ancientSealActive(state),
     ) &&
     forbidOnTarget(placed, placement, "forbidIntrigue") &&
     !intrigueIsIgnored(state, placement.target)
