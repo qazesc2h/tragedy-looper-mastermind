@@ -8345,6 +8345,10 @@ root.addEventListener("change", (event) => {
       render();
       return;
     }
+    if (draftKey === "sympathy-spell-target") {
+      render();
+      return;
+    }
     if (draftKey.startsWith("sacred-tree:")) {
       render();
       return;
