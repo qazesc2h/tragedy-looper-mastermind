@@ -1,0 +1,137 @@
+[
+  {
+    "id": "primeEvil:2",
+    "title": "Master Thief Seven Tails",
+    "creator": "BakaFire",
+    "tragedySet": "primeEvil",
+    "mainPlot": ["cursedLand"],
+    "subPlots": ["panicObsession", "keyGirl"],
+    "difficultySets": [
+      { "numberOfLoops": 4, "difficulty": 3 },
+      { "numberOfLoops": 3, "difficulty": 5 }
+    ],
+    "daysPerLoop": 4,
+    "cast": {
+      "boyStudent": "witch",
+      "richStudent": "ghost",
+      "classRep": "coward",
+      "shrineMaiden": "keyPerson",
+      "policeOfficer": "showOff",
+      "officeWorker": "serialKiller"
+    },
+    "incidents": [
+      { "day": 2, "incident": "missingPerson", "culprit": "richStudent" },
+      { "day": 3, "incident": "sacrilegiousMurder", "culprit": "classRep" },
+      { "day": 4, "incident": "evangeliumDead", "culprit": "School" }
+    ],
+    "victory-conditions": "See Tragedy Looper: Cosmic Evil Mastermind Handbook",
+    "story": "See Tragedy Looper: Cosmic Evil Mastermind Handbook",
+    "mastermindHints": "See Tragedy Looper: Cosmic Evil Mastermind Handbook"
+  },
+  {
+    "id": "primeEvil:3",
+    "title": "Vamp",
+    "creator": "ENTEI",
+    "tragedySet": "primeEvil",
+    "mainPlot": ["nobleBloodline"],
+    "subPlots": ["thoseHabits", "witchsCurse"],
+    "difficultySets": [
+      { "numberOfLoops": 5, "difficulty": 5 },
+      { "numberOfLoops": 4, "difficulty": 6 }
+    ],
+    "daysPerLoop": 5,
+    "cast": {
+      "boyStudent": "person",
+      "girlStudent": "keyPerson",
+      "classRep": "person",
+      "shrineMaiden": "lovedOne",
+      "alien": "conspiracyTheorist",
+      "policeOfficer": "ghost",
+      "officeWorker": "vampire",
+      "popIdol": "witch",
+      "patient": "serialKiller"
+    },
+    "incidents": [
+      { "day": 3, "incident": "fountainFilth", "culprit": "Hospital" },
+      { "day": 4, "incident": "nightMadness", "culprit": "City" },
+      { "day": 5, "incident": "sacrilegiousMurder", "culprit": "boyStudent" }
+    ],
+    "victory-conditions": "See Tragedy Looper: Cosmic Evil Mastermind Handbook",
+    "story": "See Tragedy Looper: Cosmic Evil Mastermind Handbook",
+    "mastermindHints": "See Tragedy Looper: Cosmic Evil Mastermind Handbook"
+  },
+  {
+    "id": "primeEvil:4",
+    "title": "Zombi Hero",
+    "creator": "GEnd",
+    "tragedySet": "primeEvil",
+    "mainPlot": ["OnesFromGrave"],
+    "subPlots": ["loveAffair", "peopleDontListen"],
+    "difficultySets": [
+      { "numberOfLoops": 5, "difficulty": 5 },
+      { "numberOfLoops": 4, "difficulty": 6 }
+    ],
+    "daysPerLoop": 6,
+    "cast": {
+      "girlStudent": "person",
+      "mysteryBoy": "zombie",
+      "transferStudent": ["lover", { "enters on day": 5 }],
+      "shrineMaiden": "person",
+      "officeWorker": "person",
+      "informer": "showOff",
+      "journalist": "person",
+      "patient": "lovedOne",
+      "nurse": "conspiracyTheorist",
+      "henchman": "coward"
+    },
+    "incidents": [
+      { "day": 2, "incident": "evilContamination", "culprit": "henchman" },
+      { "day": 3, "incident": "missingPerson", "culprit": "journalist" },
+      { "day": 4, "incident": "nightMadness", "culprit": "Shrine" },
+      { "day": 5, "incident": "sacrilegiousMurder", "culprit": "patient" }
+    ],
+    "victory-conditions": "See Tragedy Looper: Cosmic Evil Mastermind Handbook",
+    "story": "See Tragedy Looper: Cosmic Evil Mastermind Handbook",
+    "mastermindHints": "See Tragedy Looper: Cosmic Evil Mastermind Handbook"
+  },
+  {
+    "id": "primeEvil:5",
+    "title": "Ultimate Halloween",
+    "creator": "BakaFire",
+    "tragedySet": "primeEvil",
+    "mainPlot": ["moonlightBeast"],
+    "subPlots": ["monsterIntrigue", "peopleDontListen"],
+    "difficultySets": [
+      { "numberOfLoops": 5, "difficulty": 6 },
+      { "numberOfLoops": 4, "difficulty": 7 }
+    ],
+    "daysPerLoop": 6,
+    "cast": {
+      "girlStudent": "person",
+      "mysteryBoy": "nightmare",
+      "teacher": "person",
+      "transferStudent": ["coward", { "enters on day": 5 }],
+      "alien": "person",
+      "godlyBeing": ["person", { "enters on loop": 2 }],
+      "popIdol": "person",
+      "forensicSpecialist": "conspiracyTheorist",
+      "soldier": "showOff",
+      "patient": "werewolf"
+    },
+    "incidents": [
+      { "day": 1, "incident": "awakenedCurse", "culprit": "School" },
+      { "day": 2, "incident": "increasingUnease", "culprit": "popIdol" },
+      { "day": 3, "incident": "executioner", "culprit": "girlStudent" },
+      { "day": 4, "incident": "sacrilegiousMurder", "culprit": "soldier" },
+      { "day": 5, "incident": "nightMadness", "culprit": "Hospital" },
+      { "day": 6, "incident": "missingPerson", "culprit": "mysteryBoy" }
+    ],
+    "specialRules": [
+      "Mastermind removes \"Forbid :goodwill:\" from his hand. It cannot be used in any loop."
+    ],
+    "specialRuleIds": ["mastermindCannotUseForbidGoodwill"],
+    "victory-conditions": "See Tragedy Looper: Cosmic Evil Mastermind Handbook",
+    "story": "See Tragedy Looper: Cosmic Evil Mastermind Handbook",
+    "mastermindHints": "See Tragedy Looper: Cosmic Evil Mastermind Handbook"
+  }
+]

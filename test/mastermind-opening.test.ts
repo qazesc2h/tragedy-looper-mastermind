@@ -64,8 +64,8 @@ function openingGuidanceFor(row: CatalogRow): MastermindOpeningGuidance {
 }
 
 describe("mastermind opening guidance E", () => {
-  it("covers all 65 bundled difficulties", () => {
-    expect(catalogRows).toHaveLength(65);
+  it("covers all 73 bundled difficulties", () => {
+    expect(catalogRows).toHaveLength(73);
   });
 
   for (const [group, rows] of catalogGroups) {

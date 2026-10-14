@@ -307,6 +307,84 @@ function addRoleRisks(
     });
   }
 
+  for (const character of holders(state, "vampire")) {
+    output.push({
+      key: `risk:vampire:${character}`,
+      category: "identityExposure",
+      title: `${characterName(character)} · 불사와 라운드 종료 살해`,
+      condition: actualRoleCondition(state, character),
+      description: "사망 효과를 무효화하거나, 같은 장소의 음모 2 이상 핵심 인물을 라운드 종료에 죽이면 뱀파이어 후보가 좁혀집니다.",
+      source: "뱀파이어 [불사·라운드 종료/선택] 역할 원문",
+      severity: "warning",
+    });
+  }
+  for (const character of holders(state, "werewolf")) {
+    output.push({
+      key: `risk:werewolf:${character}`,
+      category: "identityExposure",
+      title: `${characterName(character)} · 각본가 카드 배치 금지`,
+      condition: actualRoleCondition(state, character),
+      description: "각본가는 이 캐릭터에게 행동 카드를 놓을 수 없습니다. 밤의 광기가 발생한 날의 선택 패배 조건도 늑대인간 후보를 좁힙니다.",
+      source: "늑대인간 [각본가 행동 단계/강제·라운드 종료/선택] 역할 원문",
+      severity: "warning",
+    });
+  }
+  for (const character of holders(state, "nightmare")) {
+    output.push({
+      key: `risk:nightmare:${character}`,
+      category: "identityExposure",
+      title: `${characterName(character)} · 불사와 동소 살해`,
+      condition: actualRoleCondition(state, character),
+      description: "사망 효과를 무효화하거나 같은 장소의 캐릭터를 라운드 종료에 죽이면 악몽 후보가 좁혀집니다.",
+      source: "악몽 [불사·라운드 종료/선택] 역할 원문",
+      severity: "warning",
+    });
+  }
+  for (const character of holders(state, "ghost")) {
+    output.push({
+      key: `risk:ghost:${character}`,
+      category: "uncontrolledRisk",
+      title: `${characterName(character)} · 시체의 강제 불안 +1`,
+      condition: actualRoleCondition(state, character),
+      description: "시체가 되면 현재 장소 또는 시작 장소의 생존 캐릭터에게 P5 불안 1개를 반드시 놓습니다.",
+      source: "유령 [각본가 능력 단계/강제] 역할 원문",
+      severity: "warning",
+    });
+  }
+  for (const character of holders(state, "showOff")) {
+    output.push({
+      key: `risk:show-off:${character}`,
+      category: "identityExposure",
+      title: `${characterName(character)} · 불안 3에서 불사 상실·절대 우호 무시`,
+      condition: actualRoleCondition(state, character),
+      description: "불안 2 이하에서는 불사지만 불안 3 이상이면 불사를 잃고 우호 능력을 반드시 거부합니다. 공개 불안 수와 결과의 조합이 허당 후보를 좁힙니다.",
+      source: "허당 [상시·우호 능력 단계/강제] 역할 원문",
+      severity: "warning",
+    });
+  }
+  for (const character of holders(state, "coward")) {
+    output.push({
+      key: `risk:coward:${character}`,
+      category: "uncontrolledRisk",
+      title: `${characterName(character)} · 불안 2 이상 강제 이동`,
+      condition: actualRoleCondition(state, character),
+      description: "불안 2 이상이면 P5에 인접 장소 하나를 골라 반드시 이동합니다.",
+      source: "겁쟁이 [각본가 능력 단계/강제] 역할 원문",
+      severity: "warning",
+    });
+  }
+  for (const character of holders(state, "zombie")) {
+    output.push({
+      key: `risk:zombie:${character}`,
+      category: "uncontrolledRisk",
+      title: `${characterName(character)} · 좀비 과반 장소 강제 사망`,
+      condition: actualRoleCondition(state, character),
+      description: "좀비가 생존 비좀비보다 많은 장소가 있으면 라운드 종료에 그 장소의 캐릭터 1명을 반드시 죽입니다. 좀비 시체 이동 선택은 하루 1회, 모든 좀비가 공유합니다.",
+      source: "좀비 [라운드 종료/강제·선택] 역할 원문",
+      severity: "critical",
+    });
+  }
+
   const deadlyIncidentLabels = state.scenario.incidents.filter(
     (scheduled) => DEATH_INCIDENTS.has(actualIncidentOf(scheduled)) &&
       (actualIncidentOf(scheduled) !== "suicide" ||

@@ -17,7 +17,7 @@ import type {
   Scenario,
   ScenarioSpecialRuleId,
 } from "./types";
-import { SCENARIO_SPECIAL_RULE_IDS } from "./types";
+import { LOCATIONS, SCENARIO_SPECIAL_RULE_IDS } from "./types";
 
 export interface CharacterData {
   id: CharacterId;
@@ -332,6 +332,13 @@ function parseIncidents(
         `${context}[${index}].incident must contain [actualIncident, declaredIncident]`,
       );
     }
+    const rawCulprit = requireString(
+      raw.culprit,
+      `${context}[${index}].culprit`,
+    );
+    const culprit = LOCATIONS.includes(rawCulprit as Location)
+      ? { kind: "location" as const, at: rawCulprit as Location }
+      : rawCulprit;
     return {
       day: requireNumber(raw.day, `${context}[${index}].day`),
       ...(Array.isArray(incident)
@@ -341,10 +348,7 @@ function parseIncidents(
           actualIncident: incident[0],
         }
         : { incident }),
-      culprit: requireString(
-        raw.culprit,
-        `${context}[${index}].culprit`,
-      ),
+      culprit,
     };
   }));
 }

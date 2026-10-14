@@ -53,6 +53,7 @@ const SUPPORTED_SETS = [
   "basicTragedy",
   "midnightZone",
   "mysteryCircle",
+  "primeEvil",
 ] as const;
 
 function escape(value: unknown): string {

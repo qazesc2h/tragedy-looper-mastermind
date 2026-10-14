@@ -92,6 +92,13 @@ const BASE_DIFFICULTY: Readonly<Partial<Record<RoleId, CoverDifficulty>>> = {
   paranoiac: "controlled",
   twin: "hard",
   obstinate: "hard",
+  vampire: "hard",
+  werewolf: "hard",
+  nightmare: "hard",
+  ghost: "hard",
+  showOff: "hard",
+  coward: "hard",
+  zombie: "hard",
 };
 
 function difficultyLabel(difficulty: CoverDifficulty): string {
@@ -619,6 +626,148 @@ function roleSpecificPaths(
         sacrifice: "사건 전 이동·배치 선택이 제한된다.",
       });
       break;
+    case "vampire":
+      add({
+        key: "role:vampire:optional-refusal",
+        title: "선택 우호 거부",
+        observation: "우호 능력을 거부하면 뱀파이어를 포함한 선택 우호 거부 역할 후보로 좁혀진다.",
+        control: "mastermind", avoidable: true,
+        avoidance: "우호 능력을 거부하지 않는다.",
+        sacrifice: "불리한 우호 능력을 그대로 해결해야 한다.",
+      });
+      add({
+        key: "role:vampire:immortal",
+        title: "불사 · 사망 무효",
+        observation: "사망 효과의 대상이 되었는데 살아남으면 뱀파이어를 포함한 불사 역할 후보로 좁혀진다.",
+        control: "automatic", avoidable: true,
+        avoidance: "사망 효과의 대상으로 선택하지 않는다.",
+        sacrifice: "뱀파이어를 안전한 사망 미끼로 쓰지 못한다.",
+      });
+      add({
+        key: "role:vampire:key-person-kill",
+        title: "핵심 인물 살해 능력",
+        observation: "같은 장소의 음모 2 이상 핵심 인물을 라운드 종료에 죽이면 뱀파이어 후보가 좁혀진다.",
+        control: "mastermind", avoidable: true,
+        avoidance: "뱀파이어의 사망 능력을 사용하지 않는다.",
+        sacrifice: "핵심 인물 살해 경로를 포기한다.",
+      });
+      add({
+        key: "role:vampire:corpse-loss",
+        title: "시작 장소 시체 2구 패배 조건",
+        observation: "시작 장소의 시체 2구로 주인공이 사망하면 뱀파이어 후보가 좁혀진다.",
+        control: "mastermind", avoidable: true,
+        avoidance: "뱀파이어의 선택 패배 조건을 발동하지 않는다.",
+        sacrifice: "시체 수를 이용한 주인공 사망 경로를 포기한다.",
+      });
+      break;
+    case "werewolf":
+      add({
+        key: "role:werewolf:optional-refusal",
+        title: "선택 우호 거부",
+        observation: "우호 능력을 거부하면 늑대인간을 포함한 선택 우호 거부 역할 후보로 좁혀진다.",
+        control: "mastermind", avoidable: true,
+        avoidance: "우호 능력을 거부하지 않는다.",
+        sacrifice: "불리한 우호 능력을 그대로 해결해야 한다.",
+      });
+      add({
+        key: "role:werewolf:placement",
+        title: "각본가 카드 배치 금지",
+        observation: "각본가가 이 캐릭터에게 행동 카드를 놓을 수 없어 늑대인간 후보가 좁혀질 수 있다.",
+        control: "automatic", avoidable: false,
+        avoidance: "강제 제한이라 피할 수 없다.",
+        sacrifice: "없음",
+      });
+      add({
+        key: "role:werewolf:night-madness-loss",
+        title: "밤의 광기 발생일 패배 조건",
+        observation: "밤의 광기가 발생한 날 주인공이 사망하면 늑대인간 후보가 좁혀진다.",
+        control: "mastermind", avoidable: true,
+        avoidance: "늑대인간의 선택 패배 조건을 발동하지 않는다.",
+        sacrifice: "밤의 광기와 결합한 주인공 사망 경로를 포기한다.",
+      });
+      break;
+    case "nightmare":
+      add({
+        key: "role:nightmare:optional-refusal",
+        title: "선택 우호 거부",
+        observation: "우호 능력을 거부하면 악몽을 포함한 선택 우호 거부 역할 후보로 좁혀진다.",
+        control: "mastermind", avoidable: true,
+        avoidance: "우호 능력을 거부하지 않는다.",
+        sacrifice: "불리한 우호 능력을 그대로 해결해야 한다.",
+      });
+      add({
+        key: "role:nightmare:immortal",
+        title: "불사 · 사망 무효",
+        observation: "사망 효과의 대상이 되었는데 살아남으면 악몽을 포함한 불사 역할 후보로 좁혀진다.",
+        control: "automatic", avoidable: true,
+        avoidance: "사망 효과의 대상으로 선택하지 않는다.",
+        sacrifice: "악몽을 안전한 사망 미끼로 쓰지 못한다.",
+      });
+      add({
+        key: "role:nightmare:kill",
+        title: "동소 캐릭터 살해 능력",
+        observation: "같은 장소의 캐릭터가 라운드 종료에 사망하면 악몽 후보가 좁혀진다.",
+        control: "mastermind", avoidable: true,
+        avoidance: "악몽의 사망 능력을 사용하지 않는다.",
+        sacrifice: "동소 캐릭터 살해 경로를 포기한다.",
+      });
+      add({
+        key: "role:nightmare:corpse-intrigue-loss",
+        title: "시체 위 음모 3 패배 조건",
+        observation: "실제 시체 위 음모 합계 3으로 주인공이 사망하면 악몽 후보가 좁혀진다.",
+        control: "mastermind", avoidable: true,
+        avoidance: "악몽의 선택 패배 조건을 발동하지 않는다.",
+        sacrifice: "시체 위 음모를 이용한 주인공 사망 경로를 포기한다.",
+      });
+      break;
+    case "ghost":
+      add({
+        key: "role:ghost:corpse-paranoia",
+        title: "시체의 강제 불안 +1",
+        observation: "시체가 된 뒤 현재 장소 또는 시작 장소의 캐릭터에게 P5 불안 1개를 놓으면 유령 후보가 좁혀진다.",
+        control: "automatic", avoidable: true,
+        avoidance: "유령을 살려 두거나 두 장소에 생존 캐릭터를 남기지 않는다.",
+        sacrifice: "유령의 강제 불안 진척을 이용하지 못한다.",
+      });
+      break;
+    case "showOff":
+      add({
+        key: "role:show-off:conditional-immortal",
+        title: "불안 2 이하 불사 · 불안 3에서 상실",
+        observation: "공개 불안 수에 따라 사망 무효 여부와 절대 우호 무시가 바뀌면 허당 후보가 좁혀진다.",
+        control: "automatic", avoidable: true,
+        avoidance: "사망 효과의 대상으로 삼지 않고 불안을 3 미만으로 유지한다.",
+        sacrifice: "허당을 안전한 사망 미끼로 쓰거나 절대 우호 무시를 여는 선택을 포기한다.",
+      });
+      break;
+    case "coward":
+      add({
+        key: "role:coward:forced-movement",
+        title: "불안 2 이상 P5 강제 이동",
+        observation: "불안 2 이상에서 인접 장소로 강제 이동하면 겁쟁이 후보가 좁혀진다.",
+        control: "automatic", avoidable: true,
+        avoidance: "이 캐릭터의 불안을 1 이하로 유지한다.",
+        sacrifice: "불안을 사건 발생과 다른 패배 경로에 쓰기 어렵다.",
+      });
+      break;
+    case "zombie":
+      add({
+        key: "role:zombie:majority-kill",
+        title: "좀비 과반 장소 강제 사망",
+        observation: "좀비가 비좀비보다 많은 장소에서 캐릭터 1명이 강제로 사망하면 좀비 역할 후보가 좁혀진다.",
+        control: "automatic", avoidable: true,
+        avoidance: "어느 장소에서도 좀비가 생존 비좀비보다 많아지지 않게 한다.",
+        sacrifice: "좀비 과반을 이용한 강제 사망 경로를 포기한다.",
+      });
+      add({
+        key: "role:zombie:corpse-movement",
+        title: "좀비 시체 이동",
+        observation: "라운드 종료에 좀비 시체를 인접 장소로 옮기면 좀비 역할 후보가 좁혀진다.",
+        control: "mastermind", avoidable: true,
+        avoidance: "좀비 시체 이동 능력을 사용하지 않는다.",
+        sacrifice: "시체 수와 익명 시체 배치를 조정하는 경로를 포기한다.",
+      });
+      break;
   }
   return paths;
 }
@@ -650,6 +799,9 @@ function routeUsesRole(
     case "prophet": return key.includes(`prophet:${character}`);
     case "obstinate": return key.includes(`obstinate:${character}`);
     case "poisoner": return key.includes(`poisoner:${character}`);
+    case "vampire": return key.includes(`vampire:${character}`);
+    case "werewolf": return key.includes(`werewolf:${character}`);
+    case "nightmare": return key.includes(`nightmare:${character}`);
     default: return false;
   }
 }
