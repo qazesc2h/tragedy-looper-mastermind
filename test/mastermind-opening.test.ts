@@ -4,6 +4,7 @@ import { createGameState } from "../src/engine/game";
 import { validatePlacement } from "../src/engine/legal";
 import {
   mastermindOpeningGuidance,
+  type MastermindOpeningGuidance,
   type OpeningPlacement,
   type OpeningProgress,
 } from "../src/engine/mastermind-opening";
@@ -29,81 +30,112 @@ function stateFor(id: string, difficultyIndex = 0): GameState {
   return createCatalogState(difficulty.scenario);
 }
 
-describe("mastermind opening guidance E", () => {
-  it("exhaustively evaluates a legal three-card recommendation for all 65 difficulties", () => {
-    const rows = loadScenarioCatalog().flatMap((entry) =>
-      entry.difficulties.map((difficulty) => ({
-        key: `${entry.id}#${difficulty.index}`,
-        state: createCatalogState(difficulty.scenario),
-      }))
-    );
+interface CatalogRow {
+  key: string;
+  group: string;
+  state: GameState;
+}
 
-    expect(rows).toHaveLength(65);
-    for (const { key, state } of rows) {
-      const guidance = mastermindOpeningGuidance(state);
-      expect(guidance.contributingPlacementCount, key).toBeLessThan(63_360);
-      expect(guidance.recommendations.length, key).toBeLessThanOrEqual(3);
-      expect(guidance.recommendations.length === 0, key).toBe(
-        guidance.candidateProfileCount === 0,
-      );
-      for (const profile of guidance.recommendations) {
-        expect(profile.placements, key).toHaveLength(3);
-        expect(new Set(profile.placements.map(({ target }) =>
-          target.kind === "character" ? `character:${target.id}` : `location:${target.at}`
-        )).size, key).toBe(3);
-        const projected = structuredClone(state);
-        for (const placement of profile.placements) {
-          const card: PlacedCard = {
-            owner: "mastermind",
-            card: placement.card,
-            target: placement.target,
-          };
-          expect(validatePlacement(projected, card), `${key} ${placement.card}`).toEqual({ ok: true });
-          projected.loop.placed.push(card);
-          expect(placement.targetKind, key).toBe(placement.target.kind);
-          expect(placement.contributions.every(({ targetKind }) =>
-            targetKind === placement.target.kind
-          ), key).toBe(true);
-        }
-      }
-    }
+const catalogRows: CatalogRow[] = loadScenarioCatalog().flatMap((entry) =>
+  entry.difficulties.map((difficulty) => ({
+    key: `${entry.id}#${difficulty.index}`,
+    group: `${difficulty.scenario.tragedySet}/${entry.source}`,
+    state: createCatalogState(difficulty.scenario),
+  }))
+);
+
+const catalogGroups = [...catalogRows.reduce((groups, row) => {
+  const rows = groups.get(row.group) ?? [];
+  rows.push(row);
+  groups.set(row.group, rows);
+  return groups;
+}, new Map<string, CatalogRow[]>())];
+
+// 같은 카탈로그 입력을 아래의 독립 검증 세 가지가 공유한다. 계산 결과는
+// 결정적이므로 한 번만 만들고, 느린 CI의 5초 제한은 그룹별 테스트로 격리한다.
+const openingGuidanceByKey = new Map<string, MastermindOpeningGuidance>();
+
+function openingGuidanceFor(row: CatalogRow): MastermindOpeningGuidance {
+  const cached = openingGuidanceByKey.get(row.key);
+  if (cached !== undefined) return cached;
+  const guidance = mastermindOpeningGuidance(row.state);
+  openingGuidanceByKey.set(row.key, guidance);
+  return guidance;
+}
+
+describe("mastermind opening guidance E", () => {
+  it("covers all 65 bundled difficulties", () => {
+    expect(catalogRows).toHaveLength(65);
   });
 
-  it("makes every recommended placement change the stated axis on the real resolver", () => {
-    for (const entry of loadScenarioCatalog()) {
-      for (const difficulty of entry.difficulties) {
-        const key = `${entry.id}#${difficulty.index}`;
-        const state = createCatalogState(difficulty.scenario);
-        const recommendations = mastermindOpeningGuidance(state).recommendations;
+  for (const [group, rows] of catalogGroups) {
+    it(`exhaustively evaluates legal three-card recommendations for ${group} (${rows.length})`, () => {
+      for (const row of rows) {
+        const { key, state } = row;
+        const guidance = openingGuidanceFor(row);
+        expect(guidance.contributingPlacementCount, key).toBeLessThan(63_360);
+        expect(guidance.recommendations.length, key).toBeLessThanOrEqual(3);
+        expect(guidance.recommendations.length === 0, key).toBe(
+          guidance.candidateProfileCount === 0,
+        );
+        for (const profile of guidance.recommendations) {
+          expect(profile.placements, key).toHaveLength(3);
+          expect(new Set(profile.placements.map(({ target }) =>
+            target.kind === "character" ? `character:${target.id}` : `location:${target.at}`
+          )).size, key).toBe(3);
+          const projected = structuredClone(state);
+          for (const placement of profile.placements) {
+            const card: PlacedCard = {
+              owner: "mastermind",
+              card: placement.card,
+              target: placement.target,
+            };
+            expect(validatePlacement(projected, card), `${key} ${placement.card}`).toEqual({ ok: true });
+            projected.loop.placed.push(card);
+            expect(placement.targetKind, key).toBe(placement.target.kind);
+            expect(placement.contributions.every(({ targetKind }) =>
+              targetKind === placement.target.kind
+            ), key).toBe(true);
+          }
+        }
+      }
+    });
+  }
+
+  for (const [group, rows] of catalogGroups) {
+    it(`makes every ${group} recommendation change its axis on the real resolver`, () => {
+      for (const row of rows) {
+        const { key, state } = row;
+        const recommendations = openingGuidanceFor(row).recommendations;
         for (const recommendation of recommendations) {
           for (const placement of recommendation.placements) {
-        const projected = structuredClone(state);
-        const before = placement.target.kind === "location"
-          ? projected.loop.locIntrigue[placement.target.at]
-          : placement.card === "paranoiaPlus1"
-          ? projected.loop.charCounters[placement.target.id].paranoia
-          : placement.card === "intriguePlus1" || placement.card === "intriguePlus2"
-          ? projected.loop.charCounters[placement.target.id].intrigue
-          : characterLocation(projected.loop.board[placement.target.id], placement.target.id);
-        projected.loop.placed = [{
-          owner: "mastermind",
-          card: placement.card,
-          target: placement.target,
-        }];
-        resolveActions(projected);
-        const after = placement.target.kind === "location"
-          ? projected.loop.locIntrigue[placement.target.at]
-          : placement.card === "paranoiaPlus1"
-          ? projected.loop.charCounters[placement.target.id].paranoia
-          : placement.card === "intriguePlus1" || placement.card === "intriguePlus2"
-          ? projected.loop.charCounters[placement.target.id].intrigue
-          : characterLocation(projected.loop.board[placement.target.id], placement.target.id);
+            const projected = structuredClone(state);
+            const before = placement.target.kind === "location"
+              ? projected.loop.locIntrigue[placement.target.at]
+              : placement.card === "paranoiaPlus1"
+              ? projected.loop.charCounters[placement.target.id].paranoia
+              : placement.card === "intriguePlus1" || placement.card === "intriguePlus2"
+              ? projected.loop.charCounters[placement.target.id].intrigue
+              : characterLocation(projected.loop.board[placement.target.id], placement.target.id);
+            projected.loop.placed = [{
+              owner: "mastermind",
+              card: placement.card,
+              target: placement.target,
+            }];
+            resolveActions(projected);
+            const after = placement.target.kind === "location"
+              ? projected.loop.locIntrigue[placement.target.at]
+              : placement.card === "paranoiaPlus1"
+              ? projected.loop.charCounters[placement.target.id].paranoia
+              : placement.card === "intriguePlus1" || placement.card === "intriguePlus2"
+              ? projected.loop.charCounters[placement.target.id].intrigue
+              : characterLocation(projected.loop.board[placement.target.id], placement.target.id);
             expect(after, `${key} ${placement.card}@${placement.targetLabel}`).not.toBe(before);
           }
         }
       }
-    }
-  });
+    });
+  }
 
   it("admits only first-day-progress decoys and records excluded ones", () => {
     const guidance = mastermindOpeningGuidance(stateFor("basicTragedy:8"));
@@ -137,23 +169,23 @@ describe("mastermind opening guidance E", () => {
     )).toBe(true);
   });
 
-  it("matches its worst-response guarantee to the real resolver", () => {
-    const add = (progress: OpeningProgress, placement: OpeningPlacement): void => {
-      for (const contribution of placement.contributions) {
-        if (contribution.source === "C") progress.decoys += contribution.amount;
-        else if (contribution.priority === 0) progress.primary += contribution.amount;
-        else progress.alternatives += contribution.amount;
-        progress.total += contribution.amount;
-      }
-    };
-    const compare = (left: OpeningProgress, right: OpeningProgress): number =>
-      left.primary - right.primary || left.alternatives - right.alternatives ||
-      left.decoys - right.decoys || left.total - right.total;
+  const add = (progress: OpeningProgress, placement: OpeningPlacement): void => {
+    for (const contribution of placement.contributions) {
+      if (contribution.source === "C") progress.decoys += contribution.amount;
+      else if (contribution.priority === 0) progress.primary += contribution.amount;
+      else progress.alternatives += contribution.amount;
+      progress.total += contribution.amount;
+    }
+  };
+  const compare = (left: OpeningProgress, right: OpeningProgress): number =>
+    left.primary - right.primary || left.alternatives - right.alternatives ||
+    left.decoys - right.decoys || left.total - right.total;
 
-    for (const entry of loadScenarioCatalog()) {
-      for (const difficulty of entry.difficulties) {
-        const state = createCatalogState(difficulty.scenario);
-        const profile = mastermindOpeningGuidance(state).recommendations[0];
+  for (const [group, rows] of catalogGroups) {
+    it(`matches ${group} worst-response guarantees to the real resolver`, () => {
+      for (const row of rows) {
+        const { key, state } = row;
+        const profile = openingGuidanceFor(row).recommendations[0];
         if (profile === undefined) continue;
         const intrigueIndexes = profile.placements.flatMap(({ card }, index) =>
           card === "intriguePlus1" || card === "intriguePlus2" ? [index] : []
@@ -202,8 +234,8 @@ describe("mastermind opening guidance E", () => {
           });
           return progress;
         }).sort(compare)[0];
-        expect(actual, `${entry.id}#${difficulty.index}`).toEqual(profile.guaranteed);
+        expect(actual, key).toEqual(profile.guaranteed);
       }
-    }
-  });
+    });
+  }
 });
