@@ -61,6 +61,13 @@ export type IncidentPossibilityReason =
     >;
   }
   | {
+    code: "darkRumorCurseIdentified";
+    observation: Extract<
+      ProtagonistObservation,
+      { kind: "incidentOccurred" }
+    >;
+  }
+  | {
     code: "incidentTraceLocationMismatch";
     observation: Extract<
       ProtagonistObservation,
@@ -69,6 +76,13 @@ export type IncidentPossibilityReason =
   }
   | {
     code: "murderVictimCannotBeCulprit";
+    observation: Extract<
+      ProtagonistObservation,
+      { kind: "incidentOccurred" }
+    >;
+  }
+  | {
+    code: "incidentTargetCannotBeCulprit";
     observation: Extract<
       ProtagonistObservation,
       { kind: "incidentOccurred" }
@@ -238,6 +252,30 @@ function initialConfirmations(
           reason: { code: "fakedSuicideCardIdentified", observation },
         });
       }
+    } else if (
+      observation.kind === "incidentOccurred" &&
+      observation.occurred &&
+      observation.incident === "darkRumor"
+    ) {
+      const placedOn = observation.changes?.flatMap((change) =>
+        change.kind === "extraCard" &&
+          change.action === "placed" &&
+          change.card.cardId === "curse" &&
+          change.card.target.kind === "character"
+          ? [change.card.target.id]
+          : []
+      ) ?? [];
+      if (placedOn.length !== 1 || placedOn[0] === undefined) continue;
+      for (const column of matchingColumns(
+        columns,
+        observation.day,
+        observation.incident,
+      )) {
+        confirmations.set(column.id, {
+          character: placedOn[0],
+          reason: { code: "darkRumorCurseIdentified", observation },
+        });
+      }
     }
   }
   return confirmations;
@@ -296,7 +334,8 @@ function traceExclusionReason(
     } else if (
       column.incident === "murder" ||
       column.incident === "serialMurder" ||
-      column.incident === "bestialMurder"
+      column.incident === "bestialMurder" ||
+      column.incident === "sacrilegiousMurder"
     ) {
       const victims = changes.flatMap((change) =>
         change.kind === "status" &&
@@ -315,6 +354,26 @@ function traceExclusionReason(
         const location = locationOf(victim);
         return location === undefined ? [] : [location];
       });
+      if (column.incident === "sacrilegiousMurder" && victims.length === 0) {
+        traceLocations = changes.flatMap((change) =>
+          change.kind === "counter" &&
+            change.target.kind === "location" &&
+            change.counter === "intrigue" &&
+            change.delta > 0
+            ? [change.target.at]
+            : []
+        );
+      }
+    } else if (column.incident === "barricade") {
+      const movements = changes.filter((change) => change.kind === "movement");
+      if (movements.some((change) =>
+        change.kind === "movement" && change.character === character
+      )) {
+        return { code: "incidentTargetCannotBeCulprit", observation };
+      }
+      traceLocations = movements.flatMap((change) =>
+        change.kind === "movement" ? [change.from] : []
+      );
     } else if (
       column.incident === "butterflyEffect" || column.incident === "portent"
     ) {

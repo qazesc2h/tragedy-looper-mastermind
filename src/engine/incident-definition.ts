@@ -18,6 +18,7 @@ export type IncidentTriggerPolicy =
 export type IncidentChoiceSchemaEntry =
   | { kind: "character"; key: "target" | "otherTarget" }
   | { kind: "location"; key: "location" }
+  | { kind: "characterDestinations"; key: "movements" }
   | { kind: "counter"; key: "counter" }
   | { kind: "destination"; key: "destination" }
   | { kind: "incident"; key: "incident"; incidents: readonly IncidentId[] }
@@ -136,6 +137,15 @@ const INCIDENT_DEFINITION_OVERRIDES: Readonly<
   silverBullet: {
     increasesSpecialGauge: false,
   },
+  sacrilegiousMurder: {
+    choiceSchema: [CHARACTER("target")],
+  },
+  executioner: {
+    choiceSchema: [CHARACTER("target")],
+  },
+  barricade: {
+    choiceSchema: [{ kind: "characterDestinations", key: "movements" }],
+  },
   nightMadness: {
     culpritKind: "location",
     triggerPolicy: { kind: "locationCorpseCount", required: 0 },
@@ -147,6 +157,7 @@ const INCIDENT_DEFINITION_OVERRIDES: Readonly<
   fountainFilth: {
     culpritKind: "location",
     triggerPolicy: { kind: "locationCorpseCount", required: 2 },
+    choiceSchema: [CHARACTER("target"), { kind: "location", key: "location" }],
   },
   evangeliumDead: {
     culpritKind: "location",

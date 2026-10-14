@@ -203,6 +203,17 @@ export function incidentCounterDecision(
   )?.counter;
 }
 
+export function incidentMovementDecisions(
+  choiceInput: IncidentChoiceInput | undefined,
+): Array<{ character: CharacterId; destination: Location }> {
+  const choice = normalizeIncidentChoice(choiceInput);
+  return choice?.decisions.flatMap((decision) =>
+    decision.kind === "characterDestination" && decision.key === "movements"
+      ? [{ character: decision.id, destination: decision.at }]
+      : []
+  ) ?? [];
+}
+
 export function incidentSubIncidentDecision(
   choiceInput: IncidentChoiceInput | undefined,
   key: Extract<IncidentDecision, { kind: "subIncident" }>["key"] =
@@ -227,6 +238,12 @@ export function incidentChoiceTargets(
     }
     if (decision.kind === "location" || decision.kind === "destination") {
       return [{ kind: "location", at: decision.at }];
+    }
+    if (decision.kind === "characterDestination") {
+      return [
+        { kind: "character", id: decision.id },
+        { kind: "location", at: decision.at },
+      ];
     }
     if (decision.kind === "subIncident") {
       return incidentChoiceTargets({ decisions: decision.decisions });

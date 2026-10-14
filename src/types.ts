@@ -358,6 +358,12 @@ export type IncidentDecision =
   | { kind: "character"; key: "target" | "otherTarget"; id: CharacterId }
   | { kind: "location"; key: "location"; at: Location }
   | { kind: "destination"; key: "destination"; at: Location }
+  | {
+    kind: "characterDestination";
+    key: "movements";
+    id: CharacterId;
+    at: Location;
+  }
   | { kind: "counter"; key: "counter"; counter: IncidentCounter }
   | { kind: "incident"; key: "incident"; incident: IncidentId }
   | { kind: "role"; key: "roleClaim"; role: RoleId }

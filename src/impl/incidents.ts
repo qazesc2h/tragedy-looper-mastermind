@@ -13,6 +13,7 @@ import {
   incidentCounterDecision,
   incidentEffectCulpritLocation,
   incidentLocationDecision,
+  incidentMovementDecisions,
   incidentRoleDecision,
   incidentSubIncidentDecision,
   incidentTypeDecision,
@@ -837,6 +838,146 @@ export const INCIDENT_IMPL: Record<string, {
         effect: (s: GameState) => {
           requestLoopEnd(s, "effect");
           return true;
+        },
+      },
+    ],
+  },
+  // ── 모독 살인 (Sacrilegious Murder)
+  sacrilegiousMurder: {
+    ko: "모독 살인",
+    hooks: [
+      {
+        phase: "ALWAYS",
+        kind: "mandatory",
+        source: {
+          timing: "Always",
+          description: `Either kill another charcter in the same location as the culprit, or place an :intrigue: on the culprit’s location.`,
+        },
+        when: () => true,
+        effect: (s, culprit, choice) => {
+          const character = requiredCharacterCulprit(culprit);
+          const location = incidentEffectCulpritLocation(s, culprit);
+          const target = incidentCharacterDecision(choice, "target");
+          if (target === undefined) {
+            s.loop.locIntrigue[location] += 1;
+            return true;
+          }
+          const eligible = livingCharacters(s).filter((candidate) =>
+            candidate !== character &&
+            characterLocation(s.loop.board[candidate], candidate) === location
+          );
+          if (!eligible.includes(target)) {
+            throw new Error("sacrilegiousMurder target is not eligible");
+          }
+          return killEffectApplied(s, target);
+        },
+      },
+    ],
+  },
+  // ── 사악한 기운의 오염 (Evil Contamination)
+  evilContamination: {
+    ko: "사악한 기운의 오염",
+    hooks: [
+      {
+        phase: "ALWAYS",
+        kind: "mandatory",
+        source: {
+          timing: "Always",
+          description: `Place 2 :intrigue: on the Shrine.`,
+        },
+        when: () => true,
+        effect: (s) => {
+          s.loop.locIntrigue.Shrine += 2;
+          return true;
+        },
+      },
+    ],
+  },
+  // ── 수행자 (The Executioner)
+  executioner: {
+    ko: "수행자",
+    hooks: [
+      {
+        phase: "ALWAYS",
+        kind: "mandatory",
+        source: {
+          timing: "Always",
+          description: `The leader chooses one character. That charcter is killed.`,
+        },
+        when: () => true,
+        effect: (s, _culprit, choice) => {
+          const target = selectedCharacter(
+            livingCharacters(s),
+            incidentCharacterDecision(choice, "target"),
+            "executioner",
+          );
+          return target === undefined ? false : killEffectApplied(s, target);
+        },
+      },
+    ],
+  },
+  // ── 소문의 저주 (Dark Rumor)
+  darkRumor: {
+    ko: "소문의 저주",
+    hooks: [
+      {
+        phase: "ALWAYS",
+        kind: "mandatory",
+        source: {
+          timing: "Always",
+          description: `Attach a Curse on the culprit.`,
+        },
+        when: () => true,
+        effect: (s, culprit) => {
+          const character = requiredCharacterCulprit(culprit);
+          placeExtraCard(s.loop, {
+            instanceId: `darkRumor:${s.loop.loop}:${s.loop.day}:${s.loop.extraCards.length}`,
+            cardId: "curse",
+            controller: "mastermind",
+            source: { kind: "incident", id: "darkRumor" },
+            target: { kind: "character", id: character },
+            expiresAt: "loopEnd",
+          });
+          return true;
+        },
+      },
+    ],
+  },
+  // ── 농성 (Barricade)
+  barricade: {
+    ko: "농성",
+    hooks: [
+      {
+        phase: "ALWAYS",
+        kind: "mandatory",
+        source: {
+          timing: "Always",
+          description: `For each other character in cluprit’s location, pick any other location and move the character there.`,
+        },
+        when: () => true,
+        effect: (s, culprit, choice) => {
+          const character = requiredCharacterCulprit(culprit);
+          const location = incidentEffectCulpritLocation(s, culprit);
+          const eligible = livingCharacters(s).filter((candidate) =>
+            candidate !== character &&
+            characterLocation(s.loop.board[candidate], candidate) === location
+          );
+          const movements = incidentMovementDecisions(choice);
+          if (
+            movements.length !== eligible.length ||
+            new Set(movements.map(({ character: target }) => target)).size !==
+              movements.length ||
+            movements.some(({ character: target, destination }) =>
+              !eligible.includes(target) || destination === location
+            )
+          ) {
+            throw new Error("barricade requires one other-location destination per character");
+          }
+          let applied = false;
+          for (const { character: target, destination } of movements) {
+            applied = moveCharacterIfAllowed(s, target, destination) || applied;
+          }
+          return applied;
         },
       },
     ],

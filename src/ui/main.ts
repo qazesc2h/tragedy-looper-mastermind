@@ -49,6 +49,7 @@ import {
 import { incidentDefinition } from "../engine/incident-definition";
 import {
   characterCulprit,
+  incidentEffectCulpritLocation,
   incidentOccurrenceId,
   normalizeIncidentSchedule,
   normalizeIncidentCulprit,
@@ -355,6 +356,9 @@ const INCIDENT_CHOICE_FIELDS: Record<string, readonly string[]> = {
   breakthrough: ["target", "location"],
   confession: ["roleClaim"],
   spreading: ["target", "otherTarget"],
+  sacrilegiousMurder: ["target"],
+  executioner: ["target"],
+  barricade: ["movements"],
 };
 
 const MYSTERY_BOY_PLOT_LESS_ROLE_TEXT =
@@ -3996,7 +4000,11 @@ function renderIncidentChoice(
       <span>${escapeHtml(label)}</span>
       <select data-incident-field="${field}"
         data-ui-draft-key="${escapeHtml(draftKey)}">
-        <option value="">${escapeHtml(misc("Select", "Select"))}</option>
+        <option value="">${escapeHtml(
+          incident === "sacrilegiousMurder"
+            ? "범인 장소에 음모 1개"
+            : misc("Select", "Select"),
+        )}</option>
         ${living.map((character) => `
           <option value="${escapeHtml(character)}"
             ${selectedDraftOption(draftKey, character)}>${escapeHtml(characterName(character))}</option>`).join("")}
@@ -4024,6 +4032,30 @@ function renderIncidentChoice(
   const resolutionFields = (resolution: number) => {
     if (incident === "bestialMurder") {
       return bestialResolutionFields(resolution);
+    }
+    if (incident === "barricade") {
+      const culpritCharacter = characterCulprit(culprit);
+      if (culpritCharacter === undefined) return "";
+      const culpritLocation = incidentEffectCulpritLocation(state, culprit);
+      const targets = living.filter((character) =>
+        character !== culpritCharacter &&
+        characterLocation(state.loop.board[character], character) ===
+          culpritLocation
+      );
+      if (targets.length === 0) {
+        return `<p class="empty-overlay">이동할 다른 캐릭터 없음</p>`;
+      }
+      return targets.map((character) => {
+        const key = incidentDraftKey(`movement:${character}`, resolution);
+        return `<label><span>${escapeHtml(characterName(character))} 목적지</span>
+          <select data-incident-field="movement:${escapeHtml(character)}"
+            data-ui-draft-key="${escapeHtml(key)}">
+            <option value="">${escapeHtml(misc("Select", "Select"))}</option>
+            ${LOCATIONS.filter((location) => location !== culpritLocation)
+              .map((location) => `<option value="${location}" ${selectedDraftOption(key, location)}>${escapeHtml(locationName(location))}</option>`)
+              .join("")}
+          </select></label>`;
+      }).join("");
     }
     const locationDraftKey = incidentDraftKey(
       "location",
@@ -6904,6 +6936,32 @@ function incidentChoiceFromDraft(): IncidentChoice | undefined {
         });
       }
       return { decisions };
+    }
+    if (actualIncident === "barricade") {
+      const state = currentState();
+      const scheduled = normalizeIncidentSchedule(state.scenario.incidents)
+        .find(({ day }) => day === state.loop.day);
+      if (scheduled === undefined) return undefined;
+      const culprit = characterCulprit(scheduled.culprit);
+      if (culprit === undefined) return undefined;
+      const location = incidentEffectCulpritLocation(state, scheduled.culprit);
+      const decisions: IncidentDecision[] = Object.entries(state.loop.board)
+        .flatMap(([character, position]) => {
+          if (
+            character === culprit || !isCharacterAlive(position) ||
+            characterLocation(position, character) !== location
+          ) return [];
+          const destination = field(`movement:${character}`);
+          return destination === undefined
+            ? []
+            : [{
+              kind: "characterDestination" as const,
+              key: "movements" as const,
+              id: character,
+              at: destination as Location,
+            }];
+        });
+      return decisions.length === 0 ? undefined : { decisions };
     }
     const target = field("target");
     const otherTarget = field("otherTarget");
