@@ -978,3 +978,16 @@ export function effectiveAbilityRoles(
   }
   return abilityRoles;
 }
+
+/** 현재 공개 카운터까지 반영한 우호 능력 거부 성질. */
+export function effectiveGoodwillRefusal(
+  state: GameState,
+  character: CharacterId,
+): "Optional" | "Mandatory" | undefined {
+  const role = effectiveRole(state, character);
+  // SOURCE: showOff 두 번째 능력. 불안이 3개 이상일 때만 강제 거부를 얻는다.
+  if (role === "showOff" && state.loop.charCounters[character].paranoia > 2) {
+    return "Mandatory";
+  }
+  return ROLE_IMPL[role]?.goodwillRefusal;
+}

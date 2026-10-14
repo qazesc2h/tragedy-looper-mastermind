@@ -31,9 +31,17 @@ import {
   sacredTreeLeaderChoiceRequired,
 } from "./sacred-tree";
 import {
+  cursedLandLossDecisionPending,
   resolveRoundEndCurses,
   snapshotRoundEndCurses,
 } from "./curses";
+
+function isCurrentRoundEndStamp(
+  s: GameState,
+  value: { loop: number; day: number } | undefined,
+): boolean {
+  return value?.loop === s.loop.loop && value.day === s.loop.day;
+}
 
 function requestEndForActivatedLosses(s: GameState): void {
   // LOOP_END 조건은 라운드 종료 훅과 LAST_DAY 처리를 마친 뒤 finishLoop()에서
@@ -333,6 +341,29 @@ export function advance(
       if (resolveRoundEndCurses(s, roundEndCurseTargets) !== "complete") {
         return undefined;
       }
+      // 저주받은 땅의 선택 패배는 저주 처리 직후, 일반 P9 강제 훅보다
+      // 먼저 각본가에게 묻는다. 첫 진입은 입력 경계를 열고 두 번째 진입은
+      // 미발동 결정을 확정한다. 발동 시에는 UI의 setOptionalLossActivation()
+      // 이 pendingLoopEnd를 먼저 만든다.
+      if (
+        evaluateLoss(s).some(({ id, activation }) =>
+          id === "cursedLand" && activation === "optional"
+        ) &&
+        !isCurrentRoundEndStamp(s, s.loop.roundEndCurseLossDecidedAt)
+      ) {
+        if (!cursedLandLossDecisionPending(s)) {
+          s.loop.roundEndCurseLossAwaitingAt = {
+            loop: s.loop.loop,
+            day: s.loop.day,
+          };
+          return undefined;
+        }
+        s.loop.roundEndCurseLossDecidedAt = {
+          loop: s.loop.loop,
+          day: s.loop.day,
+        };
+        delete s.loop.roundEndCurseLossAwaitingAt;
+      }
       if (!s.loop.roundEndMandatoryResolved) {
         recordRoundEndPairs(s);
         resolveHooks(s, "P9_ROUND_END", undefined, mandatoryHookTargets);
@@ -346,7 +377,9 @@ export function advance(
           (condition) =>
             condition.activation === "optional" &&
             condition.met &&
-            condition.blockedBy === undefined,
+            condition.blockedBy === undefined &&
+            !(condition.id === "cursedLand" &&
+              isCurrentRoundEndStamp(s, s.loop.roundEndCurseLossDecidedAt)),
         );
         if (optionalHookAvailable || optionalLossAvailable) {
           s.loop.roundEndMandatoryResolved = true;
@@ -365,6 +398,9 @@ export function advance(
       finalizeRoundEvidence(s, "P9_ROUND_END");
       delete s.loop.optionalLossActivations;
       delete s.loop.roundEndCurseResolvedAt;
+      delete s.loop.roundEndUnattachableCurseIds;
+      delete s.loop.roundEndCurseLossAwaitingAt;
+      delete s.loop.roundEndCurseLossDecidedAt;
       s.loop.abilitiesUsedThisRound = [];
       s.loop.day += 1;
       s.loop.phase = "P1_ROUND_START";

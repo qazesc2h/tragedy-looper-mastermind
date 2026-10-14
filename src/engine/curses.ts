@@ -44,6 +44,10 @@ function isCurrentDay(
   return value?.loop === state.loop.loop && value.day === state.loop.day;
 }
 
+export function cursedLandLossDecisionPending(state: GameState): boolean {
+  return isCurrentDay(state, state.loop.roundEndCurseLossAwaitingAt);
+}
+
 function curseCards(state: GameState): ExtraCardInstance[] {
   if (!isPrimeEvil(state)) return [];
   return state.loop.extraCards.filter(({ cardId }) => cardId === CURSE_CARD_ID);
@@ -78,6 +82,9 @@ export function snapshotRoundEndCurses(state: GameState): void {
     isCurrentDay(state, state.loop.roundEndCurseResolvedAt) ||
     currentResolution(state) !== undefined) return;
   state.loop.roundEndCurseResolution = initialCurseResolution(state);
+  delete state.loop.roundEndUnattachableCurseIds;
+  delete state.loop.roundEndCurseLossAwaitingAt;
+  delete state.loop.roundEndCurseLossDecidedAt;
 }
 
 function livingCharactersAt(
@@ -246,6 +253,16 @@ export function resolveRoundEndCurses(
   }
 
   const targets = selectedLocationTargets(state, resolution, selections);
+  state.loop.roundEndUnattachableCurseIds = resolution.curses.flatMap(
+    ({ instanceId, target }) => {
+      if (target.kind !== "location") return [];
+      const card = cardById(state, instanceId);
+      return card?.target.kind === "location" &&
+          livingCharactersAt(state, target.at).length === 0
+        ? [instanceId]
+        : [];
+    },
+  );
   const before = structuredClone(state.loop);
   for (const { instanceId, target } of targets) {
     moveExtraCard(state.loop, instanceId, target);

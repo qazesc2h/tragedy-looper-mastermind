@@ -58,6 +58,8 @@ export type ScenarioDiagnosticCode =
   | "INCIDENT_NOT_IN_TRAGEDY_SET"
   | "ROLE_NOT_IN_TRAGEDY_SET"
   | "SIGN_WITH_ME_KEY_PERSON_NOT_GIRL"
+  | "KEY_GIRL_KEY_PERSON_NOT_GIRL"
+  | "NOBLE_BLOODLINE_SAME_SEX"
   | "MALE_CONFRONTATION_NINJA_NOT_MAN"
   | "OBSTINATE_NOT_INCIDENT_CULPRIT"
   | "FOOL_NOT_INCIDENT_CULPRIT"
@@ -164,6 +166,58 @@ function validateSignWithMe(
           `소녀 속성이어야 합니다. 현재 배정: ${characterLabel(character)}.`,
       )
     );
+}
+
+function validateKeyGirl(
+  scenario: ScenarioValidationInput,
+): ScenarioDiagnostic[] {
+  if (!activePlots(scenario).includes("keyGirl")) return [];
+  return Object.entries(scenario.cast ?? {})
+    .filter(([, role]) => role === "keyPerson")
+    .filter(([character]) => !characterHasTag(character, "girl"))
+    .map(([character]) => errorDiagnostic(
+      `cast.${character}`,
+      "KEY_GIRL_KEY_PERSON_NOT_GIRL",
+      "열쇠가 되는 소녀: 핵심 인물은 소녀 속성 캐릭터여야 합니다. " +
+        `현재 배정: ${characterLabel(character)}.`,
+    ));
+}
+
+function sexOptions(character: string): Set<"male" | "female"> {
+  const options = new Set<"male" | "female">();
+  if (characterHasTag(character, "boy") || characterHasTag(character, "man")) {
+    options.add("male");
+  }
+  if (
+    characterHasTag(character, "girl") || characterHasTag(character, "woman")
+  ) {
+    options.add("female");
+  }
+  return options;
+}
+
+function validateNobleBloodline(
+  scenario: ScenarioValidationInput,
+): ScenarioDiagnostic[] {
+  if (!activePlots(scenario).includes("nobleBloodline")) return [];
+  const keyPerson = Object.entries(scenario.cast ?? {}).find(
+    ([, role]) => role === "keyPerson",
+  )?.[0];
+  const vampire = Object.entries(scenario.cast ?? {}).find(
+    ([, role]) => role === "vampire",
+  )?.[0];
+  if (keyPerson === undefined || vampire === undefined) return [];
+  const keySexes = sexOptions(keyPerson);
+  const vampireSexes = sexOptions(vampire);
+  const canOppose = [...keySexes].some((keySex) =>
+    [...vampireSexes].some((vampireSex) => keySex !== vampireSex)
+  );
+  return canOppose ? [] : [errorDiagnostic(
+    `cast.${vampire}`,
+    "NOBLE_BLOODLINE_SAME_SEX",
+    "고귀한 혈족: 핵심 인물과 뱀파이어는 서로 다른 성별이어야 합니다. " +
+      `현재 배정: ${characterLabel(keyPerson)}, ${characterLabel(vampire)}.`,
+  )];
 }
 
 function validateMaleConfrontation(
@@ -714,6 +768,8 @@ export function validateScenario(
           : []),
       ]),
     ...validateSignWithMe(scenario),
+    ...validateKeyGirl(scenario),
+    ...validateNobleBloodline(scenario),
     ...validateMaleConfrontation(scenario),
     ...validateRequiredIncidentCulprit(scenario),
     ...validatePrivateInvestigatorCulprit(scenario),

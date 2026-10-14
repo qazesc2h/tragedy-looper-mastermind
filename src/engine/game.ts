@@ -20,7 +20,7 @@ import { expireExtraCards } from "./extra-cards";
 import type { ResolvedIncidentBatch } from "./incident";
 import { normalizeIncidentSchedule } from "./incident-model";
 import { evaluateLoss, type LossCondition } from "./loss";
-import { advance, collectHooks, resolveHooks } from "./phases";
+import { advance, applyHookEffect, collectHooks, resolveHooks } from "./phases";
 import { recordPhaseLog } from "./phase-log";
 import { nextPublicObservationAt } from "./public-information";
 import {
@@ -93,6 +93,36 @@ export function activeLoopStartExtraCardPlots(
   const plots = [state.scenario.mainPlot, ...state.scenario.subPlots];
   if (plots.includes("fatedConnections")) return ["fatedConnections"];
   return plots.includes("diceOfGods") ? ["diceOfGods"] : [];
+}
+
+export function activeLoopStartCursePlots(
+  state: GameState,
+): ("cursedLand" | "witchsCurse")[] {
+  if (state.scenario.tragedySet !== "primeEvil") return [];
+  const plots = [state.scenario.mainPlot, ...state.scenario.subPlots];
+  return (["cursedLand", "witchsCurse"] as const).filter((plot) =>
+    plots.includes(plot)
+  );
+}
+
+export function setLoopStartCursePlacement(
+  state: GameState,
+  plot: PlotId,
+  place: boolean,
+): void {
+  if (state.gamePhase !== "LOOP_TIME_GAP") {
+    throw new Error(
+      `loop-start Curse choice cannot change during ${state.gamePhase}`,
+    );
+  }
+  if (plot !== "cursedLand" && plot !== "witchsCurse") {
+    throw new Error(`plot "${plot}" has no loop-start Curse placement`);
+  }
+  if (!activeLoopStartCursePlots(state).includes(plot)) {
+    throw new Error(`plot "${plot}" is not an active Curse rule`);
+  }
+  const choices = state.loop.loopStartCursePlacements ??= {};
+  choices[plot] = place;
 }
 
 export function setLoopStartExtraCardChoice(
@@ -253,6 +283,7 @@ export function continueFromTimeGap(state: GameState): void {
   const loopStartTraitLocationChoices =
     state.loop.loopStartTraitLocationChoices;
   const loopStartExtraCardChoices = state.loop.loopStartExtraCardChoices;
+  const loopStartCursePlacements = state.loop.loopStartCursePlacements;
 
   state.gamePhase = "LOOP_CHARACTER_PLACEMENT";
   const prepared = initLoop(state.scenario, loopNumber, state.loop);
@@ -272,12 +303,20 @@ export function continueFromTimeGap(state: GameState): void {
       ...loopStartExtraCardChoices,
     };
   }
+  if (loopStartCursePlacements !== undefined) {
+    prepared.loopStartCursePlacements = { ...loopStartCursePlacements };
+  }
   state.loop = prepared;
   expireAndRecordExtraCards(state, "loopStart");
   resolveHooks(state, "LOOP_CHARACTER_PLACEMENT");
 
   state.gamePhase = "LOOP_COUNTER_SETUP";
   resolveHooks(state, "LOOP_START");
+  for (const { hook, self } of collectHooks(state, "LOOP_START")) {
+    if (hook.kind === "optional" && hook.when(state, self)) {
+      applyHookEffect(state, "LOOP_START", hook, self);
+    }
+  }
 
   state.gamePhase = "LOOP_CARD_DISTRIBUTION";
   // initLoop()이 소진 카드·능력·배치 카드를 빈 상태로 만들었다.
@@ -343,6 +382,9 @@ export function finishLoop(state: GameState): LoopOutcome {
   delete state.loop.roundEndMandatoryResolved;
   delete state.loop.roundEndCurseResolution;
   delete state.loop.roundEndCurseResolvedAt;
+  delete state.loop.roundEndUnattachableCurseIds;
+  delete state.loop.roundEndCurseLossAwaitingAt;
+  delete state.loop.roundEndCurseLossDecidedAt;
   delete state.loop.pendingImmediateLossKeys;
   delete state.pendingLoopEnd;
   delete state.timeGapTimer;

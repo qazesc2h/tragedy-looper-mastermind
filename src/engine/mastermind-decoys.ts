@@ -287,6 +287,56 @@ export const PLOT_OBSERVATION_PROFILES: Readonly<
     { type: "lowerIncidentThreshold", label: "엑스트라 사건의 불안 한계 감소" },
     { type: "incidentSuppression", label: "예언자가 다른 장소의 사건 억제" },
   ],
+  nobleBloodline: [
+    { type: "keyPersonDeath", label: "핵심 인물 사망으로 즉시 패배" },
+    { type: "deathPrevention", label: "뱀파이어의 사망 무효" },
+    { type: "goodwillRefusal", label: "우호 능력 거부" },
+    { type: "protagonistDeath", label: "라운드 종료 때 주인공 사망" },
+  ],
+  moonlightBeast: [
+    { type: "mastermindCardRestriction", label: "각본가 행동 카드 배치 금지" },
+    { type: "goodwillRefusal", label: "우호 능력 거부" },
+    { type: "protagonistDeath", label: "라운드 종료 때 주인공 사망" },
+  ],
+  nightMistNightmare: [
+    { type: "deathPrevention", label: "악몽의 사망 무효" },
+    { type: "goodwillRefusal", label: "우호 능력 거부" },
+    { type: "protagonistDeath", label: "라운드 종료 때 주인공 사망" },
+  ],
+  OnesFromGrave: [
+    { type: "corpseRoleChange", label: "엑스트라·겁쟁이·허당 시체의 좀비화" },
+    { type: "zombieMajorityDeath", label: "좀비가 더 많은 장소에서 캐릭터 사망" },
+  ],
+  cursedLand: [
+    { type: "loopStartCurse", label: "루프 시작 때 역할 시작 장소에 저주 배치" },
+    { type: "protagonistDeath", label: "빙의 불가 장소 저주로 주인공 사망" },
+    { type: "deathPrevention", label: "허당의 조건부 사망 무효" },
+  ],
+  thoseHabits: [
+    { type: "isolatedDeath", label: "둘만 남은 장소에서 캐릭터 사망" },
+    { type: "protagonistDeath", label: "라운드 종료 때 주인공 사망" },
+  ],
+  witchsCurse: [
+    { type: "loopStartCurse", label: "루프 시작 때 역할 시작 장소에 저주 배치" },
+    { type: "goodwillRefusal", label: "우호 능력 거부" },
+  ],
+  keyGirl: [
+    { type: "keyPersonDeath", label: "핵심 인물 사망으로 즉시 패배" },
+  ],
+  monsterIntrigue: [
+    { type: "mastermindLocationIntrigue", label: "각본가 능력으로 장소 음모 증가" },
+    { type: "goodwillRefusal", label: "우호 능력 거부" },
+  ],
+  panicObsession: [
+    { type: "isolatedDeath", label: "둘만 남은 장소에서 캐릭터 사망" },
+    { type: "goodwillRefusal", label: "우호 능력 거부" },
+    { type: "mastermindMovement", label: "겁쟁이의 인접 이동" },
+  ],
+  peopleDontListen: [
+    { type: "goodwillRefusal", label: "우호 능력 거부" },
+    { type: "mastermindMovement", label: "겁쟁이의 인접 이동" },
+    { type: "deathPrevention", label: "허당의 조건부 사망 무효" },
+  ],
 };
 
 const LOCATION_NAMES: Readonly<Record<Location, string>> = {

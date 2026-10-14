@@ -1609,6 +1609,13 @@ function causeClausesForObservationUnprofiled(
   }
   if (observation.kind !== "mastermindAbilityResult") return [];
   return [
+    ...loopStartCurseCauseClauses(
+      observation,
+      combination,
+      tragedySetRoles,
+      ranges,
+      confirmedRoles,
+    ),
     ...p5CauseClauses(
       observation,
       combination,
@@ -1624,6 +1631,67 @@ function causeClausesForObservationUnprofiled(
       confirmedRoles,
     ),
   ];
+}
+
+function loopStartCurseCauseClauses(
+  observation: Extract<
+    ProtagonistObservation,
+    { kind: "mastermindAbilityResult" }
+  >,
+  combination: RuleCombination,
+  tragedySetRoles: readonly RoleId[],
+  ranges: ReadonlyMap<RoleId, RoleRange>,
+  confirmedRoles: ReadonlyMap<CharacterId, RoleId>,
+): ObservationCauseClause[] {
+  if (
+    observation.timing !== "LOOP_START" ||
+    observation.context?.characters === undefined
+  ) return [];
+
+  return observation.changes.flatMap((change) => {
+    if (
+      change.kind !== "extraCard" ||
+      change.action !== "placed" ||
+      change.card.cardId !== "curse" ||
+      change.card.target.kind !== "location"
+    ) return [];
+    const location = change.card.target.at;
+    const candidates = Object.entries(observation.context?.characters ?? {})
+      .filter(([, state]) =>
+        state.status !== "absent" && state.location === location
+      )
+      .map(([character]) => character);
+    const alternatives: ObservationCauseAlternative[] = [];
+    if (combination.mainPlot === "cursedLand") {
+      alternatives.push({
+        requirements: [{
+          role: "ghost",
+          candidates: compatibleRoleCandidates(
+            candidates,
+            "ghost",
+            tragedySetRoles,
+            ranges,
+            confirmedRoles,
+          ),
+        }],
+      });
+    }
+    if (combination.subPlots.includes("witchsCurse")) {
+      alternatives.push({
+        requirements: [{
+          role: "witch",
+          candidates: compatibleRoleCandidates(
+            candidates,
+            "witch",
+            tragedySetRoles,
+            ranges,
+            confirmedRoles,
+          ),
+        }],
+      });
+    }
+    return [{ observation, alternatives }];
+  });
 }
 
 function causeClausesForObservation(
@@ -2136,6 +2204,23 @@ function abilityObservationContradiction(
   publicCast: readonly CharacterId[],
   observations: readonly ProtagonistObservation[],
 ): RuleContradiction | undefined {
+  const loopStartCursePlaced = observation.timing === "LOOP_START" &&
+    observation.changes.some((change) =>
+      change.kind === "extraCard" &&
+      change.action === "placed" &&
+      change.card.cardId === "curse"
+    );
+  if (
+    loopStartCursePlaced &&
+    combination.mainPlot !== "cursedLand" &&
+    !combination.subPlots.includes("witchsCurse")
+  ) {
+    return {
+      code: "loopStartEffectUnavailable",
+      observation,
+      reason: "루프 시작 저주 배치를 설명할 저주받은 땅 또는 마녀의 저주가 없습니다.",
+    };
+  }
   const deathReaction = observation.timing === "ON_DEATH" &&
     observation.trigger?.kind === "death" &&
     observation.trigger.deadCharacters.length > 0 &&

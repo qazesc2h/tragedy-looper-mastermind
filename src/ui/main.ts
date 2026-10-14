@@ -25,6 +25,7 @@ import {
 } from "../engine/disclosure-preview";
 import {
   advanceGame,
+  activeLoopStartCursePlots,
   activeLoopStartExtraCardPlots,
   chooseInitialLeader,
   continueAfterLoopJudgment,
@@ -36,6 +37,7 @@ import {
   setLoopStartTraitCounterChoice,
   setLoopStartTraitLocationChoice,
   setLoopStartExtraCardChoice,
+  setLoopStartCursePlacement,
   skipToFinalGuess,
   startHouseRuleExtraLoop,
   submitFinalGuess,
@@ -100,6 +102,7 @@ import { applyHookEffect, collectHooks } from "../engine/phases";
 import { recordPhaseLog } from "../engine/phase-log";
 import { extraCardsAt } from "../engine/extra-cards";
 import {
+  cursedLandLossDecisionPending,
   locationCurseChoices,
   roundEndCurseStage,
 } from "../engine/curses";
@@ -3686,6 +3689,16 @@ function renderPhaseControls(state: GameState): string {
           )}</div>
         </section>`;
       }
+      if (cursedLandLossDecisionPending(state)) {
+        return `<section class="operation-panel has-fixed-footer">
+          <div class="operation-panel-scroll">
+            ${heading(9, phaseName(state.loop.phase))}
+            <p>저주 처리 직후, 일반 라운드 종료 효과보다 먼저 저주받은 땅의 선택 패배를 결정합니다.</p>
+            <div class="loss-list">${renderLossDistance(state)}</div>
+          </div>
+          <div class="operation-footer">${renderAdvanceButton("미발동으로 계속")}</div>
+        </section>`;
+      }
       return `<section class="operation-panel has-fixed-footer">
         <div class="operation-panel-scroll">
           ${heading(9, phaseName(state.loop.phase))}
@@ -4263,7 +4276,10 @@ function renderLossDistance(state: GameState): string {
             condition.blockedBy === undefined &&
             state.gamePhase === "ROUND" &&
             state.loop.phase === "P9_ROUND_END" &&
-            state.loop.roundEndMandatoryResolved
+            ((state.loop.roundEndMandatoryResolved &&
+                condition.id !== "cursedLand") ||
+              (condition.id === "cursedLand" &&
+                cursedLandLossDecisionPending(state)))
           ? `<label class="optional-loss-toggle">
               <input type="checkbox" data-action="optional-loss"
                 data-loss-key="${escapeHtml(condition.key)}"
@@ -4276,7 +4292,10 @@ function renderLossDistance(state: GameState): string {
             condition.blockedBy === undefined &&
             state.gamePhase === "ROUND" &&
             state.loop.phase === "P9_ROUND_END" &&
-            state.loop.roundEndMandatoryResolved
+            ((state.loop.roundEndMandatoryResolved &&
+                condition.id !== "cursedLand") ||
+              (condition.id === "cursedLand" &&
+                cursedLandLossDecisionPending(state)))
           ? `<div class="disclosure-baseline">
               <b>미발동</b><span>변화 없음 · 안전</span>
             </div>${renderP9DisclosurePreview(
@@ -6209,6 +6228,7 @@ function renderTimeGap(state: GameState): string {
     state.loop.loopStartTraitLocationChoices?.henchman;
   const extraCardCandidates = loopStartExtraCardCandidates(state);
   const extraCardPlots = activeLoopStartExtraCardPlots(state);
+  const cursePlots = activeLoopStartCursePlots(state);
   const hasFinalGuess = tragedySetDefinition(
     state.scenario.tragedySet,
   ).hasFinalGuess;
@@ -6263,6 +6283,12 @@ function renderTimeGap(state: GameState): string {
             </label>
           </div>`;
         }).join("")}
+      ${cursePlots.map((plot) => `
+        <label class="hook-toggle loop-start-trait-choice">
+          <input type="checkbox" data-action="loop-start-curse" data-plot="${plot}"
+            ${state.loop.loopStartCursePlacements?.[plot] === true ? "checked" : ""} />
+          <span>${escapeHtml(plotName(plot))} · 시작 장소에 저주 배치</span>
+        </label>`).join("")}
       <div class="flow-actions">
         <button type="button" data-action="time-gap-${running ? "pause" : "start"}">${running ? "일시 정지" : "타이머 시작"}</button>
         <button type="button" data-action="time-gap-reset">10분으로 초기화</button>
@@ -8300,6 +8326,18 @@ root.addEventListener("change", (event) => {
         state,
         plot,
         control.value === "" ? undefined : control.value,
+      );
+    });
+    return;
+  }
+  if (action === "loop-start-curse") {
+    const plot = control.dataset.plot;
+    if (plot !== "cursedLand" && plot !== "witchsCurse") return;
+    commit("loop-start-curse", (state) => {
+      setLoopStartCursePlacement(
+        state,
+        plot,
+        (control as HTMLInputElement).checked,
       );
     });
     return;

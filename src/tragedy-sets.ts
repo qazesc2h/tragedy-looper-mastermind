@@ -10,6 +10,8 @@ export interface TragedySetDefinition {
   numberOfSubPlots: number;
   mainPlots: readonly PlotId[];
   subPlots: readonly PlotId[];
+  /** 룰 배정과 무관하게 이 참극 세트에서 각본에 배정할 수 있는 역할. */
+  additionalRoles?: readonly RoleId[];
   incidents: readonly IncidentId[];
   hasFinalGuess: boolean;
 }
@@ -147,6 +149,44 @@ const MYSTERY_CIRCLE: TragedySetDefinition = {
   hasFinalGuess: true,
 };
 
+const PRIME_EVIL: TragedySetDefinition = {
+  id: "primeEvil",
+  name: "Prime Evil",
+  numberOfMainPlots: 1,
+  numberOfSubPlots: 2,
+  mainPlots: [
+    "nobleBloodline",
+    "moonlightBeast",
+    "nightMistNightmare",
+    "OnesFromGrave",
+    "cursedLand",
+  ],
+  subPlots: [
+    "thoseHabits",
+    "loveAffair",
+    "witchsCurse",
+    "keyGirl",
+    "monsterIntrigue",
+    "panicObsession",
+    "peopleDontListen",
+  ],
+  additionalRoles: ["zombie"],
+  incidents: [
+    "sacrilegiousMurder",
+    "increasingUnease",
+    "missingPerson",
+    "evilContamination",
+    "executioner",
+    "darkRumor",
+    "barricade",
+    "nightMadness",
+    "awakenedCurse",
+    "fountainFilth",
+    "evangeliumDead",
+  ],
+  hasFinalGuess: true,
+};
+
 export const TRAGEDY_SETS: Readonly<Record<string, TragedySetDefinition>> = {
   ...Object.fromEntries(
     Object.entries(tragedySetsJson as Record<string, unknown>).map(
@@ -155,6 +195,7 @@ export const TRAGEDY_SETS: Readonly<Record<string, TragedySetDefinition>> = {
   ),
   midnightZone: MIDNIGHT_ZONE,
   mysteryCircle: MYSTERY_CIRCLE,
+  primeEvil: PRIME_EVIL,
 };
 
 export function tragedySetDefinition(id: string): TragedySetDefinition {
@@ -166,6 +207,7 @@ export function tragedySetDefinition(id: string): TragedySetDefinition {
 export function rolesForTragedySet(id: string): RoleId[] {
   const definition = tragedySetDefinition(id);
   const roles = new Set<RoleId>(["person"]);
+  for (const role of definition.additionalRoles ?? []) roles.add(role);
   for (const plot of [...definition.mainPlots, ...definition.subPlots]) {
     for (const role of Object.keys(PLOT_IMPL[plot]?.addsRoles ?? {})) {
       roles.add(role);

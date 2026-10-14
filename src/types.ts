@@ -856,6 +856,15 @@ export interface LoopState {
   /** 그날의 저주 최우선 처리를 끝냈다. 이후 P9에 생긴 저주는 다음 날 처리한다. */
   roundEndCurseResolvedAt?: { loop: number; day: number };
 
+  /** P9 진입 때 장소 상태였지만 생존 캐릭터가 없어 붙이지 못한 저주. */
+  roundEndUnattachableCurseIds?: string[];
+
+  /** 저주받은 땅 선택 패배를 일반 P9 효과보다 먼저 묻는 입력 경계. */
+  roundEndCurseLossAwaitingAt?: { loop: number; day: number };
+
+  /** 해당 날짜의 저주받은 땅 선택 패배 결정을 완료한 시점. */
+  roundEndCurseLossDecidedAt?: { loop: number; day: number };
+
   /** 현재 정규 효과 묶음에서 새로 성립한 즉시 종료 조건 */
   pendingImmediateLossKeys?: string[];
 
@@ -872,6 +881,11 @@ export interface LoopState {
   /** MZ 룰이 직전 루프 사망자에게 붙일 특수 카드의 대상. */
   loopStartExtraCardChoices?: Partial<
     Record<"fatedConnections" | "diceOfGods", CharacterId>
+  >;
+
+  /** Prime Evil 룰의 선택형 루프 시작 저주 배치를 사용할지 여부. */
+  loopStartCursePlacements?: Partial<
+    Record<"cursedLand" | "witchsCurse", boolean>
   >;
 
   /** 위장 자살이 정상 발생한 뒤 이 루프 동안 지속되는 행동 카드 제한. */
@@ -936,6 +950,7 @@ export interface Hook {
   phase: HookPoint;
   kind: "mandatory" | "optional" | "lossTragedy" | "lossDeath" | "scriptBuild";
   timesPerLoop?: number;
+  timesPerDay?: number;
   /** 원본 영문 (수정 금지) — 구현 검증용 근거 */
   source: { timing: string; prerequisite?: string; description?: string };
   when: (

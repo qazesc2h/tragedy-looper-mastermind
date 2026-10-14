@@ -7,13 +7,73 @@ import {
   effectiveRole,
   isCharacterAlive,
   LOCATIONS,
+  startLocationOf,
 } from "../types";
 import type { GameState, CharacterId, Hook, Target } from "../types";
 import { placeExtraCard } from "../engine/extra-cards";
 import { adjustSpecialGauge } from "../engine/special-gauge";
+import { effectiveGoodwillRefusal } from "./roles";
 
 const UNSETTLING_RUMOR_USE_KEY = "unsettlingRumor:plot:0";
 const UNSAFE_TRIGGER_USE_KEY = "unsafeTrigger:plot:0";
+
+type PrimeEvilCursePlot = "cursedLand" | "witchsCurse";
+
+function primeEvilCurseRole(plot: PrimeEvilCursePlot): "ghost" | "witch" {
+  return plot === "cursedLand" ? "ghost" : "witch";
+}
+
+function primeEvilCurseHolder(
+  state: GameState,
+  plot: PrimeEvilCursePlot,
+): CharacterId | undefined {
+  const role = primeEvilCurseRole(plot);
+  return Object.keys(state.scenario.cast).find((character) =>
+    effectiveRole(state, character) === role
+  );
+}
+
+function placePrimeEvilLoopStartCurse(
+  state: GameState,
+  plot: PrimeEvilCursePlot,
+): void {
+  const holder = primeEvilCurseHolder(state, plot);
+  if (holder === undefined) {
+    throw new Error(`${plot} requires a ${primeEvilCurseRole(plot)}`);
+  }
+  placeExtraCard(state.loop, {
+    instanceId: `${plot}:${state.loop.loop}`,
+    cardId: "curse",
+    controller: "mastermind",
+    source: { kind: "rule", id: plot },
+    target: {
+      kind: "location",
+      at: startLocationOf(holder, state.scenario),
+    },
+    expiresAt: "loopEnd",
+  });
+}
+
+function monsterIntrigueLocations(state: GameState) {
+  return LOCATIONS.filter((location) =>
+    Object.entries(state.loop.board).some(([character, position]) =>
+      isCharacterAlive(position) &&
+      characterLocation(position, character) === location &&
+      effectiveGoodwillRefusal(state, character) !== undefined
+    )
+  );
+}
+
+function monsterIntrigueUseKey(state: GameState): string {
+  return `monsterIntrigue:${state.loop.loop}:${state.loop.day}`;
+}
+
+function monsterIntrigueUsesThisLoop(state: GameState): number {
+  const prefix = `monsterIntrigue:${state.loop.loop}:`;
+  return state.loop.abilitiesUsedThisLoop.filter((key) =>
+    key.startsWith(prefix)
+  ).length;
+}
 
 function unsettlingRumorAvailable(state: GameState): boolean {
   return !state.loop.abilitiesUsedThisLoop.includes(
@@ -680,5 +740,175 @@ export const PLOT_IMPL: Record<string, {
         effect: () => {},
       },
     ],
+  },
+  // ── 고귀한 혈족 (The Noble Bloodline)
+  nobleBloodline: {
+    ko: "고귀한 혈족",
+    addsRoles: { keyPerson: 1, vampire: 1 },
+    hooks: [{
+      phase: "SCRIPT_BUILD",
+      kind: "scriptBuild",
+      source: {
+        timing: "Script creation",
+        description: `:keyPerson: and :vampire: must be of oposing sex.`,
+      },
+      // IMPLEMENTED_ELSEWHERE: src/engine/validate.ts validateScenario()
+      when: () => false,
+      effect: () => {},
+    }],
+  },
+  // ── 달밤의 야수 (Moonlight Beast)
+  moonlightBeast: {
+    ko: "달밤의 야수",
+    addsRoles: { werewolf: 1 },
+    hooks: [],
+  },
+  // ── 밤안개의 악몽 (Night Mist Nightmare)
+  nightMistNightmare: {
+    ko: "밤안개의 악몽",
+    addsRoles: { nightmare: 1 },
+    hooks: [],
+  },
+  // ── 무덤에서 나온 자 (The Ones from the Grave)
+  OnesFromGrave: {
+    ko: "무덤에서 나온 자",
+    hooks: [{
+      phase: "ALWAYS",
+      kind: "mandatory",
+      source: {
+        timing: "Always",
+        description: `All corpses that had the role :person:, :coward: or :showOff: change into having the role of :zombie:`,
+      },
+      // IMPLEMENTED_ELSEWHERE: src/types.ts effectiveRole()
+      when: () => false,
+      effect: () => {},
+    }],
+  },
+  // ── 저주받은 땅 (The Cursed Land)
+  cursedLand: {
+    ko: "저주받은 땅",
+    addsRoles: { ghost: 1, showOff: 1 },
+    hooks: [
+      {
+        phase: "LOOP_START",
+        kind: "optional",
+        source: {
+          timing: "Loop Start",
+          description: `Place a Curse on the :ghost:’s starting location`,
+        },
+        when: (s: GameState) =>
+          s.loop.loopStartCursePlacements?.cursedLand === true &&
+          primeEvilCurseHolder(s, "cursedLand") !== undefined,
+        effect: (s: GameState) => {
+          placePrimeEvilLoopStartCurse(s, "cursedLand");
+        },
+      },
+      {
+        phase: "P9_ROUND_END",
+        kind: "lossDeath",
+        source: {
+          timing: "Day End",
+          prerequisite: `One or more Location Curses can’t be attached to characters`,
+        },
+        // IMPLEMENTED_ELSEWHERE: src/engine/loss.ts plotLossDistance()
+        when: () => false,
+        effect: () => {},
+      },
+    ],
+  },
+  // ── 성깔 있는 녀석들 (Those with Habits)
+  thoseHabits: {
+    ko: "성깔 있는 녀석들",
+    addsRoles: { ghost: 1, serialKiller: 1, lovedOne: 1 },
+    hooks: [],
+  },
+  // ── 마녀의 저주 (Witch’s Curse)
+  witchsCurse: {
+    ko: "마녀의 저주",
+    addsRoles: { conspiracyTheorist: 1, witch: 1 },
+    hooks: [{
+      phase: "LOOP_START",
+      kind: "optional",
+      source: {
+        timing: "Loop Start",
+        description: `Place a Curse on the :witch:’s startiong location.`,
+      },
+      when: (s: GameState) =>
+        s.loop.loopStartCursePlacements?.witchsCurse === true &&
+        primeEvilCurseHolder(s, "witchsCurse") !== undefined,
+      effect: (s: GameState) => {
+        placePrimeEvilLoopStartCurse(s, "witchsCurse");
+      },
+    }],
+  },
+  // ── 열쇠가 되는 소녀 (The Key Girl)
+  keyGirl: {
+    ko: "열쇠가 되는 소녀",
+    addsRoles: { keyPerson: 1 },
+    hooks: [{
+      phase: "SCRIPT_BUILD",
+      kind: "scriptBuild",
+      source: {
+        timing: "Script creation",
+        description: `The :keyPerson: must be a :girl:.`,
+      },
+      // IMPLEMENTED_ELSEWHERE: src/engine/validate.ts validateScenario()
+      when: () => false,
+      effect: () => {},
+    }],
+  },
+  // ── 괴물의 암약 (Monster Intrigue)
+  monsterIntrigue: {
+    ko: "괴물의 암약",
+    addsRoles: { conspiracyTheorist: 1 },
+    hooks: [{
+      phase: "P5_MASTERMIND_ABILITY",
+      kind: "optional",
+      timesPerLoop: 2,
+      timesPerDay: 1,
+      source: {
+        timing: "Mastermind Ability",
+        prerequisite: `A Location where a character with :goodwill: Refusel is.`,
+        description: `Place an :intrigue: on one location.`,
+      },
+      when: (s: GameState) =>
+        !s.loop.abilitiesUsedThisLoop.includes(monsterIntrigueUseKey(s)) &&
+        monsterIntrigueUsesThisLoop(s) < 2 &&
+        monsterIntrigueLocations(s).length > 0,
+      selectableTargets: (s: GameState) =>
+        monsterIntrigueLocations(s).map((at) => ({
+          kind: "location" as const,
+          at,
+        })),
+      effect: (s: GameState, _self: CharacterId, target?: Target) => {
+        if (
+          target?.kind !== "location" ||
+          !monsterIntrigueLocations(s).includes(target.at)
+        ) {
+          throw new Error("monsterIntrigue requires an eligible location");
+        }
+        const useKey = monsterIntrigueUseKey(s);
+        if (
+          s.loop.abilitiesUsedThisLoop.includes(useKey) ||
+          monsterIntrigueUsesThisLoop(s) >= 2
+        ) {
+          throw new Error("monsterIntrigue use limit exceeded");
+        }
+        s.loop.locIntrigue[target.at] += 1;
+        s.loop.abilitiesUsedThisLoop.push(useKey);
+      },
+    }],
+  },
+  // ── 공황과 망집 (Panic and Obsession)
+  panicObsession: {
+    ko: "공황과 망집",
+    addsRoles: { serialKiller: 1, coward: 1, witch: 1 },
+    hooks: [],
+  },
+  // ── 이야기를 듣지 않는 사람들 (People Who Don’t Listen)
+  peopleDontListen: {
+    ko: "이야기를 듣지 않는 사람들",
+    addsRoles: { showOff: 1, conspiracyTheorist: 1, coward: 1 },
+    hooks: [],
   },
 };

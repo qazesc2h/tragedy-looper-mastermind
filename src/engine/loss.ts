@@ -259,11 +259,45 @@ function plotLossDistance(
   plot: PlotId,
 ): LossDistance | undefined {
   const impl = PLOT_IMPL[plot];
-  if (!impl?.hooks.some((hook) => hook.kind === "lossTragedy")) {
+  if (!impl?.hooks.some((hook) =>
+    hook.kind === "lossTragedy" || hook.kind === "lossDeath"
+  )) {
     return undefined;
   }
 
   switch (plot) {
+    case "cursedLand": {
+      // SOURCE: src/impl/plots.ts cursedLand 두 번째 훅의 source 참조.
+      // P9 진입 스냅샷에서 장소 상태였고 생존 캐릭터가 없어 붙이지 못한
+      // 저주만 센다. 방금 캐릭터에서 분리된 저주는 다음 날 처리 대상이다.
+      const resolutionComplete =
+        state.loop.roundEndCurseResolvedAt?.loop === state.loop.loop &&
+        state.loop.roundEndCurseResolvedAt.day === state.loop.day;
+      const current = resolutionComplete
+        ? state.loop.roundEndUnattachableCurseIds?.length ?? 0
+        : 0;
+      return distance({
+        id: plot,
+        key: plotKey(plot),
+        source: "plot",
+        category: "protagonistDeath",
+        timing: "dayEnd",
+        activation: "optional",
+        when: "라운드 종료",
+        plot,
+        ko: impl.ko,
+        conditionMet: current >= 1,
+        label: `빙의 불가 장소 저주 ${current}/1`,
+        requirements: [requirement(
+          "unattachableLocationCurse",
+          "빙의 불가 장소 저주",
+          current,
+          1,
+          `빙의 불가 장소 저주 ${current}/1`,
+        )],
+      });
+    }
+
     case "tightropePlan": {
       // SOURCE: src/impl/plots.ts tightropePlan 훅의 source 참조
       const current = state.loop.specialGauge?.value ?? 0;
