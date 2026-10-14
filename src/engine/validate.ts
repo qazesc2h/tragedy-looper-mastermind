@@ -79,7 +79,9 @@ export type ScenarioDiagnosticCode =
   | "SERVANT_START_INVALID"
   | "FIXED_START_MISSING"
   | "FIXED_START_INVALID"
-  | "ENTRY_TIMING_OUT_OF_RANGE";
+  | "ENTRY_TIMING_OUT_OF_RANGE"
+  | "TWISTED_TRUTH_INFORMER_MISSING"
+  | "TWISTED_TRUTH_EXTRA_PLOT_INVALID";
 
 export interface ScenarioDiagnostic {
   path: string;
@@ -136,6 +138,46 @@ function activePlots(scenario: ScenarioValidationInput): string[] {
   return [scenario.mainPlot, ...(scenario.subPlots ?? [])].filter(
     (plot): plot is string => typeof plot === "string" && plot.length > 0,
   );
+}
+
+function roleAddingPlots(scenario: ScenarioValidationInput): string[] {
+  const plots = activePlots(scenario);
+  const extraPlot = scenario.scriptSpecified?.["Extra Plot"];
+  if (
+    plots.includes("twistedTruth") &&
+    typeof extraPlot === "string" &&
+    !plots.includes(extraPlot)
+  ) plots.push(extraPlot);
+  return plots;
+}
+
+function validateTwistedTruth(
+  scenario: ScenarioValidationInput,
+  definition: TragedySetDefinition | undefined,
+): ScenarioDiagnostic[] {
+  if (!activePlots(scenario).includes("twistedTruth")) return [];
+  const diagnostics: ScenarioDiagnostic[] = [];
+  if (scenario.cast?.informer === undefined) {
+    diagnostics.push(errorDiagnostic(
+      "cast.informer",
+      "TWISTED_TRUTH_INFORMER_MISSING",
+      "광기의 진실: 정보통 캐릭터가 등장해야 합니다.",
+    ));
+  }
+  const extraPlot = scenario.scriptSpecified?.["Extra Plot"];
+  if (
+    typeof extraPlot !== "string" ||
+    definition === undefined ||
+    !definition.mainPlots.includes(extraPlot)
+  ) {
+    diagnostics.push(errorDiagnostic(
+      "scriptSpecified.Extra Plot",
+      "TWISTED_TRUTH_EXTRA_PLOT_INVALID",
+      "광기의 진실: Extra Plot에는 현재 참극 세트의 룰 Y를 지정해야 합니다. " +
+        `현재 값: ${metadataValueLabel(extraPlot)}.`,
+    ));
+  }
+  return diagnostics;
 }
 
 function characterHasTag(character: string, tag: string): boolean {
@@ -335,7 +377,7 @@ function rolesAssociatedWithActivePlots(
   scenario: ScenarioValidationInput,
 ): Set<string> {
   const roles = new Set<string>();
-  for (const plot of activePlots(scenario)) {
+  for (const plot of roleAddingPlots(scenario)) {
     for (const role of Object.keys(PLOT_IMPL[plot]?.addsRoles ?? {})) {
       roles.add(role);
     }
@@ -777,6 +819,7 @@ export function validateScenario(
     ...validateRequiredIncidentCulprit(scenario),
     ...validatePrivateInvestigatorCulprit(scenario),
     ...validateWorshippersApocalypse(scenario),
+    ...validateTwistedTruth(scenario, definition),
     ...validateAiRole(scenario),
     ...validateLittleSisterRole(scenario),
     ...validateMysteryBoyRole(scenario, definition),

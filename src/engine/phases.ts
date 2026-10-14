@@ -15,6 +15,7 @@ import {
   zombieRoleAbilityActive,
 } from "../impl/roles";
 import { PLOT_IMPL } from "../impl/plots";
+import { activeRulePlots } from "./active-plots";
 import { TRAIT_IMPL } from "../impl/traits";
 import { resolveActions } from "./resolve";
 import { resolveIncident, type ResolvedIncidentBatch } from "./incident";
@@ -143,7 +144,7 @@ export function collectHooks(s: GameState, at: HookPoint): {
       ) out.push({ self: c, hook: h });
     }
   }
-  for (const p of [s.scenario.mainPlot, ...s.scenario.subPlots]) {
+  for (const p of activeRulePlots(s)) {
     for (const h of PLOT_IMPL[p]?.hooks ?? []) {
       if (h.phase === at) out.push({ self: "", hook: h });
     }

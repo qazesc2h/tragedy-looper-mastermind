@@ -187,6 +187,43 @@ const PRIME_EVIL: TragedySetDefinition = {
   hasFinalGuess: true,
 };
 
+const COSMIC_MYTHOLOGY: TragedySetDefinition = {
+  id: "cosmicMythology",
+  name: "Cosmic Mythology",
+  numberOfMainPlots: 1,
+  numberOfSubPlots: 2,
+  mainPlots: [
+    "choirOuterGod",
+    "sacredWordsDagon",
+    "kingYellow",
+    "giantTimeBombAgain",
+    "bloodyRites",
+  ],
+  subPlots: [
+    "unsettlingRumor",
+    "resistance",
+    "peopleWhoSaw",
+    "greatRace",
+    "whispersFromDeep",
+    "facelessGod",
+    "twistedTruth",
+  ],
+  incidents: [
+    "insaneMurder",
+    "massSuicide",
+    "missingPerson",
+    "increasingUnease",
+    "evilContamination",
+    "hospitalIncident",
+    "uproar",
+    "fireDemise",
+    "houndDogScent",
+    "discovery",
+    "executioner",
+  ],
+  hasFinalGuess: true,
+};
+
 export const TRAGEDY_SETS: Readonly<Record<string, TragedySetDefinition>> = {
   ...Object.fromEntries(
     Object.entries(tragedySetsJson as Record<string, unknown>).map(
@@ -196,6 +233,7 @@ export const TRAGEDY_SETS: Readonly<Record<string, TragedySetDefinition>> = {
   midnightZone: MIDNIGHT_ZONE,
   mysteryCircle: MYSTERY_CIRCLE,
   primeEvil: PRIME_EVIL,
+  cosmicMythology: COSMIC_MYTHOLOGY,
 };
 
 export function tragedySetDefinition(id: string): TragedySetDefinition {

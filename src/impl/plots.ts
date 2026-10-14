@@ -911,4 +911,150 @@ export const PLOT_IMPL: Record<string, {
     addsRoles: { showOff: 1, conspiracyTheorist: 1, coward: 1 },
     hooks: [],
   },
+  // ── 이계 신을 향한 합창곡 (Choir to the Outer God)
+  choirOuterGod: {
+    ko: "이계 신을 향한 합창곡",
+    addsRoles: { keyPerson: 1, sacrifice: 1, immortalRole: 1 },
+    hooks: [{
+      phase: "LOOP_END",
+      kind: "lossTragedy",
+      source: {
+        timing: "Loop End",
+        prerequisite: `At least 5 characters with :intrigue: on them.`,
+      },
+      // IMPLEMENTED_ELSEWHERE: src/engine/loss.ts plotLossDistance()
+      when: () => false,
+      effect: () => {},
+    }],
+  },
+  // ── 다곤 님의 말씀 (The Sacred Words of Dagon)
+  sacredWordsDagon: {
+    ko: "다곤 님의 말씀",
+    addsRoles: { keyPerson: 1, cultist: 1, deepOne: 1 },
+    hooks: [{
+      phase: "LOOP_END",
+      kind: "lossTragedy",
+      source: {
+        timing: "Loop End",
+        prerequisite: `As manay or more :intrigue: on the Shrine then the Extra Gauge shows.`,
+        description: `(If the Extra Gauge is at zero, the Protagonists always lose)`,
+      },
+      // IMPLEMENTED_ELSEWHERE: src/engine/loss.ts plotLossDistance()
+      when: () => false,
+      effect: () => {},
+    }],
+  },
+  // ── 황색의 왕 (The King in Yellow)
+  kingYellow: {
+    ko: "황색의 왕",
+    addsRoles: { sacrifice: 1, cultist: 1 },
+    hooks: [{
+      phase: "LOOP_END",
+      kind: "lossTragedy",
+      source: {
+        timing: "Loop End",
+        prerequisite: `The Extra Gauge has increased at all this loop.`,
+      },
+      // IMPLEMENTED_ELSEWHERE: src/engine/loss.ts plotLossDistance()
+      when: () => false,
+      effect: () => {},
+    }],
+  },
+  // ── 거대 시한폭탄 Y의 존재 (Giant Time Bomb Again)
+  giantTimeBombAgain: {
+    ko: "거대 시한폭탄 Y의 존재",
+    addsRoles: { witch: 1, deepOne: 1 },
+    hooks: [{
+      phase: "LOOP_END",
+      kind: "lossTragedy",
+      source: {
+        timing: "Loop End",
+        prerequisite: `2 :intrigue: on the :witch:’s starting location.`,
+      },
+      // IMPLEMENTED_ELSEWHERE: src/engine/loss.ts plotLossDistance()
+      when: () => false,
+      effect: () => {},
+    }],
+  },
+  // ── 피로 물든 의식 (Bloody Rites)
+  bloodyRites: {
+    ko: "피로 물든 의식",
+    addsRoles: { witch: 1, immortalRole: 1 },
+    hooks: [{
+      phase: "LOOP_END",
+      kind: "lossTragedy",
+      source: {
+        timing: "Loop End",
+        prerequisite: `As many or more corpses as the Extra Gauge shows.`,
+        description: `(If the Extra Gauge is at zero, the Protagonists always lose)`,
+      },
+      // IMPLEMENTED_ELSEWHERE: src/engine/loss.ts plotLossDistance()
+      when: () => false,
+      effect: () => {},
+    }],
+  },
+  resistance: {
+    ko: "저항하는 자들",
+    addsRoles: { conspiracyTheorist: 1, wizard: 1, serialKiller: 1 },
+    hooks: [],
+  },
+  peopleWhoSaw: {
+    ko: "목격해 버린 사람들",
+    addsRoles: { conspiracyTheorist: 1, witness: 1 },
+    hooks: [],
+  },
+  greatRace: {
+    ko: "위대한 종족",
+    addsRoles: { serialKiller: 1, timeTraveler: 1 },
+    hooks: [],
+  },
+  whispersFromDeep: {
+    ko: "가라앉은 도시의 속삭임",
+    addsRoles: { deepOne: 1, paranoiac: 1 },
+    hooks: [{
+      phase: "ALWAYS",
+      kind: "mandatory",
+      source: {
+        timing: "Always",
+        description: `The :paranoiac: gains all the abilities of the :keyPerson:`,
+      },
+      // IMPLEMENTED_ELSEWHERE: src/impl/roles.ts effectiveAbilityRoles()
+      when: () => false,
+      effect: () => {},
+    }],
+  },
+  facelessGod: {
+    ko: "얼굴 없는 신",
+    addsRoles: { wizard: 1, faceless: 1 },
+    hooks: [],
+  },
+  twistedTruth: {
+    ko: "광기의 진실",
+    addsRoles: { paranoiac: 1 },
+    hooks: [
+      {
+        phase: "SCRIPT_BUILD",
+        kind: "scriptBuild",
+        source: {
+          timing: "Script creation",
+          description: `The :informer: must be included. The script writer then chooses one "extra" main plot.`,
+        },
+        // IMPLEMENTED_ELSEWHERE: src/engine/validate.ts validateTwistedTruth()
+        when: () => false,
+        effect: () => {},
+      },
+      {
+        phase: "LOOP_START",
+        kind: "mandatory",
+        source: {
+          timing: "Loop Start",
+          prerequisite: `The Extra Gauge is on 2 or more.`,
+          description: `Druing this loop, the original main plot is replaced by the "extra" main plot.`,
+        },
+        // IMPLEMENTED_ELSEWHERE: src/engine/active-plots.ts activeRulePlots()
+        when: () => false,
+        effect: () => {},
+      },
+    ],
+  },
 };

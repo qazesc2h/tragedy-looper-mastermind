@@ -34,6 +34,7 @@ import { incidentFires, incidentParanoia } from "./incident";
 import { incidentDefinition } from "./incident-definition";
 import { claimedRoleWasRevealed } from "./role-reveal";
 import { corpseCountAt } from "./corpses";
+import { activeRulePlots } from "./active-plots";
 import {
   actualIncidentOf,
   characterCulprit,
@@ -247,10 +248,7 @@ function incidentKey(
 }
 
 function activePlots(state: GameState): PlotId[] {
-  return [state.scenario.mainPlot, ...state.scenario.subPlots]
-    .filter(
-      (plot, index, plots) => plot !== "" && plots.indexOf(plot) === index,
-    );
+  return activeRulePlots(state);
 }
 
 function actualKeyPerson(state: GameState): CharacterId | undefined {
@@ -271,6 +269,74 @@ function plotLossDistance(
   }
 
   switch (plot) {
+    case "choirOuterGod": {
+      const current = Object.values(state.loop.charCounters).filter(
+        ({ intrigue }) => intrigue >= 1,
+      ).length;
+      return distance({
+        id: plot,
+        key: plotKey(plot),
+        source: "plot",
+        category: "plot",
+        timing: "loopEnd",
+        activation: "mandatory",
+        when: "루프 종료",
+        plot,
+        ko: impl.ko,
+        conditionMet: current >= 5,
+        label: `음모가 있는 캐릭터 ${current}/5명`,
+        requirements: [requirement("charactersWithIntrigue", "음모가 있는 캐릭터", current, 5, `음모가 있는 캐릭터 ${current}/5명`)],
+      });
+    }
+    case "sacredWordsDagon": {
+      const current = state.loop.locIntrigue.Shrine;
+      const needed = state.loop.specialGauge?.value ?? 0;
+      return distance({
+        id: plot, key: plotKey(plot), source: "plot", category: "plot",
+        timing: "loopEnd", activation: "mandatory", when: "루프 종료",
+        plot, ko: impl.ko, conditionMet: current >= needed,
+        label: `신사 음모 ${current}/${needed}`,
+        requirements: [requirement("shrineIntrigue", "신사 음모", current, needed, `신사 음모 ${current}/${needed}`)],
+      });
+    }
+    case "kingYellow": {
+      const increased = state.loop.specialGauge?.increasedThisLoop === true;
+      return distance({
+        id: plot, key: plotKey(plot), source: "plot", category: "plot",
+        timing: "loopEnd", activation: "mandatory", when: "루프 종료",
+        plot, ko: impl.ko, conditionMet: increased,
+        label: `이번 루프 특수 게이지 증가 ${increased ? "있음" : "없음"}`,
+        requirements: [booleanRequirement("gaugeIncreasedThisLoop", "이번 루프 특수 게이지 증가", increased, "증가 있음", "증가 없음")],
+      });
+    }
+    case "giantTimeBombAgain": {
+      const witch = Object.keys(state.scenario.cast).find((character) =>
+        effectiveRole(state, character) === "witch"
+      );
+      const current = witch === undefined ? 0 : state.loop.locIntrigue[
+        startLocationOf(witch, state.scenario)
+      ];
+      return distance({
+        id: plot, key: plotKey(plot), source: "plot", category: "plot",
+        timing: "loopEnd", activation: "mandatory", when: "루프 종료",
+        plot, ko: impl.ko, conditionMet: witch !== undefined && current >= 2,
+        label: `마녀 시작 장소 음모 ${current}/2`,
+        requirements: [requirement("witchStartIntrigue", "마녀 시작 장소 음모", current, 2, `마녀 시작 장소 음모 ${current}/2`)],
+      });
+    }
+    case "bloodyRites": {
+      const current = LOCATIONS.reduce(
+        (total, location) => total + corpseCountAt(state, location), 0,
+      );
+      const needed = state.loop.specialGauge?.value ?? 0;
+      return distance({
+        id: plot, key: plotKey(plot), source: "plot", category: "plot",
+        timing: "loopEnd", activation: "mandatory", when: "루프 종료",
+        plot, ko: impl.ko, conditionMet: current >= needed,
+        label: `시체 ${current}/${needed}구`,
+        requirements: [requirement("corpses", "시체", current, needed, `시체 ${current}/${needed}구`)],
+      });
+    }
     case "cursedLand": {
       // SOURCE: src/impl/plots.ts cursedLand 두 번째 훅의 source 참조.
       // P9 진입 스냅샷에서 장소 상태였고 생존 캐릭터가 없어 붙이지 못한

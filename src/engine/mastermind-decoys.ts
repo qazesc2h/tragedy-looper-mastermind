@@ -138,6 +138,41 @@ export interface ObservationProfile {
 export const PLOT_OBSERVATION_PROFILES: Readonly<
   Record<PlotId, readonly ObservationProfile[]>
 > = {
+  choirOuterGod: [
+    { type: "characterIntrigueLoss", label: "음모가 놓인 캐릭터 수를 쓰는 루프 종료 조건" },
+  ],
+  sacredWordsDagon: [
+    { type: "specialGaugeLoss", label: "특수 게이지를 쓰는 루프 종료 조건" },
+    { type: "locationIntrigueLoss", label: "장소 음모를 쓰는 루프 종료 조건" },
+  ],
+  kingYellow: [
+    { type: "specialGaugeLoss", label: "특수 게이지 증가 이력을 쓰는 루프 종료 조건" },
+  ],
+  giantTimeBombAgain: [
+    { type: "locationIntrigueLoss", label: "역할 시작 장소 음모를 쓰는 루프 종료 조건" },
+  ],
+  bloodyRites: [
+    { type: "specialGaugeLoss", label: "특수 게이지를 쓰는 루프 종료 조건" },
+    { type: "corpseCountLoss", label: "시체 수를 쓰는 루프 종료 조건" },
+  ],
+  resistance: [
+    { type: "roleCompositionOnly", label: "룰 자체 효과 없이 역할 구성만 추가" },
+  ],
+  peopleWhoSaw: [
+    { type: "roleCompositionOnly", label: "룰 자체 효과 없이 역할 구성만 추가" },
+  ],
+  greatRace: [
+    { type: "roleCompositionOnly", label: "룰 자체 효과 없이 역할 구성만 추가" },
+  ],
+  whispersFromDeep: [
+    { type: "grantedRoleAbility", label: "다른 역할의 능력을 얻는 규칙" },
+  ],
+  facelessGod: [
+    { type: "roleCompositionOnly", label: "룰 자체 효과 없이 역할 구성만 추가" },
+  ],
+  twistedTruth: [
+    { type: "mainPlotReplacement", label: "게이지에 따라 룰 Y를 교체하는 규칙" },
+  ],
   tightropePlan: [
     { type: "specialGaugeLoss", label: "특수 게이지를 쓰는 루프 종료 조건" },
     { type: "tightropeGaugeCondition", label: "특수 게이지 1 이하의 루프 종료 조건" },
