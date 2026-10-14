@@ -8,6 +8,7 @@
     "build": "vite build",
     "test": "vitest run && npm run test:manual-life-flow && npm run test:trait-flow && npm run test:mobile-layout && npm run test:scenario-editor-flow",
     "test:unit": "vitest run",
+    "test:phase5-feasibility": "vitest run --config vitest.phase5.config.ts",
     "test:manual-life-flow": "node scripts/test-manual-life-flow.mjs",
     "test:trait-flow": "node scripts/test-trait-flow.mjs",
     "test:mobile-layout": "node scripts/test-mobile-layout.mjs",
