@@ -10,6 +10,7 @@ import {
   isCharacterDead,
   LOCATIONS,
   startLocationOf,
+  withCharacterLocation,
 } from "../types";
 import type {
   GameState,
@@ -34,10 +35,12 @@ import {
 import {
   anonymousCorpseCountAt,
   corpseCountAt,
+  moveAnonymousCorpse,
 } from "../engine/corpses";
 
 const POISONER_USE_KEY = "poisoner:role:0";
 const ZOMBIE_KILL_USE_KEY = "zombie:role:0";
+const ZOMBIE_MOVE_USE_KEY = "zombie:role:1";
 
 function onesFromGraveActive(state: GameState): boolean {
   return [state.scenario.mainPlot, ...state.scenario.subPlots].includes(
@@ -96,6 +99,42 @@ function zombieKillTargets(state: GameState): Target[] {
       ? [{ kind: "character" as const, id: character }]
       : []
   );
+}
+
+function zombieCorpseTargets(state: GameState): Target[] {
+  const actual = LOCATIONS.flatMap((location) =>
+    actualZombiesAt(state, location).flatMap((character) =>
+      isCharacterDead(state.loop.board[character])
+        ? [{ kind: "character" as const, id: character }]
+        : []
+    )
+  );
+  const anonymous = onesFromGraveActive(state)
+    ? LOCATIONS.flatMap((location) =>
+      anonymousCorpseCountAt(state, location) > 0
+        ? [{ kind: "location" as const, at: location }]
+        : []
+    )
+    : [];
+  return [...actual, ...anonymous];
+}
+
+function zombieCorpseLocation(
+  state: GameState,
+  target: Target | undefined,
+): import("../types").Location | undefined {
+  if (target?.kind === "location") {
+    return anonymousCorpseCountAt(state, target.at) > 0 &&
+        onesFromGraveActive(state)
+      ? target.at
+      : undefined;
+  }
+  if (
+    target?.kind !== "character" ||
+    !isCharacterDead(state.loop.board[target.id]) ||
+    effectiveRole(state, target.id) !== "zombie"
+  ) return undefined;
+  return characterLocation(state.loop.board[target.id], target.id);
 }
 
 /** 캐릭터 또는 익명 시체 가운데 좀비 역할 능력을 공급하는 대상이 있는가. */
@@ -1292,9 +1331,41 @@ export const ROLE_IMPL: Record<string, {
           timing: "Day End",
           description: `You may move one :zombie: corpse to a neighboring location.`,
         },
-        // PE-3: 실제/익명 시체 선택과 인접 목적지 UI를 함께 연결한다.
-        when: () => false,
-        effect: () => {},
+        when: (s: GameState) =>
+          !s.loop.abilitiesUsedThisRound.includes(ZOMBIE_MOVE_USE_KEY) &&
+          zombieCorpseTargets(s).length > 0,
+        selectableTargets: (s: GameState) => zombieCorpseTargets(s),
+        selectableDestinations: (s: GameState, _self: CharacterId, target?: Target) => {
+          const from = zombieCorpseLocation(s, target);
+          return from === undefined ? [] : adjacentLocations(from);
+        },
+        effect: (
+          s: GameState,
+          _self: CharacterId,
+          target?: Target,
+          destination?: import("../types").Location,
+        ) => {
+          const from = zombieCorpseLocation(s, target);
+          if (
+            from === undefined || destination === undefined ||
+            !adjacentLocations(from).includes(destination)
+          ) {
+            throw new Error("zombie movement requires a corpse and neighboring destination");
+          }
+          if (target?.kind === "character") {
+            s.loop.board[target.id] = withCharacterLocation(
+              s.loop.board[target.id],
+              destination,
+              target.id,
+            );
+          } else if (
+            target?.kind !== "location" ||
+            !moveAnonymousCorpse(s, target.at, destination)
+          ) {
+            throw new Error("zombie movement requires an anonymous corpse");
+          }
+          s.loop.abilitiesUsedThisRound.push(ZOMBIE_MOVE_USE_KEY);
+        },
       },
     ],
   },

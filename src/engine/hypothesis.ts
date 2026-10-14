@@ -2306,6 +2306,26 @@ function abilityObservationContradiction(
       };
   }
 
+  const anonymousZombieMoved =
+    observation.timing === "P9_ROUND_END" &&
+    observation.changes.some((change) =>
+      change.kind === "counter" &&
+      change.target.kind === "location" &&
+      change.counter === "intrigue" && change.delta === -1
+    ) &&
+    observation.changes.some((change) =>
+      change.kind === "counter" &&
+      change.target.kind === "location" &&
+      change.counter === "intrigue" && change.delta === 1
+    );
+  if (anonymousZombieMoved && combination.mainPlot !== "OnesFromGrave") {
+    return {
+      code: "mastermindAbilityUnavailable",
+      observation,
+      reason: "익명 좀비 이동을 설명할 무덤에서 나온 자들이 없습니다.",
+    };
+  }
+
   // C-1에서 넓힌 다른 훅 시점은 각 단계 전용 필터가 생기기 전까지 관측만 한다.
   // timing이 없는 구 저장 기록은 기존 P5 관측으로 보수적으로 호환한다.
   if (

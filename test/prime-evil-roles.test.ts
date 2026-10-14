@@ -8,7 +8,8 @@ import {
   collectProtagonistObservations,
   evaluateStateRoleTableHypotheses,
 } from "../src/engine/hypothesis";
-import { collectHooks } from "../src/engine/phases";
+import { applyHookEffect, collectHooks } from "../src/engine/phases";
+import { placeExtraCard } from "../src/engine/extra-cards";
 import { publicObservationContext } from "../src/engine/public-observation";
 import { IMMORTAL_ROLE_IDS, roleIsImmortal } from "../src/engine/role-properties";
 import { initLoop } from "../src/engine/setup";
@@ -280,6 +281,124 @@ describe("Prime Evil role execution", () => {
 
     setBoardLife(state.loop, "boyStudent", true);
     expect(effectiveRole(state, "boyStudent")).toBe("coward");
+  });
+
+  it("moves one actual Zombie corpse to an adjacent location and keeps an attached Curse on its card", () => {
+    const state = primeState("OnesFromGrave", ["keyGirl", "thoseHabits"], {
+      boyStudent: "coward",
+      girlStudent: "keyPerson",
+    });
+    state.loop.phase = "P9_ROUND_END";
+    setBoardLocation(state.loop, "boyStudent", "City");
+    setBoardLife(state.loop, "boyStudent", false);
+    placeExtraCard(state.loop, {
+      instanceId: "corpse-curse",
+      cardId: "curse",
+      controller: "mastermind",
+      source: { kind: "incident", id: "darkRumor" },
+      target: { kind: "character", id: "boyStudent" },
+      expiresAt: "loopEnd",
+    });
+    const hook = ROLE_IMPL.zombie.hooks[1];
+    expect(hook.when(state, "")).toBe(true);
+    expect(hook.selectableTargets?.(state, "")).toContainEqual({
+      kind: "character",
+      id: "boyStudent",
+    });
+    expect(hook.selectableDestinations?.(
+      state,
+      "",
+      { kind: "character", id: "boyStudent" },
+    )).toEqual(["Hospital", "School"]);
+
+    applyHookEffect(
+      state,
+      "P9_ROUND_END",
+      hook,
+      "",
+      { kind: "character", id: "boyStudent" },
+      undefined,
+      false,
+      "Hospital",
+    );
+    expect(boardLocation(state.loop, "boyStudent")).toBe("Hospital");
+    expect(state.loop.extraCards[0]?.target).toEqual({
+      kind: "character",
+      id: "boyStudent",
+    });
+    expect(state.loop.phaseLog?.at(-1)).toMatchObject({
+      kind: "abilityActivated",
+      timing: "P9_ROUND_END",
+      targets: [
+        { kind: "character", id: "boyStudent" },
+        { kind: "location", at: "Hospital" },
+      ],
+      publicChanges: [{
+        kind: "movement",
+        character: "boyStudent",
+        from: "City",
+        to: "Hospital",
+      }],
+    });
+    expect(hook.when(state, "")).toBe(false);
+  });
+
+  it("moves one anonymous Zombie as Intrigue minus/plus and reveals Ones From Grave", () => {
+    const state = primeState("OnesFromGrave", ["keyGirl", "thoseHabits"], {
+      boyStudent: "person",
+      girlStudent: "keyPerson",
+    });
+    state.loop.phase = "P9_ROUND_END";
+    state.loop.locIntrigue.City = 2;
+    const hook = ROLE_IMPL.zombie.hooks[1];
+    expect(hook.selectableTargets?.(state, "")).toContainEqual({
+      kind: "location",
+      at: "City",
+    });
+    expect(() => hook.effect(
+      state,
+      "",
+      { kind: "location", at: "City" },
+      "Shrine",
+    )).toThrow("neighboring destination");
+
+    applyHookEffect(
+      state,
+      "P9_ROUND_END",
+      hook,
+      "",
+      { kind: "location", at: "City" },
+      undefined,
+      false,
+      "School",
+    );
+    expect(state.loop.locIntrigue).toMatchObject({ City: 1, School: 1 });
+    expect(state.loop.phaseLog?.at(-1)).toMatchObject({
+      kind: "abilityActivated",
+      publicChanges: expect.arrayContaining([
+        expect.objectContaining({
+          kind: "counter",
+          target: { kind: "location", at: "City" },
+          counter: "intrigue",
+          delta: -1,
+        }),
+        expect.objectContaining({
+          kind: "counter",
+          target: { kind: "location", at: "School" },
+          counter: "intrigue",
+          delta: 1,
+        }),
+      ]),
+    });
+    expect(collectProtagonistObservations(state)).toContainEqual(
+      expect.objectContaining({
+        kind: "mastermindAbilityResult",
+        timing: "P9_ROUND_END",
+      }),
+    );
+    expect(evaluateStateRoleTableHypotheses(state).remaining.every(
+      ({ mainPlot }) => mainPlot === "OnesFromGrave",
+    )).toBe(true);
   });
 
   it("does not turn location intrigue into a Zombie outside Prime Evil", () => {

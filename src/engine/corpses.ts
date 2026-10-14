@@ -49,3 +49,16 @@ export function removeAnonymousCorpseAt(
   state.loop.locIntrigue[location] -= 1;
   return true;
 }
+
+/** 식별자 없는 익명 시체 하나를 장소 음모 카운터로 옮긴다. */
+export function moveAnonymousCorpse(
+  state: GameState,
+  from: Location,
+  to: Location,
+): boolean {
+  if (state.scenario.tragedySet !== "primeEvil" || from === to) return false;
+  if (anonymousCorpseCountAt(state, from) < 1) return false;
+  state.loop.locIntrigue[from] -= 1;
+  state.loop.locIntrigue[to] += 1;
+  return true;
+}

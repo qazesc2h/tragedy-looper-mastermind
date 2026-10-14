@@ -2126,6 +2126,13 @@ function targetLabel(target: Target): string {
     : locationName(target.at);
 }
 
+function hookTargetLabel(hook: Hook, target: Target): string {
+  if (hook !== ROLE_IMPL.zombie.hooks[1]) return targetLabel(target);
+  return target.kind === "location"
+    ? `${locationName(target.at)}의 익명 시체`
+    : `${characterName(target.id)}의 시체`;
+}
+
 function signedDelta(before: number, after: number): string {
   const delta = after - before;
   return delta > 0 ? `+${delta}` : String(delta);
@@ -2550,7 +2557,7 @@ function renderHookList(
               <option value="">${escapeHtml(misc("Select a target", "Select a target"))}</option>
               ${targets.map((target) => `<option value="${escapeHtml(encodeTarget(target))}"
                 ${selection?.target === encodeTarget(target) ? "selected" : ""}>
-                ${escapeHtml(targetLabel(target))}</option>`).join("")}
+                ${escapeHtml(hookTargetLabel(hook, target))}</option>`).join("")}
             </select>`
           : ""}
         ${interactive && optional && destinations.length > 0
