@@ -6,7 +6,7 @@ import type {
   ScenarioSpecialRuleId,
   Target,
 } from "../types";
-import { effectiveAbilityRoles } from "../impl/roles";
+import { effectiveAbilityRoles, ROLE_IMPL } from "../impl/roles";
 import { extraCardsAt } from "./extra-cards";
 
 export interface LegalResult {
@@ -112,11 +112,16 @@ export function validatePlacement(
     placement.owner === "mastermind" &&
     placement.target.kind === "character" &&
     state.loop.board[placement.target.id] !== undefined &&
-    effectiveAbilityRoles(state, placement.target.id).includes("prophet")
+    effectiveAbilityRoles(state, placement.target.id).some((role) =>
+      role === "prophet" || role === "werewolf"
+    )
   ) {
+    const role = effectiveAbilityRoles(state, placement.target.id).find(
+      (candidate) => candidate === "prophet" || candidate === "werewolf",
+    );
     return {
       ok: false,
-      reason: "예언자 능력",
+      reason: `${ROLE_IMPL[role!]?.ko ?? role} 능력`,
     };
   }
 

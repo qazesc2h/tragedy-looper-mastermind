@@ -1,4 +1,4 @@
-import { ROLE_IMPL } from "../impl/roles";
+import { effectiveGoodwillRefusal } from "../impl/roles";
 import {
   characterLocation,
   effectiveRole,
@@ -84,7 +84,7 @@ export function sacredTreeTransferEligible(
 /** 공개된 신수에게 현재 유효한 우호 무시·절대 우호 무시 역할이 있는가. */
 export function sacredTreeHasGoodwillRefusal(state: GameState): boolean {
   return sacredTreeInScenario(state) &&
-    ROLE_IMPL[effectiveRole(state, "sacredTree")]?.goodwillRefusal !== undefined;
+    effectiveGoodwillRefusal(state, "sacredTree") !== undefined;
 }
 
 function resolvedThisRound(

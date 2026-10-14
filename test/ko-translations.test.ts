@@ -47,6 +47,7 @@ describe("root Korean translation dictionary", () => {
     expect(prerequisites.filter((source) => !translations[source])).toEqual([
       "The Extra Gauge is 1 or above",
       "This role has been revealed",
+      "This card is a corpse",
       "If the Brain, Factor, or Magician were revealed during this loop, the Protagonists lose.",
     ]);
   });

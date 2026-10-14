@@ -1,7 +1,7 @@
 import { characterDataOf, type GoodwillAbilityData } from "../data";
 import { INCIDENT_IMPL } from "../impl/incidents";
 import { PLOT_IMPL } from "../impl/plots";
-import { ROLE_IMPL } from "../impl/roles";
+import { effectiveGoodwillRefusal, ROLE_IMPL } from "../impl/roles";
 import { rolesForTragedySet } from "../tragedy-sets";
 import {
   characterEntryTiming,
@@ -473,7 +473,7 @@ function addTraitRisks(
   }
   if (cast.has("sacredTree")) {
     const role = effectiveRole(state, "sacredTree");
-    const hasRefusal = ROLE_IMPL[role]?.goodwillRefusal !== undefined;
+    const hasRefusal = effectiveGoodwillRefusal(state, "sacredTree") !== undefined;
     output.push({
       key: "risk:trait:sacred-tree",
       category: "uncontrolledRisk",
@@ -488,7 +488,8 @@ function addTraitRisks(
     if (hasRefusal) {
       const refusalRoles = rolesForTragedySet(state.scenario.tragedySet)
         .filter((candidate) =>
-          ROLE_IMPL[candidate]?.goodwillRefusal !== undefined
+          ROLE_IMPL[candidate]?.goodwillRefusal !== undefined ||
+          candidate === "showOff"
         );
       output.push({
         key: "risk:trait:sacred-tree-refusal-range",
@@ -583,7 +584,7 @@ function responseLabel(
   ability: GoodwillAbilityData,
 ): string {
   if (cannotBeRefused(ability)) return "거부 불가";
-  const refusal = ROLE_IMPL[effectiveRole(state, character)]?.goodwillRefusal;
+  const refusal = effectiveGoodwillRefusal(state, character);
   if (refusal === "Mandatory") return "반드시 거부";
   if (refusal === "Optional") return "각본가가 거부 가능";
   return "거부 불가";

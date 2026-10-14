@@ -1,6 +1,6 @@
 import { characterDataOf, type GoodwillAbilityData } from "../data";
 import { PLOT_IMPL } from "../impl/plots";
-import { ROLE_IMPL } from "../impl/roles";
+import { effectiveGoodwillRefusal, ROLE_IMPL } from "../impl/roles";
 import { tragedySetDefinition } from "../tragedy-sets";
 import { actionCardRestriction } from "./legal";
 import { roleClaimOptions } from "./role-reveal";
@@ -239,7 +239,7 @@ function goodwillRevealPaths(
         }`,
         control: "protagonist" as const,
         avoidable: true,
-        avoidance: ROLE_IMPL[effectiveRole(state, target)]?.goodwillRefusal
+        avoidance: effectiveGoodwillRefusal(state, target)
           ? "능력을 거부하거나 우호 기준 도달을 막는다. 거부 자체가 역할 후보를 좁힐 수 있다."
           : forbidAvailable
           ? "우호 금지, 이동, 우호 기준 미달 유지로 사용 기회를 막는다."
@@ -288,7 +288,7 @@ function mandatoryRefusalPath(
   character: CharacterId,
   role: RoleId,
 ): RoleExposurePath[] {
-  if (ROLE_IMPL[role]?.goodwillRefusal !== "Mandatory") return [];
+  if (effectiveGoodwillRefusal(state, character) !== "Mandatory") return [];
   const abilities = characterDataOf(character).goodwillAbilities.filter(
     isRefusable,
   );
@@ -738,7 +738,8 @@ export function mastermindCoverGuidance(
       : baseDifficulty;
     const roleName = ROLE_IMPL[role]?.ko ?? role;
     const affectedVictoryRoutes = [...new Set(affected.map(({ title }) => title))];
-    const mandatoryRefusal = ROLE_IMPL[role]?.goodwillRefusal === "Mandatory";
+    const mandatoryRefusal = effectiveGoodwillRefusal(state, character) ===
+      "Mandatory";
     const rankedAbilities = characterDataOf(character).goodwillAbilities.filter(
       ({ rank }) => rank !== null,
     );

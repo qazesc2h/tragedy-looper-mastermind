@@ -467,6 +467,9 @@ function advanceRoundOnce(
   const loop = state.loop.loop;
   const day = state.loop.day;
   const leader = state.loop.leader;
+  const phaseStartContext = phase === "P5_MASTERMIND_ABILITY"
+    ? publicObservationContext(state.loop)
+    : undefined;
   const scheduled = phase === "P7_INCIDENT"
     ? state.scenario.incidents.find((incident) => incident.day === day)
     : undefined;
@@ -504,7 +507,15 @@ function advanceRoundOnce(
     });
   } else if (phase === "P5_MASTERMIND_ABILITY") {
     if (!phaseAlreadyLogged(state, loop, day, phase)) {
-      recordPhaseLog(state, { loop, day, phase, kind: "abilitySkipped" });
+      recordPhaseLog(state, {
+        loop,
+        day,
+        phase,
+        kind: "abilitySkipped",
+        ...(phaseStartContext === undefined
+          ? {}
+          : { publicContext: phaseStartContext }),
+      });
     }
   } else if (phase === "P6_GOODWILL") {
     if (!phaseAlreadyLogged(state, loop, day, phase)) {

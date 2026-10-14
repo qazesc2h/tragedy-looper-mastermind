@@ -182,6 +182,11 @@ describe("Prime Evil tragedy set and rules", () => {
     });
     expect(game.loop.locIntrigue.City).toBe(1);
     expect(hook.when(game, "")).toBe(false);
+    const hypotheses = evaluateStateRoleTableHypotheses(game);
+    expect(hypotheses.remaining.length).toBeGreaterThan(0);
+    expect(hypotheses.remaining.every(({ subPlots }) =>
+      subPlots.includes("monsterIntrigue")
+    )).toBe(true);
 
     game.loop.day = 2;
     expect(hook.when(game, "")).toBe(true);

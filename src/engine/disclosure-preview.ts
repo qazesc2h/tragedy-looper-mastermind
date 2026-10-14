@@ -284,7 +284,7 @@ export function previewP6GoodwillRefusal(
   );
   const goodwillIgnoreFamilyConfirmed = roleCandidatesAfter.length > 0 &&
     roleCandidatesAfter.every((role) =>
-      ROLE_IMPL[role]?.goodwillRefusal !== undefined
+      ROLE_IMPL[role]?.goodwillRefusal !== undefined || role === "showOff"
     );
   const result = comparison(beforeEvaluation, afterEvaluation);
   return {

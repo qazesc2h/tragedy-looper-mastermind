@@ -1,6 +1,6 @@
 import { characterDataOf, type GoodwillAbilityData } from "../data";
 import { CHARACTER_COUNTERS } from "../counters";
-import { ROLE_IMPL } from "../impl/roles";
+import { effectiveGoodwillRefusal, ROLE_IMPL } from "../impl/roles";
 import {
   incidentChoiceTargets,
   incidentOccurrenceId,
@@ -1057,7 +1057,7 @@ export function goodwillResponseAvailability(
   cannotBeRefused: boolean,
 ): GoodwillResponseAvailability {
   const role = effectiveRole(state, character);
-  const refusal = ROLE_IMPL[role]?.goodwillRefusal;
+  const refusal = effectiveGoodwillRefusal(state, character);
   const refusalKind: GoodwillRefusalKind = refusal === "Optional"
     ? "optional"
     : refusal === "Mandatory"
@@ -1160,6 +1160,7 @@ export function resolveGoodwillAbility(
       abilityIndex: selected.index,
       loop: state.loop.loop,
       day: state.loop.day,
+      context: publicObservationContext(state.loop),
     });
     recordPhaseLog(state, {
       loop: state.loop.loop,
@@ -1173,6 +1174,7 @@ export function resolveGoodwillAbility(
       response: "refuse",
       effectApplied: false,
       ...(targets.length === 0 ? {} : { targets }),
+      publicContext: publicObservationContext(state.loop),
     });
     return {
       user: activator,

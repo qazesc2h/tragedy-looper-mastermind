@@ -317,7 +317,10 @@ function validateLittleSisterRole(
   scenario: ScenarioValidationInput,
 ): ScenarioDiagnostic[] {
   const role = scenario.cast?.littleSister;
-  if (role === undefined || ROLE_IMPL[role]?.goodwillRefusal === undefined) {
+  if (
+    role === undefined ||
+    (ROLE_IMPL[role]?.goodwillRefusal === undefined && role !== "showOff")
+  ) {
     return [];
   }
   return [errorDiagnostic(

@@ -8,6 +8,8 @@ import {
   effectiveRole,
   isCharacterAlive,
   isCharacterDead,
+  LOCATIONS,
+  startLocationOf,
 } from "../types";
 import type {
   GameState,
@@ -29,8 +31,76 @@ import {
   adjacentLocations,
   moveCharacterIfAllowed,
 } from "../engine/movement";
+import {
+  anonymousCorpseCountAt,
+  corpseCountAt,
+} from "../engine/corpses";
 
 const POISONER_USE_KEY = "poisoner:role:0";
+const ZOMBIE_KILL_USE_KEY = "zombie:role:0";
+
+function onesFromGraveActive(state: GameState): boolean {
+  return [state.scenario.mainPlot, ...state.scenario.subPlots].includes(
+    "OnesFromGrave",
+  );
+}
+
+function actualZombiesAt(
+  state: GameState,
+  location: import("../types").Location,
+): CharacterId[] {
+  return Object.entries(state.loop.board).flatMap(([character, position]) =>
+    position.status !== "absent" &&
+      characterLocation(position, character) === location &&
+      effectiveRole(state, character) === "zombie"
+      ? [character]
+      : []
+  );
+}
+
+function zombieCountAt(
+  state: GameState,
+  location: import("../types").Location,
+): number {
+  return actualZombiesAt(state, location).length +
+    (onesFromGraveActive(state) ? anonymousCorpseCountAt(state, location) : 0);
+}
+
+function nonZombieCharactersAt(
+  state: GameState,
+  location: import("../types").Location,
+): CharacterId[] {
+  return Object.entries(state.loop.board).flatMap(([character, position]) =>
+    isCharacterAlive(position) &&
+      characterLocation(position, character) === location &&
+      effectiveRole(state, character) !== "zombie"
+      ? [character]
+      : []
+  );
+}
+
+function zombieKillTargets(state: GameState): Target[] {
+  const eligibleLocations = new Set(LOCATIONS.filter((location) =>
+    zombieCountAt(state, location) > nonZombieCharactersAt(state, location).length
+  ));
+  return Object.entries(state.loop.board).flatMap(([character, position]) =>
+    isCharacterAlive(position) &&
+      eligibleLocations.has(characterLocation(position, character))
+      ? [{ kind: "character" as const, id: character }]
+      : []
+  );
+}
+
+/** 캐릭터 또는 익명 시체 가운데 좀비 역할 능력을 공급하는 대상이 있는가. */
+export function zombieRoleAbilityActive(state: GameState): boolean {
+  if (state.scenario.tragedySet !== "primeEvil") return false;
+  if (Object.values(state.scenario.cast).includes("zombie")) return true;
+  if (!onesFromGraveActive(state)) return false;
+  return LOCATIONS.some((location) =>
+    anonymousCorpseCountAt(state, location) > 0 ||
+    actualZombiesAt(state, location).length > 0
+  );
+}
 
 function specialGaugeValue(state: GameState): number | undefined {
   return state.loop.specialGauge?.value;
@@ -951,6 +1021,273 @@ export const ROLE_IMPL: Record<string, {
         when: (s: GameState, _self: CharacterId) =>
           factorHasKeyPersonAbility(s),
         effect: (_s: GameState, _self: CharacterId) => "keyPerson",
+      },
+    ],
+  },
+  // ── 뱀파이어 (Vampire)
+  vampire: {
+    ko: "뱀파이어",
+    goodwillRefusal: "Optional",
+    tags: ["immortal"],
+    hooks: [
+      {
+        phase: "P9_ROUND_END",
+        kind: "optional",
+        source: {
+          timing: "Day End",
+          prerequisite: `The :keyPerson: has at least 2 :intrigue: and is in this character’s location`,
+          description: `You may kill the :keyPerson:.`,
+        },
+        when: (s: GameState, self: CharacterId) =>
+          livingCharactersWithRoleInAbilityLocations(s, self, "keyPerson")
+            .some((character) => s.loop.charCounters[character].intrigue >= 2),
+        selectableTargets: (s: GameState, self: CharacterId) =>
+          livingCharactersWithRoleInAbilityLocations(s, self, "keyPerson")
+            .filter((character) => s.loop.charCounters[character].intrigue >= 2)
+            .map((id) => ({ kind: "character" as const, id })),
+        effect: (s: GameState, self: CharacterId, target?: Target) => {
+          const candidates = livingCharactersWithRoleInAbilityLocations(
+            s,
+            self,
+            "keyPerson",
+          ).filter((character) => s.loop.charCounters[character].intrigue >= 2);
+          const selected = target?.kind === "character"
+            ? target.id
+            : candidates.length === 1 ? candidates[0] : undefined;
+          if (selected === undefined || !candidates.includes(selected)) {
+            throw new Error("vampire requires a key-person target");
+          }
+          killCharacter(s, selected);
+        },
+      },
+      {
+        phase: "P9_ROUND_END",
+        kind: "lossDeath",
+        source: {
+          timing: "Day End",
+          prerequisite: `If there are at least 2 corpses in this character’s starting location.`,
+        },
+        when: (s: GameState, self: CharacterId) =>
+          corpseCountAt(s, startLocationOf(self, s.scenario)) >= 2,
+        effect: () => {},
+      },
+    ],
+  },
+  // ── 늑대인간 (Werewolf)
+  werewolf: {
+    ko: "늑대인간",
+    goodwillRefusal: "Optional",
+    hooks: [
+      {
+        phase: "P9_ROUND_END",
+        kind: "lossDeath",
+        source: {
+          timing: "Day End",
+          prerequisite: `:nightMadness: occurred this day`,
+        },
+        when: (s: GameState) =>
+          s.loop.incidentOccurrencesFiredThisLoop?.some((occurrence) =>
+            occurrence.day === s.loop.day &&
+            (occurrence.actualIncident ?? occurrence.incident) === "nightMadness"
+          ) ?? false,
+        effect: () => {},
+      },
+      {
+        phase: "P2_MASTERMIND_ACTION",
+        kind: "mandatory",
+        source: {
+          timing: "Mastermind Action step",
+          description: `The Mastermind cannot place cards on this character.`,
+        },
+        // IMPLEMENTED_ELSEWHERE: src/engine/legal.ts validatePlacement()
+        when: () => false,
+        effect: () => {},
+      },
+    ],
+  },
+  // ── 악몽 (Nightmare)
+  nightmare: {
+    ko: "악몽",
+    goodwillRefusal: "Optional",
+    tags: ["immortal"],
+    hooks: [
+      {
+        phase: "P9_ROUND_END",
+        kind: "optional",
+        source: {
+          timing: "Day End",
+          description: `You may kill one character who is in this location.`,
+        },
+        when: (s: GameState, self: CharacterId) =>
+          livingCharactersInThisLocation(s, self).length > 0,
+        selectableTargets: (s: GameState, self: CharacterId) =>
+          livingCharactersInThisLocation(s, self).map((id) => ({
+            kind: "character" as const,
+            id,
+          })),
+        effect: (s: GameState, self: CharacterId, target?: Target) => {
+          const candidates = livingCharactersInThisLocation(s, self);
+          const selected = target?.kind === "character"
+            ? target.id
+            : candidates.length === 1 ? candidates[0] : undefined;
+          if (selected === undefined || !candidates.includes(selected)) {
+            throw new Error("nightmare requires a character in this location");
+          }
+          killCharacter(s, selected);
+        },
+      },
+      {
+        phase: "P9_ROUND_END",
+        kind: "lossDeath",
+        source: {
+          timing: "Day End",
+          prerequisite: `There are 3 ore more :intrigue: on all corpses in total`,
+        },
+        when: (s: GameState) =>
+          Object.entries(s.loop.board).reduce(
+            (total, [character, position]) => total +
+              (isCharacterDead(position)
+                ? s.loop.charCounters[character].intrigue
+                : 0),
+            0,
+          ) >= 3,
+        effect: () => {},
+      },
+    ],
+  },
+  // ── 유령 (Ghost)
+  ghost: {
+    ko: "유령",
+    max: 1,
+    hooks: [{
+      phase: "P5_MASTERMIND_ABILITY",
+      kind: "mandatory",
+      source: {
+        timing: "Mastermind Ability",
+        prerequisite: `This card is a corpse`,
+        description: `Palce 1 :paranoia: on any character in this location, or any character in the :ghost:’s starting location.`,
+      },
+      when: (s: GameState, self: CharacterId) =>
+        isCharacterDead(s.loop.board[self]) &&
+        ROLE_IMPL.ghost.hooks[0].selectableTargets!(s, self).length > 0,
+      selectableTargets: (s: GameState, self: CharacterId) => {
+        const locations = new Set([
+          characterLocation(s.loop.board[self], self),
+          startLocationOf(self, s.scenario),
+        ]);
+        return Object.entries(s.loop.board).flatMap(([character, position]) =>
+          isCharacterAlive(position) &&
+            locations.has(characterLocation(position, character))
+            ? [{ kind: "character" as const, id: character }]
+            : []
+        );
+      },
+      effect: (s: GameState, _self: CharacterId, target?: Target) => {
+        if (target?.kind !== "character") {
+          throw new Error("ghost requires a character target");
+        }
+        s.loop.charCounters[target.id].paranoia += 1;
+      },
+    }],
+  },
+  // ── 허당 (Show-Off)
+  showOff: {
+    ko: "허당",
+    tags: ["immortal"],
+    hooks: [
+      {
+        phase: "ALWAYS",
+        kind: "mandatory",
+        source: {
+          timing: "Always",
+          prerequisite: `This charcter has more then 2 :paranoia:`,
+          description: `This Character loses the :immortal: aspect.`,
+        },
+        // IMPLEMENTED_ELSEWHERE: src/engine/role-properties.ts roleIsImmortal()
+        when: (s: GameState, self: CharacterId) =>
+          s.loop.charCounters[self].paranoia > 2,
+        effect: () => {},
+      },
+      {
+        phase: "P6_GOODWILL",
+        kind: "mandatory",
+        source: {
+          timing: "Goodwill ablility step",
+          prerequisite: `This charcter has more then 2 :paranoia:`,
+          description: `This Character gains Mandatory :goodwill: Refusel.`,
+        },
+        // IMPLEMENTED_ELSEWHERE: effectiveGoodwillRefusal()
+        when: (s: GameState, self: CharacterId) =>
+          s.loop.charCounters[self].paranoia > 2,
+        effect: () => {},
+      },
+    ],
+  },
+  // ── 겁쟁이 (Coward)
+  coward: {
+    ko: "겁쟁이",
+    hooks: [{
+      phase: "P5_MASTERMIND_ABILITY",
+      kind: "mandatory",
+      source: {
+        timing: "Mastermind Ability",
+        prerequisite: `this charcter has 2 or more :paranoia:`,
+        description: `Pick a neigboring location, and move the charcter there.`,
+      },
+      when: (s: GameState, self: CharacterId) =>
+        s.loop.charCounters[self].paranoia >= 2,
+      selectableTargets: (s: GameState, self: CharacterId) =>
+        adjacentLocations(characterLocation(s.loop.board[self], self)).map(
+          (at) => ({ kind: "location" as const, at }),
+        ),
+      effect: (s: GameState, self: CharacterId, target?: Target) => {
+        if (target?.kind !== "location") {
+          throw new Error("coward requires a neighboring location");
+        }
+        moveCharacterIfAllowed(s, self, target.at);
+      },
+    }],
+  },
+  // ── 좀비 (Zombie)
+  zombie: {
+    ko: "좀비",
+    hooks: [
+      {
+        phase: "P9_ROUND_END",
+        kind: "mandatory",
+        timesPerDay: 1,
+        source: {
+          timing: "Day End",
+          description: `If there is a location where there are more :zombies: than non-:zombies:, kill one character in that location (reminder: a corpse is no longer considered as a character).`,
+        },
+        when: (s: GameState) =>
+          !s.loop.abilitiesUsedThisRound.includes(ZOMBIE_KILL_USE_KEY) &&
+          zombieKillTargets(s).length > 0,
+        selectableTargets: (s: GameState) => zombieKillTargets(s),
+        effect: (s: GameState, _self: CharacterId, target?: Target) => {
+          if (
+            target?.kind !== "character" ||
+            !zombieKillTargets(s).some((candidate) =>
+              candidate.kind === "character" && candidate.id === target.id
+            )
+          ) {
+            throw new Error("zombie requires a character in an overrun location");
+          }
+          killCharacter(s, target.id);
+          s.loop.abilitiesUsedThisRound.push(ZOMBIE_KILL_USE_KEY);
+        },
+      },
+      {
+        phase: "P9_ROUND_END",
+        kind: "optional",
+        timesPerDay: 1,
+        source: {
+          timing: "Day End",
+          description: `You may move one :zombie: corpse to a neighboring location.`,
+        },
+        // PE-3: 실제/익명 시체 선택과 인접 목적지 UI를 함께 연결한다.
+        when: () => false,
+        effect: () => {},
       },
     ],
   },

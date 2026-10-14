@@ -32,6 +32,7 @@ import {
 } from "../tragedy-sets";
 import { publicObservationContext as snapshotPublicContext } from "./public-observation";
 import { IMMORTAL_ROLE_IDS, roleIsImmortal } from "./role-properties";
+import { adjacentLocations } from "./movement";
 
 export {
   publicBoardChanges,
@@ -91,6 +92,7 @@ export type ProtagonistObservation = (
     character: CharacterId;
     rank: number;
     abilityIndex: number;
+    context?: PublicObservationContext;
   }
   | {
     kind: "goodwillAccepted";
@@ -99,6 +101,7 @@ export type ProtagonistObservation = (
     character: CharacterId;
     rank: number;
     abilityIndex: number;
+    context?: PublicObservationContext;
   }
   | {
     kind: "incidentOccurred";
@@ -195,7 +198,7 @@ export type ProtagonistObservation = (
     kind: "mandatoryEffectMissing";
     loop: number;
     day: number;
-    effect: "threadsFate";
+    effect: "threadsFate" | "ghost" | "coward";
     character: CharacterId;
   }
 ) & {
@@ -442,6 +445,13 @@ export type RolePossibilityReason =
     >;
   }
   | {
+    code: "mandatoryEffectMissing";
+    observation: Extract<
+      ProtagonistObservation,
+      { kind: "mandatoryEffectMissing" }
+    >;
+  }
+  | {
     code: "causeConstraint";
     observations: ProtagonistObservation[];
   };
@@ -579,7 +589,7 @@ function inactiveSetRoleIsPossible(
 }
 
 function roleCanRefuseGoodwill(role: RoleId): boolean {
-  return ROLE_IMPL[role]?.goodwillRefusal !== undefined;
+  return ROLE_IMPL[role]?.goodwillRefusal !== undefined || role === "showOff";
 }
 
 function activeRefusalRoleExists(
@@ -1121,6 +1131,35 @@ function p5CauseClauses(
           oncePerLoopUse: `unsettlingRumor:${observation.loop}`,
         });
       }
+      if (
+        change.target.kind === "location" &&
+        combination.subPlots.includes("monsterIntrigue")
+      ) {
+        const charactersHere = Object.entries(observation.context.characters)
+          .flatMap(([character, state]) =>
+            state.status === "alive" && state.location === targetLocation
+              ? [character]
+              : []
+          );
+        for (const role of tragedySetRoles.filter(roleCanRefuseGoodwill)) {
+          const candidates = compatibleRoleCandidates(
+            charactersHere,
+            role,
+            tragedySetRoles,
+            ranges,
+            confirmedRoles,
+          ).filter((character) =>
+            role !== "showOff" ||
+            (publicCharacterCounter(
+              observation.context?.characters?.[character],
+              "paranoia",
+            ) ?? 0) > 2
+          );
+          alternatives.unshift({
+            requirements: [{ role, candidates }],
+          });
+        }
+      }
     }
     if (
       change.target.kind === "character" &&
@@ -1401,7 +1440,11 @@ function roundEvidenceCauseClauses(
         ) {
           effectiveSerialExclusions.push({ character: actor, role: "person" });
         }
+        const targetParanoia = pair.paranoia[
+          pair.characters[0] === target ? 0 : 1
+        ] ?? 0;
         const immortalityAlternatives = IMMORTAL_ROLE_IDS.flatMap((role) => {
+          if (role === "showOff" && targetParanoia > 2) return [];
           const candidates = compatibleRoleCandidates(
             [target],
             role,
@@ -2295,6 +2338,7 @@ function abilityObservationContradiction(
     } else if (change.counter === "intrigue") {
       possible = change.target.kind === "location"
         ? combination.subPlots.includes("unsettlingRumor") ||
+          combination.subPlots.includes("monsterIntrigue") ||
           roleCouldAppear(tragedySetRoles, ranges, "brain", publicCast)
         : roleCouldAppear(tragedySetRoles, ranges, "brain", publicCast) ||
           roleCouldBelongToCharacter(
@@ -2606,6 +2650,58 @@ function protagonistDeathCouldExplain(
     );
   if (fakeIncident) return true;
   if (path !== "protagonistRoundEnd") return false;
+
+  const cursedLandCouldAct = combination.mainPlot === "cursedLand" &&
+    (context.extraCards ?? []).some((card) => {
+      if (card.cardId !== "curse" || card.target.kind !== "location") {
+        return false;
+      }
+      const location = card.target.at;
+      return !Object.values(context.characters ?? {}).some((character) =>
+        character.status === "alive" && character.location === location
+      );
+    });
+  if (cursedLandCouldAct) return true;
+
+  const livingRoleCandidate = (role: RoleId): CharacterId[] =>
+    lossRoleCandidates(
+      tragedySet,
+      combination,
+      role,
+      publicCast,
+      observations,
+    ).filter((character) =>
+      publicCharacterAtLoss(context, character)?.status === "alive"
+    );
+
+  const vampireCouldAct = livingRoleCandidate("vampire").some((character) => {
+    const location = context.startingLocations[character];
+    if (location === undefined) return false;
+    const actualCorpses = Object.values(context.characters ?? {}).filter(
+      (candidate) =>
+        candidate.status === "dead" && candidate.location === location,
+    ).length;
+    return actualCorpses +
+      (tragedySet === "primeEvil" ? context.locationIntrigue[location] : 0) >= 2;
+  });
+  if (vampireCouldAct) return true;
+
+  const werewolfCouldAct = livingRoleCandidate("werewolf").length > 0 &&
+    context.firedIncidents.some(({ day, incident }) =>
+      day === observation.day && incident === "nightMadness"
+    );
+  if (werewolfCouldAct) return true;
+
+  const corpseIntrigue = Object.values(context.characters ?? {}).reduce(
+    (total, candidate) => total +
+      (candidate.status === "dead"
+        ? publicCharacterCounter(candidate, "intrigue") ?? 0
+        : 0),
+    0,
+  );
+  if (corpseIntrigue >= 3 && livingRoleCandidate("nightmare").length > 0) {
+    return true;
+  }
 
   const killerCouldAct = lossRoleCandidates(
     tragedySet,
@@ -3127,7 +3223,10 @@ function brainLocationConstraint(
   if (
     combinations.length === 0 ||
     publicCast.includes("copycat") ||
-    combinations.some(({ subPlots }) => subPlots.includes("unsettlingRumor"))
+    combinations.some(({ subPlots }) =>
+      subPlots.includes("unsettlingRumor") ||
+      subPlots.includes("monsterIntrigue")
+    )
   ) {
     return undefined;
   }
@@ -3414,14 +3513,32 @@ function observedRoleExclusionReason(
     if (
       observation.kind === "goodwillRefused" &&
       observation.character === character &&
-      !roleCanRefuseGoodwill(role)
+      (
+        !roleCanRefuseGoodwill(role) ||
+        (
+          role === "showOff" &&
+          (publicCharacterCounter(
+            observation.context?.characters?.[character],
+            "paranoia",
+          ) ?? 0) <= 2
+        )
+      )
     ) {
       return { code: "goodwillRefusalRequired", observation };
     }
     if (
       observation.kind === "goodwillAccepted" &&
       observation.character === character &&
-      ROLE_IMPL[role]?.goodwillRefusal === "Mandatory"
+      (
+        ROLE_IMPL[role]?.goodwillRefusal === "Mandatory" ||
+        (
+          role === "showOff" &&
+          (publicCharacterCounter(
+            observation.context?.characters?.[character],
+            "paranoia",
+          ) ?? 0) > 2
+        )
+      )
     ) {
       return { code: "mandatoryGoodwillRefusalMissing", observation };
     }
@@ -3444,12 +3561,28 @@ function observedRoleExclusionReason(
     ) {
       return { code: "goodwillForbidApplied", observation };
     }
+    if (
+      observation.kind === "mandatoryEffectMissing" &&
+      observation.character === character &&
+      observation.effect === role
+    ) {
+      return { code: "mandatoryEffectMissing", observation };
+    }
     if (observation.kind === "roundEvidence") {
       const deathBatches = observation.record.deathBatches ?? [];
       const died = deathBatches.some(({ characters }) =>
         characters.includes(character)
       );
-      if (died && roleIsImmortal(role)) {
+      if (
+        died &&
+        roleIsImmortal(
+          role,
+          publicCharacterCounter(
+            observation.context.characters?.[character],
+            "paranoia",
+          ) ?? 0,
+        )
+      ) {
         return { code: "diedDespiteImmortality", observation };
       }
       const roundCompleted = observation.record.roundEndPairs !== undefined ||
@@ -4389,6 +4522,57 @@ export function explainableLossConditions(
         });
         if (met) add({ key: `role:${role}`, kind: "role", role });
       }
+      if (
+        combination.mainPlot === "cursedLand" &&
+        (context.extraCards ?? []).some((card) => {
+          if (card.cardId !== "curse" || card.target.kind !== "location") {
+            return false;
+          }
+          const location = card.target.at;
+          return !Object.values(context.characters ?? {}).some((character) =>
+            character.status === "alive" && character.location === location
+          );
+        })
+      ) {
+        add({ key: "plot:cursedLand", kind: "plot", plot: "cursedLand" });
+      }
+      const corpseIntrigue = Object.values(context.characters ?? {}).reduce(
+        (total, character) => total +
+          (character.status === "dead"
+            ? publicCharacterCounter(character, "intrigue") ?? 0
+            : 0),
+        0,
+      );
+      for (const role of ["vampire", "werewolf", "nightmare"] as const) {
+        const met = lossRoleCandidates(
+          tragedySet,
+          combination,
+          role,
+          publicCast,
+          observations,
+        ).some((character) => {
+          if (publicCharacterAtLoss(context, character)?.status !== "alive") {
+            return false;
+          }
+          if (role === "werewolf") {
+            return context.firedIncidents.some(({ day, incident }) =>
+              day === observation.day && incident === "nightMadness"
+            );
+          }
+          if (role === "nightmare") return corpseIntrigue >= 3;
+          const location = context.startingLocations[character];
+          if (location === undefined) return false;
+          const actualCorpses = Object.values(context.characters ?? {}).filter(
+            (candidate) =>
+              candidate.status === "dead" && candidate.location === location,
+          ).length;
+          return actualCorpses +
+            (tragedySet === "primeEvil"
+              ? context.locationIntrigue[location]
+              : 0) >= 2;
+        });
+        if (met) add({ key: `role:${role}`, kind: "role", role });
+      }
       continue;
     }
 
@@ -4535,6 +4719,9 @@ export function collectProtagonistObservations(
             character: information.character,
             rank: information.rank,
             abilityIndex: information.abilityIndex,
+            ...(information.context === undefined
+              ? {}
+              : { context: information.context }),
             ...(information.observedAt === undefined
               ? {}
               : { observedAt: information.observedAt }),
@@ -4630,6 +4817,9 @@ export function collectProtagonistObservations(
             character: entry.character,
             rank: entry.rank,
             abilityIndex: entry.abilityIndex,
+            ...(entry.publicContext === undefined
+              ? {}
+              : { context: entry.publicContext }),
             ...(entry.observedAt === undefined
               ? {}
               : { observedAt: entry.observedAt }),
@@ -4779,6 +4969,95 @@ export function collectProtagonistObservations(
             ...(entry.observedAt === undefined
               ? {}
               : { observedAt: entry.observedAt }),
+          });
+        }
+      }
+    }
+
+    for (let day = 1; day <= state.scenario.daysPerLoop; day += 1) {
+      const entries = (loop.phaseLog ?? []).filter((entry) =>
+        entry.day === day && entry.phase === "P5_MASTERMIND_ABILITY" &&
+        (entry.kind === "abilityActivated" || entry.kind === "abilitySkipped")
+      );
+      if (entries.length === 0) continue;
+      let context: PublicObservationContext | undefined;
+      for (const entry of entries) {
+        if (
+          (entry.kind === "abilityActivated" ||
+            entry.kind === "abilitySkipped") &&
+          entry.publicContext !== undefined
+        ) {
+          context = entry.publicContext;
+          break;
+        }
+      }
+      if (context?.characters === undefined) continue;
+      const changes = entries.flatMap((entry) =>
+        entry.kind === "abilityActivated" &&
+          entry.timing === "P5_MASTERMIND_ABILITY"
+          ? entry.publicChanges ?? []
+          : []
+      );
+
+      for (const [character, publicState] of Object.entries(context.characters)) {
+        const cowardCanMove = publicState.location !== undefined &&
+          adjacentLocations(publicState.location).some((destination) =>
+            !(context.movementRestrictions ?? []).some((restriction) =>
+              restriction.startDay <= day && day <= restriction.throughDay &&
+              (restriction.kind === "character"
+                ? restriction.character === character
+                : restriction.location === publicState.location ||
+                  restriction.location === destination)
+            )
+          );
+        if (
+          publicState.status === "alive" &&
+          cowardCanMove &&
+          (publicCharacterCounter(publicState, "paranoia") ?? 0) >= 2 &&
+          !changes.some((change) =>
+            change.kind === "movement" && change.character === character
+          )
+        ) {
+          observations.push({
+            kind: "mandatoryEffectMissing",
+            loop: loop.loop,
+            day,
+            effect: "coward",
+            character,
+          });
+        }
+
+        if (publicState.status !== "dead" || publicState.location === undefined) {
+          continue;
+        }
+        const ghostLocations = new Set([
+          publicState.location,
+          startLocationOf(character, state.scenario),
+        ]);
+        const eligibleTargets = new Set(Object.entries(context.characters)
+          .flatMap(([candidate, candidateState]) =>
+            candidateState.status === "alive" &&
+              candidateState.location !== undefined &&
+              ghostLocations.has(candidateState.location)
+              ? [candidate]
+              : []
+          ));
+        if (
+          eligibleTargets.size > 0 &&
+          !changes.some((change) =>
+            change.kind === "counter" &&
+            change.target.kind === "character" &&
+            eligibleTargets.has(change.target.id) &&
+            change.counter === "paranoia" &&
+            change.delta === 1
+          )
+        ) {
+          observations.push({
+            kind: "mandatoryEffectMissing",
+            loop: loop.loop,
+            day,
+            effect: "ghost",
+            character,
           });
         }
       }

@@ -5103,7 +5103,9 @@ function hypothesisObservationLabel(
       return `${observation.loop}루프 ${observation.record.day}일 라운드 종료 · ${result}${immediate}`;
     }
     case "mandatoryEffectMissing":
-      return `${observation.loop}루프 시작 · ${characterName(observation.character)} 인과율 불안 증가 없음`;
+      return observation.effect === "threadsFate"
+        ? `${observation.loop}루프 시작 · ${characterName(observation.character)} 인과율 불안 증가 없음`
+        : `${observation.loop}루프 ${observation.day}일 · ${characterName(observation.character)} ${roleName(observation.effect)} 강제 효과 없음`;
   }
 }
 
@@ -5141,7 +5143,9 @@ function hypothesisObservationGroupLabel(
       }`;
     }
     case "mandatoryEffectMissing":
-      return `${characterName(observation.character)} 인과율 불안 증가 없음`;
+      return observation.effect === "threadsFate"
+        ? `${characterName(observation.character)} 인과율 불안 증가 없음`
+        : `${characterName(observation.character)} ${roleName(observation.effect)} 강제 효과 없음`;
     default:
       return hypothesisObservationLabel(observation);
   }
@@ -5160,7 +5164,9 @@ function hypothesisObservationOccurrence(
     case "roundEvidence":
       return `${observation.loop}루프 ${observation.record.day}일`;
     case "mandatoryEffectMissing":
-      return `${observation.loop}루프 시작`;
+      return observation.effect === "threadsFate"
+        ? `${observation.loop}루프 시작`
+        : `${observation.loop}루프 ${observation.day}일`;
     default:
       return undefined;
   }
@@ -5469,12 +5475,19 @@ function roleInferenceGroups(
       continue;
     }
     if (observation.kind === "mandatoryEffectMissing") {
+      const isThreadsFate = observation.effect === "threadsFate";
       addTrace(
         [observation.character],
-        "인과율 후보 배제",
+        isThreadsFate
+          ? "인과율 후보 배제"
+          : `${roleName(observation.effect)} 후보 배제`,
         "강제 효과 없음",
-        `${observation.loop}루프 시작`,
-        `${characterName(observation.character)}에게 불안 2 증가 없음`,
+        isThreadsFate
+          ? `${observation.loop}루프 시작`
+          : `${observation.loop}루프 ${observation.day}일`,
+        isThreadsFate
+          ? `${characterName(observation.character)}에게 불안 2 증가 없음`
+          : `${characterName(observation.character)}의 ${roleName(observation.effect)} 강제 효과가 공개 조건을 만족했지만 발생하지 않음`,
         "대상 부재 등 공개 기록으로 발동 여부를 확정할 수 없는 경우에는 이 관측을 만들지 않습니다.",
       );
       continue;
@@ -5618,8 +5631,10 @@ function roleInferenceGroups(
           noDeathPartners.set(actor, partners);
           const serialStatus = summary.roleTable.cells[actor]?.serialKiller
             ?.status;
+          const targetParanoia = pair.paranoia[actorIndex === 0 ? 1 : 0] ?? 0;
           const immortalStatuses = IMMORTAL_ROLE_IDS.filter((role) =>
-            summary.roleTable.roles.includes(role)
+            summary.roleTable.roles.includes(role) &&
+            (role !== "showOff" || targetParanoia <= 2)
           ).map((role) => ({
             role,
             status: summary.roleTable.cells[target]?.[role]?.status,

@@ -30,6 +30,7 @@ import { requestLoopEnd } from "./flow";
 import { incidentFires, incidentParanoia } from "./incident";
 import { incidentDefinition } from "./incident-definition";
 import { claimedRoleWasRevealed } from "./role-reveal";
+import { corpseCountAt } from "./corpses";
 import {
   actualIncidentOf,
   characterCulprit,
@@ -1393,6 +1394,95 @@ function roleLossDistance(
           requirement("intrigue", "음모", intrigue, 1,
             `음모 ${intrigue}/1`),
         ],
+      }));
+      continue;
+    }
+
+    if (role === "vampire" && hookIndex === 1) {
+      const location = startLocationOf(character, state.scenario);
+      const current = corpseCountAt(state, location);
+      out.push(distance({
+        id: role,
+        key: roleKey(role, character),
+        source: "role",
+        category: "protagonistDeath",
+        timing: "dayEnd",
+        activation: "optional",
+        when: "라운드 종료",
+        role,
+        character,
+        ko: impl.ko,
+        conditionMet: hook.when(state, character),
+        label: `${labelPrefix} 시작 장소 시체 ${current}/2`,
+        requirements: [requirement(
+          "corpsesAtStart",
+          "시작 장소 시체",
+          current,
+          2,
+          `시작 장소 시체 ${current}/2`,
+        )],
+      }));
+      continue;
+    }
+
+    if (role === "werewolf" && hookIndex === 0) {
+      const occurred = state.loop.incidentOccurrencesFiredThisLoop?.some(
+        (occurrence) =>
+          occurrence.day === state.loop.day &&
+          (occurrence.actualIncident ?? occurrence.incident) === "nightMadness",
+      ) ?? false;
+      out.push(distance({
+        id: role,
+        key: roleKey(role, character),
+        source: "role",
+        category: "protagonistDeath",
+        timing: "dayEnd",
+        activation: "optional",
+        when: "라운드 종료",
+        role,
+        character,
+        ko: impl.ko,
+        conditionMet: hook.when(state, character),
+        label: `${labelPrefix} · 오늘 밤의 광기 발생 ${occurred ? 1 : 0}/1`,
+        requirements: [requirement(
+          "nightMadnessToday",
+          "오늘 밤의 광기 발생",
+          occurred ? 1 : 0,
+          1,
+          `오늘 밤의 광기 발생 ${occurred ? 1 : 0}/1`,
+        )],
+      }));
+      continue;
+    }
+
+    if (role === "nightmare" && hookIndex === 1) {
+      const current = Object.entries(state.loop.board).reduce(
+        (total, [corpse, position]) => total +
+          (isCharacterDead(position)
+            ? state.loop.charCounters[corpse].intrigue
+            : 0),
+        0,
+      );
+      out.push(distance({
+        id: role,
+        key: roleKey(role, character),
+        source: "role",
+        category: "protagonistDeath",
+        timing: "dayEnd",
+        activation: "optional",
+        when: "라운드 종료",
+        role,
+        character,
+        ko: impl.ko,
+        conditionMet: hook.when(state, character),
+        label: `${labelPrefix} · 실제 시체 위 음모 합계 ${current}/3`,
+        requirements: [requirement(
+          "corpseIntrigue",
+          "실제 시체 위 음모",
+          current,
+          3,
+          `실제 시체 위 음모 합계 ${current}/3`,
+        )],
       }));
       continue;
     }

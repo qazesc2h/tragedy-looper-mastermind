@@ -9,7 +9,11 @@ import {
   type HookContext, type Phase,
   type PublicAbilityTrigger, type Target, PHASE_ORDER,
 } from "../types";
-import { effectiveAbilityRoles, ROLE_IMPL } from "../impl/roles";
+import {
+  effectiveAbilityRoles,
+  ROLE_IMPL,
+  zombieRoleAbilityActive,
+} from "../impl/roles";
 import { PLOT_IMPL } from "../impl/plots";
 import { TRAIT_IMPL } from "../impl/traits";
 import { resolveActions } from "./resolve";
@@ -101,6 +105,9 @@ export function collectHooks(s: GameState, at: HookPoint): {
     const position = s.loop.board[c];
     if (position !== undefined) {
       for (const abilityRole of effectiveAbilityRoles(s, c)) {
+        // 좀비 능력은 실제·익명 좀비 전체를 통틀어 하루 1회이므로 아래에서
+        // 역할 훅 하나만 수집한다.
+        if (abilityRole === "zombie") continue;
         const impl = ROLE_IMPL[abilityRole];
         for (const h of impl?.hooks ?? []) {
           if (
@@ -114,6 +121,9 @@ export function collectHooks(s: GameState, at: HookPoint): {
                 isCharacterDead(position)) ||
               (at === "ON_DEATH" &&
                 abilityRole === "magician" &&
+                isCharacterDead(position)) ||
+              (at === "P5_MASTERMIND_ABILITY" &&
+                abilityRole === "ghost" &&
                 isCharacterDead(position))
             )
           ) out.push({ self: c, hook: h });
@@ -135,6 +145,11 @@ export function collectHooks(s: GameState, at: HookPoint): {
   }
   for (const p of [s.scenario.mainPlot, ...s.scenario.subPlots]) {
     for (const h of PLOT_IMPL[p]?.hooks ?? []) {
+      if (h.phase === at) out.push({ self: "", hook: h });
+    }
+  }
+  if (zombieRoleAbilityActive(s)) {
+    for (const h of ROLE_IMPL.zombie.hooks) {
       if (h.phase === at) out.push({ self: "", hook: h });
     }
   }

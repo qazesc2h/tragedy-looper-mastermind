@@ -131,7 +131,7 @@ function killAfterDefenses(
 
   // 형사 FAQ: 불사로 사망하지 않으면 보호 카운터를 제거하지 않는다.
   const role = effectiveRole(state, character);
-  if (roleIsImmortal(role)) {
+  if (roleIsImmortal(role, counters.paranoia)) {
     return false;
   }
   if (!isCharacterAlive(position)) {

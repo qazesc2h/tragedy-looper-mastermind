@@ -573,6 +573,8 @@ export type PhaseLogEntry = (
     day: number;
     phase: "P5_MASTERMIND_ABILITY";
     kind: "abilitySkipped";
+    /** 강제 역할 효과의 미발동을 판정하기 위한 단계 시작 공개 상태. */
+    publicContext?: PublicObservationContext;
   }
   | {
     loop: number;
@@ -726,6 +728,8 @@ export type PublicInformation = (
     abilityIndex: number;
     loop: number;
     day: number;
+    /** 허당처럼 공개 카운터에 따라 거부 성질이 달라지는 역할 판정용. */
+    context?: PublicObservationContext;
   }
   | {
     kind: "sameRoleCharacters";
@@ -1004,6 +1008,17 @@ export interface IncidentHook
  */
 export function effectiveRole(s: GameState, c: CharacterId): RoleId {
   const base = s.scenario.cast[c];
+  // SOURCE: src/impl/plots.ts OnesFromGrave 훅. 익명 시체는 CharacterId가
+  // 없으므로 corpses.ts에서 별도로 집계하고, 실제 캐릭터 시체만 여기서
+  // 파생 역할을 반환한다. 부활하면 원래 배정 역할로 돌아간다.
+  if (
+    s.scenario.tragedySet === "primeEvil" &&
+    [s.scenario.mainPlot, ...s.scenario.subPlots].includes("OnesFromGrave") &&
+    isCharacterDead(s.loop.board[c]) &&
+    (base === "person" || base === "coward" || base === "showOff")
+  ) {
+    return "zombie";
+  }
   // 사용자 확인 MZ-2: 카드 출처와 무관하게 현재 부착 여부만 본다.
   if (
     [s.scenario.mainPlot, ...s.scenario.subPlots].includes("fatedConnections") &&
