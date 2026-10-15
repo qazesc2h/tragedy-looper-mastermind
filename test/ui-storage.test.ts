@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import { initLoop } from "../src/engine/setup";
 import { placeExtraCard } from "../src/engine/extra-cards";
-import { loadBasicTragedyScenarioCatalog } from "../src/scenario-catalog";
+import {
+  loadBasicTragedyScenarioCatalog,
+  loadScenarioCatalog,
+} from "../src/scenario-catalog";
 import {
   APP_STORAGE_PREFIX,
   clearAppStorage,
@@ -133,6 +136,25 @@ function antibodiesDefaults(scenarioId: string): StoredGame | undefined {
     ({ id }) => id === scenarioId,
   );
   if (entry === undefined) throw new Error("missing antibodies scenario");
+  const scenario = entry.scenario;
+  return {
+    state: {
+      scenario,
+      gamePhase: "ROUND",
+      loop: initLoop(scenario),
+      history: [],
+      loopOutcomes: [],
+      extraLoopsPlayed: 0,
+    },
+    observationsByLoop: {},
+    updatedAt: new Date(0).toISOString(),
+  };
+}
+
+function romanceDefaults(scenarioId: string): StoredGame | undefined {
+  if (scenarioId !== "midnightZone:4") return undefined;
+  const entry = loadScenarioCatalog().find(({ id }) => id === scenarioId);
+  if (entry === undefined) throw new Error("missing Romance Antithesis scenario");
   const scenario = entry.scenario;
   return {
     state: {
@@ -633,6 +655,26 @@ describe("UI localStorage snapshots", () => {
 
     expect(restored.games["basicTragedy:12"].state.scenario.cast.informer)
       .toBe("person");
+  });
+
+  it("applies the Romance Antithesis day correction to a saved source schedule", () => {
+    const storage = new MemoryStorage();
+    const defaults = romanceDefaults("midnightZone:4");
+    if (defaults === undefined) throw new Error("missing test defaults");
+    const sourceSchedule = structuredClone(defaults);
+    const confession = sourceSchedule.state.scenario.incidents[1];
+    if (confession === undefined) throw new Error("missing Confession");
+    confession.day = 4;
+    storage.setItem(TRACKER_STORAGE_KEY, JSON.stringify({
+      activeScenarioId: "midnightZone:4",
+      mastermindOverlay: true,
+      games: { "midnightZone:4": sourceSchedule },
+    }));
+
+    const restored = loadTrackerStore(storage, romanceDefaults);
+
+    expect(restored.games["midnightZone:4"].state.scenario.incidents[1]?.day)
+      .toBe(3);
   });
 
 });

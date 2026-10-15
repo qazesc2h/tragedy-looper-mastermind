@@ -752,6 +752,25 @@
           "정오표 적용 공식 시나리오의 게임 시작 버튼이 비활성임",
         );
 
+        changeSelect("[data-new-game-scenario]", "midnightZone:4");
+        const romanceErrataNotice = await waitFor(
+          () => frameDocument().querySelector(".scenario-errata-notice"),
+          "Romance Antithesis 정오표 적용 안내",
+        );
+        assert(
+          frameDocument().querySelector(".scenario-source-summary")
+            ?.textContent?.includes("정오표 적용됨") &&
+            romanceErrataNotice.textContent?.includes("고백 사건 날짜") &&
+            romanceErrataNotice.textContent.includes("4일 → 3일") &&
+            romanceErrataNotice.textContent.includes("공식 Mastermind Handbook 6쪽"),
+          `Romance Antithesis 정오표 안내: ${romanceErrataNotice.textContent}`,
+        );
+        assert(
+          !frameDocument().querySelector("[data-action='start-selected-scenario']")
+            ?.disabled,
+          "Romance Antithesis 정오표 적용 후 게임 시작 버튼이 비활성임",
+        );
+
         changeSelect("[data-new-game-scenario]", "basicTragedy:18");
         const invalidFanWarning = await waitFor(
           () => frameDocument().querySelector(".scenario-validation-warning"),

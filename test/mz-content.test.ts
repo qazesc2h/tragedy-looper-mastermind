@@ -4,10 +4,12 @@ import { withDeathBatch, killCharacter } from "../src/engine/death";
 import {
   advanceGame,
   chooseInitialLeader,
+  continueAfterLoopJudgment,
   continueFromTimeGap,
   createGameState,
   setLoopStartExtraCardChoice,
   setLoopStartTraitLocationChoice,
+  submitFinalGuess,
 } from "../src/engine/game";
 import {
   incidentFailureReasons,
@@ -77,25 +79,14 @@ function stateFor(value: Scenario): GameState {
 }
 
 describe("Midnight Zone official scripts", () => {
-  it("preserves all four scripts but rejects the conflicting Romance Antithesis schedule", () => {
+  it("applies the official Romance Antithesis date correction and validates all scripts", () => {
     const entries = loadScenarioCatalog().filter(({ id }) =>
       id.startsWith("midnightZone:")
     );
     expect(entries).toHaveLength(4);
     expect(entries.flatMap(({ difficulties }) => difficulties)).toHaveLength(8);
-    const romance = entries.find(({ id }) => id === "midnightZone:4");
-    if (romance === undefined) throw new Error("missing Romance Antithesis");
-    expect(romance.difficulties.every(({ validation }) =>
-      validation.diagnostics.some(({ code }) =>
-        code === "INCIDENT_DAY_DUPLICATED"
-      )
-    )).toBe(true);
-
-    const unambiguousEntries = entries.filter(({ id }) =>
-      id !== "midnightZone:4"
-    );
-    expect(() => assertOfficialScenariosValid(unambiguousEntries)).not.toThrow();
-    for (const entry of unambiguousEntries) {
+    expect(() => assertOfficialScenariosValid(entries)).not.toThrow();
+    for (const entry of entries) {
       for (const difficulty of entry.difficulties) {
         const game = createGameState(difficulty.scenario);
         chooseInitialLeader(game, 0);
@@ -108,29 +99,68 @@ describe("Midnight Zone official scripts", () => {
     }
   });
 
-  it("does not guess which conflicting day-4 Romance Antithesis row is wrong", () => {
+  it("keeps Confession on day 3 and Increasing Unease on day 4", () => {
     const entry = loadScenarioCatalog().find(({ id }) =>
       id === "midnightZone:4"
     );
     if (entry === undefined) throw new Error("missing Romance Antithesis");
-    expect(entry.scenario.incidents.filter(({ day }) => day === 4))
-      .toMatchObject([
-        {
-          incident: "confession",
-          culprit: { kind: "character", id: "officeWorker" },
-        },
-        {
-          incident: "increasingUnease",
-          culprit: { kind: "character", id: "girlStudent" },
-        },
-      ]);
+    expect(entry.scenario.incidents).toMatchObject([
+      {
+        day: 2,
+        incident: "confession",
+        culprit: { kind: "character", id: "richStudent" },
+      },
+      {
+        day: 3,
+        incident: "confession",
+        culprit: { kind: "character", id: "officeWorker" },
+      },
+      {
+        day: 4,
+        incident: "increasingUnease",
+        culprit: { kind: "character", id: "girlStudent" },
+      },
+    ]);
+  });
+
+  it("progresses both Romance Antithesis variants through the final guess", () => {
+    const romance = loadScenarioCatalog().find(
+      ({ id }) => id === "midnightZone:4",
+    );
+    if (romance === undefined) throw new Error("missing Romance Antithesis");
+    for (const difficulty of romance.difficulties) {
+      const game = createGameState(difficulty.scenario);
+      chooseInitialLeader(game, 0);
+      continueFromTimeGap(game);
+      while (game.loop.loop <= game.scenario.loops) {
+        game.loop.charCounters.officeWorker.intrigue = 2;
+        game.loop.day = game.scenario.daysPerLoop;
+        game.loop.phase = "P9_ROUND_END";
+        advanceGame(game);
+        if (game.gamePhase === "ROUND" && game.loop.phase === "P9_ROUND_END") {
+          advanceGame(game);
+        }
+        expect(game.gamePhase, `difficulty ${difficulty.index}`)
+          .toBe("LOOP_JUDGMENT");
+        continueAfterLoopJudgment(game);
+        if (game.gamePhase === "FINAL_GUESS") break;
+        continueFromTimeGap(game);
+      }
+      expect(game.gamePhase, `difficulty ${difficulty.index}`)
+        .toBe("FINAL_GUESS");
+      for (const character of Object.keys(game.scenario.cast)) {
+        submitFinalGuess(game, character, effectiveRole(game, character));
+      }
+      expect(game.result, `difficulty ${difficulty.index}`).toEqual({
+        winner: "protagonists",
+        reason: "finalGuessSuccess",
+      });
+    }
   });
 
   it("generates guidance A through E for every MZ difficulty", () => {
     const difficulties = loadScenarioCatalog()
-      .filter(({ id }) =>
-        id.startsWith("midnightZone:") && id !== "midnightZone:4"
-      )
+      .filter(({ id }) => id.startsWith("midnightZone:"))
       .flatMap(({ difficulties }) => difficulties);
     for (const { scenario: officialScenario } of difficulties) {
       const game = createGameState(officialScenario);

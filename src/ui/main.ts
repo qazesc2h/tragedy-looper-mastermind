@@ -652,6 +652,18 @@ function createGame(entry: ScenarioEntry, difficultyIndex = 0): GameState {
 
 function scenarioErrataLines(entry: ScenarioEntry): string[] {
   return entry.errata.map((correction) => {
+    if (typeof correction.corrected === "number") {
+      const match = /^incidents\[(\d+)\]\.day$/.exec(correction.field);
+      const incident = match === null
+        ? undefined
+        : entry.scenario.incidents[Number(match[1])];
+      return `${incidentName(incident?.incident ?? correction.field)} 사건 날짜: ` +
+        `${correction.printed}일 → ${correction.corrected}일 ` +
+        `· ${correction.source} · ${correction.verifiedBy}`;
+    }
+    if (typeof correction.printed !== "string") {
+      throw new Error(`unsupported errata values for "${correction.field}"`);
+    }
     const character = correction.field.slice("cast.".length);
     return `${characterName(character)} 역할: ` +
       `${roleName(correction.printed)} → ${roleName(correction.corrected)} ` +
@@ -6656,7 +6668,7 @@ function renderScenarioSelection(): void {
             ? ""
             : `<aside class="scenario-trait-notice scenario-errata-notice">
                 <span class="eyebrow">정오표 적용됨</span>
-                <strong>인쇄물과 다른 정정값을 사용합니다.</strong>
+                <strong>원본 데이터에 확인된 정정값을 적용합니다.</strong>
                 ${scenarioErrataLines(selectedEntry).map((line) =>
                   `<p>${escapeHtml(line)}</p>`
                 ).join("")}

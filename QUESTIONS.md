@@ -79,9 +79,9 @@
   `confession`은 3일, 여학생이 범인인 `increasingUnease`는 4일이 맞고, upstream의
   회사원 `confession` 4일 표기는 데이터 오기로 확정한다.
   근거: <https://images-cdn.zmangames.com/us-east-1/filer_public/65/35/65359e9d-9396-441e-a72e-4a65be3955fc/en-tragedylooper-mc-masterbook-v2.pdf>
-- 판정: 각 날짜에는 사건 하나만 허용한다. 현재 구현은 조사 단계에서 게임 데이터를
-  바꾸지 않았으므로 아직 중복 날짜를 검증 오류로 거부하며, 다음 구현에서 공식 근거를
-  정오표 오버레이로 반영해야 한다. 엽기 살인은
+- 판정: 각 날짜에는 사건 하나만 허용한다. upstream 데이터는 보존하고
+  `data/errata.json`의 정오표 오버레이로 회사원 `confession`을 3일로 정정한다.
+  두 난이도는 검증을 통과한다. 엽기 살인은
   발생 한 번에 서로 다른 두 사건 효과를 해결하며, 교주는 발생 한 번의 같은 효과를
   두 번 해결한다. 어느 쪽도 별도 발생 회차가 아니다.
 

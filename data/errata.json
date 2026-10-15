@@ -1,5 +1,5 @@
 {
-  "_note": "게임사 정오표. 원본 인쇄물의 오류를 정정한 내용. 시나리오 데이터 보정은 corrections에서 덮어쓰고, 이미 구현이 정정 내용과 일치하는 캐릭터 능력은 characterAbilityCorrections에 근거를 기록한다.",
+  "_note": "확인된 시나리오 정정 사항. 원본 인쇄물의 정오표와 upstream 전사 오류를 구분해 기록한다. 시나리오 데이터 보정은 corrections에서 덮어쓰고, 이미 구현이 정정 내용과 일치하는 캐릭터 능력은 characterAbilityCorrections에 근거를 기록한다.",
   "corrections": [
     {
       "scenario": "basicTragedy:12",
@@ -9,6 +9,15 @@
       "corrected": "person",
       "source": "게임사 정오표",
       "verifiedBy": "사용자 실물 확인"
+    },
+    {
+      "scenario": "midnightZone:4",
+      "title": "Romance Antithesis",
+      "field": "incidents[1].day",
+      "printed": 4,
+      "corrected": 3,
+      "source": "공식 Mastermind Handbook 6쪽",
+      "verifiedBy": "에이전트 조사, 공식 PDF 대조"
     }
   ],
   "characterAbilityCorrections": [

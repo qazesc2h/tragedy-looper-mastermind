@@ -105,12 +105,19 @@
 정답 제출까지 진행된다.
 
 전체 세트 회귀에서는 First Steps·기본편·MZ·MC·PE·CM의 카탈로그 생성과 시작 상태를
-전수 확인하고, 기존 세트별 종단 회귀와 CM 7변형 종단 회귀를 함께 실행한다. 단,
-`midnightZone:4` Romance Antithesis의 두 난이도는 upstream에서 4일 사건이 두 개로
-충돌해 현재 `INCIDENT_DAY_DUPLICATED`로 거부된다. 이후 공식 Mastermind Handbook 6쪽의
-각본가 힌트에서 회사원의 `Confession`은 3일, `Increasing Unease`는 4일임을 확인했다.
-원문 판정은 해결됐지만 이번 조사에서는 데이터를 고치지 않았으므로, 다음 구현에서 정오표
-오버레이를 추가하고 두 변형의 종단 회귀를 복구해야 한다.
+전수 확인하고, 기존 세트별 종단 회귀와 CM 7변형 종단 회귀를 함께 실행한다.
+`midnightZone:4` Romance Antithesis는 공식 Mastermind Handbook 6쪽에 따라 회사원의
+`Confession`을 3일, 여학생의 `Increasing Unease`를 4일로 적용한다. upstream JSON은
+`Confession`을 4일로 잘못 전사했으므로 원본을 보존하고 `data/errata.json` 오버레이로
+정정한다. 두 난이도 모두 검증과 최후의 싸움 종단 회귀를 통과한다.
+
+### upstream 보고 후보
+
+- `midnightZone:4` Romance Antithesis의 회사원 `Confession` 날짜를 4일에서 3일로
+  수정하도록 upstream에 보고할 수 있다. 근거는 공식 Mastermind Handbook 6쪽이다.
+- 이는 `Those with Antibodies`처럼 출판사가 공표한 인쇄물 정오표를 반영하는 경우가
+  아니라, 공식 설명서와 upstream JSON 사이의 **전사 불일치**다. 보고할 때 두 성격을
+  구분하고 공식 PDF의 해당 쪽을 근거로 첨부한다.
 
 ### 지침 A~E와 편집기
 
@@ -202,7 +209,7 @@ Phase 5 feasibility 계측 코드는 `tools/phase5-feasibility/`에 남아 있�
 
 ## 최신 검증
 
-- Vitest 72파일: **1140개 통과, 1개 todo**
+- Vitest 72파일: **1143개 통과, 1개 todo**
 - 실제 Chrome: 수동 생사 교정, 캐릭터 특성, 390×844 게임 화면, 390×844 편집기 통과
 - `npx tsc --noEmit --strict` 통과
 - `npm run build` 통과. 기존 500kB 청크 경고만 남는다.

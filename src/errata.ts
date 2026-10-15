@@ -1,15 +1,28 @@
 import errataJson from "../data/errata.json";
 import type { CharacterId, RoleId, Scenario } from "./types";
 
-export interface ScenarioErratum {
+interface ScenarioErratumBase {
   scenario: string;
   title: string;
-  field: string;
-  printed: RoleId;
-  corrected: RoleId;
   source: string;
   verifiedBy: string;
 }
+
+export interface ScenarioCastErratum extends ScenarioErratumBase {
+  field: `cast.${string}`;
+  printed: RoleId;
+  corrected: RoleId;
+}
+
+export interface ScenarioIncidentDayErratum extends ScenarioErratumBase {
+  field: `incidents[${number}].day`;
+  printed: number;
+  corrected: number;
+}
+
+export type ScenarioErratum =
+  | ScenarioCastErratum
+  | ScenarioIncidentDayErratum;
 
 export interface CharacterAbilityErratum {
   character: CharacterId;
@@ -52,6 +65,18 @@ function requireBoolean(value: unknown, context: string): boolean {
   return value;
 }
 
+function requirePositiveInteger(value: unknown, context: string): number {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 1) {
+    throw new Error(`${context} must be a positive integer`);
+  }
+  return value;
+}
+
+function incidentDayIndex(field: string): number | undefined {
+  const match = /^incidents\[(\d+)\]\.day$/.exec(field);
+  return match === null ? undefined : Number(match[1]);
+}
+
 function parseErrataFile(value: unknown): ErrataFile {
   if (!isRecord(value)) throw new Error("errata must be an object");
   if (!Array.isArray(value.corrections)) {
@@ -68,23 +93,42 @@ function parseErrataFile(value: unknown): ErrataFile {
     const scenario = requireString(entry.scenario, `${context}.scenario`);
     const title = requireString(entry.title, `${context}.title`);
     const field = requireString(entry.field, `${context}.field`);
-    if (!field.startsWith("cast.") || field.length === "cast.".length) {
-      throw new Error(`${context}.field is not a supported cast field`);
-    }
     const key = `${scenario}:${field}`;
     if (seenFields.has(key)) {
       throw new Error(`errata duplicates correction "${key}"`);
     }
     seenFields.add(key);
-    return {
-      scenario,
-      title,
-      field,
-      printed: requireString(entry.printed, `${context}.printed`),
-      corrected: requireString(entry.corrected, `${context}.corrected`),
-      source: requireString(entry.source, `${context}.source`),
-      verifiedBy: requireString(entry.verifiedBy, `${context}.verifiedBy`),
-    };
+    const source = requireString(entry.source, `${context}.source`);
+    const verifiedBy = requireString(
+      entry.verifiedBy,
+      `${context}.verifiedBy`,
+    );
+    if (field.startsWith("cast.") && field.length > "cast.".length) {
+      return {
+        scenario,
+        title,
+        field: field as `cast.${string}`,
+        printed: requireString(entry.printed, `${context}.printed`),
+        corrected: requireString(entry.corrected, `${context}.corrected`),
+        source,
+        verifiedBy,
+      };
+    }
+    if (incidentDayIndex(field) !== undefined) {
+      return {
+        scenario,
+        title,
+        field: field as `incidents[${number}].day`,
+        printed: requirePositiveInteger(entry.printed, `${context}.printed`),
+        corrected: requirePositiveInteger(
+          entry.corrected,
+          `${context}.corrected`,
+        ),
+        source,
+        verifiedBy,
+      };
+    }
+    throw new Error(`${context}.field is not a supported scenario field`);
   });
 
   const characterAbilityCorrections = value.characterAbilityCorrections.map(
@@ -141,7 +185,7 @@ export function scenarioErrataFor(
   return errata.corrections.filter(({ scenario }) => scenario === scenarioId);
 }
 
-/** 원본 각본을 파싱한 뒤, 검증 전에 확인된 게임사 정오표를 덮어쓴다. */
+/** 원본 각본을 파싱한 뒤, 검증 전에 확인된 정정값을 덮어쓴다. */
 export function applyScenarioErrata(
   scenarioId: string,
   title: string,
@@ -160,13 +204,34 @@ export function applyScenarioErrata(
   return corrections;
 }
 
-/** 저장 데이터가 원본 인쇄 역할을 보존하고 있어도 현재 정오표로 이행한다. */
+/** 저장 데이터가 정정 전 값을 보존하고 있어도 현재 정오표로 이행한다. */
 export function applyScenarioErrataToLoadedScenario(
   scenarioId: string,
   scenario: Scenario,
 ): readonly ScenarioErratum[] {
   const corrections = scenarioErrataFor(scenarioId);
   for (const correction of corrections) {
+    if (typeof correction.corrected === "number") {
+      const index = incidentDayIndex(correction.field);
+      if (index === undefined) {
+        throw new Error(`invalid incident day errata field "${correction.field}"`);
+      }
+      const incident = scenario.incidents[index];
+      if (incident === undefined) {
+        throw new Error(
+          `errata incident index out of range for "${scenarioId}.${correction.field}"`,
+        );
+      }
+      if (incident.day === correction.corrected) continue;
+      if (incident.day !== correction.printed) {
+        throw new Error(
+          `errata printed value mismatch for "${scenarioId}.${correction.field}": ` +
+            `expected "${correction.printed}", got "${incident.day}"`,
+        );
+      }
+      incident.day = correction.corrected;
+      continue;
+    }
     const character: CharacterId = correction.field.slice("cast.".length);
     const current = scenario.cast[character];
     if (current === correction.corrected) continue;

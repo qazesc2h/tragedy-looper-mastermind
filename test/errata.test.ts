@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import basicTragedyScriptsJson from "../data/basic-tragedy-scripts.json";
 import errataJson from "../data/errata.json";
+import midnightZoneScriptsJson from "../scenarios/midnight-zone-scripts.json";
 import { adaptTragedyScript } from "../src/data";
 import { CHARACTER_ABILITY_ERRATA, ERRATA_NOTE } from "../src/errata";
 import {
@@ -50,8 +51,40 @@ describe("scenario errata overlay", () => {
     expect(entry?.difficulties.every(({ scenario }) =>
       scenario.cast.informer === "person"
     )).toBe(true);
-    expect(entry?.errata).toEqual(errataJson.corrections);
+    expect(entry?.errata).toEqual([
+      expect.objectContaining({ scenario: "basicTragedy:12" }),
+    ]);
     expect(ERRATA_NOTE).toBe(errataJson._note);
+  });
+
+  it("keeps the upstream Romance Antithesis row and corrects its day while loading", () => {
+    const printed = midnightZoneScriptsJson[0];
+    expect(printed.title).toBe("Romance Antithesis");
+    expect(printed.incidents[1]).toMatchObject({
+      day: 4,
+      incident: "confession",
+      culprit: "officeWorker",
+    });
+
+    const entry = loadScenarioCatalog().find(
+      ({ id }) => id === "midnightZone:4",
+    );
+    expect(entry?.scenario.incidents[1]).toMatchObject({
+      day: 3,
+      incident: "confession",
+      culprit: { kind: "character", id: "officeWorker" },
+    });
+    expect(entry?.difficulties.every(({ scenario, validation }) =>
+      scenario.incidents[1]?.day === 3 && validation.ok
+    )).toBe(true);
+    expect(entry?.errata).toEqual([
+      expect.objectContaining({
+        scenario: "midnightZone:4",
+        field: "incidents[1].day",
+        printed: 4,
+        corrected: 3,
+      }),
+    ]);
   });
 
   it("shows why validation must run after the errata overlay", () => {
