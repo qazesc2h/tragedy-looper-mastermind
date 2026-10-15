@@ -1,0 +1,163 @@
+[
+  {
+    "id": "cosmicMythology:6",
+    "title": "Banquet School Life",
+    "creator": "BakaFire",
+    "tragedySet": "cosmicMythology",
+    "mainPlot": ["giantTimeBombAgain"],
+    "subPlots": ["resistance", "unsettlingRumor"],
+    "difficultySets": [
+      { "numberOfLoops": 4, "difficulty": 3 },
+      { "numberOfLoops": 3, "difficulty": 5 }
+    ],
+    "daysPerLoop": 4,
+    "cast": {
+      "boyStudent": "conspiracyTheorist",
+      "girlStudent": "witch",
+      "richStudent": "serialKiller",
+      "shrineMaiden": "person",
+      "policeOfficer": "person",
+      "officeWorker": "wizard",
+      "doctor": "deepOne"
+    },
+    "incidents": [
+      { "day": 2, "incident": "missingPerson", "culprit": "richStudent" },
+      { "day": 3, "incident": "evilContamination", "culprit": "shrineMaiden" },
+      { "day": 4, "incident": "insaneMurder", "culprit": "boyStudent" }
+    ],
+    "victory-conditions": "See Tragedy Looper: Cosmic Evil Mastermind Handbook",
+    "story": "See Tragedy Looper: Cosmic Evil Mastermind Handbook",
+    "mastermindHints": "See Tragedy Looper: Cosmic Evil Mastermind Handbook"
+  },
+  {
+    "id": "cosmicMythology:7",
+    "title": "Eyes Without Vision",
+    "creator": "Nightly Moonfire Group",
+    "tragedySet": "cosmicMythology",
+    "mainPlot": ["bloodyRites"],
+    "subPlots": ["peopleWhoSaw", "greatRace"],
+    "difficultySets": [{ "numberOfLoops": 4, "difficulty": 5 }],
+    "daysPerLoop": 5,
+    "cast": {
+      "girlStudent": "witness",
+      "richStudent": "person",
+      "classRep": "witch",
+      "shrineMaiden": "person",
+      "alien": "person",
+      "officeWorker": "conspiracyTheorist",
+      "informer": "timeTraveler",
+      "doctor": "serialKiller",
+      "patient": "immortalRole"
+    },
+    "incidents": [
+      { "day": 2, "incident": "missingPerson", "culprit": "doctor" },
+      { "day": 3, "incident": "houndDogScent", "culprit": "alien" },
+      { "day": 4, "incident": "executioner", "culprit": "girlStudent" },
+      { "day": 5, "incident": "insaneMurder", "culprit": "officeWorker" }
+    ],
+    "victory-conditions": "See Tragedy Looper: Cosmic Evil Mastermind Handbook",
+    "story": "See Tragedy Looper: Cosmic Evil Mastermind Handbook",
+    "mastermindHints": "See Tragedy Looper: Cosmic Evil Mastermind Handbook"
+  },
+  {
+    "id": "cosmicMythology:8",
+    "title": "Bella Stellarum",
+    "creator": "Gaijin",
+    "tragedySet": "cosmicMythology",
+    "mainPlot": ["kingYellow"],
+    "subPlots": [
+      ["twistedTruth", { "Extra Plot": "bloodyRites" }],
+      "whispersFromDeep"
+    ],
+    "difficultySets": [
+      { "numberOfLoops": 5, "difficulty": 4 },
+      { "numberOfLoops": 4, "difficulty": 6 }
+    ],
+    "daysPerLoop": 5,
+    "cast": {
+      "classRep": "sacrifice",
+      "mysteryBoy": "serialKiller",
+      "godlyBeing": ["paranoiac", { "enters on loop": 2 }],
+      "officeWorker": "cultist",
+      "informer": "person",
+      "journalist": "person",
+      "popIdol": "person",
+      "patient": "immortalRole",
+      "nurse": "paranoiac"
+    },
+    "incidents": [
+      { "day": 1, "incident": "executioner", "culprit": "patient" },
+      { "day": 2, "incident": "discovery", "culprit": "officeWorker" },
+      { "day": 4, "incident": "insaneMurder", "culprit": "classRep" },
+      { "day": 5, "incident": "uproar", "culprit": "godlyBeing" }
+    ],
+    "victory-conditions": "See Tragedy Looper: Cosmic Evil Mastermind Handbook",
+    "story": "See Tragedy Looper: Cosmic Evil Mastermind Handbook",
+    "mastermindHints": "See Tragedy Looper: Cosmic Evil Mastermind Handbook"
+  },
+  {
+    "id": "cosmicMythology:9",
+    "title": "An Ordinary Day In Misuka City",
+    "creator": "Rokirusu",
+    "tragedySet": "cosmicMythology",
+    "mainPlot": ["sacredWordsDagon"],
+    "subPlots": [
+      "facelessGod",
+      ["twistedTruth", { "Extra Plot": "giantTimeBombAgain" }]
+    ],
+    "difficultySets": [{ "numberOfLoops": 4, "difficulty": 7 }],
+    "daysPerLoop": 6,
+    "cast": {
+      "girlStudent": "person",
+      "richStudent": "faceless",
+      "mysteryBoy": "witch",
+      "alien": "wizard",
+      "officeWorker": "cultist",
+      "informer": "deepOne",
+      "journalist": "keyPerson",
+      "patient": "paranoiac"
+    },
+    "incidents": [
+      { "day": 1, "incident": "insaneMurder", "culprit": "richStudent" },
+      { "day": 3, "incident": "fireDemise", "culprit": "alien" },
+      { "day": 4, "incident": "uproar", "culprit": "patient" },
+      { "day": 6, "incident": "evilContamination", "culprit": "informer" }
+    ],
+    "victory-conditions": "See Tragedy Looper: Cosmic Evil Mastermind Handbook",
+    "story": "See Tragedy Looper: Cosmic Evil Mastermind Handbook",
+    "mastermindHints": "See Tragedy Looper: Cosmic Evil Mastermind Handbook"
+  },
+  {
+    "id": "cosmicMythology:10",
+    "title": "Cosmic Insignificance",
+    "creator": "M. Hydromel and her automatons",
+    "tragedySet": "cosmicMythology",
+    "mainPlot": ["kingYellow"],
+    "subPlots": ["facelessGod", "resistance"],
+    "difficultySets": [{ "numberOfLoops": 5, "difficulty": 8 }],
+    "daysPerLoop": 6,
+    "cast": {
+      "classRep": "person",
+      "mysteryBoy": "immortalRole",
+      "alien": "person",
+      "godlyBeing": ["sacrifice", { "enters on loop": 5 }],
+      "illusion": "serialKiller",
+      "blackCat": "cultist",
+      "officeWorker": "person",
+      "journalist": "wizard",
+      "nurse": "faceless",
+      "henchman": "conspiracyTheorist"
+    },
+    "incidents": [
+      { "day": 1, "incident": "discovery", "culprit": "henchman" },
+      { "day": 2, "incident": "insaneMurder", "culprit": "blackCat" },
+      { "day": 3, "incident": "increasingUnease", "culprit": "officeWorker" },
+      { "day": 4, "incident": "increasingUnease", "culprit": "journalist" },
+      { "day": 5, "incident": "evilContamination", "culprit": "classRep" },
+      { "day": 6, "incident": "executioner", "culprit": "godlyBeing" }
+    ],
+    "victory-conditions": "See Tragedy Looper: Cosmic Evil Mastermind Handbook",
+    "story": "See Tragedy Looper: Cosmic Evil Mastermind Handbook",
+    "mastermindHints": "See Tragedy Looper: Cosmic Evil Mastermind Handbook"
+  }
+]

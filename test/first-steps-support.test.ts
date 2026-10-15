@@ -163,12 +163,12 @@ describe("bundled firstSteps scenarios", () => {
 });
 
 describe("basic tragedy regression", () => {
-  it("loads and initializes all 70 bundled non-community difficulties", () => {
+  it("loads and initializes all 77 bundled non-community difficulties", () => {
     const difficulties = loadScenarioCatalog()
       .filter(({ id }) => !id.startsWith("community:"))
       .flatMap(({ difficulties }) => difficulties);
 
-    expect(difficulties).toHaveLength(70);
+    expect(difficulties).toHaveLength(77);
     for (const { scenario } of difficulties) {
       const state = createGameState(structuredClone(scenario));
       expect(state.scenario.incidents.every(
@@ -188,7 +188,7 @@ describe("basic tragedy regression", () => {
           validation,
         }))
       );
-    expect(difficulties).toHaveLength(70);
+    expect(difficulties).toHaveLength(77);
     expect(difficulties.filter(({ validation }) => !validation.ok).map(
       ({ title, index, validation }) => ({
         title,
@@ -234,13 +234,13 @@ describe("basic tragedy regression", () => {
     ]);
   });
 
-  it("keeps the base, MZ, MC, PE, and separately classified community scripts", () => {
+  it("keeps the base, MZ, MC, PE, CM, and separately classified community scripts", () => {
     const entries = loadBasicTragedyScenarioCatalog();
     expect(entries).toHaveLength(23);
     expect(entries.reduce(
       (sum, entry) => sum + entry.difficulties.length,
       0,
     )).toBe(39);
-    expect(loadScenarioCatalog()).toHaveLength(44);
+    expect(loadScenarioCatalog()).toHaveLength(49);
   });
 });

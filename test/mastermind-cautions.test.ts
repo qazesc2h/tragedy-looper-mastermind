@@ -23,7 +23,7 @@ function stateFor(id: string, difficultyIndex = 0) {
 }
 
 describe("mastermind scenario cautions", () => {
-  it("generates filtered cautions and every cast goodwill ability for all 73 difficulties", () => {
+  it("generates filtered cautions and every cast goodwill ability for all 80 difficulties", () => {
     const results = loadScenarioCatalog().flatMap((entry) =>
       entry.difficulties.map((difficulty) => {
         const state = createCatalogState(difficulty.scenario);
@@ -35,7 +35,7 @@ describe("mastermind scenario cautions", () => {
       })
     );
 
-    expect(results).toHaveLength(73);
+    expect(results).toHaveLength(80);
     for (const { key, state, cautions } of results) {
       const expectedGoodwillAbilities = Object.keys(state.scenario.cast)
         .reduce((sum, character) => sum + characterDataOf(character)

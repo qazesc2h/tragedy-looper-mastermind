@@ -381,7 +381,9 @@ function rolesAssociatedWithActivePlots(
   scenario: ScenarioValidationInput,
 ): Set<string> {
   const roles = new Set<string>();
-  for (const plot of roleAddingPlots(scenario)) {
+  // 광기의 진실의 Extra Plot은 게임 중 교체될 후보이지, 각본 작성 시
+  // 아웃사이더가 피해야 하는 현재 룰에는 포함되지 않는다.
+  for (const plot of activePlots(scenario)) {
     for (const role of Object.keys(PLOT_IMPL[plot]?.addsRoles ?? {})) {
       roles.add(role);
     }
@@ -623,7 +625,7 @@ function maximumAddedRoleCounts(
   scenario: ScenarioValidationInput,
 ): Map<string, number> {
   const counts = new Map<string, number>();
-  for (const plot of activePlots(scenario)) {
+  for (const plot of roleAddingPlots(scenario)) {
     for (const [role, rawCount] of Object.entries(
       PLOT_IMPL[plot]?.addsRoles ?? {},
     )) {

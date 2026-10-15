@@ -28,7 +28,7 @@ function stateFor(id: string, difficultyIndex = 0) {
 }
 
 describe("mastermind decoy guidance", () => {
-  it("generates C for all 73 bundled difficulties", () => {
+  it("generates C for all 80 bundled difficulties", () => {
     const results = loadScenarioCatalog().flatMap((entry) =>
       entry.difficulties.map((difficulty) => ({
         key: `${entry.id}#${difficulty.index}`,
@@ -38,13 +38,14 @@ describe("mastermind decoy guidance", () => {
       }))
     );
 
-    expect(results).toHaveLength(73);
+    expect(results).toHaveLength(80);
     for (const { key, guidance } of results) {
       expect(guidance.confusableRules.length, key).toBeGreaterThan(0);
       if (guidance.fakeLossConditions.length === 0) {
         expect(
           key.startsWith("mysteryCircle:") ||
             key.startsWith("primeEvil:") ||
+            key.startsWith("cosmicMythology:") ||
             key.startsWith("community:bag-of-risks"),
           key,
         ).toBe(true);

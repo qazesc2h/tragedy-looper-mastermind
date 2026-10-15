@@ -22,7 +22,7 @@ function stateFor(id: string, difficultyIndex = 0) {
 }
 
 describe("mastermind pre-game guidance", () => {
-  it("generates static guidance for all 73 bundled difficulties", () => {
+  it("generates static guidance for all 80 bundled difficulties", () => {
     const results = loadScenarioCatalog().flatMap((entry) =>
       entry.difficulties.map((difficulty) => ({
         key: `${entry.id}#${difficulty.index}`,
@@ -30,7 +30,7 @@ describe("mastermind pre-game guidance", () => {
       }))
     );
 
-    expect(results).toHaveLength(73);
+    expect(results).toHaveLength(80);
     for (const { key, guidance } of results) {
       expect(guidance.routes.length, key).toBeGreaterThan(0);
       expect(guidance.primary, key).toBeDefined();

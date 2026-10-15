@@ -172,9 +172,25 @@ function selectedRoleRequirements(
     RoleId,
     { minimum: number; maximum: number }
   >();
-  for (const plot of activePlots(draft)) {
+  const selectedPlots = activePlots(draft);
+  const twistedTruth = selectedPlots.includes("twistedTruth");
+  const extraPlot = draft.metadata?.extraScriptSpecified?.["Extra Plot"];
+  const rolePlots = [
+    ...selectedPlots,
+    ...(twistedTruth && typeof extraPlot === "string"
+      ? [extraPlot as PlotId]
+      : []),
+  ];
+  for (const plot of rolePlots) {
     for (const [role, raw] of Object.entries(PLOT_IMPL[plot]?.addsRoles ?? {})) {
-      const [minimum, maximum] = roleRange(raw);
+      const [rawMinimum, maximum] = roleRange(raw);
+      // 공식 Bella Stellarum은 광기의 진실과 함께 선택한 룰 X의 역할을
+      // 전부 배정하지 않고 Extra Plot 역할을 사용한다. 이 조합에서는
+      // 원 룰 Y와 광기의 진실 역할만 필수, 나머지는 합법 정원으로 다룬다.
+      const minimum = twistedTruth &&
+          plot !== draft.mainPlot && plot !== "twistedTruth"
+        ? 0
+        : rawMinimum;
       const previous = requirements.get(role) ?? { minimum: 0, maximum: 0 };
       const absoluteMaximum = ROLE_IMPL[role]?.max ?? Number.POSITIVE_INFINITY;
       requirements.set(role, {

@@ -13,6 +13,7 @@ import { normalizeIncidentSchedule } from "./engine/incident-model";
 import type {
   CharacterId,
   Location,
+  PlotId,
   RoleId,
   Scenario,
   ScenarioSpecialRuleId,
@@ -318,6 +319,36 @@ function parseCast(
   return { cast, scriptSpecified };
 }
 
+function parsePlotsWithMetadata(
+  value: unknown,
+  context: string,
+): {
+  plots: PlotId[];
+  scriptSpecified: Record<string, unknown>;
+} {
+  const plots: PlotId[] = [];
+  const scriptSpecified: Record<string, unknown> = {};
+  for (const [index, rawPlot] of requireArray(value, context).entries()) {
+    if (typeof rawPlot === "string") {
+      plots.push(rawPlot);
+      continue;
+    }
+    const plotAndMetadata = requireArray(rawPlot, `${context}[${index}]`);
+    if (plotAndMetadata.length !== 2) {
+      throw new Error(
+        `${context}[${index}] must contain a plot and script metadata`,
+      );
+    }
+    plots.push(requireString(plotAndMetadata[0], `${context}[${index}][0]`));
+    const metadata = requireRecord(
+      plotAndMetadata[1],
+      `${context}[${index}][1]`,
+    );
+    Object.assign(scriptSpecified, metadata);
+  }
+  return { plots, scriptSpecified };
+}
+
 function parseIncidents(
   value: unknown,
   context: string,
@@ -404,8 +435,11 @@ export function adaptTragedyScript(
     raw.cast,
     `${context}.cast`,
   );
+  const { plots: subPlots, scriptSpecified: plotMetadata } =
+    parsePlotsWithMetadata(raw.subPlots, `${context}.subPlots`);
   const scriptSpecified = {
     ...castMetadata,
+    ...plotMetadata,
     ...options.scriptSpecified,
   };
   const specialRules = raw.specialRules === undefined
@@ -423,7 +457,7 @@ export function adaptTragedyScript(
   const scenario: Scenario = {
     tragedySet: requireString(raw.tragedySet, `${context}.tragedySet`),
     mainPlot: mainPlots[0],
-    subPlots: requireStringArray(raw.subPlots, `${context}.subPlots`),
+    subPlots,
     cast,
     incidents: parseIncidents(raw.incidents, `${context}.incidents`),
     loops: selectedDifficulty.numberOfLoops,

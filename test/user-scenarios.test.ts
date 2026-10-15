@@ -32,7 +32,7 @@ describe("user scenario repository", () => {
       scenario: serializedBytes(scenario),
       draft: serializedBytes(scenarioToDraft(scenario)),
     })));
-    expect(sizes).toHaveLength(73);
+    expect(sizes).toHaveLength(80);
     const maximumScenario = Math.max(...sizes.map(({ scenario }) => scenario));
     const maximumDraft = Math.max(...sizes.map(({ draft }) => draft));
     const envelope = {
