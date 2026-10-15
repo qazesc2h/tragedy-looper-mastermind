@@ -2,6 +2,20 @@
 
 기준일: 2026-10-15
 
+## 작업 경로와 브랜치
+
+- Git의 주 checkout은 `/Users/vetching_dev2/Downloads/tragedy-looper-mastermind`이며
+  `master`를 checkout한다. 배포와 최종 병합은 이 경로를 기준으로 한다.
+- Codex 앱의 primary checkout은
+  `/Users/vetching_dev2/.codex/worktrees/9b02/tragedy-looper-mastermind`인 연결 worktree다.
+  앱이 사용 중인 primary checkout이라 제거·보관할 수 없고, 현재는 `master`와 같은 커밋을
+  가리키는 clean detached HEAD다.
+- Git은 같은 브랜치를 두 worktree에서 동시에 checkout하지 못한다. 앱 worktree를
+  `master`로 바꾸려면 Downloads 주 checkout을 detached로 만들어야 해서 혼란만 옮기므로
+  현재 구조를 유지한다.
+- 다음 작업은 앱 worktree에서 최신 `master`를 기준으로 작업 브랜치 하나를 만들고, 완료 후
+  Downloads의 `master`에 fast-forward 병합한다. detached HEAD에 커밋을 쌓아 두지 않는다.
+
 ## 현재 지원 범위
 
 한국어판 정식 참극 세트 범위는 완료했다.
