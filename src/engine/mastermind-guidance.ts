@@ -392,6 +392,12 @@ function interferenceFor(
   condition: LossDistance,
   route: LossRoute,
 ): { difficulty: InterferenceDifficulty; text: string } {
+  if (condition.plot === "kingYellow") {
+    return {
+      difficulty: "낮음",
+      text: "이번 루프에 우호 능력 거부·심해인 사망·목격자 사망·발견으로 특수 게이지가 오르지 않으면 이 패배를 막는다.",
+    };
+  }
   if (condition.role === "timeTraveler") {
     const forbidUnavailable = actionCardRestriction(
       state,
@@ -501,7 +507,9 @@ function guidanceRoute(
       actualIncidentOf(scheduled) === "butterflyEffect"
     )
     : undefined;
-  const warning = butterflyIncident !== undefined
+  const warning = condition.plot === "kingYellow"
+    ? "황색의 왕은 현재 게이지 값이 아니라 이번 루프의 증가 이력을 본다. 이번 루프에 게이지를 올리지 않으면 패배를 막는다."
+    : butterflyIncident !== undefined
     ? (() => {
       const culprit = characterCulprit(butterflyIncident.culprit);
       return culprit === undefined

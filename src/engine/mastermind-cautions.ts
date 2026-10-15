@@ -12,6 +12,7 @@ import {
   type RoleId,
 } from "../types";
 import { actionCardRestriction } from "./legal";
+import { activeRulePlots } from "./active-plots";
 import {
   actualIncidentOf,
   characterCulprit,
@@ -56,6 +57,10 @@ const DEATH_INCIDENTS = new Set([
   "conspiracies",
   "terrorism",
   "bestialMurder",
+  "insaneMurder",
+  "massSuicide",
+  "fireDemise",
+  "executioner",
 ]);
 
 const INCIDENT_EFFECTS: Readonly<Record<string, string>> = {
@@ -81,6 +86,13 @@ const INCIDENT_EFFECTS: Readonly<Record<string, string>> = {
   suspiciousLetter: "범인과 같은 장소의 캐릭터 1명을 옮기고, 실제 이동했다면 다음 날 그 캐릭터의 이동을 막습니다.",
   closedCircle: "범인의 장소를 공개하고 발생일 포함 3일 동안 그 장소를 드나드는 모든 이동을 막습니다.",
   silverBullet: "특수 게이지를 올리지 않고 사건 단계 뒤 루프를 끝냅니다.",
+  evilContamination: "신사에 음모 2개를 놓습니다.",
+  insaneMurder: "범인과 같은 장소의 캐릭터 1명을 범인 포함해서 골라 사망시킵니다.",
+  massSuicide: "범인에게 음모 1개가 있으면 범인 장소의 모든 캐릭터가 사망합니다.",
+  fireDemise: "이 게임에서 처음 발생한 경우 모든 캐릭터와 주인공이 사망합니다.",
+  houndDogScent: "불안 대신 음모로 발생을 판정하고, 남은 루프에 다른 사건이 발생하면 그 사건 단계 뒤 주인공이 사망합니다.",
+  discovery: "특수 게이지를 1 올립니다.",
+  executioner: "리더가 고른 캐릭터 1명을 사망시킵니다.",
 };
 
 function roleName(role: RoleId): string {
@@ -100,7 +112,7 @@ function incidentName(incident: string): string {
 }
 
 function activePlots(state: GameState): string[] {
-  return [state.scenario.mainPlot, ...state.scenario.subPlots];
+  return activeRulePlots(state);
 }
 
 function castCharacters(state: GameState): CharacterId[] {
@@ -295,6 +307,61 @@ function addRoleRisks(
       severity: "warning",
     });
   }
+  for (const character of holders(state, "sacrifice")) {
+    output.push({
+      key: `risk:sacrifice:${character}`,
+      category: "identityExposure",
+      title: `${characterName(character)} · 불사와 음모 합산 사건 판정`,
+      condition: actualRoleCondition(state, character),
+      description: "사망을 무효화하거나, 본인이 범인인 사건이 불안에 음모를 합산해 발생하면 인간 제물 후보가 좁혀집니다. 불안 2·음모 2에서는 모든 캐릭터와 주인공을 죽이는 선택 조건도 열립니다.",
+      source: "인간 제물 [불사·사건 단계/강제·라운드 종료/선택] 역할 원문",
+      severity: "critical",
+    });
+  }
+  for (const character of holders(state, "deepOne")) {
+    output.push({
+      key: `risk:deep-one:${character}`,
+      category: "identityExposure",
+      title: `${characterName(character)} · 사망 시 역할 공개·게이지 증가`,
+      condition: actualRoleCondition(state, character),
+      description: "사망하면 역할을 공개하고 특수 게이지를 1 올립니다. P5 동소 음모 배치와 선택 우호 거부도 후보를 좁힙니다.",
+      source: "심해인 [각본가 능력/선택·사망 시/강제] 역할 원문",
+      severity: "critical",
+    });
+  }
+  for (const character of holders(state, "wizard")) {
+    output.push({
+      key: `risk:wizard:${character}`,
+      category: "uncontrolledRisk",
+      title: `${characterName(character)} · 사망 시 루프 종료 패배`,
+      condition: actualRoleCondition(state, character),
+      description: "사망한 채 루프가 끝나면 주인공이 패배합니다. 우호 능력이 해결되면 역할이 공개되고 리더가 특수 게이지를 1 올릴 수 있습니다.",
+      source: "마법사 [루프 종료/강제·우호 능력 단계/강제] 역할 원문",
+      severity: "critical",
+    });
+  }
+  for (const character of holders(state, "witness")) {
+    output.push({
+      key: `risk:witness:${character}`,
+      category: "uncontrolledRisk",
+      title: `${characterName(character)} · 불안 4 강제 사망·게이지 증가`,
+      condition: actualRoleCondition(state, character),
+      description: "불안 4 이상이면 라운드 종료에 강제로 사망하고 특수 게이지가 1 오릅니다.",
+      source: "목격자 [라운드 종료/강제] 역할 원문",
+      severity: "critical",
+    });
+  }
+  for (const character of holders(state, "faceless")) {
+    output.push({
+      key: `risk:faceless:${character}`,
+      category: "identityExposure",
+      title: `${characterName(character)} · 불사와 게이지별 획득 능력`,
+      condition: actualRoleCondition(state, character),
+      description: "불사이며, 게이지 1 이하에서는 선동가 능력, 2 이상에서는 심해인 능력을 얻습니다. 획득 능력과 선택 우호 거부가 얼굴 없는 자 후보를 좁힙니다.",
+      source: "얼굴 없는 자 [상시/강제] 역할 원문",
+      severity: "critical",
+    });
+  }
   for (const character of holders(state, "privateInvestigator")) {
     output.push({
       key: `risk:private-investigator:${character}`,
@@ -472,6 +539,17 @@ function addPlotRisks(
       description: "우호 금지 카드는 같은 대상의 이동 효과도 함께 막습니다.",
       source: "통하지 않는 마음 [상시·강제] 룰 원문",
       severity: "warning",
+    });
+  }
+  if (plots.includes("kingYellow")) {
+    output.push({
+      key: "risk:plot:king-yellow",
+      category: "uncontrolledRisk",
+      title: `${plotName("kingYellow")} · 이번 루프 게이지 증가 시 패배`,
+      condition: "황색의 왕이 현재 실제 룰 Y인 루프",
+      description: "현재 게이지 값과 무관하게 이번 루프에 한 번이라도 게이지가 올랐으면 루프 종료에 패배합니다. 우호 거부·심해인 사망·목격자 사망·발견을 모두 피하면 이 패배를 막습니다.",
+      source: "황색의 왕 [루프 종료/강제] 룰 원문",
+      severity: "critical",
     });
   }
 }

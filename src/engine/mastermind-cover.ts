@@ -99,6 +99,11 @@ const BASE_DIFFICULTY: Readonly<Partial<Record<RoleId, CoverDifficulty>>> = {
   showOff: "hard",
   coward: "hard",
   zombie: "hard",
+  sacrifice: "hard",
+  deepOne: "hard",
+  wizard: "hard",
+  witness: "hard",
+  faceless: "hard",
 };
 
 function difficultyLabel(difficulty: CoverDifficulty): string {
@@ -608,6 +613,112 @@ function roleSpecificPaths(
         sacrifice: "불멸자를 안전한 사망 미끼로 쓰지 못한다.",
       });
       break;
+    case "sacrifice":
+      add({
+        key: "role:sacrifice:immortal",
+        title: "불사 · 사망 무효",
+        observation: "사망 효과의 대상이 되었는데 살아남으면 인간 제물 후보가 좁혀진다.",
+        control: "automatic", avoidable: true,
+        avoidance: "사망 효과의 대상으로 선택하지 않는다.",
+        sacrifice: "인간 제물을 안전한 사망 미끼로 쓰지 못한다.",
+      });
+      add({
+        key: "role:sacrifice:incident-intrigue",
+        title: "사건 판정에서 음모를 불안으로 합산",
+        observation: "본인이 범인인 사건이 인쇄 불안 한계 미만인데 음모를 합쳐 발생하면 인간 제물 후보가 좁혀진다.",
+        control: "automatic", avoidable: true,
+        avoidance: "사건 전에 인쇄 불안 한계를 채워 음모 합산 여부가 드러나지 않게 한다.",
+        sacrifice: "사건 발생에 불안 카드를 더 써야 한다.",
+      });
+      add({
+        key: "role:sacrifice:loss",
+        title: "불안 2·음모 2 전원 사망",
+        observation: "해당 상태에서 모든 캐릭터와 주인공이 사망하면 인간 제물 후보가 좁혀진다.",
+        control: "mastermind", avoidable: true,
+        avoidance: "인간 제물의 선택 패배 조건을 발동하지 않는다.",
+        sacrifice: "불안 2·음모 2의 주인공 사망 경로를 포기한다.",
+      });
+      break;
+    case "deepOne":
+      add({
+        key: "role:deep-one:optional-refusal",
+        title: "선택 우호 거부",
+        observation: "우호 능력을 거부하면 심해인을 포함한 선택 우호 거부 역할 후보로 좁혀진다.",
+        control: "mastermind", avoidable: true,
+        avoidance: "우호 능력을 거부하지 않는다.",
+        sacrifice: "불리한 우호 능력을 그대로 해결해야 한다.",
+      });
+      add({
+        key: "role:deep-one:intrigue",
+        title: "동소 음모 +1",
+        observation: "P5에 같은 장소나 캐릭터의 음모가 늘면 심해인 후보가 좁혀진다.",
+        control: "mastermind", avoidable: true,
+        avoidance: "심해인 능력을 사용하지 않는다.",
+        sacrifice: "음모가 필요한 패배 조건의 진척 1개를 매일 포기한다.",
+      });
+      add({
+        key: "role:deep-one:death-reveal",
+        title: "사망 시 역할 공개·게이지 증가",
+        observation: "사망 직후 역할이 공개되고 특수 게이지가 1 오르면 심해인임이 확정된다.",
+        control: "automatic", avoidable: true,
+        avoidance: "심해인을 살려 둔다.",
+        sacrifice: "심해인 사망을 게이지 증가 수단으로 쓰지 못한다.",
+      });
+      break;
+    case "wizard":
+      add({
+        key: "role:wizard:death-loss",
+        title: "사망 시 루프 종료 패배",
+        observation: "사망한 채 루프가 끝나면 마법사와 연결된 패배 조건이 드러난다.",
+        control: "automatic", avoidable: true,
+        avoidance: "마법사를 살려 둔다.",
+        sacrifice: "마법사 사망 패배 경로를 포기한다.",
+      });
+      add({
+        key: "role:wizard:goodwill-reveal",
+        title: "우호 능력 해결 뒤 역할 공개",
+        observation: "우호 능력이 해결되면 역할이 공개되고 리더가 게이지 증가 여부를 고른다.",
+        control: "protagonist", avoidable: true,
+        avoidance: "우호 금지와 이동으로 우호 능력 사용을 막는다.",
+        sacrifice: "우호 금지 카드·이동을 계속 배정해야 한다.",
+      });
+      break;
+    case "witness":
+      add({
+        key: "role:witness:forced-death",
+        title: "불안 4 강제 사망·게이지 증가",
+        observation: "불안 4 이상에서 라운드 종료에 사망하고 게이지가 오르면 목격자 후보가 좁혀진다.",
+        control: "automatic", avoidable: true,
+        avoidance: "불안을 3 이하로 유지한다.",
+        sacrifice: "불안을 사건 발생과 다른 패배 경로에 쓰기 어렵다.",
+      });
+      break;
+    case "faceless":
+      add({
+        key: "role:faceless:optional-refusal",
+        title: "선택 우호 거부",
+        observation: "우호 능력을 거부하면 얼굴 없는 자를 포함한 선택 우호 거부 역할 후보로 좁혀진다.",
+        control: "mastermind", avoidable: true,
+        avoidance: "우호 능력을 거부하지 않는다.",
+        sacrifice: "불리한 우호 능력을 그대로 해결해야 한다.",
+      });
+      add({
+        key: "role:faceless:immortal",
+        title: "불사 · 사망 무효",
+        observation: "사망 효과의 대상이 되었는데 살아남으면 얼굴 없는 자 후보가 좁혀진다.",
+        control: "automatic", avoidable: true,
+        avoidance: "사망 효과의 대상으로 선택하지 않는다.",
+        sacrifice: "얼굴 없는 자를 안전한 사망 미끼로 쓰지 못한다.",
+      });
+      add({
+        key: "role:faceless:gauge-abilities",
+        title: "게이지에 따른 선동가·심해인 능력",
+        observation: "게이지 1 이하에서는 선동가, 2 이상에서는 심해인 능력이 나타나 얼굴 없는 자 후보가 좁혀진다.",
+        control: "mastermind", avoidable: true,
+        avoidance: "획득한 선택 능력을 사용하지 않는다.",
+        sacrifice: "불안·음모 진척 능력을 포기한다.",
+      });
+      break;
     case "prophet":
       add({
         key: "role:prophet:placement",
@@ -796,6 +907,8 @@ function routeUsesRole(
       label.includes("마술사") || label.includes("역할 공개")
     );
     case "immortalRole": return key.includes(`immortalRole:${character}`);
+    case "sacrifice": return key.includes(`sacrifice:${character}`);
+    case "wizard": return key.includes(`wizard:${character}`);
     case "prophet": return key.includes(`prophet:${character}`);
     case "obstinate": return key.includes(`obstinate:${character}`);
     case "poisoner": return key.includes(`poisoner:${character}`);
